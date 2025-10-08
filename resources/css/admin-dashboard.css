@@ -1,0 +1,11 @@
+.card {
+    border-radius: 1rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    transition: transform 0.2s ease;
+}
+.card:hover {
+    transform: translateY(-3px);
+}
+.chart-container {
+    min-height: 20rem;
+}

@@ -1,0 +1,116 @@
+/* resources/css/borrow-list.css
+   Purple-accent calendar styles (no hover animation)
+*/
+
+/* Calendar container basics */
+#borrowAvailabilityCalendar {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+}
+
+/* Position prev/next */
+button[onclick="changeBorrowMonth(-1)"] {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+button[onclick="changeBorrowMonth(1)"] {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Prev/next buttons: keep aesthetic but no hover transform animation */
+button[onclick*="changeBorrowMonth"] {
+  background: #ffffff;
+  border: 1px solid rgba(91,33,182,0.12);
+  color: #4C1D95;
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.03);
+  cursor: pointer;
+  /* removed transform transition/hover animation on request */
+}
+
+/* Title */
+#borrowCalendarMonth {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #322659; /* soft deep purple */
+  display: inline-block;
+}
+
+/* Weekday header line (subtle) */
+.grid.grid-cols-7.text-center.text-xs.font-semibold.text-gray-600.mb-2 {
+  border-bottom: 3px solid #e6e7ea;
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+}
+
+/* Day cells: square-ish, slightly rounded (not pill/circle) */
+#borrowAvailabilityCalendar > .grid > div {
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px !important;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+/* Empty leading cells: keep layout, but visually empty */
+#borrowAvailabilityCalendar > .grid > div:empty {
+  background: transparent !important;
+  border: none;
+}
+
+/* Hover for available days: subtle (no big movement) */
+#borrowAvailabilityCalendar > .grid > div.bg-green-200:hover {
+  /* slight background change only */
+  opacity: 0.95;
+}
+
+/* Legend tweaks */
+.flex.flex-wrap.items-center.gap-4.mt-4.text-sm span {
+  color: #374151;
+}
+.flex.flex-wrap.items-center.gap-4.mt-4.text-sm span > span {
+  border-radius: 4px !important;
+}
+
+/* Today's ring (JS uses ring-2 ring-purple-400 classes) */
+.ring-2.ring-purple-400 {
+  box-shadow: 0 0 0 3px rgba(124,58,237,0.12) !important;
+  border-color: rgba(124,58,237,0.28) !important;
+}
+
+/* Selected (blue) cells */
+.bg-blue-500 {
+  background-color: #2563eb !important;
+  color: white !important;
+  box-shadow: 0 2px 6px rgba(37,99,235,0.12);
+}
+
+/* Blocked (red) */
+.bg-red-500 {
+  background-color: #ef4444 !important;
+  color: white !important;
+}
+
+/* Past days grey */
+.bg-gray-300 {
+  background-color: #f3f4f6 !important;
+  color: #9ca3af !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  #borrowCalendarMonth { font-size: 1.05rem; }
+  #borrowAvailabilityCalendar > .grid > div { min-height: 40px; font-size: 0.9rem; }
+  button[onclick*="changeBorrowMonth"] { width: 34px; height: 34px; }
+}

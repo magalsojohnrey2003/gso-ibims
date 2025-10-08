@@ -1,0 +1,662 @@
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap"); 
+
+/* ========================
+   GLOBAL VARIABLES
+======================== */
+:root {
+  --error: #D32F2F;
+  --success: #2E7D32;
+  --accent: #A855F7;   /* minimal purple */
+  --text-dark: #1E1E2F;
+  --text-light: #ffffff;
+  --bg-light: #ffffff;
+  --bg-dark: #1E1E2F;
+  --overlay: rgba(0, 0, 0, 0.05);
+}
+
+/* ========================
+   RESET
+======================== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Poppins", sans-serif;
+}
+
+/* ========================
+   BODY + BACKGROUND
+======================== */
+html, body {
+  height: 100%;
+}
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  width: 100%;
+  padding: 12px;
+  background: var(--bg-light);
+  color: var(--text-dark);
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  opacity: 0.04; /* subtle professional overlay */
+  z-index: -1;
+}
+
+/* ========================
+   AUTH CARD (wrapper)
+   NOTE: overflow is hidden on desktop so hidden panel cannot be scrolled into view.
+   Internal forms will scroll instead if content is tall.
+======================== */
+.wrapper {
+  width: 100%;
+  max-width: 600px;
+  border-radius: 12px;
+  padding: 36px 40px;
+  text-align: center;
+  background: var(--bg-light);
+  color: var(--text-dark);
+  border: 1px solid #ddd;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+}
+.wrapper.login-form { width: 480px; }
+
+.wrapper.larger-form {
+  width: clamp(700px, 90vw, 1000px);
+  max-width: 92vw;
+  margin: 0 auto;
+  padding: 28px 32px;
+  border-radius: 14px;
+  background: var(--bg-light);
+  border: 1px solid #ddd;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+
+  /* <-- critical containment to prevent the alternate panel being revealed
+     by page scroll or zoom. On desktop this keeps the slider inside this box. */
+  overflow: hidden;
+  max-height: calc(100vh - 32px);
+}
+
+/* ========================
+   FORM BASICS
+======================== */
+form { display: flex; flex-direction: column; }
+
+h2 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin-bottom: 20px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Grid rows
+   Use minmax(0,1fr) so columns can shrink and not force overflow */
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.form-row-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+/* ========================
+   INPUT FIELDS
+======================== */
+/* Ensure children can shrink inside flex/grid parents */
+.auth-slider,
+.auth-panel,
+.auth-panel form,
+.form-row,
+.form-row-3,
+
+.input-field {
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.input-field {
+  position: relative;
+  margin: 16px 0;
+  flex: 1 1 auto;
+  width: 100%;
+}
+.input-field input {
+  width: 100%;
+  min-height: 44px;
+  background: #f9f9f9;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  outline: none;
+  font-size: 1rem;
+  color: var(--text-dark);
+  padding: 12px 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  padding-right: 36px;
+  box-sizing: border-box;
+}
+.input-field input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 4px rgba(168, 85, 247, 0.4);
+}
+
+/* floating label */
+.input-field label {
+  position: absolute;
+  top: 50%;
+  left: 14px;
+  transform: translateY(-50%);
+  color: #666;
+  font-size: 0.85rem;
+  pointer-events: none;
+  transition: 0.14s ease;
+  background: var(--bg-light);
+  padding: 0 6px;
+}
+.input-field input:not([type="password"]) {
+  color: var(--text-dark) !important;
+  -webkit-text-security: none; /* defensive: ensure no "bullet" mask applied in some non-standard cases */
+}
+
+/* support class applied by JS when input has a value */
+.input-field input.has-value ~ label,
+.input-field input:focus ~ label,
+.input-field input:not(:placeholder-shown) ~ label {
+  top: -8px;
+  font-size: 0.75rem;
+  color: var(--accent);
+  transform: none; 
+
+}
+
+/* validation states */
+.input-field.error input { border-color: var(--error); }
+.input-field.error label { color: var(--error); }
+.input-field.success input { border-color: var(--success); }
+.input-field.success label { color: var(--success); }
+
+/* ========================
+   Error message: modern, non-overlapping + tooltip-on-hover/focus
+   - inline snippet clamps to one line with ellipsis (keeps layout)
+   - full message appears in a body-attached tooltip (styled) on hover/focus/touch
+   - no changes to label / input spacing
+======================== */
+.input-field .error {
+  color: var(--error);
+  font-size: 0.78rem;
+  line-height: 1.25;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 12px;
+  right: 12px;
+
+  /* force single line with ellipsis */
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+
+  cursor: help; /* indicates more on hover/focus */
+  margin: 0; padding: 0; background: transparent; z-index: 3; /* sits above form but below body-attached tooltip */
+}
+
+/* small focus style for keyboard users on the inline error */
+.input-field .error:focus {
+  outline: 2px solid rgba(211,47,47,0.12);
+  outline-offset: 2px;
+}
+
+/* keep inline error accessible to screen readers (JS will set data-full-error/title) */
+.input-field .error[aria-hidden="true"] {
+  /* if a UA sets aria-hidden we still want visual present (rare) */
+  opacity: 1;
+}
+
+/* small mitigation so absolute message area doesn't overlap inputs visually
+   when form scrolled — inner form padding-bottom keeps room (no layout changes) */
+.auth-panel form {
+  width:100%;
+  max-width:420px;
+  margin:0 auto;
+  /* inner scrolling if the form is taller than available height */
+  max-height: calc(100vh - 160px);
+  overflow: auto;
+  padding-right: 8px; /* small breathing room for scrollbar */
+  -webkit-overflow-scrolling: touch;
+
+  /* small extra bottom padding to make room for absolute error blocks */
+  padding-bottom: 28px;
+}
+
+/* ========================
+   Modern body-attached tooltip (used by JS)
+   - appended to document.body so it won't be clipped
+   - JS sets .visible and direction classes (.gso-tooltip--top / --bottom)
+======================== */
+.gso-tooltip {
+  position: absolute;
+  z-index: 99999;
+  background: #0f1724;            /* near-black modern look */
+  color: #ffffff;
+  font-size: 0.82rem;
+  line-height: 1.3;
+  padding: 8px 12px;
+  border-radius: 8px;
+  max-width: 360px;
+  box-shadow: 0 8px 28px rgba(2,6,23,0.45);
+  pointer-events: none;           /* becomes enabled when visible */
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 140ms ease, transform 140ms ease;
+  word-wrap: break-word;
+  left: 0;
+  top: 0;
+}
+
+/* visible state */
+.gso-tooltip.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* subtle accent bar on the left to hint "error" (optional) */
+.gso-tooltip::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  bottom: 10px;
+   display: none;
+  width: 4px;
+  background: var(--error);
+  border-radius: 2px;
+  opacity: 0.98;
+}
+
+/* arrow — rotated square; placement varies with direction classes */
+.gso-tooltip::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 10px;
+  height: 10px;
+  background: inherit;
+  z-index: -1;
+  box-shadow: 0 8px 28px rgba(2,6,23,0.45);
+}
+
+/* arrow placement: top = tooltip above target (arrow points down) */
+.gso-tooltip--top::after {
+  bottom: -5px;
+}
+/* bottom = tooltip below target (arrow points up) */
+.gso-tooltip--bottom::after {
+  top: -5px;
+}
+
+/* responsive fallback */
+@media (max-width: 420px) {
+  .gso-tooltip {
+    max-width: calc(100vw - 32px);
+    font-size: 0.82rem;
+    padding: 8px 10px;
+    border-radius: 7px;
+  }
+}
+
+/* ========================
+   ERROR ALERTS
+======================== */
+.error-alert {
+  background: var(--error);
+  color: #fff;
+  font-weight: 600;
+  padding: 10px 12px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  text-align: center;
+  animation: fadeIn 0.25s ease-in-out;
+}
+@keyframes fadeIn {
+  from {opacity:0; transform:translateY(-4px);}
+  to {opacity:1; transform:none;}
+}
+
+/* ========================
+   BUTTONS
+======================== */
+button {
+  width: 100%;
+  margin-top: 18px;
+  padding: 12px 14px;
+  font-size: 15px;
+  font-weight: 700;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  background: var(--accent);
+  color: #fff;
+  transition: background 0.18s ease, transform 0.12s ease;
+}
+button:hover {
+  background: #9333ea;
+  transform: translateY(-1px);
+}
+
+/* Disabled submit visual state (small, accessible hint) */
+button[disabled],
+input[type="submit"][disabled] {
+  opacity: 0.62;
+  cursor: not-allowed;
+  transform: none !important;
+  filter: grayscale(6%);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+button[disabled]:hover,
+input[type="submit"][disabled]:hover {
+  transform: none;
+  background: var(--accent);
+}
+
+/* ========================
+   FORM OPTIONS
+======================== */
+.form-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 12px 0 20px;
+  font-size: 0.9rem;
+  color: var(--text-dark);
+}
+.form-options .remember { display:flex; align-items:center; gap:8px; }
+.form-options input[type="checkbox"] {
+  accent-color: var(--accent);
+  transform: scale(1.05);
+  cursor: pointer;
+}
+.form-options .forgot-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+.form-options .forgot-link:hover { text-decoration: underline; }
+
+/* ========================
+   LINKS / FOOTER
+======================== */
+.register { text-align:center; margin-top: 16px; }
+.register p { color: var(--text-dark); }
+.register a {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+.register a:hover { text-decoration: underline; }
+
+/* ========================
+   SMALL UI PIECES
+======================== */
+@keyframes shake {
+  0%,100%{transform:translateX(0);}
+  20%,60%{transform:translateX(-6px);}
+  40%,80%{transform:translateX(6px);}
+}
+.wrapper.shake { animation: shake 0.3s ease; }
+
+.optional { font-size:0.75rem; color:#777; }
+.password-eye {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  cursor: pointer;
+  color: var(--accent);
+  font-size: 1rem;
+  z-index: 2;
+}
+.password-eye:hover { color:#333; }
+
+/* ========================
+   TWO-PANEL / OVERLAY
+======================== */
+.auth-wrapper { position: relative; }
+
+/* slider: side-by-side on desktop */
+.auth-slider { display:flex; width:100%; align-items:stretch; gap:0; height:100%; }
+
+/* panels: allow shrink/grow and be contained by wrapper */
+.auth-panel {
+  flex: 1 1 50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding: 12px;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+/* IMPORTANT: keep forms scrollable inside the panel so page itself doesn't grow.
+   This prevents scroll/zoom from revealing the opposite panel. */
+
+/* overlay panel (unchanged visually) */
+.auth-cover {
+  position: absolute;
+  top: 0;
+  left: 50%;                     /* desktop positions: 50% = cover right, 0 = cover left */
+  width: 50%;
+  height: 100%;
+  z-index: 12;
+  transition: left 0.45s cubic-bezier(.25,.8,.25,1), transform 0.45s ease;
+  background-color: #1E1E2F;     /* flat dark background */
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  pointer-events: auto;
+  box-shadow: inset 0 2px 12px rgba(0,0,0,0.32);
+  will-change: left, transform;
+}
+
+/* helper classes if you toggle via classes */
+.auth-cover.cover-right { left: 50%; }
+.auth-cover.cover-left  { left: 0; }
+
+.auth-cover::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 10% 10%, rgba(255,255,255,0.02), transparent 10%),
+    radial-gradient(circle at 90% 90%, rgba(0,0,0,0.02), transparent 12%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.auth-cover .cover-content {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 22px 18px;
+  text-align: center;
+  color: #E6E7EA;
+  max-width: 420px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.auth-cover .cover-logo {
+  width: 150px;
+  max-width: 150px;
+  height: auto;
+  object-fit: contain;
+  border-radius: 8px;
+  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.45));
+}
+
+.auth-cover .cover-text .cover-head {
+  color: #A855F7;
+  font-weight: 700;
+  font-size: 1.05rem;
+  line-height: 1.2;
+  margin-top: 2px;
+}
+
+.auth-cover .cover-text .cover-sub {
+  color: #d7d9dd;
+  font-weight: 500;
+  font-size: 0.92rem;
+  opacity: 0.95;
+}
+
+.switch-text {
+  text-decoration:none;
+  cursor:pointer;
+  font-weight:700;
+  color: var(--accent);
+}
+.switch-text:hover { text-decoration: underline; }
+
+/* ========================
+   RESPONSIVE
+   On smaller screens we revert to scrollable wrapper and stacked layout
+   so users can access all fields (mobile usability).
+======================== */
+
+/* Tablet / narrower desktop */
+@media (max-width: 1100px) {
+  .wrapper.larger-form {
+    width: clamp(680px, 94vw, 980px);
+    padding: 20px 22px;
+    /* keep contained but allow more vertical space */
+    max-height: calc(100vh - 28px);
+  }
+
+  .auth-panel { padding: 14px; }
+  .auth-panel form { max-width: 380px; max-height: calc(100vh - 170px); }
+
+  /* grid tweaks */
+  .form-row { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .form-row-3 { gap: 10px; grid-template-columns: repeat(3, minmax(0,1fr)); }
+}
+
+/* Mobile / stacked behavior */
+@media (max-width: 720px) {
+  .wrapper.larger-form {
+    width: 100%;
+    padding: 14px 16px;
+    border-radius: 12px;
+    /* allow page scrolling on small screens (so mobile users can scroll through the single-column forms) */
+    overflow: visible;
+    max-height: none;
+  }
+
+  /* stack panels vertically */
+  .auth-slider { flex-direction: column; gap: 12px; }
+
+  .auth-panel {
+    flex: 0 0 auto;
+    width: 100%;
+    padding: 12px;
+    align-items: flex-start;
+  }
+
+  /* forms take full width and become natural flow (no inner scroll necessary) */
+  .auth-panel form { width: 100%; max-width: 100%; margin: 0; max-height: none; overflow: visible; padding-bottom: 12px; }
+
+  /* overlay becomes a top bar */
+  .auth-cover {
+    left: 0 !important;
+    width: 100% !important;
+    height: 140px;
+    top: 0;
+    border-radius: 12px 12px 0 0;
+    transition: transform 0.36s cubic-bezier(.2,.9,.2,1);
+    transform: translateY(0);
+    box-shadow: inset 0 2px 10px rgba(0,0,0,0.28);
+  }
+
+  .auth-cover .cover-content { padding: 12px; gap: 8px; max-width: 100%; }
+  .auth-cover .cover-logo { width: 56px; max-width: 56px; }
+  .auth-cover .cover-text .cover-head { font-size: 1rem; }
+  .auth-cover .cover-text .cover-sub { font-size: 0.88rem; }
+
+  /* name fields: on narrow screens make last name full width below */
+  .form-row-3 { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .form-row-3 > .input-field:nth-child(3) { grid-column: 1 / -1; }
+}
+
+/* Very small screens */
+@media (max-width: 360px) {
+  .wrapper.larger-form { padding: 10px; border-radius: 10px; }
+  .auth-cover { display: none; } /* free vertical space on tiny devices */
+  .form-row { grid-template-columns: 1fr; gap: 8px; }
+  .form-row-3 { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .form-row-3 > .input-field:nth-child(3) { grid-column: 1 / -1; }
+}
+
+/* Accessibility / zoom safety helpers */
+@media (min-resolution: 2dppx) and (max-width: 1400px) {
+  .auth-panel form { max-width: 420px; }
+}
+
+/* Banner inside auth wrapper */
+.wrapper .banner {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  border-radius:8px;
+  margin-top: 12px;
+  font-weight:700;
+}
+.wrapper .banner.success { background: linear-gradient(90deg,#6d28d9,#4f46e5); color: #fff; }
+.wrapper .close-banner { background:transparent; border:none; color:inherit; cursor:pointer; font-size:18px; padding:0 6px; }
+
+/* ===== cover register banner (appears inside the auth-cover) ===== */
+.cover-register-banner {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translate(-50%, -120%);
+  transition: transform 360ms cubic-bezier(.2,.9,.2,1), opacity 220ms ease;
+  opacity: 0;
+  background: linear-gradient(90deg, #9333ea, #7e22ce);
+  color: #ffffff;
+  padding: 10px 18px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 60;
+  font-weight: 700;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.28);
+  max-width: calc(100% - 64px);
+  box-sizing: border-box;
+  white-space: nowrap;        /* keep content on one line */
+  overflow: hidden;
+  text-overflow: ellipsis;   /* truncate if still too long */
+  justify-content: center;
+}
+
+.cover-register-banner.visible {
+  transform: translate(-50%, 0);
+  opacity: 1;
+}
+
+
+
+
