@@ -34,9 +34,10 @@
         <x-input-label for="category-{{ $item->id }}" value="Category" />
         <select id="category-{{ $item->id }}" name="category"
                 class="mt-1 block w-full min-w-0 appearance-none border rounded px-3 py-2"
-                required data-category-select>
-          <!-- options rendered by JS -->
+                required data-category-select data-field="category" data-edit-field="category">
+            <!-- options rendered by JS -->
         </select>
+
         <x-input-error :messages="$errors->get('category')" class="mt-2" />
       </div>
     </div>

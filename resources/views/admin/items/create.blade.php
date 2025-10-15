@@ -32,8 +32,10 @@
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <x-input-label for="category" value="Category" />
-                    <select id="category" name="category" class="mt-1 block w-full min-w-0 appearance-none border rounded px-3 py-2" required data-category-select>
-                    <!-- options will be rendered by JS; keep server-side selected value only if you want initial selection -->
+                    <select id="category" name="category"
+                            class="mt-1 block w-full min-w-0 appearance-none border rounded px-3 py-2"
+                            required data-category-select data-field="category" data-add-field="category">
+                        <!-- options will be rendered by JS -->
                     </select>
                     <x-input-error :messages="$errors->get('category')" class="mt-2" />
                 </div>

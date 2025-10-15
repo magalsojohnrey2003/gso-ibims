@@ -1,5 +1,4 @@
 // resources/js/item-manual-entry.js
-// Manual Property Number Entry — adjusted to keep inputs inline and small
 (function () {
   'use strict';
 
@@ -31,7 +30,6 @@
     const root = document.createElement('div');
     root.className = 'flex items-start gap-4';
 
-    // left index circle
     const left = document.createElement('div');
     left.className = 'flex-none w-10 text-center';
     const circle = document.createElement('div');
@@ -39,77 +37,51 @@
     circle.textContent = String(idx + 1);
     left.appendChild(circle);
 
-    // right panel (rounded card) — prevent wrapping so inputs stay on one row
     const panel = document.createElement('div');
     panel.className = 'flex-1 bg-indigo-50 rounded-lg px-4 py-3 flex items-center gap-3 flex-nowrap';
 
-    // Year input (small pill)
     const yInput = document.createElement('input');
     yInput.type = 'text';
     yInput.className = 'w-20 text-center text-sm rounded-md border px-2 py-1 bg-white';
     yInput.value = initial.year ?? '';
-    yInput.setAttribute('aria-label', `Year row ${idx+1}`);
     yInput.dataset.part = 'year';
 
-    // separator dash
-    const sep1 = document.createElement('div');
-    sep1.className = 'text-gray-500 select-none';
-    sep1.textContent = '-';
+    const sep1 = document.createElement('div'); sep1.className = 'text-gray-500 select-none'; sep1.textContent = '-';
 
-    // PPE (read-only)
     const pInput = document.createElement('input');
     pInput.type = 'text';
-    pInput.className = 'w-16 text-center text-sm rounded-md border px-2 py-1 bg-gray-100';
+    pInput.className = 'w-16 text-center text-sm rounded-md border px-2 py-1 bg-white';
     pInput.value = initial.ppe ?? '';
-    pInput.readOnly = true;
     pInput.dataset.part = 'ppe';
-    pInput.setAttribute('aria-label', `PPE row ${idx+1}`);
 
-    // separator dash
-    const sep2 = document.createElement('div');
-    sep2.className = 'text-gray-500 select-none';
-    sep2.textContent = '-';
+    const sep2 = document.createElement('div'); sep2.className = 'text-gray-500 select-none'; sep2.textContent = '-';
 
-    // Serial (small pill) — kept compact
     const sInput = document.createElement('input');
     sInput.type = 'text';
     sInput.className = 'w-20 text-center text-sm rounded-md border px-2 py-1 bg-white';
     sInput.value = initial.serial ?? '';
     sInput.dataset.part = 'serial';
-    sInput.setAttribute('aria-label', `Serial row ${idx+1}`);
 
-    // separator dash
-    const sep3 = document.createElement('div');
-    sep3.className = 'text-gray-500 select-none';
-    sep3.textContent = '-';
+    const sep3 = document.createElement('div'); sep3.className = 'text-gray-500 select-none'; sep3.textContent = '-';
 
-    // Office (small pill)
     const oInput = document.createElement('input');
     oInput.type = 'text';
     oInput.className = 'w-20 text-center text-sm rounded-md border px-2 py-1 bg-white';
     oInput.value = initial.office ?? '';
     oInput.dataset.part = 'office';
-    oInput.setAttribute('aria-label', `Office row ${idx+1}`);
 
-    // actions (remove)
-    const actions = document.createElement('div');
-    actions.className = 'flex-none ml-2';
+    const actions = document.createElement('div'); actions.className = 'flex-none ml-2';
     const removeBtn = document.createElement('button');
     removeBtn.type = 'button';
     removeBtn.className = 'text-red-600 text-sm px-2 py-1 rounded-md hover:bg-red-50';
     removeBtn.textContent = 'Remove';
-    removeBtn.addEventListener('click', () => {
-      root.remove();
-      renumberRows(document.getElementById(ROWS_CONTAINER_ID));
-    });
+    removeBtn.addEventListener('click', () => { root.remove(); renumberRows(document.getElementById(ROWS_CONTAINER_ID)); });
     actions.appendChild(removeBtn);
 
-    // small status to the right (no full-width so no wrapping)
     const status = document.createElement('div');
     status.className = 'flex-none ml-4 text-xs text-yellow-700';
     status.dataset.part = 'status';
 
-    // append inputs in order
     panel.appendChild(yInput);
     panel.appendChild(sep1);
     panel.appendChild(pInput);
@@ -123,7 +95,6 @@
     root.appendChild(panel);
     root.appendChild(status);
 
-    // initialize dataset propertyNumber and status
     const initialPN = buildPropertyNumber({
       year: yInput.value,
       ppe: pInput.value,
@@ -133,7 +104,6 @@
     root.dataset.propertyNumber = initialPN;
     status.textContent = initialPN.includes('----') ? 'Incomplete' : '';
 
-    // input events update pn and status
     const updatePN = () => {
       const pn = buildPropertyNumber({
         year: yInput.value,
@@ -144,7 +114,7 @@
       root.dataset.propertyNumber = pn;
       status.textContent = pn.includes('----') ? 'Incomplete' : '';
     };
-    [yInput, sInput, oInput].forEach(el => el.addEventListener('input', updatePN));
+    [yInput, pInput, sInput, oInput].forEach(el => el.addEventListener('input', updatePN));
 
     return root;
   }
@@ -165,22 +135,16 @@
 
     if (current === count) {
       existing.forEach((el, i) => {
-        const y = el.querySelector('input[data-part="year"]');
-        const p = el.querySelector('input[data-part="ppe"]');
-        const s = el.querySelector('input[data-part="serial"]');
-        const o = el.querySelector('input[data-part="office"]');
-        if (y && !y.value) y.value = baseConfig.year || '';
-        if (p && !p.value) p.value = baseConfig.ppe || '';
-        if (o && !o.value) o.value = baseConfig.office || '';
-        if (s && !s.value) {
-          const serialHint = baseConfig.serial || '';
-          if (serialHint && /^[0-9]+$/.test(serialHint)) {
-            const width = Math.max(4, serialHint.length || 4);
-            s.value = padSerial((parseInt(serialHint, 10) || 0) + i, width);
-          } else {
-            s.value = baseConfig.serial || '';
-          }
-        }
+        const parts = {
+          year: baseConfig.year || '',
+          ppe: baseConfig.ppe || '',
+          office: baseConfig.office || '',
+          serial: baseConfig.serial || ''
+        };
+        ['year','ppe','office','serial'].forEach(k => {
+          const inp = el.querySelector(`input[data-part="${k}"]`);
+          if (inp && !inp.value) inp.value = parts[k];
+        });
         el.querySelectorAll('input').forEach(inp => inp.dispatchEvent(new Event('input', { bubbles: true })));
       });
       return;
@@ -198,14 +162,7 @@
     const serialHint = baseConfig.serial || '';
     for (let i = 0; i < (count - current); i++) {
       const index = current + i;
-      let initSerial = '';
-      if (serialHint && /^[0-9]+$/.test(serialHint)) {
-        const baseNum = parseInt(serialHint, 10) || 0;
-        const width = Math.max(4, serialHint.length || 4);
-        initSerial = padSerial(baseNum + index, width);
-      } else if (serialHint) {
-        initSerial = serialHint;
-      }
+      let initSerial = baseConfig.serial || '';
       const initial = {
         year: baseConfig.year || '',
         ppe: baseConfig.ppe || '',
@@ -220,10 +177,10 @@
 
   function getConfigFromForm(form) {
     const year = form.querySelector('[data-manual-config="year"]')?.value ?? '';
-    const ppe = form.querySelector('[data-ppe-display]')?.value ?? '';
     const serial = form.querySelector('[data-manual-config="serial"]')?.value ?? '';
     const office = form.querySelector('[data-manual-config="office"]')?.value ?? '';
-    return { year: norm(year), ppe: norm(ppe), serial: norm(serial), office: norm(office) };
+    const ppe = ''; // no PPE field in modal anymore
+    return { year: norm(year), ppe, serial: norm(serial), office: norm(office) };
   }
 
   function attachForm(form) {
@@ -236,19 +193,15 @@
     const feedbackEl = form.querySelector('[data-manual-feedback]');
     const errorEl = form.querySelector('[data-manual-error]');
 
+    // categories populating (if window.__serverCategories available)
     form.querySelectorAll('select[data-category-select]').forEach(sel => {
-      sel.addEventListener('change', () => {
-        setTimeout(() => {
-          const ppeDisplay = form.querySelector('[data-ppe-display]');
-          const ppeHidden = form.querySelector('input[data-property-segment="ppe"], input[name="ppe_code"]');
-          const ppeVal = ppeDisplay?.value ?? '';
-          if (ppeHidden) ppeHidden.value = ppeVal;
-          Array.from(container.children).forEach(row => {
-            const pin = row.querySelector('input[data-part="ppe"]');
-            if (pin) pin.value = ppeVal;
-            pin && pin.dispatchEvent(new Event('input', { bubbles: true }));
-          });
-        }, 0);
+      const cats = window.__serverCategories || [];
+      sel.innerHTML = '';
+      cats.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c;
+        opt.textContent = c;
+        sel.appendChild(opt);
       });
     });
 
@@ -260,7 +213,7 @@
       buildRows(container, qty, cfg);
     };
 
-    const configFields = Array.from(form.querySelectorAll('[data-manual-config], [data-ppe-display]'));
+    const configFields = Array.from(form.querySelectorAll('[data-manual-config]'));
     configFields.forEach(f => f.addEventListener('input', renderFromQuantity));
     quantityInput && quantityInput.addEventListener('input', renderFromQuantity);
 

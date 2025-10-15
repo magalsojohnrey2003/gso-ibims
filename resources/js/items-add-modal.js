@@ -1,3 +1,4 @@
+// resources/js/item-add.js
 import { normalizeSegment, resolvePpeCode } from './property-number';
 
 const SELECTOR = '[data-add-items-form]';
@@ -50,23 +51,27 @@ function hideMessage(el) {
   el.classList.add('hidden');
 }
 
+/**
+ * Collect base config from form.
+ * Accept both data-add-field="category" and data-category-select.
+ */
 function collectBase(form) {
   const fields = {
-    year: form.querySelector('[data-add-field="year"]'),
-    ppe: form.querySelector('[data-property-segment="ppe"]'),
-    category: form.querySelector('[data-add-field="category"]'),
-    office: form.querySelector('[data-add-field="office"]'),
-    serial: form.querySelector('[data-add-field="serial"]'),
-    quantity: form.querySelector('[data-add-field="quantity"]'),
-  };
+  year: form.querySelector('[data-add-field="year"]'),
+  ppe: form.querySelector('[data-property-segment="ppe"]'),
+  categoryEl: form.querySelector('[data-category-select]'), // element
+  office: form.querySelector('[data-add-field="office"]'),
+  serial: form.querySelector('[data-add-field="serial"]'),
+  quantity: form.querySelector('[data-add-field="quantity"]'),
+};
 
-  const year = normalizeSegment(fields.year?.value ?? '', 4);
-const office = (fields.office?.value ?? '').trim();
+const categoryValue = (fields.categoryEl?.value ?? '').trim();
 
-  let ppeValue = fields.ppe?.value ?? '';
-  if (!ppeValue && fields.category) {
-    ppeValue = resolvePpeCode(fields.category) || '';
-  }
+let ppeValue = fields.ppe?.value ?? '';
+if (!ppeValue && categoryValue) {
+  ppeValue = resolvePpeCode(categoryValue) || '';
+}
+
   const ppe = normalizeSegment(ppeValue, 2);
 
   const rawSerial = (fields.serial?.value || '').replace(/[^0-9]/g, '');
@@ -90,6 +95,8 @@ const office = (fields.office?.value ?? '').trim();
     quantity,
     firstSerial: rawSerial ? padSerial(parseInt(rawSerial, 10), serialWidth) : '',
     signature,
+    // include category string for callers that need it
+    category: categoryValue,
   };
 }
 
@@ -356,6 +363,49 @@ function attachOfficeValidation(form) {
   validate();
 }
 
+function populateCategorySelects(form) {
+  const cats = window.__serverCategories || [];
+  form.querySelectorAll('select[data-category-select]').forEach(sel => {
+    // If already populated (options exist), skip to preserve server-selected option
+    if (sel.options && sel.options.length > 0) return;
+    sel.innerHTML = '';
+    cats.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c;
+      opt.textContent = c;
+      sel.appendChild(opt);
+    });
+  });
+}
+
+function attachCategoryListeners(form) {
+  // update hidden PPE and preview on change
+  form.querySelectorAll('select[data-category-select]').forEach(sel => {
+    sel.addEventListener('change', (e) => {
+      const chosen = (e.target.value ?? '').toString();
+      // populate hidden ppe
+      const hiddenPpe = form.querySelector('input[data-property-segment="ppe"], input[name="ppe_code"]');
+      if (hiddenPpe) {
+        const resolved = resolvePpeCode(chosen) || '';
+        hiddenPpe.value = resolved;
+        try { hiddenPpe.defaultValue = resolved; } catch(_) {}
+        hiddenPpe.setAttribute('value', resolved);
+      }
+      // also update displayed ppe if present
+      const ppeDisplay = form.querySelector('[data-ppe-display]');
+      if (ppeDisplay) {
+        const resolved = resolvePpeCode(chosen) || '';
+        ppeDisplay.value = resolved;
+      }
+
+      // trigger other listeners to recompute preview/checks
+      form.querySelectorAll('[data-add-field]').forEach(inp => inp.dispatchEvent(new Event('input', { bubbles: true })));
+      // Also dispatch a change on year/office if needed (ensures preview update)
+      form.querySelectorAll('[data-add-field="year"], [data-add-field="office"]').forEach(inp => inp.dispatchEvent(new Event('input', { bubbles: true })));
+    });
+  });
+}
+
 function initAddItemsForm(form) {
   const elements = {
     feedback: form.querySelector(FEEDBACK_SELECTOR),
@@ -370,6 +420,11 @@ function initAddItemsForm(form) {
     serialAbort: null,
     lastSerialResult: null,
   };
+
+  // populate category selects
+  populateCategorySelects(form);
+  // attach category change handlers
+  attachCategoryListeners(form);
 
   attachOfficeValidation(form);
 
@@ -443,4 +498,3 @@ function initAddItemsForm(form) {
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll(SELECTOR).forEach(initAddItemsForm);
 });
-

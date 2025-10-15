@@ -154,51 +154,6 @@ class ItemController extends Controller
         return response()->json($instances);
     }
 
-    /**
-     * Save PPE codes to a JSON file (storage/app/ppe_codes.json).
-     * Expects request payload: { "<category>": "<ppe>", ... }
-     */
-    public function savePpeCodes(Request $request)
-    {
-        // Require admin
-        $this->authorize('admin'); // adjust this if you don't have 'admin' gate; optional
-
-        $data = $request->json()->all() ?: $request->all();
-
-        if (!is_array($data)) {
-            return response()->json(['message' => 'Invalid payload'], 422);
-        }
-
-        // Validate each value is exactly 2 digits
-        foreach ($data as $category => $ppe) {
-            $category = (string) $category;
-            $ppe = (string) $ppe;
-
-            if ($category === '') {
-                return response()->json(['message' => 'Category name cannot be empty.'], 422);
-            }
-
-            if (!preg_match('/^\d{2}$/', $ppe)) {
-                return response()->json(['message' => "PPE code for '{$category}' must be exactly 2 digits."], 422);
-            }
-        }
-
-        $filePath = storage_path('app/ppe_codes.json');
-
-        // Try to write atomically
-        try {
-            $tmp = $filePath . '.tmp';
-            file_put_contents($tmp, json_encode($data, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES));
-            // rename is atomic on same filesystem
-            rename($tmp, $filePath);
-            return response()->json(['message' => 'PPE codes saved.']);
-        } catch (\Throwable $e) {
-            // log then return error
-            \Log::error('Failed to save PPE codes: '.$e->getMessage());
-            return response()->json(['message' => 'Failed to save PPE codes.'], 500);
-        }
-    }
-
     public function validatePropertyNumbers(Request $request, PropertyNumberService $numbers): JsonResponse
     {
         $data = $request->json()->all() ?: $request->all();
@@ -247,7 +202,7 @@ class ItemController extends Controller
      */
     public function manualStore(Request $request, PropertyNumberService $numbers)
     {
-        
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'category' => 'required|string',

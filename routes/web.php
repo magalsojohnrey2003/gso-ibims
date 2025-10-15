@@ -65,8 +65,6 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
         Route::get('items/search', [ItemController::class, 'search'])->name('admin.items.search');
         Route::get('items/check-serial', [ItemController::class, 'checkSerial'])->name('admin.items.check-serial');
         Route::resource('items', ItemController::class);
-        Route::get('/items/categories', [ItemCategoryController::class, 'index'])->name('items.categories.index');
-        Route::post('/items/categories', [ItemCategoryController::class, 'store'])->name('items.categories.store');
 
         Route::post('items/validate-pns', [ItemController::class, 'validatePropertyNumbers'])
             ->name('admin.items.validate-pns');

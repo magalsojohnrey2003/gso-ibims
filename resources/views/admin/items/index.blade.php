@@ -7,11 +7,8 @@
                 iconStyle="plain"
                 iconColor="gov-accent"> Items Management </x-title>
     <script>
-        // Server-provided categories and mapping (available to the frontend)
         window.__serverCategories = @json($categories ?? []);
-        window.__serverCategoryPpeMap = @json($categoryPpeMap ?? []);
     </script>
-
 
     <div class="py-6">
         <div class="sm:px-6 lg:px-8 space-y-10">
@@ -230,21 +227,7 @@
         class="absolute bottom-20 right-0 flex flex-col gap-3 items-end"
         @click.outside="open = false">
 
-        <!-- PPE Code Management -->
-        <button
-            x-on:click="$dispatch('open-modal','manage-ppe'); open = false"
-            class="group bg-white text-purple-700 px-4 py-3 rounded-xl shadow-lg hover:shadow-xl border-2 border-purple-200 hover:border-purple-400 transition-all transform hover:scale-105 flex items-center space-x-3 min-w-[220px]">
-            <div class="bg-purple-100 p-2 rounded-lg group-hover:bg-purple-200 transition-colors">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 3.75h4.5v16.5h-4.5zM4.5 12h15" />
-                </svg>
-            </div>
-            <div class="text-left">
-                <div class="font-semibold text-sm">PPE Code Management</div>
-                <div class="text-xs text-purple-500">Manage category codes</div>
-            </div>
-        </button>
-
+      
         <!-- Manual Property Number Entry -->
         <button
             x-on:click="$dispatch('open-modal','manual-property-entry'); open = false"
@@ -335,15 +318,15 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 
-{{-- Include new PPE Category Management modal --}}
-@include('admin.items._category_modal')
-
 {{-- in your items index view, near other includes --}}
 @include('admin.items._manual_modal')
-@vite(['resources/js/item-manual-entry.js'])
 
-{{-- Import new JS file --}}
-@vite(['resources/js/item-category-modal.js'])
+@vite(['resources/js/item-manual-entry.js','resources/js/item-categories.js','resources/js/item-category-modal.js'])
 
 
+
+<script>
+  window.__serverCategories = @json($categories ?? []);
+  window.__serverCategoryPpeMap = @json($categoryPpeMap ?? []);
+</script>
 

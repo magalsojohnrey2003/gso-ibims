@@ -1,3 +1,4 @@
+// resources/js/item-edit.js
 const SELECTOR = '[data-edit-item-form]';
 const FEEDBACK_SELECTOR = '[data-edit-feedback]';
 const ERROR_SELECTOR = '[data-edit-error]';
@@ -75,9 +76,8 @@ function handleSuccess(form, feedbackEl, errorEl, result) {
     showMessage(feedbackEl, message);
     try { showToast('success', message); } catch (_) {}
 
-    // --- Persist updated fields into the form DOM so reset/open reflect latest values ---
+    // Persist updated values
     try {
-        // Helper to set value + defaultValue + attribute safely
         const setInput = (selector, val) => {
             const el = form.querySelector(selector);
             if (!el) return;
@@ -86,7 +86,6 @@ function handleSuccess(form, feedbackEl, errorEl, result) {
             try { el.setAttribute('value', val ?? ''); } catch (_) {}
         };
 
-        // Textarea helper (no value attribute)
         const setTextarea = (selector, val) => {
             const el = form.querySelector(selector);
             if (!el) return;
@@ -95,15 +94,11 @@ function handleSuccess(form, feedbackEl, errorEl, result) {
             try { el.value = val ?? ''; } catch (_) {}
         };
 
-        // Name
         if (typeof data.name === 'string') {
-            setInput('[data-edit-field="name"]');
-            setInput('[name="name"]', data.name);
             const nameEl = form.querySelector('[data-edit-field="name"]') || form.querySelector('[name="name"]');
             if (nameEl) { nameEl.value = data.name; nameEl.defaultValue = data.name; nameEl.setAttribute('value', data.name); }
         }
 
-        // Office (preserve alphanumeric)
         if (typeof data.office_code === 'string') {
             const officeEl = form.querySelector('[data-edit-field="office"]') || form.querySelector('[name="office_code"]');
             if (officeEl) {
@@ -113,7 +108,6 @@ function handleSuccess(form, feedbackEl, errorEl, result) {
             }
         }
 
-        // Year procured
         if (typeof data.year_procured !== 'undefined') {
             const yEl = form.querySelector('[data-edit-field="year"]') || form.querySelector('[name="year_procured"]');
             if (yEl) {
@@ -124,7 +118,6 @@ function handleSuccess(form, feedbackEl, errorEl, result) {
             }
         }
 
-        // Serial
         if (typeof data.serial === 'string' || (typeof data.serial !== 'undefined' && data.serial !== null)) {
             const sEl = form.querySelector('[data-edit-field="serial"]') || form.querySelector('[name="serial"]');
             if (sEl && typeof data.serial === 'string') {
@@ -134,7 +127,7 @@ function handleSuccess(form, feedbackEl, errorEl, result) {
             }
         }
 
-        // PPE: hidden + display inputs (if provided by server)
+        // PPE: update hidden/display if provided
         if (typeof data.ppe_code === 'string' || typeof data.ppe === 'string') {
             const ppeVal = (data.ppe_code ?? data.ppe ?? '');
             const ppeHidden = form.querySelector('[data-property-segment="ppe"]') || form.querySelector('[name="ppe_code"]');
@@ -143,7 +136,6 @@ function handleSuccess(form, feedbackEl, errorEl, result) {
             if (ppeDisplay) { ppeDisplay.value = ppeVal; try { ppeDisplay.defaultValue = ppeVal; } catch(_){} ppeDisplay.setAttribute('value', ppeVal); }
         }
 
-        // property preview
         if (typeof data.property_number === 'string') {
             const preview = form.querySelector('[data-property-preview]');
             if (preview) {
@@ -153,7 +145,6 @@ function handleSuccess(form, feedbackEl, errorEl, result) {
             }
         }
 
-        // description / notes
         if (typeof data.description === 'string' || typeof data.notes === 'string') {
             const desc = data.description ?? data.notes ?? '';
             const textarea = form.querySelector('[data-edit-field="description"]') || form.querySelector('[name="description"]');
@@ -164,14 +155,12 @@ function handleSuccess(form, feedbackEl, errorEl, result) {
             }
         }
 
-        // item_instance_id hidden (if response included or already present)
         if (typeof data.item_instance_id !== 'undefined' || typeof data.item_id !== 'undefined') {
             const iid = data.item_instance_id ?? data.item_id ?? null;
             const iidEl = form.querySelector('[name="item_instance_id"]');
             if (iidEl && iid !== null) { iidEl.value = String(iid); iidEl.defaultValue = String(iid); iidEl.setAttribute('value', String(iid)); }
         }
 
-        // Photo: if the server returned a new photo URL, update <img data-edit-photo> src and data-original-src
         if (typeof data.photo === 'string' && data.photo) {
             const photoEl = form.querySelector('[data-edit-photo]');
             if (photoEl) {
@@ -183,14 +172,14 @@ function handleSuccess(form, feedbackEl, errorEl, result) {
         console.warn('Could not persist updated values into edit form:', err);
     }
 
-    // Fire event for global listeners (table row updater)
+    // Emit table update
     const normalizedDetail = Object.assign({}, data);
-    if (!normalizedDetail.item_id && normalizedDetail.item_id !== 0 && normalizedDetail.id) {
+    if (!normalizedDetail.item_id && normalizedDetail.normalizedId !== 0 && normalizedDetail.id) {
         normalizedDetail.item_id = normalizedDetail.id;
     }
     form.dispatchEvent(new CustomEvent('items:edit:success', { detail: normalizedDetail, bubbles: true }));
 
-    // --- Only AFTER we've persisted the values do we close the modal.
+    // Close modal
     try {
         const modalName = form.getAttribute('data-modal-name');
         if (modalName) {
@@ -242,12 +231,54 @@ function attachOfficeValidation(form) {
     validate();
 }
 
+function populateCategorySelects(form) {
+    const cats = window.__serverCategories || [];
+    form.querySelectorAll('select[data-category-select]').forEach(sel => {
+        // if server rendered options exist, don't wipe them — but ensure at least one option
+        if (sel.options && sel.options.length > 0) return;
+        sel.innerHTML = '';
+        cats.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c;
+            opt.textContent = c;
+            sel.appendChild(opt);
+        });
+    });
+}
+
+function attachCategoryListeners(form) {
+    form.querySelectorAll('select[data-category-select]').forEach(sel => {
+        sel.addEventListener('change', (e) => {
+            const chosen = (e.target.value ?? '').toString();
+            const hiddenPpe = form.querySelector('input[data-property-segment="ppe"], input[name="ppe_code"]');
+            if (hiddenPpe) {
+                // Resolve PPE via server map on client
+                const resolved = (window.__serverCategoryPpeMap && window.__serverCategoryPpeMap[chosen]) || '';
+                // If map not available, just set empty; backend will handle fallback
+                hiddenPpe.value = resolved;
+                try { hiddenPpe.defaultValue = resolved; } catch(_) {}
+            }
+            const ppeDisplay = form.querySelector('[data-ppe-display]');
+            if (ppeDisplay) {
+                const resolved = (window.__serverCategoryPpeMap && window.__serverCategoryPpeMap[chosen]) || '';
+                ppeDisplay.value = resolved;
+            }
+
+            // trigger potential preview recalculation (dispatch input)
+            form.querySelectorAll('input, select').forEach(inp => inp.dispatchEvent(new Event('input', { bubbles: true })));
+        });
+    });
+}
 
 function initEditForm(form) {
     const feedbackEl = form.querySelector(FEEDBACK_SELECTOR);
     const errorEl = form.querySelector(ERROR_SELECTOR);
     const submitBtn = form.querySelector(SUBMIT_SELECTOR);
     const cancelBtn = form.querySelector(CANCEL_SELECTOR);
+
+    // populate categories on edit forms
+    populateCategorySelects(form);
+    attachCategoryListeners(form);
 
     attachOfficeValidation(form);
 
@@ -281,6 +312,3 @@ function initEditForm(form) {
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll(SELECTOR).forEach(initEditForm);
 });
-
-
-

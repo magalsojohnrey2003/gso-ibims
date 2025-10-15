@@ -19,7 +19,7 @@ import './reports';
 import './qty-controls';
 import '../css/borrow-list.css';
 import '../css/return-selected-items.css';
-import './item-category-modal.js';
+import './item-categories.js';
 
 window.Alpine = Alpine;
 

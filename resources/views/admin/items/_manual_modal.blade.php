@@ -11,7 +11,7 @@
 
     <div class="p-5">
       <form method="POST" action="{{ route('admin.items.manual-store') }}" enctype="multipart/form-data"
-            class="space-y-6" data-manual-form>
+            class="space-y-6" data-manual-form data-modal-name="manual-property-entry">
         @csrf
 
         {{-- Feedback / errors --}}
@@ -30,40 +30,24 @@
               <x-input-label for="manual_name" value="Item Name" />
               <x-text-input id="manual_name" name="name" type="text" class="mt-1 block w-full" required />
             </div>
-            <div>
-              <x-input-label for="manual_category" value="Category" />
-              <select id="manual_category" name="category" class="mt-1 block w-full" required data-category-select></select>
-            </div>
+
             <div>
               <x-input-label for="manual_quantity" value="Quantity (rows to render)" />
               <x-text-input id="manual_quantity" name="quantity" type="number" class="mt-1 block w-full" min="1" max="500" value="1" required data-manual-quantity />
             </div>
           </div>
-        </div>
 
-        <!-- Property Number Configuration & Manual Entry -->
-        <div class="bg-gray-50 shadow-md rounded-lg p-4">
-          <div class="flex items-center mb-4">
-            <div class="bg-green-100 text-green-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">2</div>
-            <h4 class="text-lg font-semibold text-gray-900">Property Number Configuration & Manual Entry</h4>
-          </div>
-
-                    <!-- config row (compact inputs) -->
-          <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
             <div>
               <x-input-label for="manual_year" value="Year" />
               <x-text-input id="manual_year" name="year_procured" type="text" maxlength="4" class="mt-1 block w-full" data-manual-config="year" />
             </div>
 
             <div>
-              <x-input-label for="manual_ppe_display" value="PPE (read-only)" />
-              <x-text-input id="manual_ppe_display" type="text" class="mt-1 block w-full bg-gray-100" readonly data-ppe-display />
-              <input type="hidden" name="ppe_code" data-property-segment="ppe" />
-            </div>
-
-            <div>
-              <x-input-label for="manual_serial_template" value="Serial template" />
-              <x-text-input id="manual_serial_template" type="text" class="mt-1 block w-full" placeholder="e.g. 0001" data-manual-config="serial" />
+              <x-input-label for="manual_category" value="Category" />
+              <select id="manual_category" name="category" class="mt-1 block w-full" required data-category-select>
+                {{-- JS will populate categories --}}
+              </select>
             </div>
 
             <div>
@@ -71,18 +55,23 @@
               <x-text-input id="manual_office" name="office_code" type="text" maxlength="4" class="mt-1 block w-full" data-manual-config="office" />
             </div>
           </div>
+        </div>
 
-          <!-- place this AFTER your config inputs (Year / PPE / Serial template / Office) -->
-        <div class="mt-4">
-        <div class="text-xs text-gray-600 mb-2">Manual Property Number Entry</div>
+        <!-- Manual Property Number Entry Rows -->
+        <div class="bg-gray-50 shadow-md rounded-lg p-4">
+          <div class="flex items-center mb-4">
+            <div class="bg-green-100 text-green-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">2</div>
+            <h4 class="text-lg font-semibold text-gray-900">Manual Property Number Entry</h4>
+          </div>
 
-        <div id="manual_rows_container"
-            class="w-full space-y-3 max-h-72 overflow-auto p-3 border rounded-lg bg-white"
-            aria-live="polite">
+          <div class="text-xs text-gray-600 mb-2">Enter or paste property number components per row (Year- PPE - Serial - Office).</div>
+
+          <div id="manual_rows_container"
+              class="w-full space-y-3 max-h-72 overflow-auto p-3 border rounded-lg bg-white"
+              aria-live="polite">
             {{-- JS will inject per-row panels here --}}
+          </div>
         </div>
-        </div>
-
 
         <!-- Additional Details -->
         <div class="bg-gray-50 shadow-md rounded-lg p-4">
@@ -105,9 +94,9 @@
     </div>
   </div>
 
-  {{-- expose routes used by the module --}}
+  {{-- expose route used by the module --}}
   <script>
-    window.__validatePnsRoute = "{{ route('admin.items.validate-pns') }}";
     window.__manualStoreRoute = "{{ route('admin.items.manual-store') }}";
+    // categories are already available in the page (index) via window.__serverCategories
   </script>
 </x-modal>
