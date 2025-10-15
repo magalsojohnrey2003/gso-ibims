@@ -1,5 +1,5 @@
 import './bootstrap';
-import './item-filepond.js';
+import './item-filepond';
 import './echo';       
 import './notifications';
 import '@fortawesome/fontawesome-free/css/all.min.css';
@@ -7,7 +7,7 @@ import Alpine from 'alpinejs';
 import './borrow-requests'; 
 import './my-borrowed-items'; 
 import './return-requests';
-import './borrowList.js';
+import './borrowList';
 import './return-items';
 import './admin-dashboard';
 import './property-number';
@@ -19,7 +19,7 @@ import './reports';
 import './qty-controls';
 import '../css/borrow-list.css';
 import '../css/return-selected-items.css';
-import './item-categories.js';
+import './item-categories';
 import './item-manual-entry'; 
 
 window.Alpine = Alpine;
