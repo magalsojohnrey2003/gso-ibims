@@ -20,7 +20,7 @@ import './qty-controls';
 import '../css/borrow-list.css';
 import '../css/return-selected-items.css';
 import './item-categories.js';
-import './item-manual-entry.js';
+import './item-manual-entry'; 
 
 window.Alpine = Alpine;
 
