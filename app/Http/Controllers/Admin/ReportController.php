@@ -19,17 +19,15 @@ use Throwable;
 class ReportController extends Controller
 {
     protected array $availableReports = [
-        'inventory_summary' => 'Inventory Summary',
-        'low_stock' => 'Low Stock Items',
-        'top_borrowed' => 'Top Borrowed Items',
-        'borrow_by_status' => 'Borrow Requests by Status',
-        'borrow_activity' => 'Borrow Activity Over Time',
-        'active_borrows' => 'Active Borrowings',
-        'overdue_borrows' => 'Overdue Borrows',
-        'return_requests' => 'Return Requests Summary',
-        'top_users' => 'Top Users',
-        'category_summary' => 'Category Summary',
-        'manpower_usage' => 'Manpower Usage',
+    'borrowed_items' => 'Borrowed Items',
+    'returned_items' => 'Returned Items',
+    'inventory_summary' => 'Inventory Summary',
+    'borrower_condition_summary' => 'Borrower Condition Summary',
+    'top_borrowed' => 'Top Borrowed Items',
+    'low_stock' => 'Low Stock Items',
+    'recent_borrows' => 'Recent Borrows',
+    'damage_reports' => 'Damage Reports',
+    'manpower_requests' => 'Manpower Requests',
     ];
 
     public function index()
@@ -81,16 +79,61 @@ class ReportController extends Controller
             $columns = $reportData['columns'] ?? [];
             $rows = $reportData['rows'] ?? [];
 
-            return Pdf::loadView('admin.reports.pdf', [
+            // Load the view into a PDF
+            $pdf = Pdf::loadView('admin.reports.pdf', [
                 'columns' => $columns,
                 'rows'    => $rows,
                 'meta'    => $meta,
-            ])->setPaper('a4', 'landscape')->download($this->fileName($meta, 'pdf'));
+            ])->setPaper('a4', 'portrait'); // or 'landscape' if you prefer
+
+            /*
+            * Add page numbers using Dompdf canvas.
+            * The placeholders {PAGE_NUM} and {PAGE_COUNT} work with page_text().
+            * We'll choose a font available to Dompdf (DejaVu Sans used in blade).
+            */
+           // --- Page numbering: centered "1 / 2" style (small, light gray) ---
+           // --- Page numbering: centered "1 / 2" style (small, light gray) ---
+            $dompdf = $pdf->getDomPDF();
+            $canvas = $dompdf->get_canvas();
+
+            // Use the same font family as the document (DejaVu Sans included)
+            $font = $dompdf->getFontMetrics()->get_font("DejaVu Sans", "normal");
+
+            // Desired display text: "1 / 2" (Dompdf will replace placeholders)
+            $text = "{PAGE_NUM} / {PAGE_COUNT}";
+
+            // Choose font size (points)
+            $size = 9;
+
+            // Compute approximate text width so we can center precisely.
+            // Note: width is measured for the placeholder string; works well for centering.
+            $textWidth = $dompdf->getFontMetrics()->getTextWidth($text, $font, $size);
+
+            // Canvas dimensions (points)
+            $canvasWidth = $canvas->get_width();
+            $canvasHeight = $canvas->get_height();
+
+            // Center horizontally, place a bit above bottom margin
+            $x = ($canvasWidth - $textWidth) / 2;
+            $y = $canvasHeight - 26; // tweak ±2-4 if you want it higher/lower
+
+            // Light gray color (RGB as floats 0..1)
+            $color = [0.45, 0.45, 0.45];
+
+            // Draw page text on every page, centered
+            $canvas->page_text($x, $y, $text, $font, $size, $color);
+
+
+
+            // Finally return the download
+            return $pdf->download($this->fileName($meta, 'pdf'));
+
         } catch (Throwable $e) {
             logger()->error('PDF export failed: ' . $e->getMessage());
             return response()->json(['message' => 'Failed to generate PDF', 'error' => $e->getMessage()], 500);
         }
     }
+
 
     /**
      * GET export XLSX (querystring expected)
@@ -177,177 +220,323 @@ class ReportController extends Controller
     protected function generateReport(string $type, Carbon $start, Carbon $end, array $opts = []): array
     {
         switch ($type) {
-            case 'inventory_summary':
-                $items = Item::select('id','name','category','total_qty','available_qty')
-                    ->orderBy('category')->get();
-
-                $columns = ['ID','Name','Category','Total Qty','Available Qty'];
-                $rows = $items->map(fn($i) => [
-                    $i->id,
-                    $i->name,
-                    $i->category,
-                    (int)$i->total_qty,
-                    (int)$i->available_qty,
-                ])->toArray();
-
-                $extra = ['kpis'=>[
-                    ['label'=>'Total Items','value'=> $items->count()],
-                    ['label'=>'Total Stock','value'=> $items->sum(fn($i)=> (int)$i->total_qty)]
-                ]];
-
-                return compact('columns','rows','extra');
-
-            case 'low_stock':
-                $threshold = isset($opts['threshold']) ? (int)$opts['threshold'] : 5;
-                $q = Item::where('available_qty', '<=', $threshold)
-                         ->orderBy('available_qty','asc')->get();
-
-                $columns = ['ID','Name','Category','Total Qty','Available Qty'];
-                $rows = $q->map(fn($i)=>[
-                    $i->id, $i->name, $i->category, (int)$i->total_qty, (int)$i->available_qty
-                ])->toArray();
-
-                $extra = ['kpis'=>[['label'=>'Threshold','value'=>$threshold], ['label'=>'Low stock count','value'=>$q->count()]]];
-
-                return compact('columns','rows','extra');
-
-            case 'top_borrowed':
-                $items = BorrowRequestItem::select('item_id', DB::raw('SUM(quantity) as total'))
-                    ->whereHas('request', function ($q) use ($start, $end) {
-                        $q->whereBetween('borrow_date', [$start->toDateString(), $end->toDateString()])
-                          ->whereIn('status', ['approved','returned','pending']);
-                    })
-                    ->groupBy('item_id')
-                    ->orderByDesc('total')
-                    ->with('item')
-                    ->get();
-
-                $columns = ['Item ID','Item Name','Category','Total Borrowed'];
-                $rows = $items->map(fn($r)=>[
-                    $r->item_id,
-                    $r->item?->name ?? 'Unknown',
-                    $r->item?->category ?? 'Unknown',
-                    (int)$r->total,
-                ])->toArray();
-
-                return compact('columns','rows');
-
-            case 'borrow_by_status':
-                $counts = BorrowRequest::select('status', DB::raw('COUNT(*) as total'))
-                    ->whereBetween('borrow_date', [$start->toDateString(), $end->toDateString()])
-                    ->groupBy('status')->get();
-
-                $columns = ['Status','Count'];
-                $rows = $counts->map(fn($c)=>[$c->status, (int)$c->total])->toArray();
-
-                return compact('columns','rows');
-
-            case 'borrow_activity':
-                $rowsRaw = DB::table('borrow_requests')
-                    ->select(DB::raw('DATE(borrow_date) as date'), DB::raw('COUNT(*) as total'))
-                    ->whereBetween('borrow_date', [$start->toDateString(), $end->toDateString()])
-                    ->groupBy(DB::raw('DATE(borrow_date)'))
-                    ->orderBy('date')
-                    ->get();
-
-                $columns = ['Date','Requests'];
-                $rows = $rowsRaw->map(fn($r)=>[$r->date, (int)$r->total])->toArray();
-
-                return compact('columns','rows');
-
-            case 'active_borrows':
-                $today = Carbon::now()->toDateString();
-                $active = BorrowRequest::where('status','approved')
-                    ->whereDate('borrow_date', '<=', $today)
-                    ->whereDate('return_date', '>=', $today)
-                    ->with('items.item','user')
-                    ->get();
-
-                $columns = ['Request ID','User','Borrow Date','Return Date','Items Count'];
-                $rows = $active->map(fn($b)=>[
-                    $b->id,
-                    $b->user?->getFullNameAttribute() ?? $b->user_id,
-                    $b->borrow_date,
-                    $b->return_date,
-                    $b->items->sum('quantity'),
-                ])->toArray();
-
-                return compact('columns','rows');
-
-            case 'overdue_borrows':
-                $today = Carbon::now()->toDateString();
-                $over = BorrowRequest::where('status','approved')
-                    ->whereDate('return_date', '<', $today)
-                    ->with('user','items.item')
-                    ->get();
-
-                $columns = ['Request ID','User','Return Date','Days Overdue','Items Count'];
-                $rows = $over->map(fn($b)=>[
-                    $b->id,
-                    $b->user?->getFullNameAttribute() ?? $b->user_id,
-                    $b->return_date,
-                    Carbon::parse($b->return_date)->diffInDays($today),
-                    $b->items->sum('quantity'),
-                ])->toArray();
-
-                return compact('columns','rows');
-
-            case 'return_requests':
-                $counts = ReturnRequest::select('status', DB::raw('COUNT(*) as total'))
-                    ->whereBetween('created_at', [$start->toDateString(), $end->toDateString()])
-                    ->groupBy('status')
-                    ->get();
-
-                $columns = ['Status','Count'];
-                $rows = $counts->map(fn($c)=>[$c->status,(int)$c->total])->toArray();
-
-                return compact('columns','rows');
-
-            case 'top_users':
-                $users = BorrowRequest::select('user_id', DB::raw('COUNT(*) as total_requests'), DB::raw('SUM(manpower_count) as total_manpower'))
-                    ->whereBetween('borrow_date', [$start->toDateString(), $end->toDateString()])
-                    ->groupBy('user_id')
-                    ->orderByDesc('total_requests')
+            /**
+             * 1) Borrowed Items
+             * Columns: Borrower Name | Item Name | Request Date | Return Date | Status | Quantity
+             */
+            case 'borrowed_items':
+                $rows = \DB::table('borrow_request_items as bri')
+                    ->join('borrow_requests as br', 'bri.borrow_request_id', '=', 'br.id')
+                    ->leftJoin('users as u', 'br.user_id', '=', 'u.id')
+                    ->leftJoin('items as i', 'bri.item_id', '=', 'i.id')
+                    ->whereBetween('br.borrow_date', [$start->toDateString(), $end->toDateString()])
+                    ->select(
+                        \DB::raw("CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,'')) as borrower_name"),
+                        'i.name as item_name',
+                        'br.borrow_date as request_date',
+                        'br.return_date as return_date',
+                        'br.status as status',
+                        'bri.quantity as quantity'
+                    )
+                    ->orderBy('br.borrow_date', 'desc')
                     ->get()
-                    ->map(function ($row) {
-                        $user = User::find($row->user_id);
-                        return [
-                            $row->user_id,
-                            $user?->getFullNameAttribute() ?? $row->user_id,
-                            (int)$row->total_requests,
-                            (int)$row->total_manpower,
-                        ];
-                    })->toArray();
+                    ->map(fn($r) => [
+                        $r->borrower_name,
+                        $r->item_name,
+                        $r->request_date,
+                        $r->return_date,
+                        ucfirst($r->status ?? ''),
+                        (int)$r->quantity,
+                    ])->toArray();
 
-                $columns = ['User ID','Name','Requests','Manpower Sum'];
-                $rows = $users;
-
+                $columns = ['Borrower Name','Item Name','Request Date','Return Date','Status','Quantity'];
                 return compact('columns','rows');
 
-            case 'category_summary':
-                $rowsRaw = DB::table('borrow_request_items')
-                    ->join('borrow_requests','borrow_request_items.borrow_request_id','borrow_requests.id')
-                    ->join('items','borrow_request_items.item_id','items.id')
-                    ->select('items.category', DB::raw('SUM(borrow_request_items.quantity) as total'))
-                    ->whereBetween('borrow_requests.borrow_date', [$start->toDateString(), $end->toDateString()])
-                    ->whereIn('borrow_requests.status', ['approved','returned','pending'])
-                    ->groupBy('items.category')
+            /**
+             * 2) Returned Items
+             * Columns: Borrower Name | Item Name | Condition | Status | Quantity | Return Date
+             */
+            case 'returned_items':
+                $rows = \DB::table('return_items as ri')
+                    ->join('return_requests as rr', 'ri.return_request_id', '=', 'rr.id')
+                    ->leftJoin('borrow_requests as br', 'ri.borrow_request_id', '=', 'br.id')
+                    ->leftJoin('users as u', 'rr.user_id', '=', 'u.id')
+                    ->leftJoin('items as i', 'ri.item_id', '=', 'i.id')
+                    ->whereBetween('rr.created_at', [$start->toDateString(), $end->toDateString()])
+                    ->select(
+                        \DB::raw("CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,'')) as borrower_name"),
+                        'i.name as item_name',
+                        'ri.condition as condition',
+                        'rr.status as status',
+                        'ri.quantity as quantity',
+                        'rr.created_at as return_date'
+                    )
+                    ->orderBy('rr.created_at', 'desc')
+                    ->get()
+                    ->map(fn($r) => [
+                        $r->borrower_name,
+                        $r->item_name,
+                        ucfirst(str_replace('_',' ',$r->condition ?? '')),
+                        ucfirst($r->status ?? ''),
+                        (int)$r->quantity,
+                        $r->return_date ? (string)$r->return_date : null,
+                    ])->toArray();
+
+                $columns = ['Borrower Name','Item Name','Condition','Status','Quantity','Return Date'];
+                return compact('columns','rows');
+
+            /**
+             * 3) Inventory Summary
+             * Columns:
+             * Item Name | Property Number | Condition | Total Quantity | Available Quantity | Total Requests
+             *
+             * We'll return one row per item, include a representative property number (first instance) and condition = N/A (because instance-level condition not tracked centrally)
+             */
+            case 'inventory_summary':
+                $items = \App\Models\Item::with(['instances'])
+                    ->orderBy('name')->get();
+
+                $rows = $items->map(function($i) {
+                    $prop = $i->instances->first()?->property_number ?? '-';
+                    // condition is per-return/instance; default to 'N/A' here
+                    $condition = 'N/A';
+                    $totalRequests = \App\Models\BorrowRequestItem::where('item_id', $i->id)->sum('quantity');
+                    return [
+                        $i->name,
+                        $prop,
+                        $condition,
+                        (int)$i->total_qty,
+                        (int)$i->available_qty,
+                        (int)$totalRequests,
+                    ];
+                })->toArray();
+
+                $columns = ['Item Name','Property Number','Condition','Total Quantity','Available Quantity','Total Requests'];
+                return compact('columns','rows');
+
+            /**
+             * 4) Borrower Condition Summary
+             * Columns: Borrower Name | Good | Damage | Total Items Borrowed
+             *
+             * Counts conditions from return_items.condition - 'good' vs others mapped to damage.
+             */
+            case 'borrower_condition_summary':
+                $sub = \DB::table('return_items as ri')
+                    ->join('return_requests as rr', 'ri.return_request_id', '=', 'rr.id')
+                    ->join('users as u', 'rr.user_id', '=', 'u.id')
+                    ->select(
+                        'rr.user_id',
+                        \DB::raw("CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,'')) as borrower_name"),
+                        'ri.condition',
+                        \DB::raw('SUM(ri.quantity) as qty')
+                    )
+                    ->whereBetween('rr.created_at', [$start->toDateString(), $end->toDateString()])
+                    ->groupBy('rr.user_id', 'borrower_name', 'ri.condition');
+
+                $rowsRaw = \DB::table(\DB::raw("({$sub->toSql()}) as t"))
+                    ->mergeBindings($sub)
+                    ->select('borrower_name', 'condition', 'qty')
+                    ->get()
+                    ->groupBy('borrower_name');
+
+                $out = [];
+                foreach ($rowsRaw as $borrower => $group) {
+                    $good = 0; $damage = 0; $total = 0;
+                    foreach ($group as $r) {
+                        $c = strtolower($r->condition ?? 'good');
+                        $q = (int)$r->qty;
+                        $total += $q;
+                        if ($c === 'good') $good += $q;
+                        else $damage += $q;
+                    }
+                    $out[] = [$borrower, $good, $damage, $total];
+                }
+
+                $columns = ['Borrower Name','Good','Damage','Total Items Borrowed'];
+                $rows = $out;
+                return compact('columns','rows');
+
+            /**
+             * 5) Top Borrowed Items
+             * Columns: Item Name | Property Number | Borrow Frequency | Last Borrowed Date
+             */
+            case 'top_borrowed':
+                $items = \DB::table('borrow_request_items as bri')
+                    ->join('borrow_requests as br', 'bri.borrow_request_id', '=', 'br.id')
+                    ->join('items as i', 'bri.item_id', '=', 'i.id')
+                    ->whereBetween('br.borrow_date', [$start->toDateString(), $end->toDateString()])
+                    ->select('bri.item_id', 'i.name as item_name', \DB::raw('SUM(bri.quantity) as freq'), \DB::raw('MAX(br.borrow_date) as last_borrowed'))
+                    ->groupBy('bri.item_id', 'i.name')
+                    ->orderByDesc('freq')
                     ->get();
 
-                $columns = ['Category','Total Borrowed'];
-                $rows = $rowsRaw->map(fn($r)=>[$r->category,(int)$r->total])->toArray();
+                $rows = $items->map(function($r) {
+                    // pick a representative property number (first instance) if available
+                    $prop = \App\Models\ItemInstance::where('item_id', $r->item_id)->value('property_number') ?? '-';
+                    return [$r->item_name, $prop, (int)$r->freq, (string)$r->last_borrowed];
+                })->toArray();
+
+                $columns = ['Item Name','Property Number','Borrow Frequency','Last Borrowed Date'];
                 return compact('columns','rows');
 
-            case 'manpower_usage':
-                $sum = BorrowRequest::whereBetween('borrow_date', [$start->toDateString(), $end->toDateString()])
-                    ->sum('manpower_count');
+            /**
+             * 6) Low Stock Items
+             * Columns: Item Name | Property Number | Total Quantity | Available Quantity | Low Stock Threshold | Available Stock
+             */
+            case 'low_stock':
+                $threshold = isset($opts['threshold']) ? (int)$opts['threshold'] : (isset($opts['threshold']) ? (int)$opts['threshold'] : 5);
+                $q = \App\Models\Item::where('available_qty', '<=', $threshold)
+                    ->orderBy('available_qty','asc')
+                    ->get();
 
-                $columns = ['Metric','Value'];
-                $rows = [['Total Manpower Used', (int)$sum]];
+                $rows = $q->map(function($i) use ($threshold) {
+                    $prop = $i->instances()->value('property_number') ?? '-';
+                    return [
+                        $i->name,
+                        $prop,
+                        (int)$i->total_qty,
+                        (int)$i->available_qty,
+                        $threshold,
+                        (int)$i->available_qty,
+                    ];
+                })->toArray();
+
+                $columns = ['Item Name','Property Number','Total Quantity','Available Quantity','Low Stock Threshold','Available Stock'];
+                $extra = ['kpis' => [['label' => 'Threshold', 'value' => $threshold], ['label' => 'Low stock count', 'value' => count($rows)]]];
+                return compact('columns','rows','extra');
+
+            /**
+             * 7) Recent Borrows
+             * Columns: Borrower Name | Item Name | Request Date | Return Date
+             */
+            case 'recent_borrows':
+                $rows = \DB::table('borrow_request_items as bri')
+                    ->join('borrow_requests as br', 'bri.borrow_request_id', '=', 'br.id')
+                    ->leftJoin('users as u', 'br.user_id', '=', 'u.id')
+                    ->leftJoin('items as i', 'bri.item_id', '=', 'i.id')
+                    ->whereBetween('br.borrow_date', [$start->toDateString(), $end->toDateString()])
+                    ->select(
+                        \DB::raw("CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,'')) as borrower_name"),
+                        'i.name as item_name',
+                        'br.borrow_date as request_date',
+                        'br.return_date as return_date'
+                    )
+                    ->orderBy('br.borrow_date', 'desc')
+                    ->get()
+                    ->map(fn($r) => [$r->borrower_name, $r->item_name, $r->request_date, $r->return_date])
+                    ->toArray();
+
+                $columns = ['Borrower Name','Item Name','Request Date','Return Date'];
+                return compact('columns','rows');
+
+            /**
+             * 8) Damage Reports
+             * Columns: Borrower Name | Item Name | Property Number | Damage Type | Reported Date
+             * Uses item_damage_reports if present; otherwise falls back to return_items with damaged conditions
+             */
+            case 'damage_reports':
+                // Prefer ItemDamageReport model if available
+                if (class_exists(\App\Models\ItemDamageReport::class)) {
+                    $reports = \App\Models\ItemDamageReport::with(['itemInstance.item','reporter'])
+                        ->whereBetween('created_at', [$start->toDateString(), $end->toDateString()])
+                        ->get();
+
+                    $rows = $reports->map(function($rep) {
+                        $borrower = $rep->reporter ? trim(($rep->reporter->first_name ?? '') . ' ' . ($rep->reporter->last_name ?? '')) : null;
+                        $itemName = $rep->itemInstance?->item?->name ?? null;
+                        $prop = $rep->itemInstance?->property_number ?? null;
+                        $type = $rep->status ?? 'reported';
+                        return [$borrower, $itemName, $prop, ucfirst(str_replace('_',' ',$type)), $rep->created_at?->toDateString()];
+                    })->toArray();
+                } else {
+                    // Fallback: use return_items where condition indicates damage
+                    $rows = \DB::table('return_items as ri')
+                        ->join('return_requests as rr', 'ri.return_request_id', '=', 'rr.id')
+                        ->leftJoin('items as i', 'ri.item_id', '=', 'i.id')
+                        ->leftJoin('item_instances as ii', 'ri.item_instance_id', '=', 'ii.id')
+                        ->leftJoin('users as u', 'rr.user_id', '=', 'u.id')
+                        ->whereBetween('rr.created_at', [$start->toDateString(), $end->toDateString()])
+                        ->whereIn('ri.condition', ['major_damage','minor_damage','damaged','missing'])
+                        ->select(
+                            \DB::raw("CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,'')) as borrower_name"),
+                            'i.name as item_name',
+                            'ii.property_number as property_number',
+                            'ri.condition as damage_type',
+                            'rr.created_at as reported_date'
+                        )
+                        ->orderBy('rr.created_at', 'desc')
+                        ->get()
+                        ->map(fn($r) => [
+                            $r->borrower_name,
+                            $r->item_name,
+                            $r->property_number,
+                            ucfirst(str_replace('_',' ',$r->damage_type)),
+                            (string)$r->reported_date
+                        ])->toArray();
+                }
+
+                $columns = ['Borrower Name','Item Name','Property Number','Damage Type','Reported Date'];
+                return compact('columns','rows');
+
+            /**
+             * 9) Manpower Requests
+             * Columns: Request ID | Role | Manpower Quantity | Item Requested | Operational Location | Request Date | Status
+             *
+             * Best-effort: combine borrow_requests + borrow_request_items role/assigned_manpower
+             */
+            case 'manpower_requests':
+                // find borrow_request_items that have manpower info OR borrow_requests with manpower_count > 0
+                $items = \DB::table('borrow_request_items as bri')
+                    ->join('borrow_requests as br', 'bri.borrow_request_id', '=', 'br.id')
+                    ->leftJoin('items as i', 'bri.item_id', '=', 'i.id')
+                    ->select(
+                        'br.id as request_id',
+                        'bri.manpower_role as role',
+                        \DB::raw('COALESCE(bri.assigned_manpower, br.manpower_count, 0) as manpower_qty'),
+                        'i.name as item_requested',
+                        'br.borrow_date as request_date',
+                        'br.status as status'
+                    )
+                    ->whereBetween('br.borrow_date', [$start->toDateString(), $end->toDateString()])
+                    ->orderBy('br.borrow_date', 'desc')
+                    ->get();
+
+                // Also include requests where no specific bri row exists but borrow_requests.manpower_count > 0
+                $extraRequests = \DB::table('borrow_requests as br')
+                    ->leftJoin('borrow_request_items as bri', 'br.id', '=', 'bri.borrow_request_id')
+                    ->whereNull('bri.id')
+                    ->where('br.manpower_count', '>', 0)
+                    ->whereBetween('br.borrow_date', [$start->toDateString(), $end->toDateString()])
+                    ->select(
+                        'br.id as request_id',
+                        \DB::raw("NULL as role"),
+                        \DB::raw('br.manpower_count as manpower_qty'),
+                        \DB::raw("NULL as item_requested"),
+                        'br.borrow_date as request_date',
+                        'br.status as status'
+                    )
+                    ->get();
+
+                $all = $items->concat($extraRequests);
+
+                $rows = $all->map(function($r) {
+                    return [
+                        str_pad((string)$r->request_id, 3, '0', STR_PAD_LEFT),
+                        $r->role ? $r->role : '-',
+                        (int)$r->manpower_qty,
+                        $r->item_requested ?? '-',
+                        '-', // Operational location not present in schema by default
+                        $r->request_date ? (string)$r->request_date : null,
+                        ucfirst($r->status ?? ''),
+                    ];
+                })->toArray();
+
+                $columns = ['Request ID','Role','Manpower Quantity','Item Requested','Operational Location','Request Date','Status'];
                 return compact('columns','rows');
 
             default:
                 return ['columns' => [], 'rows' => []];
         }
     }
+
 }

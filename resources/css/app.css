@@ -5,6 +5,85 @@
 /* fontawesome */
 @import "~@fortawesome/fontawesome-free/css/all.min.css";
 
+/* Step 3 collapsible body animation */
+[data-step3-body] {
+  transition: max-height 300ms ease, opacity 200ms ease;
+}
+/* Soft purple background for modal header */
+.modal-header {
+    background-color: #6B46C1; /* Soft government purple */
+}
+
+/* Text color for title */
+.modal-header h3 {
+    color: #ffffff; /* White text for visibility */
+}
+
+/* FilePond: modern placeholder & thumbnail sizing */
+.filepond--root {
+  border-radius: 10px;
+}
+
+/* Ensure preview panel doesn't overflow modal */
+.filepond--panel-root {
+  max-width: 100%;
+}
+
+/* Thumbnail container sizing */
+.filepond--item {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 12px;
+}
+
+/* Constrain image preview wrapper */
+.filepond--image-preview-wrapper {
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+/* Make sure the preview image is cropped nicely */
+.filepond--image-preview-wrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* important */
+}
+
+/* Smaller file info text */
+.filepond--file-info {
+  font-size: 12px;
+}
+
+/* Style of the idle label is already inlined in JS; adjust if needed */
+
+/* FilePond placeholder styling */
+.filepond-placeholder {
+  text-align: center;
+  padding: 10px 6px;
+  font-size: 13px;
+  color: #374151; /* neutral text */
+}
+
+.filepond-placeholder-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.filepond-placeholder-sub {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* Constrain preview thumbnail (FilePond internal classes) */
+.filepond--item-panel {
+  max-width: 160px;       /* thumbnail container width */
+  max-height: 140px;      /* thumbnail container height */
+}
+
+.filepond--file-wrapper .filepond--file {
+  width: 160px;           /* control thumbnail width */
+  height: 140px;          /* control thumbnail height */
+}
 
 
 /* -----------------------------------------------------------------------

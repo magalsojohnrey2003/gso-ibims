@@ -61,7 +61,7 @@ function collectBase(form) {
   };
 
   const year = normalizeSegment(fields.year?.value ?? '', 4);
-  const office = normalizeSegment(fields.office?.value ?? '', 4);
+const office = (fields.office?.value ?? '').trim();
 
   let ppeValue = fields.ppe?.value ?? '';
   if (!ppeValue && fields.category) {
@@ -325,10 +325,10 @@ function attachOfficeValidation(form) {
   const validate = () => {
     const value = (input.value || '').trim();
     const isEmpty = value === '';
-    // allow 1 to 4 digits
-    const isValid = /^\d{1,4}$/.test(value);
 
-    // If empty, clear any custom validity and hide the hint
+    // allow 1 to 4 alphanumeric characters
+    const isValid = /^[A-Za-z0-9]{1,4}$/.test(value);
+
     if (isEmpty) {
       input.setCustomValidity('');
       errorEl.classList.add('hidden');
@@ -336,9 +336,8 @@ function attachOfficeValidation(form) {
     }
 
     if (!isValid) {
-      input.setCustomValidity('Office Code must be 1 to 4 digits.');
-      // keep the visible inline hint in sync (Blade hint)
-      errorEl.textContent = 'Office code must be 1–4 digits.';
+      input.setCustomValidity('Office Code must be 1 to 4 alphanumeric characters.');
+      errorEl.textContent = 'Office code must be 1–4 alphanumeric characters.';
       errorEl.classList.remove('hidden');
     } else {
       input.setCustomValidity('');
@@ -356,7 +355,6 @@ function attachOfficeValidation(form) {
   // initialize
   validate();
 }
-
 
 function initAddItemsForm(form) {
   const elements = {

@@ -1,11 +1,11 @@
 // resources/js/borrowList.js
-let selectedBorrowDates = [];
+let selectedBorrowDates = []; // still used as computed highlighted date list
 let borrowMonth = new Date().getMonth();
 let borrowYear = new Date().getFullYear();
 let blockedBorrowDates = [];
 const MAX_BORROW_DAYS = 3; // inclusive max days
 
-/* ---------- Helpers ---------- */
+/* ---------- Helpers (unchanged) ---------- */
 function parseYMD(dateStr) {
     const parts = (dateStr || '').split('-').map(Number);
     if (parts.length !== 3) return null;
@@ -54,25 +54,27 @@ function getFirstItemIdFromList() {
     return parts.length ? parts[parts.length - 1] : null;
 }
 
-/* ---------- Calendar & selection logic (updated) ---------- */
+/* ---------- New selection state ---------- */
+// `borrowPick` is the first selected date (string yyyy-mm-dd) or '' if none.
+// `returnPick` is the second selected date or '' if none.
+let borrowPick = '';
+let returnPick = '';
 
+/* Clear selection (both borrow and return) */
 window.clearBorrowSelection = function() {
-    // Only clear currently-selected days (do not repaint all available cells)
-    if (!selectedBorrowDates.length) return;
+    borrowPick = '';
+    returnPick = '';
+    selectedBorrowDates = [];
 
     const days = document.querySelectorAll("#borrowAvailabilityCalendar div[data-date]");
     days.forEach(day => {
-        const dStr = day.dataset.date;
-        if (selectedBorrowDates.includes(dStr)) {
-            day.classList.remove("bg-blue-500", "text-white", "ring-2", "ring-purple-400", "text-purple-700");
-            // revert to available style if it's not blocked/past
-            if (!day.classList.contains("bg-red-500") && !day.classList.contains("bg-gray-300")) {
-                day.classList.add("bg-green-200");
-            }
+        day.classList.remove("bg-blue-500", "text-white", "ring-2", "ring-purple-400", "text-purple-700");
+        // revert to available style if it's not blocked/past
+        if (!day.classList.contains("bg-red-500") && !day.classList.contains("bg-gray-300")) {
+            day.classList.add("bg-green-200");
         }
     });
 
-    selectedBorrowDates = [];
     const borrowHidden = document.getElementById('borrow_date');
     const returnHidden = document.getElementById('return_date');
     const borrowDisplay = document.getElementById('borrow_date_display');
@@ -147,110 +149,130 @@ function renderBorrowCalendar(month, year) {
             classes += " ring-2 ring-purple-400";
         }
 
-        html += `<div data-date="${dateStr}" onclick="selectBorrowDate('${dateStr}', this)" class="${classes}">${d}</div>`;
+        html += `<div data-date="${dateStr}" onclick="handleCalendarClick('${dateStr}', this)" class="${classes}">${d}</div>`;
     }
 
     html += "</div>";
     const container = document.getElementById("borrowAvailabilityCalendar");
     if (container) container.innerHTML = html;
 
-    // If hidden inputs already have values (e.g. old validation), highlight range but DO NOT jump month when rendering after navigation
+    // If hidden inputs already have values (e.g. old validation), highlight saved range but DO NOT jump month when rendering after navigation
     const borrowHidden = document.querySelector("input[name=borrow_date]");
     const returnHidden = document.querySelector("input[name=return_date]");
     if (borrowHidden && returnHidden && borrowHidden.value && returnHidden.value) {
-        highlightBorrowRange(borrowHidden.value, returnHidden.value, { jumpToMonth: false });
+        borrowPick = borrowHidden.value;
+        returnPick = returnHidden.value;
+        highlightBorrowRange(borrowPick, returnPick, { jumpToMonth: false });
     } else {
-        if (selectedBorrowDates.length) {
-            highlightBorrowRange(selectedBorrowDates[0], selectedBorrowDates[selectedBorrowDates.length - 1], { jumpToMonth: false });
+        // If we had an in-memory selection (user clicked), highlight it as well
+        if (borrowPick && returnPick) {
+            highlightBorrowRange(borrowPick, returnPick, { jumpToMonth: false });
+        } else if (borrowPick) {
+            // If only borrow set, highlight just that day
+            highlightBorrowRange(borrowPick, borrowPick, { jumpToMonth: false });
         }
     }
 }
 
-window.selectBorrowDate = function(dateStr, el) {
+/**
+ * Called when user clicks a day cell. Implements two-step selection:
+ *  - first click sets borrowPick
+ *  - second click sets returnPick (must be >= borrowPick and <= MAX_BORROW_DAYS and not include blocked days)
+ * Clicking again when both picks exist resets to a new borrowPick.
+ */
+window.handleCalendarClick = function(dateStr, el) {
     if (!el) return;
 
     // ignore if blocked or past
     if (el.classList.contains("bg-red-500") || el.classList.contains("bg-gray-300")) return;
 
+    // If neither selected yet -> set borrowPick
+    if (!borrowPick) {
+        borrowPick = dateStr;
+        returnPick = '';
+        // update displays
+        const borrowHidden = document.getElementById('borrow_date');
+        const returnHidden = document.getElementById('return_date');
+        const borrowDisplay = document.getElementById('borrow_date_display');
+        const returnDisplay = document.getElementById('return_date_display');
+        if (borrowHidden) borrowHidden.value = borrowPick;
+        if (returnHidden) returnHidden.value = '';
+        if (borrowDisplay) borrowDisplay.value = formatLong(borrowPick);
+        if (returnDisplay) returnDisplay.value = '';
+        // highlight single day
+        highlightBorrowRange(borrowPick, borrowPick);
+        return;
+    }
+
+    // If borrow set and return not yet -> attempt to set returnPick
+    if (borrowPick && !returnPick) {
+        const clicked = parseYMD(dateStr);
+        const start = parseYMD(borrowPick);
+        // If clicked is before borrowPick, treat as new borrowPick (start over)
+        if (clicked < start) {
+            borrowPick = dateStr;
+            returnPick = '';
+            const borrowHidden = document.getElementById('borrow_date');
+            const returnHidden = document.getElementById('return_date');
+            const borrowDisplay = document.getElementById('borrow_date_display');
+            const returnDisplay = document.getElementById('return_date_display');
+            if (borrowHidden) borrowHidden.value = borrowPick;
+            if (returnHidden) returnHidden.value = '';
+            if (borrowDisplay) borrowDisplay.value = formatLong(borrowPick);
+            if (returnDisplay) returnDisplay.value = '';
+            highlightBorrowRange(borrowPick, borrowPick);
+            return;
+        }
+
+        // Validate inclusive days count
+        const daysCount = daysDiffInclusive(borrowPick, dateStr);
+        if (daysCount > MAX_BORROW_DAYS) {
+            alert(`Return date must be within ${MAX_BORROW_DAYS} days from borrow date (inclusive).`);
+            return;
+        }
+
+        // Validate no blocked days inside the range
+        const between = datesBetweenYmd(borrowPick, dateStr);
+        for (let d of between) {
+            const today = new Date(); today.setHours(0,0,0,0);
+            if (parseYMD(d) < today) {
+                alert('Selected range includes a past date. Please choose valid dates.');
+                return;
+            }
+            if (blockedBorrowDates.includes(d)) {
+                alert('Selected range includes blocked dates. Please choose another range.');
+                return;
+            }
+        }
+
+        // All good -> set returnPick and finalize highlight
+        returnPick = dateStr;
+        const borrowHidden = document.getElementById('borrow_date');
+        const returnHidden = document.getElementById('return_date');
+        const borrowDisplay = document.getElementById('borrow_date_display');
+        const returnDisplay = document.getElementById('return_date_display');
+        if (borrowHidden) borrowHidden.value = borrowPick;
+        if (returnHidden) returnHidden.value = returnPick;
+        if (borrowDisplay) borrowDisplay.value = formatLong(borrowPick);
+        if (returnDisplay) returnDisplay.value = formatLong(returnPick);
+
+        highlightBorrowRange(borrowPick, returnPick);
+        return;
+    }
+
+    // If both already selected -> treat this click as "start a new selection"
+    borrowPick = dateStr;
+    returnPick = '';
     const borrowHidden = document.getElementById('borrow_date');
     const returnHidden = document.getElementById('return_date');
     const borrowDisplay = document.getElementById('borrow_date_display');
     const returnDisplay = document.getElementById('return_date_display');
-
-    const clickedDt = parseYMD(dateStr);
-
-    // If click inside existing selection -> clear selection
-    if (selectedBorrowDates.length) {
-        const existingStart = selectedBorrowDates[0];
-        const existingEnd = selectedBorrowDates[selectedBorrowDates.length - 1];
-        if (parseYMD(existingStart) <= clickedDt && clickedDt <= parseYMD(existingEnd)) {
-            clearBorrowSelection();
-            return;
-        }
-    }
-
-    // Build forward range from clicked date up to MAX_BORROW_DAYS OR until blocked/past day
-    const newSel = [];
-    for (let i = 0; i < MAX_BORROW_DAYS; i++) {
-        const d = addDaysYmd(dateStr, i);
-        if (!d) break;
-        const dObj = parseYMD(d);
-        const today = new Date(); today.setHours(0,0,0,0);
-        if (dObj < today) break;
-        if (blockedBorrowDates.includes(d)) break;
-        newSel.push(d);
-    }
-
-    if (!newSel.length) return;
-
-    selectedBorrowDates = newSel;
-
-    // Update hidden inputs + displays
-    const start = selectedBorrowDates[0];
-    const end = selectedBorrowDates[selectedBorrowDates.length - 1];
-    if (borrowHidden) borrowHidden.value = start;
-    if (returnHidden) returnHidden.value = end;
-    if (borrowDisplay) borrowDisplay.value = formatLong(start);
-    if (returnDisplay) returnDisplay.value = formatLong(end);
-
-    // If the selection end falls in a different month/year, switch the visible calendar to that month
-    const endDateObj = parseYMD(end);
-    if (endDateObj.getMonth() !== borrowMonth || endDateObj.getFullYear() !== borrowYear) {
-        borrowMonth = endDateObj.getMonth();
-        borrowYear = endDateObj.getFullYear();
-        const itemId = getFirstItemIdFromList();
-        if (itemId) {
-            // load availability for the new month then render — this will call highlightBorrowRange afterwards
-            loadBorrowCalendar(itemId, borrowMonth, borrowYear);
-        } else {
-            // render plain calendar for the month that contains the end date
-            renderBorrowCalendar(borrowMonth, borrowYear);
-        }
-        // return early because renderBorrowCalendar() will highlight range after rendering
-        return;
-    }
-
-    // otherwise highlight in the currently-rendered month DOM
-    const days = document.querySelectorAll("#borrowAvailabilityCalendar div[data-date]");
-    days.forEach(day => {
-        const dStr = day.dataset.date;
-        if (!dStr) return;
-        if (selectedBorrowDates.includes(dStr)) {
-            day.classList.remove("bg-green-200", "ring-2", "ring-purple-400");
-            day.classList.add("bg-blue-500", "text-white");
-        } else if (!day.classList.contains("bg-red-500") && !day.classList.contains("bg-gray-300")) {
-            day.classList.remove("bg-blue-500", "text-white");
-            const todayYmd = ymdFromDate(new Date());
-            if (dStr === todayYmd) {
-                day.classList.add("bg-green-200", "ring-2", "ring-purple-400");
-            } else {
-                day.classList.add("bg-green-200");
-                day.classList.remove("ring-2", "ring-purple-400");
-            }
-        }
-    });
+    if (borrowHidden) borrowHidden.value = borrowPick;
+    if (returnHidden) returnHidden.value = '';
+    if (borrowDisplay) borrowDisplay.value = formatLong(borrowPick);
+    if (returnDisplay) returnDisplay.value = '';
+    highlightBorrowRange(borrowPick, borrowPick);
 };
-
 
 /**
  * Highlight a range of days.
@@ -258,11 +280,19 @@ window.selectBorrowDate = function(dateStr, el) {
  * When jumpToMonth === false the calendar won't change visible month.
  */
 function highlightBorrowRange(start, end, options = { jumpToMonth: true }) {
-    if (!start || !end) return;
-    selectedBorrowDates = datesBetweenYmd(start, end);
+    if (!start || !end) {
+        // If only start provided, compute single-day highlight
+        if (start && !end) {
+            selectedBorrowDates = [start];
+        } else {
+            selectedBorrowDates = [];
+        }
+    } else {
+        selectedBorrowDates = datesBetweenYmd(start, end);
+    }
 
-    const endDate = parseYMD(end);
-    if (options && options.jumpToMonth && (endDate.getMonth() !== borrowMonth || endDate.getFullYear() !== borrowYear)) {
+    const endDate = parseYMD(end || start);
+    if (options && options.jumpToMonth && endDate && (endDate.getMonth() !== borrowMonth || endDate.getFullYear() !== borrowYear)) {
         borrowMonth = endDate.getMonth();
         borrowYear = endDate.getFullYear();
         const itemId = getFirstItemIdFromList();
@@ -295,20 +325,22 @@ function highlightBorrowRange(start, end, options = { jumpToMonth: true }) {
         }
     });
 
-    // update hidden and display inputs
+    // update hidden and display inputs (if both present)
     const borrowHidden = document.getElementById('borrow_date');
     const returnHidden = document.getElementById('return_date');
     const borrowDisplay = document.getElementById('borrow_date_display');
     const returnDisplay = document.getElementById('return_date_display');
 
-    if (selectedBorrowDates.length > 0) {
-        const startStr = selectedBorrowDates[0];
-        const endDateStr = selectedBorrowDates[selectedBorrowDates.length - 1];
-        if (borrowHidden) borrowHidden.value = startStr;
-        if (returnHidden) returnHidden.value = endDateStr;
-        if (borrowDisplay) borrowDisplay.value = formatLong(startStr);
-        if (returnDisplay) returnDisplay.value = formatLong(endDateStr);
+    if (borrowPick) {
+        if (borrowHidden) borrowHidden.value = borrowPick;
+        if (borrowDisplay) borrowDisplay.value = formatLong(borrowPick);
     }
+    if (returnPick) {
+        if (returnHidden) returnHidden.value = returnPick;
+        if (returnDisplay) returnDisplay.value = formatLong(returnPick);
+    }
+
+    // If only borrowPick exists, ensure the single day is highlighted (already handled above)
 }
 
 /* ---------- Init ---------- */
@@ -316,12 +348,20 @@ document.addEventListener("DOMContentLoaded", function() {
     const borrowHidden = document.querySelector("input[name=borrow_date]");
     const returnHidden = document.querySelector("input[name=return_date]");
     if (borrowHidden && returnHidden && borrowHidden.value && returnHidden.value) {
+        borrowPick = borrowHidden.value;
+        returnPick = returnHidden.value;
         const borrowDisplay = document.getElementById('borrow_date_display');
         const returnDisplay = document.getElementById('return_date_display');
         if (borrowDisplay) borrowDisplay.value = formatLong(borrowHidden.value);
         if (returnDisplay) returnDisplay.value = formatLong(returnHidden.value);
         const endDate = parseYMD(returnHidden.value);
         if (endDate) { borrowMonth = endDate.getMonth(); borrowYear = endDate.getFullYear(); }
+    } else if (borrowHidden && borrowHidden.value) {
+        borrowPick = borrowHidden.value;
+        const borrowDisplay = document.getElementById('borrow_date_display');
+        if (borrowDisplay) borrowDisplay.value = formatLong(borrowHidden.value);
+        const bDate = parseYMD(borrowHidden.value);
+        if (bDate) { borrowMonth = bDate.getMonth(); borrowYear = bDate.getFullYear(); }
     }
 
     // Live search (client-side filtering)

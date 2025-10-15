@@ -12,10 +12,12 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Validation\ValidationException;
 
 class ItemController extends Controller
 {
-    protected string $defaultPhoto = 'defaults/item.png';
+    protected string $defaultPhoto = 'images/item.png';
 
     protected array $categoryPpeMap = [
         'electronics' => '08',
@@ -41,11 +43,52 @@ class ItemController extends Controller
 
     protected function getCategories(): array
     {
-        $fromItems = Item::query()->distinct('category')->pluck('category')->filter()->values()->toArray();
-        $known = array_keys($this->categoryPpeMap);
-        return array_values(array_unique(array_merge($known, $fromItems)));
-    }
+        $fromItems = Item::query()
+            ->distinct('category')
+            ->pluck('category')
+            ->filter()
+            ->values()
+            ->toArray();
 
+        $known = array_keys($this->categoryPpeMap);
+
+        $merged = array_merge($known, $fromItems);
+
+        $seen = [];
+        $result = [];
+
+        foreach ($merged as $cat) {
+            if ($cat === null) {
+                continue;
+            }
+
+            $normalized = strtolower((string) $cat);
+
+            if (isset($seen[$normalized])) {
+                continue;
+            }
+
+            $seen[$normalized] = true;
+
+            // prefer item casing if present
+            $preferred = null;
+            foreach ($fromItems as $fi) {
+                if (strtolower((string) $fi) === $normalized) {
+                    $preferred = $fi;
+                    break;
+                }
+            }
+
+            if ($preferred !== null) {
+                $result[] = $preferred;
+            } else {
+                // fall back to a readable version of the known key
+                $result[] = ucfirst($normalized);
+            }
+        }
+
+        return array_values($result);
+    }
 
     protected function resolvePpeCode(string $category, ?string $fallback = null): string
     {
@@ -72,7 +115,16 @@ class ItemController extends Controller
         $items = $query->orderBy('created_at', 'desc')->get();
         $categories = $this->getCategories();
         $categoryPpeMap = $this->categoryPpeMap;
-
+        $file = storage_path('app/ppe_codes.json');
+        if (file_exists($file)) {
+            $json = json_decode(file_get_contents($file), true);
+            if (is_array($json)) {
+                // keys might be mixed-case — normalize keys to lowercase to match old behavior if you rely on that
+                foreach ($json as $k => $v) {
+                    $categoryPpeMap[$k] = $v;
+                }
+            }
+        }
         return view('admin.items.index', compact('items', 'categories', 'categoryPpeMap'));
     }
 
@@ -102,11 +154,216 @@ class ItemController extends Controller
         return response()->json($instances);
     }
 
+    /**
+     * Save PPE codes to a JSON file (storage/app/ppe_codes.json).
+     * Expects request payload: { "<category>": "<ppe>", ... }
+     */
+    public function savePpeCodes(Request $request)
+    {
+        // Require admin
+        $this->authorize('admin'); // adjust this if you don't have 'admin' gate; optional
+
+        $data = $request->json()->all() ?: $request->all();
+
+        if (!is_array($data)) {
+            return response()->json(['message' => 'Invalid payload'], 422);
+        }
+
+        // Validate each value is exactly 2 digits
+        foreach ($data as $category => $ppe) {
+            $category = (string) $category;
+            $ppe = (string) $ppe;
+
+            if ($category === '') {
+                return response()->json(['message' => 'Category name cannot be empty.'], 422);
+            }
+
+            if (!preg_match('/^\d{2}$/', $ppe)) {
+                return response()->json(['message' => "PPE code for '{$category}' must be exactly 2 digits."], 422);
+            }
+        }
+
+        $filePath = storage_path('app/ppe_codes.json');
+
+        // Try to write atomically
+        try {
+            $tmp = $filePath . '.tmp';
+            file_put_contents($tmp, json_encode($data, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES));
+            // rename is atomic on same filesystem
+            rename($tmp, $filePath);
+            return response()->json(['message' => 'PPE codes saved.']);
+        } catch (\Throwable $e) {
+            // log then return error
+            \Log::error('Failed to save PPE codes: '.$e->getMessage());
+            return response()->json(['message' => 'Failed to save PPE codes.'], 500);
+        }
+    }
+
+    public function validatePropertyNumbers(Request $request, PropertyNumberService $numbers): JsonResponse
+    {
+        $data = $request->json()->all() ?: $request->all();
+
+        $pns = $data['property_numbers'] ?? $data['pns'] ?? null;
+        if (!is_array($pns)) {
+            return response()->json(['message' => 'Invalid payload, property_numbers array expected.'], 422);
+        }
+
+        $results = [];
+        foreach ($pns as $pn) {
+            $pn = (string) $pn;
+            try {
+                // Try parse (to validate structure). If parse fails, mark invalid.
+                $parsed = $numbers->parse($pn);
+                $exists = ItemInstance::where('property_number', $parsed['property_number'])->exists();
+                $results[] = [
+                    'property_number' => $parsed['property_number'],
+                    'valid' => true,
+                    'exists' => (bool) $exists,
+                ];
+            } catch (\InvalidArgumentException $e) {
+                // Try a more lenient assemble attempt if the input looks like components (skip)
+                $results[] = [
+                    'property_number' => $pn,
+                    'valid' => false,
+                    'reason' => $e->getMessage(),
+                    'exists' => false,
+                ];
+            } catch (\Throwable $e) {
+                $results[] = [
+                    'property_number' => $pn,
+                    'valid' => false,
+                    'reason' => 'Unexpected error',
+                    'exists' => false,
+                ];
+            }
+        }
+
+        return response()->json(['valid' => true, 'results' => $results]);
+    }
+
+    /**
+     * Manual store: expects item fields (name, category, optional description, photo)
+     * and property_numbers[] as an array of full property number strings.
+     */
+    public function manualStore(Request $request, PropertyNumberService $numbers)
+    {
+        
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'category' => 'required|string',
+            'description' => 'nullable|string|max:1000',
+            'photo' => 'nullable|image|max:2048',
+            'property_numbers' => 'required|array|min:1|max:500',
+            'property_numbers.*' => 'required|string',
+        ]);
+
+        $pns = array_values(array_filter($validated['property_numbers'], fn($v) => is_string($v) && trim($v) !== ''));
+
+        if (empty($pns)) {
+            return response()->json(['message' => 'No property numbers provided.'], 422);
+        }
+
+        // store photo
+        $photoPath = null;
+        if ($request->hasFile('photo')) {
+            $photoPath = $request->file('photo')->store('items', 'public');
+        } else {
+            $photoPath = $this->defaultPhoto;
+        }
+
+        DB::beginTransaction();
+        try {
+            $item = Item::create([
+                'name' => $validated['name'],
+                'category' => $validated['category'],
+                'total_qty' => 0,
+                'available_qty' => 0,
+                'photo' => $photoPath,
+            ]);
+
+            $created = [];
+            $skipped = [];
+
+            foreach ($pns as $pnRaw) {
+                $pnRaw = (string) $pnRaw;
+                try {
+                    $parsed = $numbers->parse($pnRaw);
+                    $propertyNumber = $parsed['property_number'];
+                } catch (\InvalidArgumentException $e) {
+                    // skip invalid format
+                    $skipped[] = $pnRaw;
+                    continue;
+                }
+
+                // check duplicates
+                if (ItemInstance::where('property_number', $propertyNumber)->exists()) {
+                    $skipped[] = $propertyNumber;
+                    continue;
+                }
+
+                try {
+                    $instance = ItemInstance::create([
+                        'item_id' => $item->id,
+                        'property_number' => $propertyNumber,
+                        'status' => 'available',
+                        'notes' => $validated['description'] ?? null,
+                        'year_procured' => (int) $parsed['year'] ?? null,
+                        'ppe_code' => $parsed['ppe'] ?? null,
+                        'serial' => $parsed['serial'] ?? null,
+                        'serial_int' => $parsed['serial_int'] ?? null,
+                        'office_code' => $parsed['office'] ?? null,
+                    ]);
+
+                    $created[] = $propertyNumber;
+
+                    // log event
+                    $this->instanceLogger->log(
+                        $instance,
+                        'created',
+                        [
+                            'property_number' => $propertyNumber,
+                            'context' => ['source' => 'admin_manual_store'],
+                        ],
+                        $request->user()
+                    );
+                } catch (QueryException $qe) {
+                    if ($this->isDuplicateKeyException($qe)) {
+                        $skipped[] = $propertyNumber;
+                        continue;
+                    }
+                    throw $qe;
+                }
+            }
+
+            $this->syncItemQuantities($item);
+
+            DB::commit();
+
+            $statusCode = empty($skipped) ? 201 : 207;
+            return response()->json([
+                'message' => (count($created) ? 'Created ' . count($created) . ' items.' : 'No items created.'),
+                'created' => $created,
+                'skipped' => $skipped,
+                'created_count' => count($created),
+                'skipped_count' => count($skipped),
+                'item_id' => $item->id,
+            ], $statusCode);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            if ($request->hasFile('photo') && $photoPath) {
+                Storage::disk('public')->delete($photoPath);
+            }
+            if ($request->wantsJson()) {
+                return response()->json(['message' => 'Failed to create manual items: ' . $e->getMessage()], 500);
+            }
+            return redirect()->route('items.index')->with('error', 'Failed to create items: ' . $e->getMessage());
+        }
+    }
     public function checkSerial(Request $request, PropertyNumberService $numbers)
     {
         $data = $request->validate([
             'year_procured' => 'required|digits:4',
-            'office_code' => 'required|digits_between:1,4',
+            'office_code' => 'required|alpha_num|min:1|max:4',
             'start_serial' => 'required|digits_between:1,8',
             'quantity' => 'required|integer|min:1|max:500',
             'category' => 'nullable|string',
@@ -170,7 +427,7 @@ class ItemController extends Controller
             'category' => 'required|string',
             'quantity' => 'required|integer|min:1|max:500',
             'year_procured' => 'required|digits:4|integer|min:2020|max:' . date('Y'),
-            'office_code' => 'required|digits_between:1,4',
+            'office_code' => 'required|alpha_num|min:1|max:4',
             'start_serial' => 'required|digits_between:1,8',
             'description' => 'nullable|string|max:1000',
             'photo' => 'nullable|image|max:2048',
@@ -259,7 +516,7 @@ class ItemController extends Controller
             'name' => 'required|string|max:255',
             'category' => 'required|string',
             'year_procured' => 'required|digits:4|integer|min:2020|max:' . date('Y'),
-            'office_code' => 'required|digits_between:1,4',
+            'office_code' => 'required|alpha_num|min:1|max:4',
             'serial' => 'required|digits_between:1,8',
             'description' => 'nullable|string|max:1000',
             'photo' => 'nullable|image|max:2048',
@@ -345,11 +602,19 @@ class ItemController extends Controller
 
             DB::commit();
 
-                        if ($request->wantsJson()) {
+           if ($request->wantsJson()) {
                 return response()->json([
                     'message' => 'Item updated.',
                     'item_id' => $item->id,
                     'property_number' => $instance?->property_number ?? null,
+                    'office_code' => $instance?->office_code ?? null,
+                    'name' => $item->name,
+                    'year_procured' => $instance?->year_procured ?? null,
+                    'serial' => $instance?->serial ?? null,
+                    'ppe_code' => $instance?->ppe_code ?? null,
+                    'item_instance_id' => $instance?->id ?? null,
+                    // provide full URL for photo if stored in public disk, null otherwise
+                    'photo' => $item->photo ? asset('storage/' . ltrim($item->photo, '/')) : null,
                 ]);
             }
 

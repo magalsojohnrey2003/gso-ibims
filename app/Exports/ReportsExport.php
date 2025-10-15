@@ -6,7 +6,6 @@ use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Events\AfterSheet;
-
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
@@ -20,11 +19,6 @@ class ReportsExport implements FromArray, ShouldAutoSize, WithEvents
     protected array $meta;
     protected array $exportArray = [];
 
-    /**
-     * @param array $columns Indexed array of header names (e.g. ['ID','Name', ...])
-     * @param array $rows    Array of indexed arrays - data rows (matching columns order)
-     * @param array $meta    ['title'=>..., 'start'=>..., 'end'=>..., 'generated_at'=>...]
-     */
     public function __construct(array $columns = [], array $rows = [], array $meta = [])
     {
         $this->columns = array_values($columns);
@@ -32,72 +26,32 @@ class ReportsExport implements FromArray, ShouldAutoSize, WithEvents
         $this->meta = $meta;
     }
 
-    /**
-     * Build the entire sheet as an array (called by Laravel-Excel).
-     * The returned array is the raw row-by-row content placed into the sheet.
-     */
     public function array(): array
     {
         $out = [];
 
-        // Title
-        if (!empty($this->meta['title'])) {
-            $out[] = [$this->meta['title']];
-        }
-
-        // Period
+        // Meta section
+        if (!empty($this->meta['title'])) $out[] = [$this->meta['title']];
         if (!empty($this->meta['start']) || !empty($this->meta['end'])) {
-            $period = trim(($this->meta['start'] ?? '') . ' to ' . ($this->meta['end'] ?? ''));
-            $out[] = ['Period', $period];
+            $out[] = ['Period', trim(($this->meta['start'] ?? '') . ' to ' . ($this->meta['end'] ?? ''))];
+        }
+        if (!empty($this->meta['generated_at'])) $out[] = ['Generated', $this->meta['generated_at']];
+        if (!empty($this->meta['title']) || !empty($this->meta['start']) || !empty($this->meta['generated_at'])) {
+            $out[] = []; // spacer only if meta exists
         }
 
-        // Generated timestamp
-        if (!empty($this->meta['generated_at'])) {
-            $out[] = ['Generated', $this->meta['generated_at']];
-        }
-
-        // Blank spacer row
-        $out[] = [];
-
-        // Header row (explicit)
-        if (!empty($this->columns)) {
-            $out[] = $this->columns;
-        } else {
-            // If no columns provided, create headers from the first row's keys (best effort)
-            if (!empty($this->rows) && is_array($this->rows[0])) {
-                $out[] = array_keys($this->rows[0]);
-            } else {
-                $out[] = ['No data'];
-            }
-        }
+        // Header row
+        $out[] = $this->columns ?: (isset($this->rows[0]) ? array_keys($this->rows[0]) : ['No Data']);
 
         // Data rows
         foreach ($this->rows as $row) {
-            if (is_array($row)) {
-                $clean = array_map(function ($cell) {
-                    if (is_null($cell)) return '';
-                    if (is_bool($cell)) return $cell ? '1' : '0';
-                    if (is_object($cell)) {
-                        if (method_exists($cell, '__toString')) return (string)$cell;
-                        return json_encode($cell);
-                    }
-                    return is_scalar($cell) ? $cell : json_encode($cell);
-                }, $row);
-                $out[] = $clean;
-            } else {
-                $out[] = [is_scalar($row) ? $row : json_encode($row)];
-            }
+            $out[] = array_map(fn($v) => is_scalar($v) ? $v : json_encode($v), (array) $row);
         }
 
-        // Save for AfterSheet usage
         $this->exportArray = $out;
-
         return $out;
     }
 
-    /**
-     * Register events for styling & layout after sheet is populated.
-     */
     public function registerEvents(): array
     {
         return [
@@ -105,54 +59,43 @@ class ReportsExport implements FromArray, ShouldAutoSize, WithEvents
                 /** @var Worksheet $sheet */
                 $sheet = $event->sheet->getDelegate();
 
-                $export = $this->exportArray;
-                $totalRows = count($export);
+                $totalRows = count($this->exportArray);
                 $colsCount = max(1, count($this->columns));
-                $lastColLetter = Coordinate::stringFromColumnIndex($colsCount);
+                $lastCol = Coordinate::stringFromColumnIndex($colsCount);
 
-                // Determine header row index dynamically:
-                // header is the row that matches $this->columns, otherwise fallback to (meta rows + 1)
-                $headerRowIndex = null;
-                foreach ($export as $i => $row) {
-                    if (is_array($row) && $row === $this->columns) {
-                        $headerRowIndex = $i + 1; // 1-based
-                        break;
-                    }
-                }
+                // Calculate meta rows
+                $metaRows = 0;
+                if (!empty($this->meta['title'])) $metaRows++;
+                if (!empty($this->meta['start']) || !empty($this->meta['end'])) $metaRows++;
+                if (!empty($this->meta['generated_at'])) $metaRows++;
+                if ($metaRows > 0) $metaRows++; // spacer
 
-                // Fallback: count meta rows (title, period, generated) + spacer
-                if (is_null($headerRowIndex)) {
-                    $metaCount = 0;
-                    if (!empty($this->meta['title'])) $metaCount++;
-                    if (!empty($this->meta['start']) || !empty($this->meta['end'])) $metaCount++;
-                    if (!empty($this->meta['generated_at'])) $metaCount++;
-                    // spacer row
-                    $metaCount++;
-                    $headerRowIndex = $metaCount + 1;
-                }
+                $headerRow = $metaRows + 1;
+                $dataStart = $headerRow + 1;
 
-                // Title formatting (row 1) if present
+                /** ---------------- STYLING ---------------- **/
+
+                // Title
                 if (!empty($this->meta['title'])) {
-                    $sheet->getStyle("A1")->applyFromArray([
-                        'font' => ['bold' => true, 'size' => 14],
+                    $sheet->mergeCells("A1:{$lastCol}1");
+                    $sheet->getStyle('A1')->applyFromArray([
+                        'font' => ['bold' => true, 'size' => 14, 'color' => ['rgb' => '4A148C']],
+                        'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
                     ]);
                 }
 
-                // Period / Generated (rows 2-4) make slightly dimmer
-                $metaRowsEnd = $headerRowIndex - 1;
-                if ($metaRowsEnd >= 2) {
-                    $sheet->getStyle("A2:{$lastColLetter}{$metaRowsEnd}")->applyFromArray([
-                        'font' => ['italic' => true, 'size' => 10],
-                    ]);
+                // Meta info styling (Period, Generated)
+                if ($metaRows > 1) {
+                    $sheet->getStyle("A2:{$lastCol}{$metaRows}")
+                        ->getFont()->setItalic(true)->setSize(10);
                 }
 
-                // Header row style: bold + white text on readable dark-blue
-                $headerRange = "A{$headerRowIndex}:{$lastColLetter}{$headerRowIndex}";
-                $sheet->getStyle($headerRange)->applyFromArray([
+                // Header styling
+                $sheet->getStyle("A{$headerRow}:{$lastCol}{$headerRow}")->applyFromArray([
                     'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
                     'fill' => [
                         'fillType' => Fill::FILL_SOLID,
-                        'startColor' => ['rgb' => '1F4E79'],
+                        'startColor' => ['rgb' => '6A1B9A'],
                     ],
                     'alignment' => [
                         'horizontal' => Alignment::HORIZONTAL_CENTER,
@@ -160,21 +103,8 @@ class ReportsExport implements FromArray, ShouldAutoSize, WithEvents
                     ],
                 ]);
 
-                // Auto-size columns
-                // Note: getHighestColumn() returns a letter; we only autosize based on columns count we provided
-                for ($col = 1; $col <= $colsCount; $col++) {
-                    $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($col))->setAutoSize(true);
-                }
-
-                // Build full table range from header to lastRow
-                $dataStartRow = $headerRowIndex + 1;
-                $dataEndRow = $totalRows;
-                if ($dataEndRow < $dataStartRow) $dataEndRow = $dataStartRow;
-
-                $fullRange = "A{$headerRowIndex}:{$lastColLetter}{$dataEndRow}";
-
-                // Thin borders for table
-                $sheet->getStyle($fullRange)->applyFromArray([
+                // Borders for full table
+                $sheet->getStyle("A{$headerRow}:{$lastCol}{$totalRows}")->applyFromArray([
                     'borders' => [
                         'allBorders' => [
                             'borderStyle' => Border::BORDER_THIN,
@@ -183,25 +113,35 @@ class ReportsExport implements FromArray, ShouldAutoSize, WithEvents
                     ],
                 ]);
 
-                // Alternating row fill for readability (applies to data rows only)
-                for ($r = $dataStartRow; $r <= $dataEndRow; $r++) {
-                    if (($r - $dataStartRow) % 2 === 0) {
-                        $sheet->getStyle("A{$r}:{$lastColLetter}{$r}")->getFill()->setFillType(Fill::FILL_SOLID)
-                              ->getStartColor()->setRGB('F7FAFC'); // light
+                // Alternate row colors
+                for ($r = $dataStart; $r <= $totalRows; $r++) {
+                    if (($r - $dataStart) % 2 === 0) {
+                        $sheet->getStyle("A{$r}:{$lastCol}{$r}")
+                            ->getFill()->setFillType(Fill::FILL_SOLID)
+                            ->getStartColor()->setRGB('F7FAFC');
                     }
-                    // ensure vertical center alignment
-                    $sheet->getStyle("A{$r}:{$lastColLetter}{$r}")
-                          ->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
                 }
 
-                // Freeze header row and enable autofilter from header to end
-                $sheet->freezePane("A" . ($headerRowIndex + 1));
-                $sheet->setAutoFilter("A{$headerRowIndex}:{$lastColLetter}{$dataEndRow}");
+                // Global alignment and wrapping (applied once, not in loop)
+                $sheet->getStyle("A1:{$lastCol}{$totalRows}")
+                    ->getAlignment()
+                    ->setVertical(Alignment::VERTICAL_CENTER)
+                    ->setWrapText(true);
 
-                // Set a minimum row height for spacing
-                for ($i = 1; $i <= $dataEndRow; $i++) {
-                    $sheet->getRowDimension($i)->setRowHeight(20);
+                // Left align data rows, center header
+                $sheet->getStyle("A{$dataStart}:{$lastCol}{$totalRows}")
+                    ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+                $sheet->getStyle("A{$headerRow}:{$lastCol}{$headerRow}")
+                    ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+                // Row height
+                for ($r = 1; $r <= $totalRows; $r++) {
+                    $sheet->getRowDimension($r)->setRowHeight(20);
                 }
+
+                // Freeze header and add filter
+                $sheet->freezePane("A" . ($headerRow + 1));
+                $sheet->setAutoFilter("A{$headerRow}:{$lastCol}{$totalRows}");
             },
         ];
     }

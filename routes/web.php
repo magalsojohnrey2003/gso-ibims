@@ -60,10 +60,19 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
         Route::get('/dashboard/borrow-trends', [DashboardController::class, 'borrowTrends'])->name('admin.dashboard.borrow-trends');
         Route::get('/dashboard/most-borrowed', [DashboardController::class, 'mostBorrowed'])->name('admin.dashboard.most-borrowed');
         Route::get('/dashboard/activity', [DashboardController::class, 'activity'])->name('admin.dashboard.activity');
+
         // Item Management
         Route::get('items/search', [ItemController::class, 'search'])->name('admin.items.search');
         Route::get('items/check-serial', [ItemController::class, 'checkSerial'])->name('admin.items.check-serial');
         Route::resource('items', ItemController::class);
+        Route::get('/items/categories', [ItemCategoryController::class, 'index'])->name('items.categories.index');
+        Route::post('/items/categories', [ItemCategoryController::class, 'store'])->name('items.categories.store');
+
+        Route::post('items/validate-pns', [ItemController::class, 'validatePropertyNumbers'])
+            ->name('admin.items.validate-pns');
+
+        Route::post('items/manual-store', [ItemController::class, 'manualStore'])
+            ->name('admin.items.manual-store');
 
         // Borrow Requests
         Route::get('borrow-requests', [BorrowRequestController::class, 'index'])->name('borrow.requests');

@@ -24,6 +24,7 @@ class MyBorrowedItemsController extends Controller
             'borrowRequest' => $borrowRequest,
             'forPdf' => true, 
         ])->setPaper('a4', 'portrait');
+        
 
         return $pdf->stream("borrow-request-{$borrowRequest->id}.pdf");
     }

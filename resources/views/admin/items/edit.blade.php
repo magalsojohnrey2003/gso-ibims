@@ -4,7 +4,8 @@
     $ppeForCategory = $normalizedCategoryPpe[strtolower($item->category)] ?? ($primaryInstance->ppe_code ?? '');
 @endphp
 
-<form method="POST" action="{{ route('items.update', $item->id) }}" enctype="multipart/form-data" class="space-y-6" data-property-form data-edit-item-form data-modal-name="edit-item-{{ $item->id }}">
+<form method="POST" action="{{ route('items.update', $item->id) }}" enctype="multipart/form-data"
+      class="space-y-6" data-property-form data-edit-item-form data-modal-name="edit-item-{{ $item->id }}">
     @csrf
     @method('PUT')
 
@@ -13,96 +14,158 @@
 
     <input type="hidden" name="item_instance_id" value="{{ $primaryInstance->id ?? '' }}">
 
-    <div>
+    <!-- Step 1: Basic Information -->
+    <div class="bg-gray-50 shadow-md hover:shadow-lg transition rounded-lg p-4">
+      <div class="flex items-center mb-4">
+        <div class="bg-blue-100 text-blue-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">1</div>
+        <h4 class="text-lg font-semibold text-gray-900">Item Information</h4>
+      </div>
+
+      <div>
         <x-input-label for="name-{{ $item->id }}" value="Item Name" />
         <x-text-input id="name-{{ $item->id }}" type="text" name="name"
                       value="{{ old('name', $item->name) }}"
-                      class="mt-1 block w-full" required data-edit-field="name" />
+                      class="mt-1 block w-full"
+                      required data-edit-field="name" />
         <x-input-error :messages="$errors->get('name')" class="mt-2" />
-    </div>
+      </div>
 
-    <div>
+      <div class="mt-4">
         <x-input-label for="category-{{ $item->id }}" value="Category" />
-        <select id="category-{{ $item->id }}" name="category" class="mt-1 block w-full border rounded px-3 py-2" required data-category-select data-edit-field="category">
-            @foreach($categories as $cat)
-                @php $optionValue = is_string($cat) ? $cat : strval($cat); @endphp
-                <option value="{{ $optionValue }}" @selected(old('category', $item->category) === $optionValue) data-ppe-code="{{ $normalizedCategoryPpe[strtolower($optionValue)] ?? '' }}">
-                    {{ ucfirst($optionValue) }}
-                </option>
-            @endforeach
+        <select id="category-{{ $item->id }}" name="category"
+                class="mt-1 block w-full min-w-0 appearance-none border rounded px-3 py-2"
+                required data-category-select>
+          <!-- options rendered by JS -->
         </select>
         <x-input-error :messages="$errors->get('category')" class="mt-2" />
+      </div>
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <!-- Step 2: Identification & Codes -->
+    <div class="bg-gray-50 shadow-md hover:shadow-lg transition rounded-lg p-4">
+      <div class="flex items-center mb-4">
+        <div class="bg-green-100 text-green-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">2</div>
+        <h4 class="text-lg font-semibold text-gray-900">Identification & Codes</h4>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div>
-                <x-input-label for="year_procured-{{ $item->id }}" value="Year Procured" />
-                <x-text-input id="year_procured-{{ $item->id }}" name="year_procured" type="number" maxlength="4" inputmode="numeric"
-                            class="mt-1 block w-full"
-                            value="{{ old('year_procured', $primaryInstance->year_procured ?? '') }}"
-                            required data-property-segment="year" data-edit-field="year" min="2020" max="{{ date('Y') }}" />
-                <x-input-error :messages="$errors->get('year_procured')" class="mt-2" />
+          <x-input-label for="year_procured-{{ $item->id }}" value="Year Procured" />
+          <x-text-input id="year_procured-{{ $item->id }}" name="year_procured" type="number" maxlength="4"
+                        inputmode="numeric" class="mt-1 block w-full"
+                        value="{{ old('year_procured', $primaryInstance->year_procured ?? '') }}"
+                        required data-property-segment="year" data-edit-field="year" min="2020" max="{{ date('Y') }}" />
+          <x-input-error :messages="$errors->get('year_procured')" class="mt-2" />
         </div>
+
         <div>
-            <x-input-label for="ppe_code_display-{{ $item->id }}" value="PPE Code" />
-            <x-text-input id="ppe_code_display-{{ $item->id }}" type="text" class="mt-1 block w-full bg-gray-100" readonly
-                          value="{{ old('ppe_code', $ppeForCategory) }}" data-ppe-display />
-            <input type="hidden" name="ppe_code" value="{{ old('ppe_code', $ppeForCategory) }}" data-property-segment="ppe">
+          <x-input-label for="ppe_code_display-{{ $item->id }}" value="PPE Code" />
+          <x-text-input id="ppe_code_display-{{ $item->id }}" type="text"
+                        class="mt-1 block w-full bg-gray-100" readonly
+                        value="{{ old('ppe_code', $ppeForCategory) }}" data-ppe-display />
+          <input type="hidden" name="ppe_code" value="{{ old('ppe_code', $ppeForCategory) }}" data-property-segment="ppe">
         </div>
+
         <div>
-            <x-input-label for="serial-{{ $item->id }}" value="Serial Number" />
-            <x-text-input id="serial-{{ $item->id }}" name="serial" type="text" maxlength="6" inputmode="numeric"
-                        class="mt-1 block w-full bg-gray-100" 
+          <x-input-label for="serial-{{ $item->id }}" value="Serial Number" />
+          <x-text-input id="serial-{{ $item->id }}" name="serial" type="text" maxlength="6"
+                        inputmode="numeric"
+                        class="mt-1 block w-full bg-gray-100"
                         value="{{ old('serial', $primaryInstance?->serial ?? '') }}" readonly />
-
-            <p class="mt-1 text-xs hidden" data-serial-feedback></p>
-            <x-input-error :messages="$errors->get('serial')" class="mt-2" />
+          <p class="mt-1 text-xs hidden" data-serial-feedback></p>
+          <x-input-error :messages="$errors->get('serial')" class="mt-2" />
         </div>
+
         <div>
-            <x-input-label for="office_code-{{ $item->id }}" value="Office Code" />
-            <x-text-input id="office_code-{{ $item->id }}" name="office_code" type="text" maxlength="4" inputmode="numeric"
-                          class="mt-1 block w-full"
-                          value="{{ old('office_code', $primaryInstance?->office_code ?? '') }}"
-                          required data-property-segment="office" data-edit-field="office" />
-            <p class="mt-1 text-xs text-red-600 hidden" data-office-error>Office code must be 1–4 digits..</p>
-            <x-input-error :messages="$errors->get('office_code')" class="mt-2" />
+          <x-input-label for="office_code-{{ $item->id }}" value="Office Code" />
+          <x-text-input id="office_code-{{ $item->id }}" name="office_code" type="text" maxlength="4"
+                        inputmode="text"
+                        class="mt-1 block w-full"
+                        value="{{ old('office_code', $primaryInstance?->office_code ?? '') }}"
+                        required data-property-segment="office" data-edit-field="office" />
+          <p class="mt-1 text-xs text-red-600 hidden" data-office-error>Office code must be 1–4 alphanumeric characters.</p>
+          <x-input-error :messages="$errors->get('office_code')" class="mt-2" />
         </div>
+      </div>
+
+      {{-- Property Number Preview --}}
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+        <div>
+          <x-input-label for="property_preview-{{ $item->id ?? 'new' }}" value="Property Number Preview" />
+          <x-text-input id="property_preview-{{ $item->id ?? 'new' }}" type="text"
+                        class="mt-1 block w-full bg-gray-100" readonly
+                        value="{{ old('property_preview', $primaryInstance->property_number ?? '') }}" data-property-preview />
+        </div>
+      </div>
+
+      {{-- optional preview block (kept hidden unless JS needs it) --}}
+      <div data-edit-preview class="hidden rounded-lg border border-dashed border-purple-300 bg-purple-50 px-4 py-3 text-xs text-purple-900 mt-4">
+        <div class="font-semibold">Item Summary</div>
+        <div data-edit-preview-list class="mt-1 space-y-1"></div>
+      </div>
     </div>
 
-    <div>
-        <x-input-label for="property_preview-{{ $item->id ?? 'new' }}" value="Property Number Preview" />
-        <x-text-input id="property_preview-{{ $item->id ?? 'new' }}" type="text" class="mt-1 block w-full bg-gray-100" readonly
-                    value="{{ old('property_preview', $primaryInstance->property_number ?? '') }}" data-property-preview />
-    </div>
+    <!-- Step 3: Additional Details (collapsible) -->
+    <div class="bg-gray-50 shadow-md hover:shadow-lg transition rounded-lg">
+      <button
+        type="button"
+        data-step3-header
+        aria-expanded="false"
+        aria-controls="edit-step3-body-{{ $item->id }}"
+        class="w-full text-left p-4 flex items-center justify-between focus:outline-none"
+      >
+        <div class="flex items-center space-x-3">
+          <div class="bg-purple-100 text-purple-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">3</div>
+          <h4 class="text-lg font-semibold text-gray-900">Additional Details</h4>
+        </div>
+        <svg class="w-5 h-5 text-gray-500 transform transition-transform" data-step3-caret xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
 
+      <div id="edit-step3-body-{{ $item->id }}" data-step3-body class="p-4 max-h-0 overflow-hidden opacity-0">
+        <div>
+          <x-input-label for="description-{{ $item->id }}" value="Description" />
+          <textarea id="description-{{ $item->id }}" name="description" rows="3"
+                    class="mt-1 block w-full border rounded px-3 py-2"
+                    data-edit-field="description">{{ old('description', $primaryInstance?->notes) }}</textarea>
+          <x-input-error :messages="$errors->get('description')" class="mt-2" />
+        </div><br>
 
-    <div>
-        <x-input-label for="description-{{ $item->id }}" value="Description (optional)" />
-        <textarea id="description-{{ $item->id }}" name="description" rows="3" class="mt-1 block w-full border rounded px-3 py-2" data-edit-field="description">{{ old('description', $primaryInstance?->notes) }}</textarea>
-        <x-input-error :messages="$errors->get('description')" class="mt-2" />
-    </div>
+        @php
+          $existingPath = $primaryInstance->photo ?? $item->photo ?? '';
+          $existingUrl = '';
+          if ($existingPath && \Illuminate\Support\Facades\Storage::disk('public')->exists($existingPath)) {
+              $existingUrl = \Illuminate\Support\Facades\Storage::disk('public')->url($existingPath);
+          } elseif ($existingPath && str_starts_with($existingPath, 'http')) {
+              $existingUrl = $existingPath;
+          }
+        @endphp
 
-    <div>
-        <x-input-label for="photo-{{ $item->id }}" value="Photo (optional)" />
-        <input id="photo-{{ $item->id }}" type="file" name="photo" class="mt-1 block w-full" />
-        @if($item->photo)
-            <img src="{{ asset('storage/'.$item->photo) }}" data-edit-photo data-original-src="{{ asset('storage/'.$item->photo) }}" class="mt-2 h-20 w-20 object-cover rounded-lg shadow" />
-        @endif
+        <div class="mb-3">
+          <label class="block text-sm font-semibold text-gray-700 mb-2">Photo Upload</label>
+          <input id="photo-{{ $item->id }}" name="photo" type="file" accept="image/*"
+                data-filepond="true"
+                @if($existingUrl) data-initial-url="{{ $existingUrl }}" @endif
+                data-preview-height="120"
+                data-thumb-width="160" />
+          <input type="hidden" name="existing_photo" value="{{ $existingPath }}" />
+        </div>
+      </div> <!-- /#edit-step3-body -->
+    </div> <!-- /.step3 wrapper -->
 
+    <!-- Action buttons (separate from Step 3) -->
+    <div class="mt-4 border-t pt-4 flex justify-end gap-3">
+      <x-button
+        variant="secondary"
+        iconName="x-mark"
+        type="button"
+        data-edit-cancel
+        x-on:click="$dispatch('close-modal', 'edit-item-{{ $item->id }}')">
+        Cancel
+      </x-button>
 
-        <x-input-error :messages="$errors->get('photo')" class="mt-2" />
-    </div>
-
-    <div class="flex justify-end gap-3 pt-2">
-        <x-button
-            variant="secondary"
-            iconName="x-mark"
-            type="button"
-            data-edit-cancel
-            x-on:click="$dispatch('close-modal', 'edit-item-{{ $item->id }}')">
-            Cancel
-        </x-button>
-        <x-button iconName="arrow-path" type="submit" data-edit-submit>Update</x-button>
+      <x-button iconName="arrow-path" type="submit" data-edit-submit>Update</x-button>
     </div>
 </form>
 
@@ -149,17 +212,17 @@
         const year = (yearInput?.value || '').trim();
         const ppe = (ppeInput?.value || '').trim();
         const serial = (serialInput?.value || '').trim();
-        const officeRaw = (officeInput?.value || '').trim().replace(/\D/g, '');
+        const officeRaw = (officeInput?.value || '').trim();
         const office = officeRaw ? officeRaw.padStart(4, '0') : '';
 
         // Only show preview when we have year(4), ppe(2+), serial (non-empty), and office (1-4 digits padded)
-        if (year.length === 4 && ppe && serial && officeRaw.length >= 1 && officeRaw.length <= 4) {
-            const propertyNumber = `${year}-${ppe}-${serial}-${office}`;
+         if (year.length === 4 && ppe && serial && officeRaw.length >= 1 && officeRaw.length <= 4) {
+            const propertyNumber = `${year}-${ppe}-${serial}-${officeRaw}`;
             if (previewInput) previewInput.value = propertyNumber;
         } else if (previewInput) {
             // clear if incomplete
             previewInput.value = '';
-        }
+        }                                                                   
     }
 
 

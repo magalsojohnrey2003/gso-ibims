@@ -40,33 +40,30 @@ class PropertyNumberService
             $serialInt = (int) $serial;
         }
 
-        // Allow 1-4 digits for office, normalize to digits and pad when returning
-        $officeDigits = preg_replace('/\D/', '', $office);
-        if ($officeDigits === '') {
+        // Accept alphanumeric office (1-4 chars). Preserve exactly as entered.
+        $officeRaw = (string) $office;
+        if ($officeRaw === '') {
             throw new InvalidArgumentException('Office code segment cannot be empty.');
         }
-        if (! preg_match('/^\d{1,4}$/', $officeDigits)) {
-            throw new InvalidArgumentException('Office code segment must be 1 to 4 digits.');
+        if (! preg_match('/^[A-Za-z0-9]{1,4}$/', $officeRaw)) {
+            throw new InvalidArgumentException('Office code segment must be 1 to 4 alphanumeric characters.');
         }
-
-        // Return the office as padded 4-digit string to remain consistent with stored PN format
-        $officePadded = str_pad($officeDigits, 4, '0', STR_PAD_LEFT);
 
         return [
             'year' => $year,
             'ppe' => $ppe,
             'serial' => $serial,
             'serial_int' => $serialInt,
-            'office' => $officePadded,
+            // store the office exactly as provided (no padding)
+            'office' => $officeRaw,
             'property_number' => $this->assemble([
                 'year' => $year,
                 'ppe' => $ppe,
                 'serial' => $serial,
-                'office' => $officeDigits, // assemble will pad
+                'office' => $officeRaw,
             ]),
         ];
     }
-
 
     public function assemble(array $components): string
     {
@@ -92,17 +89,17 @@ class PropertyNumberService
             throw new InvalidArgumentException('Serial segment cannot be empty.');
         }
 
-        // Normalize and accept 1-4 digits for office, then pad to 4
-        $officeDigits = (string) preg_replace('/\D/', '', (string) $office);
-        if ($officeDigits === '') {
+        // Accept 1-4 alphanumeric office as-is (no automatic stripping/padding).
+        $officeRaw = (string) $office;
+        if ($officeRaw === '') {
             throw new InvalidArgumentException('Office code segment cannot be empty.');
         }
-        if (! preg_match('/^\d{1,4}$/', $officeDigits)) {
-            throw new InvalidArgumentException('Office code segment must be 1 to 4 digits.');
+        if (! preg_match('/^[A-Za-z0-9]{1,4}$/', $officeRaw)) {
+            throw new InvalidArgumentException('Office code segment must be 1 to 4 alphanumeric characters.');
         }
-        $officePadded = str_pad($officeDigits, 4, '0', STR_PAD_LEFT);
 
-        return sprintf('%s-%s-%s-%s', $year, $ppe, $serial, $officePadded);
+        // preserve office exactly as entered
+        return sprintf('%s-%s-%s-%s', $year, $ppe, $serial, $officeRaw);
     }
 
 

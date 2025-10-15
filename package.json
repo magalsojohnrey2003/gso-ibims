@@ -23,6 +23,9 @@
     "dependencies": {
         "@fortawesome/fontawesome-free": "^7.0.0",
         "chart.js": "^4.5.0",
+        "filepond": "^4.32.9",
+        "filepond-plugin-image-preview": "^4.6.12",
+        "filepond-plugin-image-resize": "^2.0.10",
         "flatpickr": "^4.6.13"
     }
 }

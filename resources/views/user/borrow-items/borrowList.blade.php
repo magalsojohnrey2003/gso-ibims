@@ -118,6 +118,8 @@
                         {{-- Calendar card area --}}
                         <div class="border rounded p-4 bg-white flex-1">
                             {{-- Month header: title centered, prev/next controls inside the card --}}
+                            <!-- Add this small instruction under the month title or near the top of the calendar card -->
+
                             <div class="flex items-center justify-between mb-3 relative">
                                 <!-- arrows are absolutely positioned inside this relative container -->
                                 <x-secondary-button type="button" onclick="changeBorrowMonth(-1)" class="text-lg" style="position:absolute; left:12px; top:50%; transform:translateY(-50%);">

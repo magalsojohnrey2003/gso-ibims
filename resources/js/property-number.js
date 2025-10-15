@@ -11,14 +11,24 @@ const CASELESS_PPE_MAP = Object.keys(RAW_CATEGORY_PPE_MAP).reduce((acc, key) => 
 
 // Allow any year; do not clamp to a min/max.
 
-function normalizeSegment(value, minLength = 0) {
+function normalizeSegment(value, minLength = 0, allowAlpha = false) {
     if (!value) return '';
     const trimmed = String(value).trim();
-    if (!minLength) return trimmed;
-    const digitsOnly = trimmed.replace(/[^0-9]/g, '');
-    if (!digitsOnly) return trimmed;
-    return digitsOnly.padStart(Math.max(minLength, digitsOnly.length), '0');
+
+    // Allow alphanumeric if requested (e.g., for Office Code)
+    const cleaned = allowAlpha
+        ? trimmed.replace(/[^A-Za-z0-9]/g, '') // keep letters + numbers
+        : trimmed.replace(/[^0-9]/g, '');
+
+    if (!minLength) return cleaned;
+
+    // Only pad purely numeric segments; don't pad alphanumerics like 4d34
+    const shouldPad = !allowAlpha && /^[0-9]+$/.test(cleaned);
+    return shouldPad
+        ? cleaned.padStart(Math.max(minLength, cleaned.length), '0')
+        : cleaned;
 }
+
 
 function buildPreview(form) {
     const year = normalizeSegment(form.querySelector('[data-property-segment="year"]')?.value || '', 4);
@@ -26,7 +36,7 @@ function buildPreview(form) {
     const rawSerial = form.querySelector('[data-property-segment="serial"]')?.value ?? '';
     const serialWidth = Math.max(4, rawSerial.trim().length || 0);
     const serial = normalizeSegment(rawSerial, serialWidth);
-    const office = normalizeSegment(form.querySelector('[data-property-segment="office"]')?.value || '', 4);
+    const office = normalizeSegment(form.querySelector('[data-property-segment="office"]')?.value || '', 4, true);
 
     if (year || ppe || serial || office) {
         return [year || '----', ppe || '----', serial || '----', office || '----'].join('-');
