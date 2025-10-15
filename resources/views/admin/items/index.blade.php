@@ -321,9 +321,7 @@ document.addEventListener('DOMContentLoaded', () => {
 {{-- in your items index view, near other includes --}}
 @include('admin.items._manual_modal')
 
-@vite(['resources/js/item-manual-entry.js','resources/js/item-categories.js','resources/js/item-category-modal.js'])
-
-
+@vite(['resources/js/app.js'])
 
 <script>
   window.__serverCategories = @json($categories ?? []);
