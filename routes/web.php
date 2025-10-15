@@ -69,8 +69,8 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
         Route::post('items/validate-pns', [ItemController::class, 'validatePropertyNumbers'])
             ->name('admin.items.validate-pns');
 
-        Route::post('items/manual-store', [ItemController::class, 'manualStore'])
-            ->name('admin.items.manual-store');
+        Route::post('items/manual-store', [ItemController::class, 'manualStore'])->name('admin.items.manual-store');
+
 
         // Borrow Requests
         Route::get('borrow-requests', [BorrowRequestController::class, 'index'])->name('borrow.requests');
