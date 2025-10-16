@@ -381,16 +381,58 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Listen for cross-tab dispatch notifications from admin page
-window.addEventListener('storage', function (ev) {
+// Listen for cross-tab notifications from admin page
+window.addEventListener('storage', async function (ev) {
     try {
         if (!ev || !ev.key) return;
-        if (ev.key !== 'borrow_request_dispatched') return;
-        // optional: inspect payload to only refresh when relevant
-        const payload = ev.newValue ? JSON.parse(ev.newValue) : null;
-        // If you want to avoid full reload when not relevant to this user,
-        // you could check payload.id against visible requests — but safe default is to refresh.
-        if (typeof loadMyBorrowedItems === 'function') {
-            loadMyBorrowedItems();
+
+        // old key kept for backwards compatibility (if any)
+        if (ev.key === 'borrow_request_dispatched') {
+            // refresh everything
+            if (typeof loadMyBorrowedItems === 'function') {
+                loadMyBorrowedItems();
+            }
+            return;
+        }
+
+        if (ev.key === 'borrow_request_updated') {
+            const payload = ev.newValue ? JSON.parse(ev.newValue) : null;
+            if (!payload || !payload.borrow_request_id) return;
+
+            // Refresh list
+            if (typeof loadMyBorrowedItems === 'function') {
+                loadMyBorrowedItems();
+            }
+
+            // If the details modal is open and showing the same request, refresh it too
+            // We detect by checking the modal detail element 'mbi-request-id'
+            const currentShown = document.getElementById('mbi-request-id')?.textContent || '';
+            if (String(currentShown) === String(payload.borrow_request_id)) {
+                // fetch fresh details and re-fill modal
+                try {
+                    const id = payload.borrow_request_id;
+                    const res = await fetch(`/user/my-borrowed-items/${encodeURIComponent(id)}`, { headers: { 'Accept': 'application/json' } });
+                    if (res.ok) {
+                        const data = await res.json().catch(()=>null);
+                        if (data) {
+                            // reuse existing fillBorrowModal utility to re-populate
+                            if (typeof fillBorrowModal === 'function') {
+                                fillBorrowModal(data);
+                            } else {
+                                // fallback: manually update some fields
+                                const borrowEl = document.getElementById('mbi-borrow-date');
+                                if (borrowEl) borrowEl.textContent = data.borrow_date ? formatDate(data.borrow_date) : '';
+
+                                const returnEl = document.getElementById('mbi-return-date');
+                                if (returnEl) returnEl.textContent = data.return_date ? formatDate(data.return_date) : '';
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Failed to refresh modal for updated borrow request', e);
+                }
+            }
+            return;
         }
     } catch (e) {
         console.warn('Failed to handle storage event', e);
