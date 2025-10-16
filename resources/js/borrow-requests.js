@@ -250,11 +250,13 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // wire the Save & Approve button for the assignManpowerModal
+// Save & Approve handler — replaced to first save assignments as 'validated' then optionally approve
 document.addEventListener('DOMContentLoaded', () => {
     const confirmBtn = document.getElementById('assignManpowerConfirmBtn');
     if (!confirmBtn) return;
 
     confirmBtn.addEventListener('click', async (ev) => {
+        ev.preventDefault();
         confirmBtn.disabled = true;
         try {
             const requestId = document.getElementById('assignManpowerRequestId')?.value;
@@ -292,12 +294,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (warningEl) { warningEl.classList.add('hidden'); warningEl.textContent = ''; }
             }
 
-            // THIS is the important line — call updateRequest with assignments and status 'approved'
-            await updateRequest(Number(requestId), 'approved', assignments, confirmBtn, !!forceCheckbox.checked);
+            // 1) Save assignments first using status 'validated' so server will persist manpower fields
+            //   - silent: true (don't show an extra toast for this intermediate step)
+            await updateRequest(Number(requestId), 'validated', assignments, confirmBtn, !!forceCheckbox.checked, true);
+
+            // 2) Then approve to proceed with allocation if admin intended Save & Approve
+            // Note: we call approved with no assignments (they are already saved). This triggers the approved logic on server.
+            await updateRequest(Number(requestId), 'approved', null, confirmBtn, false, false);
 
             // close modal on success
             window.dispatchEvent(new CustomEvent('close-modal', { detail: 'assignManpowerModal' }));
         } catch (err) {
+            console.error(err);
             // updateRequest already shows errors
         } finally {
             confirmBtn.disabled = false;
@@ -306,7 +314,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // updateRequest now accepts optional manpower_assignments and force_assign flag
-async function updateRequest(id, status, manpower_assignments = null, btn = null, force_assign = false) {
+async function updateRequest(id, status, manpower_assignments = null, btn = null, force_assign = false, silent = false) {
     if (btn) btn.disabled = true;
     try {
         const body = { status };
@@ -329,9 +337,21 @@ async function updateRequest(id, status, manpower_assignments = null, btn = null
         // update local cache
         const r = BORROW_CACHE.find(x => x.id === id);
         if (r) r.status = status;
-        // If assignments returned or were local, refresh the entire list from server for freshness
+
+        // refresh the entire list from server for freshest data
         await loadBorrowRequests();
-        showSuccess(`Borrow request ${humanizeStatus(status)} successfully!`);
+
+        // publish a cross-tab notification so user pages can refresh immediately
+        try {
+            const payload = { borrow_request_id: Number(id), new_status: status, timestamp: Date.now() };
+            localStorage.setItem('borrow_request_updated', JSON.stringify(payload));
+            // remove after short time so it can fire again later if needed
+            setTimeout(() => { try { localStorage.removeItem('borrow_request_updated'); } catch(e){} }, 1000);
+        } catch (e) {
+            console.warn('Could not set storage event', e);
+        }
+
+        if (!silent) showSuccess(`Borrow request ${humanizeStatus(status)} successfully!`);
         return data;
     } catch (err) {
         console.error(err);
@@ -341,7 +361,6 @@ async function updateRequest(id, status, manpower_assignments = null, btn = null
         if (btn) btn.disabled = false;
     }
 }
-
 
 // ---------- render table ----------
 function renderBorrowRequests() {
