@@ -22,6 +22,8 @@ import '../css/return-selected-items.css';
 import './item-categories';
 import './item-instances-manager';
 import './item-manual-entry'; 
+import '../css/assign-manpower.css';
+
 
 window.Alpine = Alpine;
 
