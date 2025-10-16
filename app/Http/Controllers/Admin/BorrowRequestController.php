@@ -30,7 +30,7 @@ class BorrowRequestController extends Controller
     public function updateStatus(Request $request, BorrowRequest $borrowRequest)
     {
         $request->validate([
-            'status' => 'required|in:pending,approved,rejected,returned,return_pending'
+            'status' => 'required|in:pending,validated,approved,rejected,returned,return_pending'
         ]);
 
         $old = $borrowRequest->status;
@@ -48,7 +48,9 @@ class BorrowRequestController extends Controller
             $borrowRequest->load('items.item');
 
             $assignmentWarning = null;
-            if ($old !== 'approved' && $new === 'approved') {
+            // When admin saves assignments we now mark the request as "validated" (intermediate step).
+            // Save manpower assignments when new status is 'validated'.
+            if ($new === 'validated') {
                 $assignments = $request->input('manpower_assignments', []);
                 $totalAssigned = 0;
 
@@ -228,42 +230,98 @@ class BorrowRequestController extends Controller
         }
     }
 
+    protected function allocateInstancesForBorrowRequest(BorrowRequest $borrowRequest)
+    {
+        // Assumes $borrowRequest->load('items.item') has been called by caller if needed.
+        foreach ($borrowRequest->items as $reqItem) {
+            $item = $reqItem->item;
+            if (! $item) {
+                throw new \RuntimeException("Item not found for request row (id: {$reqItem->id}).");
+            }
+
+            $needed = (int) $reqItem->quantity;
+
+            $availableInstances = \App\Models\ItemInstance::where('item_id', $item->id)
+                ->where('status', 'available')
+                ->lockForUpdate()
+                ->limit($needed)
+                ->get();
+
+            $availableCount = $availableInstances->count();
+
+            if ($availableCount < $needed) {
+                $shortfall = max(0, $needed - $availableCount);
+                $message = $availableCount > 0
+                    ? "Only {$availableCount} of {$item->name} available right now (needed {$needed})."
+                    : "No available instances for {$item->name}.";
+                throw new \RuntimeException($message);
+            }
+
+            foreach ($availableInstances as $inst) {
+                $inst->status = 'borrowed';
+                $inst->save();
+
+                BorrowItemInstance::create([
+                    'borrow_request_id' => $borrowRequest->id,
+                    'item_id'           => $item->id,
+                    'item_instance_id'  => $inst->id,
+                    'checked_out_at'    => now(),
+                    'expected_return_at'=> $borrowRequest->return_date,
+                ]);
+            }
+
+            $item->available_qty = max(0, (int) $item->available_qty - $needed);
+            $item->save();
+        }
+    }
+
     public function dispatch(Request $request, BorrowRequest $borrowRequest)
-        {
+    {
+        if ($borrowRequest->status !== 'validated' && $borrowRequest->status !== 'approved') {
+            return response()->json(['message' => 'Only validated or approved requests can be dispatched.'], 422);
+        }
+
+        if ($borrowRequest->delivery_status === 'dispatched') {
+            return response()->json(['message' => 'Already dispatched.'], 200);
+        }
+
+        DB::beginTransaction();
+        try {
+            // ensure we have items loaded
+            $borrowRequest->load('items.item');
+
+            // allocate item instances if status is not already approved (i.e. not allocated)
             if ($borrowRequest->status !== 'approved') {
-                return response()->json(['message' => 'Only approved requests can be dispatched.'], 422);
+                $this->allocateInstancesForBorrowRequest($borrowRequest);
             }
 
-            if ($borrowRequest->delivery_status === 'dispatched') {
-                return response()->json(['message' => 'Already dispatched.'], 200);
+            // set approved status and delivery meta
+            $borrowRequest->status = 'approved';
+            $borrowRequest->delivery_status = 'dispatched';
+            $borrowRequest->dispatched_at = now();
+            $borrowRequest->save();
+
+            // notify user
+            $user = $borrowRequest->user;
+            if ($user) {
+                $payload = [
+                    'type' => 'borrow_dispatched',
+                    'message' => "Your borrow request #{$borrowRequest->id} is on its way.",
+                    'borrow_request_id' => $borrowRequest->id,
+                    'user_id' => $user->id,
+                    'user_name' => trim($user->first_name . ' ' . ($user->last_name ?? '')),
+                    'borrow_date' => (string) $borrowRequest->borrow_date,
+                    'return_date' => (string) $borrowRequest->return_date,
+                    'dispatched_at' => $borrowRequest->dispatched_at ? $borrowRequest->dispatched_at->toDateTimeString() : null,
+                ];
+                $user->notify(new RequestNotification($payload));
             }
 
-            DB::beginTransaction();
-            try {
-                $borrowRequest->delivery_status = 'dispatched';
-                $borrowRequest->dispatched_at = now();
-                $borrowRequest->save();
-
-                $user = $borrowRequest->user;
-                if ($user) {
-                    $payload = [
-                        'type' => 'borrow_dispatched',
-                        'message' => "Your borrow request #{$borrowRequest->id} is on its way.",
-                        'borrow_request_id' => $borrowRequest->id,
-                        'user_id' => $user->id,
-                        'user_name' => trim($user->first_name . ' ' . ($user->last_name ?? '')),
-                        'borrow_date' => (string) $borrowRequest->borrow_date,
-                        'return_date' => (string) $borrowRequest->return_date,
-                        'dispatched_at' => $borrowRequest->dispatched_at ? $borrowRequest->dispatched_at->toDateTimeString() : null,
-                    ];
-                    $user->notify(new RequestNotification($payload));
-                }
-
-                DB::commit();
-                return response()->json(['message' => 'Dispatched successfully.']);
-                } catch (\Throwable $e) {
-                    DB::rollBack();
-                    return response()->json(['message' => 'Failed to dispatch.', 'error' => $e->getMessage()], 500);
-                }
-            }
+            DB::commit();
+            return response()->json(['message' => 'Dispatched successfully.']);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'Failed to dispatch.', 'error' => $e->getMessage()], 500);
+        }
+    }
 }

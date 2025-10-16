@@ -215,16 +215,15 @@
     <template id="btn-view-template">
         <x-button variant="secondary" iconName="eye" class="px-2 py-1 text-xs" data-action="view">View</x-button>
     </template>
-    <template id="btn-accept-template">
-        <x-button variant="success" iconName="check" class="px-2 py-1 text-xs" data-action="accept">Accept</x-button>
+    <template id="btn-validate-template">
+        <x-button variant="success" iconName="check" class="px-2 py-1 text-xs" data-action="accept">Validate</x-button>
     </template>
     <template id="btn-reject-template">
         <x-button variant="danger" iconName="x-circle" class="px-2 py-1 text-xs" data-action="reject">Reject</x-button>
     </template>
-    <template id="btn-dispatch-template">
-        <x-button variant="info" iconName="truck" class="px-2 py-1 text-xs" data-action="dispatch">Dispatch</x-button>
+    <template id="btn-deliver-template">
+        <x-button variant="info" iconName="truck" class="px-2 py-1 text-xs" data-action="deliver">Deliver Items</x-button>
     </template>
-
 
     {{-- Alert templates --}}
     <template id="alert-success-template">

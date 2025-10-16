@@ -110,19 +110,29 @@ function createButtonFromTemplate(templateId, id) {
     const tpl = document.getElementById(templateId);
     if (!tpl) return document.createDocumentFragment();
     const frag = tpl.content.cloneNode(true);
-    // find the actual button inside and wire up action
+    // find the first interactive element inside the template
     const btn = frag.querySelector('button,[data-action]');
     if (!btn) return frag;
-    const action = btn.getAttribute('data-action');
+
+    // prefer data-action attribute when present, otherwise fallback to button text or other attribute
+    const action = (btn.getAttribute('data-action') || '').toLowerCase().trim();
+
+    // Map multiple synonyms (validate/accept) and (deliver/dispatch) to handlers
     if (action === 'view') {
-        btn.addEventListener('click', () => viewRequest(id));
-    } else if (action === 'accept') {
-        // open assign manpower modal (instead of immediate confirm)
-        btn.addEventListener('click', () => openAssignManpowerModal(id));
+        btn.addEventListener('click', (ev) => { ev.stopPropagation(); viewRequest(id); });
+    } else if (action === 'accept' || action === 'validate') {
+        // "Validate" / "Accept" -> open assign manpower modal
+        btn.addEventListener('click', (ev) => { ev.stopPropagation(); openAssignManpowerModal(id); });
     } else if (action === 'reject') {
-        // open confirmation modal
-        btn.addEventListener('click', () => openConfirmModal(id, 'rejected', btn));
+        btn.addEventListener('click', (ev) => { ev.stopPropagation(); openConfirmModal(id, 'rejected', btn); });
+    } else if (action === 'dispatch' || action === 'deliver' || action === 'deliver_items') {
+        // Deliver -> open confirm modal with status 'delivered' so confirm handler runs deliver branch
+        btn.addEventListener('click', (ev) => { ev.stopPropagation(); openConfirmModal(id, 'delivered', btn); });
+    }else {
+        // unknown action: keep fragment but make button inert (prevents silent failures)
+        console.warn('Unknown button action in template', templateId, 'action=', action);
     }
+
     return frag;
 }
 
@@ -201,6 +211,50 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!confirmBtn) return;
 
     confirmBtn.addEventListener('click', async (ev) => {
+        const id = confirmBtn.dataset.requestId;
+        const status = confirmBtn.dataset.status;
+        if (!id || !status) { showError('Invalid action.'); return; }
+        confirmBtn.disabled = true;
+        try {
+            if (status === 'delivered') {
+                // deliver endpoint
+                const res = await fetch(`/admin/borrow-requests/${encodeURIComponent(id)}/deliver`, {
+                    method: 'POST',
+                    headers: {
+                        "X-CSRF-TOKEN": CSRF_TOKEN,
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
+                    },
+                    body: JSON.stringify({})
+                });
+                const data = await res.json().catch(() => null);
+                if (!res.ok) throw new Error(data?.message || `Delivery failed (status ${res.status})`);
+                await loadBorrowRequests();
+                showSuccess('Items marked as delivered successfully.');
+            } else if (status === 'validated') {
+                // from assign manpower modal
+                const assignments = collectManpowerAssignments();
+                await updateRequest(Number(id), 'validated', assignments, confirmBtn);
+            } else {
+                await updateRequest(Number(id), status, confirmBtn);
+            }
+
+            window.dispatchEvent(new CustomEvent('close-modal', { detail: 'confirmActionModal' }));
+        } catch (err) {
+            console.error(err);
+            showError(err?.message || 'Failed to update.');
+        } finally {
+            confirmBtn.disabled = false;
+        }
+    });
+});
+
+// wire the Save & Approve button for the assignManpowerModal
+document.addEventListener('DOMContentLoaded', () => {
+    const confirmBtn = document.getElementById('assignManpowerConfirmBtn');
+    if (!confirmBtn) return;
+
+    confirmBtn.addEventListener('click', async (ev) => {
         confirmBtn.disabled = true;
         try {
             const requestId = document.getElementById('assignManpowerRequestId')?.value;
@@ -238,13 +292,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (warningEl) { warningEl.classList.add('hidden'); warningEl.textContent = ''; }
             }
 
-            // call updateRequest with assignments
+            // THIS is the important line — call updateRequest with assignments and status 'approved'
             await updateRequest(Number(requestId), 'approved', assignments, confirmBtn, !!forceCheckbox.checked);
 
             // close modal on success
             window.dispatchEvent(new CustomEvent('close-modal', { detail: 'assignManpowerModal' }));
         } catch (err) {
-            // updateRequest shows errors
+            // updateRequest already shows errors
         } finally {
             confirmBtn.disabled = false;
         }
@@ -329,12 +383,40 @@ function renderBorrowRequests() {
         const wrapper = document.createElement("div");
         wrapper.className = "flex justify-center gap-2";
 
-        const viewTpl = req.status === "pending" ? "btn-view-details-template" : "btn-view-template";
+                const viewTpl = req.status === "pending" ? "btn-view-details-template" : "btn-view-template";
         wrapper.appendChild(createButtonFromTemplate(viewTpl, req.id));
-        if (req.status === "pending") {
-            wrapper.appendChild(createButtonFromTemplate("btn-accept-template", req.id));
-            wrapper.appendChild(createButtonFromTemplate("btn-reject-template", req.id));
-        }
+
+        // Show Validate + Reject when pending
+        // Show Validate + Reject when pending
+if (String(req.status).toLowerCase() === 'pending') {
+    // use the template id that exists in the blade
+    wrapper.appendChild(createButtonFromTemplate("btn-validate-template", req.id)); // Validate
+    wrapper.appendChild(createButtonFromTemplate("btn-reject-template", req.id));
+}
+// Show Deliver Items when approved (or validated) — hide Reject once dispatched
+else if (['approved','validated'].includes(String(req.status).toLowerCase())) {
+    const deliveryStatus = (req.delivery_status || '').toLowerCase();
+    if (deliveryStatus !== 'dispatched') {
+        // match the template id in blade
+        wrapper.appendChild(createButtonFromTemplate("btn-deliver-template", req.id)); // Deliver Items
+        // Admin may still reject before dispatch
+        wrapper.appendChild(createButtonFromTemplate("btn-reject-template", req.id));
+    } else {
+        // already dispatched — do not show Reject (only view)
+    }
+}
+// delivered or other statuses: only view (already appended)
+
+
+        // if delivered -> only view (already appended)
+ else if (req.status === "delivered") {
+                // Step 3: delivered — only view (no actions). Keep the view button which is already appended earlier.
+                // optionally add other actions here if needed later.
+            } else {
+                // Other statuses: default behavior - keep view and maybe reject for safety if you want
+                // e.g., for 'rejected' or 'return_pending' - no admin actions
+            }
+
         tdActions.appendChild(wrapper);
 
         tr.innerHTML = tdBorrower + tdId + tdBorrowDate + tdReturnDate + tdStatus;
@@ -410,14 +492,28 @@ function viewRequest(id) {
 }
 
 // ---------- confirmation modal helpers ----------
+// ---------- confirmation modal helpers ----------
 function openConfirmModal(id, status, btnRef = null) {
-    // populate modal text
-    const title = status === 'approved' ? 'Approve request' : 'Reject request';
-    const message = status === 'approved'
-        ? 'Are you sure you want to approve this borrow request?'
-        : 'Are you sure you want to reject this borrow request?';
+    // determine title/message/icon based on status
+    let title = 'Confirm Action';
+    let message = 'Are you sure?';
+    let icon = 'fas fa-exclamation-circle text-yellow-500';
 
-    const icon = status === 'approved' ? 'fas fa-check-circle text-green-700' : 'fas fa-times-circle text-red-600';
+    const s = String(status || '').toLowerCase();
+    if (s === 'approved' || s === 'validate' || s === 'validated') {
+        title = 'Approve request';
+        message = 'Are you sure you want to approve this borrow request?';
+        icon = 'fas fa-check-circle text-green-700';
+    } else if (s === 'rejected') {
+        title = 'Reject request';
+        message = 'Are you sure you want to reject this borrow request?';
+        icon = 'fas fa-times-circle text-red-600';
+    } else if (s === 'delivered' || s === 'dispatch' || s === 'dispatched') {
+        title = 'Deliver items';
+        message = 'Confirm you want to mark these items as delivered to the borrower?';
+        icon = 'fas fa-truck text-indigo-600';
+    }
+
     const iconEl = document.getElementById('confirmActionIcon');
     if (iconEl) {
         iconEl.className = icon;
@@ -439,63 +535,71 @@ function openConfirmModal(id, status, btnRef = null) {
     window.dispatchEvent(new CustomEvent('open-modal', { detail: 'confirmActionModal' }));
 }
 
+
 // when confirm button clicked in modal, call updateRequest and close modal
 document.addEventListener('DOMContentLoaded', () => {
     const confirmBtn = document.getElementById('confirmActionConfirmBtn');
-    if (confirmBtn) {
-        confirmBtn.addEventListener('click', async (ev) => {
-            const id = confirmBtn.dataset.requestId;
-            const status = confirmBtn.dataset.status;
-            if (!id || !status) {
-                showError('Invalid action.');
-                return;
-            }
-            // disable while processing
-            confirmBtn.disabled = true;
-            try {
-                await updateRequest(Number(id), status, confirmBtn);
-                // close modal after success
-                window.dispatchEvent(new CustomEvent('close-modal', { detail: 'confirmActionModal' }));
-            } catch (err) {
-                // updateRequest already shows error
-            } finally {
-                confirmBtn.disabled = false;
-            }
-        });
-    }
-});
+    if (!confirmBtn) return;
 
-// ---------- status update ----------
-// async function updateRequest(id, status, btn) {
-//     if (btn) btn.disabled = true;
-//     try {
-//         const res = await fetch(`/admin/borrow-requests/${id}/update-status`, {
-//             method: "POST",
-//             headers: {
-//                 "X-CSRF-TOKEN": CSRF_TOKEN,
-//                 "Content-Type": "application/json",
-//                 "Accept": "application/json"
-//             },
-//             body: JSON.stringify({ status })
-//         });
-//         const data = await res.json().catch(()=>null);
-//         if (!res.ok) {
-//             throw new Error(data?.message || `Update failed (status ${res.status})`);
-//         }
-//         // update local cache
-//         const r = BORROW_CACHE.find(x => x.id === id);
-//         if (r) r.status = status;
-//         renderBorrowRequests();
-//         showSuccess(`Borrow request ${humanizeStatus(status)} successfully!`);
-//         return data;
-//     } catch (err) {
-//         console.error(err);
-//         showError(err?.message || "Failed to update status");
-//         throw err;
-//     } finally {
-//         if (btn) btn.disabled = false;
-//     }
-// }
+    confirmBtn.addEventListener('click', async (ev) => {
+        const id = confirmBtn.dataset.requestId;
+        const status = (confirmBtn.dataset.status || '').toLowerCase();
+        if (!id || !status) {
+            showError('Invalid action.');
+            return;
+        }
+
+        confirmBtn.disabled = true;
+        try {
+            if (status === 'delivered') {
+                // Use the dispatch route which matches your server controller.
+                // (Some earlier code used '/deliver' which does not exist; /dispatch is the correct one.)
+                const url = `/admin/borrow-requests/${encodeURIComponent(id)}/dispatch`;
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        "X-CSRF-TOKEN": CSRF_TOKEN,
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
+                    },
+                    body: JSON.stringify({})
+                });
+
+                const payload = await res.json().catch(() => null);
+                if (!res.ok) {
+                    // surface server message if present
+                    const msg = payload?.message || `Failed to mark as delivered (status ${res.status})`;
+                    throw new Error(msg);
+                }
+
+                await loadBorrowRequests();
+                showSuccess('Items marked as delivered successfully.');
+
+                // Notify other browser contexts (user page) so they can reload immediately
+                try {
+                    window.dispatchEvent(new CustomEvent('realtime:borrow-request-status-updated', {
+                        detail: { borrow_request_id: id, new_status: 'dispatched' }
+                    }));
+                } catch (e) {
+                    // non-fatal
+                    console.warn('Could not dispatch realtime event', e);
+                }
+                
+            } else {
+                // generic status updates like 'rejected' (delegates to updateRequest)
+                await updateRequest(Number(id), status, confirmBtn);
+            }
+
+            // close modal after success
+            window.dispatchEvent(new CustomEvent('close-modal', { detail: 'confirmActionModal' }));
+        } catch (err) {
+            console.error('Confirm action failed', err);
+            showError(err?.message || 'Failed to perform action.');
+        } finally {
+            confirmBtn.disabled = false;
+        }
+    });
+});
 
 // ---------- utilities ----------
 function escapeHtml(unsafe) {

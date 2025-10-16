@@ -160,8 +160,13 @@ class ReturnItemsPage {
             const data = await response.json();
             const list = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
             this.requests = list
-                .filter((req) => String(req.status || '').toLowerCase() === 'approved')
-                .map((req) => this.normalizeRequest(req));
+            .filter((req) => {
+                const st = String(req.status || '').toLowerCase();
+                const ds = String(req.delivery_status || '').toLowerCase();
+                return st === 'approved' && (ds === 'dispatched' || ds === 'delivered');
+            })
+            .map((req) => this.normalizeRequest(req));
+
             this.buildSearchIndex();
             this.applyFilters();
         } catch (error) {

@@ -178,16 +178,14 @@ function renderItems() {
         const wrapper = document.createElement("div");
         wrapper.className = "flex justify-center gap-2";
 
-        // View button always present
         wrapper.appendChild(createButtonFromTemplate("btn-view-template", req.id));
 
-        // Print button visible when approved
-        if (req.status === "approved") {
+        if (req.status === "validated" || req.status === "approved") {
             wrapper.appendChild(createButtonFromTemplate("btn-print-template", req.id));
         }
 
-        // Return button when approved / return_pending
-        if (req.status === "approved" || req.status === "return_pending") {
+        const deliveryStatus = (req.delivery_status || '').toLowerCase();
+        if (deliveryStatus === 'dispatched' || deliveryStatus === 'delivered' || req.status === 'return_pending') {
             wrapper.appendChild(createButtonFromTemplate("btn-return-template", req.id));
         }
 
@@ -380,6 +378,23 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!document.getElementById('myBorrowedItemsTableBody')) return;
     loadMyBorrowedItems();
     setInterval(loadMyBorrowedItems, 10000);
+});
+
+// Listen for cross-tab dispatch notifications from admin page
+window.addEventListener('storage', function (ev) {
+    try {
+        if (!ev || !ev.key) return;
+        if (ev.key !== 'borrow_request_dispatched') return;
+        // optional: inspect payload to only refresh when relevant
+        const payload = ev.newValue ? JSON.parse(ev.newValue) : null;
+        // If you want to avoid full reload when not relevant to this user,
+        // you could check payload.id against visible requests — but safe default is to refresh.
+        if (typeof loadMyBorrowedItems === 'function') {
+            loadMyBorrowedItems();
+        }
+    } catch (e) {
+        console.warn('Failed to handle storage event', e);
+    }
 });
 
 // Export helpers

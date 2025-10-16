@@ -163,6 +163,8 @@
         <template data-status="returned"><x-status-badge type="success" text="Returned" /></template>
         <template data-status="rejected"><x-status-badge type="rejected" text="Rejected" /></template>
         <template data-status="default"><x-status-badge type="gray" text="—" /></template>
+        <template data-status="validated"><x-status-badge type="info" text="Validated" /></template>
+
     </div>
 
     <!-- Small bootstrap variables for the module -->
