@@ -6,7 +6,7 @@
         <i class="fas fa-key mr-2"></i>
         Manual Property Number Entry
       </h3>
-      <p class="text-emerald-100 mt-2 text-sm leading-relaxed">Create item instances by entering property numbers manually or pasting a list.</p>
+      <p class="text-emerald-100 mt-2 text-sm leading-relaxed">Create item instances by entering property numbers manually.</p>
     </div>
 
     <div class="p-5">

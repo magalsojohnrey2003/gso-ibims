@@ -505,7 +505,6 @@ export function fillRequestModal(req) {
         itemsEl.innerHTML = itemsHtml ? `<ul class="list-disc list-inside text-gray-600">${itemsHtml}</ul>` : '<div class="text-gray-600">No items</div>';
     }
 
-    setText('itemsList', items || 'No items');
     setText('requestLocation', req.location ?? '—');
     // Manpower (new)
     setText('manpowerCount', req.manpower_count ?? '—');

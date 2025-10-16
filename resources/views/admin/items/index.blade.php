@@ -50,8 +50,8 @@
                             <th class="px-6 py-3">Photo</th>
                             <th class="px-6 py-3">Name</th>
                             <th class="px-6 py-3">Category</th>
-                            <th class="px-6 py-3">Total Qty</th>
-                            <th class="px-6 py-3">Available</th>
+                            <th class="px-6 py-3 text-center ">Total Qty</th>
+                            <th class="px-6 py-3 text- center">Available</th>
                             <th class="px-6 py-3 text-right">Actions</th>
                         </tr>
                     </thead>
@@ -77,8 +77,8 @@
 
                                 <td class="px-6 py-4 font-medium" data-item-name>{{ $item->name }}</td>
                                 <td class="px-6 py-4" data-item-category>{{ ucfirst($item->category) }}</td>
-                                <td class="px-6 py-4 text-right" data-item-total>{{ $item->total_qty }}</td>
-                                <td class="px-6 py-4 text-right" data-item-available>
+                                <td class="px-6 py-4 text-center" data-item-total>{{ $item->total_qty }}</td>
+                                <td class="px-6 py-4 text-center" data-item-available>
                                     <span class="{{ $item->available_qty > 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold' }}">
                                         {{ $item->available_qty }}
                                     </span>
@@ -170,7 +170,7 @@
         <div class="bg-purple-600 text-white px-6 py-5">
             <h3 class="text-2xl font-bold flex items-center">
                 <i class="fas fa-plus mr-2"></i>
-                Add New Item
+                Auto-Generated PN
             </h3>
             <p class="text-purple-100 mt-2 text-sm leading-relaxed">
                 Please provide the necessary details below to Add new Item.
@@ -254,8 +254,8 @@
                 </svg>
             </div>
             <div class="text-left">
-                <div class="font-semibold text-sm">Add New Item</div>
-                <div class="text-xs text-blue-500">Add item to inventory</div>
+                <div class="font-semibold text-sm">Auto-Generated PN</div>
+                <div class="text-xs text-blue-500">Generate Property Numbers by Quantity</div>
             </div>
         </button>
     </div>
