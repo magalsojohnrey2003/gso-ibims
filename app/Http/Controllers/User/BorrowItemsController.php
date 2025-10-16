@@ -133,6 +133,8 @@ class BorrowItemsController extends Controller
             'borrow_date'    => 'required|date|after_or_equal:today',
             'return_date'    => 'required|date|after_or_equal:borrow_date',
             'manpower_count' => 'nullable|integer|min:1|max:100',
+            'location'       => 'nullable|string|max:255',
+
         ]);
 
         [$borrowDate, $returnDate] = [$validated['borrow_date'], $validated['return_date']];
@@ -163,6 +165,7 @@ class BorrowItemsController extends Controller
             'borrow_date'    => $borrowDate,
             'return_date'    => $returnDate,
             'manpower_count' => $request->input('manpower_count'),
+            'location'       => $request->input('location'),
             'status'         => 'pending',
         ]);
 

@@ -1,0 +1,147 @@
+/* assign-manpower.css
+   Styles to make the "Assign Manpower & Adjust Quantities" modal
+   layout neat and consistent, aligned with your current Tailwindish markup.
+   Targets: #assignManpowerItemsContainer and its rows + inputs
+*/
+
+/* container improvements */
+#assignManpowerItemsContainer {
+  max-height: 320px;            /* keep rows scrollable inside modal */
+  overflow: auto;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  background: #fff;
+  box-shadow: none;             /* matches modal inner card style */
+}
+
+/* ensure consistent gap inside the container */
+#assignManpowerItemsContainer .grid {
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.6rem 0.75rem;
+}
+
+/* each generated row has dataset borrow_request_item_id - target those rows */
+#assignManpowerItemsContainer > div[data-borrow-request-item-id] {
+  display: grid;
+  /* columns: 1) item name, 2) qty, 3) manpower, 4) role, 5) notes + checkbox/remove */
+  grid-template-columns: 1.2fr 80px 90px 140px 1fr;
+  gap: 0.6rem;
+  align-items: center;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid rgba(0,0,0,0.04);
+}
+
+/* item name column (left) */
+#assignManpowerItemsContainer > div[data-borrow-request-item-id] > div:first-child {
+  padding-right: 0.25rem;
+}
+#assignManpowerItemsContainer .font-medium {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+/* small secondary text under name (e.g., Requested: 5) */
+#assignManpowerItemsContainer .text-xs.text-gray-500,
+#assignManpowerItemsContainer .text-xs.text-gray-600 {
+  display: block;
+  margin-top: 0.2rem;
+  color: #6b7280;
+  font-size: 0.78rem;
+}
+
+/* inputs: unified look, matching size & padding */
+#assignManpowerItemsContainer input[type="number"],
+#assignManpowerItemsContainer input[type="text"],
+#assignManpowerItemsContainer select,
+#assignManpowerItemsContainer .assign-manpower-input,
+#assignManpowerItemsContainer .assign-qty-input,
+#assignManpowerItemsContainer .assign-manpower-role,
+#assignManpowerItemsContainer .assign-manpower-notes {
+  width: 100%;
+  min-width: 0;
+  padding: 0.45rem 0.6rem;
+  border-radius: 0.375rem;
+  border: 1px solid rgba(0,0,0,0.08);
+  background: #ffffff;
+  font-size: 0.92rem;
+  box-sizing: border-box;
+  color: #111827;
+}
+
+/* make the role select visually a little narrower inside its column */
+#assignManpowerItemsContainer .assign-manpower-role {
+  padding-right: 1.2rem;
+}
+
+/* notes column - keep compact and allow longer text */
+#assignManpowerItemsContainer .assign-manpower-notes {
+  padding: 0.45rem 0.6rem;
+  width: 100%;
+}
+
+/* small checkbox alignment near notes */
+#assignManpowerItemsContainer .assign-not-inventory {
+  display: inline-block;
+  margin-top: 0.4rem;
+  transform: translateY(1px);
+}
+
+/* remove button (trash) alignment: if present, keep small and at end */
+#assignManpowerItemsContainer .remove-role-btn,
+#assignManpowerItemsContainer button.remove-role-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 34px;
+  padding: 0;
+  border-radius: 0.375rem;
+  background: #fff5f5;
+  border: 1px solid rgba(220,38,38,0.06);
+  color: #dc2626;
+}
+
+/* locked / read-only role (visual treatment)
+   Very important for admin: roles provided by user should appear locked.
+   If JS sets select.disabled=true or adds class "locked", this styling applies.
+*/
+#assignManpowerItemsContainer select:disabled,
+#assignManpowerItemsContainer .assign-manpower-role.locked,
+#assignManpowerItemsContainer .assign-manpower-role[disabled] {
+  background: #f3f4f6;      /* light gray */
+  color: #6b7280;
+  pointer-events: none;
+  opacity: 0.9;
+  border-color: rgba(0,0,0,0.03);
+}
+
+/* visually dim full/locked rows */
+#assignManpowerItemsContainer > div[data-borrow-request-item-id].locked-row {
+  opacity: 0.7;
+}
+
+/* responsive fallback: on very small widths stack into 2 rows */
+@media (max-width: 880px) {
+  #assignManpowerItemsContainer > div[data-borrow-request-item-id] {
+    grid-template-columns: 1fr 90px;
+    grid-template-rows: auto auto;
+    grid-auto-flow: row;
+  }
+  #assignManpowerItemsContainer > div[data-borrow-request-item-id] > div:nth-child(1) { grid-column: 1 / -1; }
+  #assignManpowerItemsContainer > div[data-borrow-request-item-id] > div:nth-child(2) { grid-column: 2 / 3; }
+  #assignManpowerItemsContainer > div[data-borrow-request-item-id] > div:nth-child(3) { grid-column: 1 / 2; }
+  #assignManpowerItemsContainer > div[data-borrow-request-item-id] > div:nth-child(4) { grid-column: 1 / -1; }
+}
+
+/* small utility: compact the add-role button when disabled */
+#assignManpowerItemsContainer + .assign-controls .add-role-disabled,
+#assignManpowerItemsContainer .add-role-disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* subtle scrollbar style for container (modern browsers) */
+#assignManpowerItemsContainer::-webkit-scrollbar { height: 8px; width: 8px; }
+#assignManpowerItemsContainer::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.08); border-radius: 8px; }
+#assignManpowerItemsContainer::-webkit-scrollbar-track { background: transparent; }

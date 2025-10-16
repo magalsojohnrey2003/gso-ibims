@@ -81,6 +81,14 @@
                     </div>
                 </div>
 
+                <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
+                    <i class="fas fa-map-marker-alt text-purple-600 mt-1"></i>
+                    <div>
+                        <div class="font-medium text-gray-800">Delivery Location</div>
+                        <div class="text-gray-600" id="requestLocation">—</div>
+                    </div>
+                </div>
+
                 <!-- Status (badge) -->
                 <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
                     <i class="fas fa-tag text-purple-600 mt-1"></i>
@@ -254,5 +262,6 @@
         window.LIST_ROUTE = "{{ route('admin.borrow.requests.list') }}";
     </script>
 
-    @vite(['resources/js/app.js'])
+    @vite(['resources/css/assign-manpower.css', 'resources/js/app.js'])
+
 </x-app-layout>

@@ -208,6 +208,7 @@ export function fillBorrowModal(data) {
         if (el) el.textContent = value ?? '—';
     };
 
+    setText('mbi-location', data.location ?? '—'); 
     setText('mbi-short-status', `Borrow Request #${data.id}`);
     setText('mbi-request-id', data.id ?? '—');
     setText('mbi-borrow-date', formatDate(data.borrow_date));
@@ -226,21 +227,17 @@ export function fillBorrowModal(data) {
         }
     }
 
-    // items
     const itemsList = document.getElementById('mbi-items');
     if (itemsList) {
-        const itemsHtml = (data.items || [])
-    .map(i => {
-        const name = escapeHtml(i.item?.name ?? 'Unknown');
-        const qty = escapeHtml(String(i.quantity ?? 0));
-        const assigned = (typeof i.assigned_manpower !== 'undefined' && (i.assigned_manpower !== null && i.assigned_manpower !== 0))
-            ? `${escapeHtml(String(i.assigned_manpower))}${i.manpower_role ? ' (' + escapeHtml(i.manpower_role) + ')' : ''}${i.manpower_notes ? ' — ' + escapeHtml(i.manpower_notes) : ''}`
-            : 'Not assigned';
-        return `<li>${name} (x${qty}) — Assigned manpower: ${assigned}</li>`;
-    })
-    .join('');
-itemsList.innerHTML = itemsHtml || '<li>None</li>';
-
+        const itemsHtml = (data.items || []).map(i => {
+            const name = escapeHtml(i.item?.name ?? 'Unknown');
+            const qty = escapeHtml(String(i.quantity ?? 0));
+            const assigned = (typeof i.assigned_manpower !== 'undefined' && (i.assigned_manpower !== null && i.assigned_manpower !== 0))
+                ? `${escapeHtml(String(i.assigned_manpower))}${i.manpower_role ? ' (' + escapeHtml(i.manpower_role) + ')' : ''}${i.manpower_notes ? ' — ' + escapeHtml(i.manpower_notes) : ''}`
+                : 'Not assigned';
+            return `<li>${name} (x${qty}) — Assigned manpower: ${assigned}</li>`;
+        }).join('');
+        itemsList.innerHTML = itemsHtml ? itemsHtml : '<li>None</li>';
     }
 
     // rejection block

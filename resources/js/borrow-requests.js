@@ -491,18 +491,22 @@ export function fillRequestModal(req) {
     setText('requestShortStatus', `Borrow Request #${req.id}`);
     setText('borrowerName', req.user?.first_name ?? 'Unknown');
 
-    const items = (req.items || []).map(i => {
-    let assignedText = '';
-    if (typeof i.assigned_manpower !== 'undefined' && (i.assigned_manpower !== null && i.assigned_manpower !== 0)) {
-        assignedText = ` — Assigned: ${i.assigned_manpower}` + (i.manpower_role ? ` (${i.manpower_role})` : '') + (i.manpower_notes ? ` — ${i.manpower_notes}` : '');
-    } else {
-        assignedText = ' — Assigned: Not assigned';
+    // render items as a neat <ul> with each item on its own line
+    const itemsEl = document.getElementById('itemsList');
+    if (itemsEl) {
+        const itemsHtml = (req.items || []).map(i => {
+            const name = escapeHtml(i.item?.name ?? 'Unknown');
+            const qty = escapeHtml(String(i.quantity ?? 0));
+            const assigned = (typeof i.assigned_manpower !== 'undefined' && (i.assigned_manpower !== null && i.assigned_manpower !== 0))
+                ? `${escapeHtml(String(i.assigned_manpower))}${i.manpower_role ? ' (' + escapeHtml(i.manpower_role) + ')' : ''}${i.manpower_notes ? ' — ' + escapeHtml(i.manpower_notes) : ''}`
+                : 'Not assigned';
+            return `<li>${name} (x${qty}) — Assigned manpower: ${assigned}</li>`;
+        }).join('');
+        itemsEl.innerHTML = itemsHtml ? `<ul class="list-disc list-inside text-gray-600">${itemsHtml}</ul>` : '<div class="text-gray-600">No items</div>';
     }
-    return `${i.item?.name ?? 'Unknown'} - ${i.quantity}${assignedText}`;
-}).join(', ');
 
     setText('itemsList', items || 'No items');
-
+    setText('requestLocation', req.location ?? '—');
     // Manpower (new)
     setText('manpowerCount', req.manpower_count ?? '—');
 

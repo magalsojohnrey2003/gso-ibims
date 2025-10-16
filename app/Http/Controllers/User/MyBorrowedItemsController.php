@@ -60,6 +60,7 @@ class MyBorrowedItemsController extends Controller
                     'return_date' => $borrowRequest->return_date,
                     'status' => $borrowRequest->status,
                     'manpower_count' => $borrowRequest->manpower_count,
+                    'location' => $borrowRequest->location, 
                     'items' => $items,
                     'borrowed_instances' => $instances,
                 ];
@@ -97,6 +98,7 @@ class MyBorrowedItemsController extends Controller
             'return_date' => $borrowRequest->return_date,
             'status' => $borrowRequest->status,
             'manpower_count' => $borrowRequest->manpower_count,
+            'location' => $borrowRequest->location,
             'items' => $items,
             'borrowed_instances' => $instances,
         ]);

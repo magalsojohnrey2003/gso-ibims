@@ -371,6 +371,50 @@ function updateManpowerRolesVisibility() {
 function addRoleRow(prefill = {}) {
     const tpl = document.getElementById('manpowerRoleRowTemplate');
     if (!tpl) return null;
+
+    // PREVENT adding duplicate predefined roles (except "Other").
+    const requested = Math.max(0, parseInt(document.getElementById('manpower_count')?.value || '0', 10));
+    const container = document.getElementById('manpowerRolesContainer');
+
+    // normalize role from prefill if provided
+    const incomingRole = (prefill.role || '').trim();
+
+    if (incomingRole && incomingRole !== 'Other' && container) {
+        const exists = Array.from(container.querySelectorAll('.role-row')).some(r => {
+            const sel = r.querySelector('.role-select');
+            const other = r.querySelector('.role-other-input');
+            const val = sel?.value || '';
+            const otherVal = other?.value || '';
+            // if existing row uses "Other", compare against its custom text
+            if (val === 'Other') {
+                return otherVal.trim() && otherVal.trim() === incomingRole;
+            }
+            return val === incomingRole;
+        });
+
+        if (exists) {
+            // focus the first matching row instead of adding another
+            const first = Array.from(container.querySelectorAll('.role-row')).find(r => {
+                const sel = r.querySelector('.role-select');
+                const other = r.querySelector('.role-other-input');
+                const val = sel?.value || '';
+                const otherVal = other?.value || '';
+                if (val === 'Other') return otherVal.trim() && otherVal.trim() === incomingRole;
+                return val === incomingRole;
+            });
+            if (first) {
+                // flash/bounce visual hint
+                first.classList.add('ring-2','ring-yellow-300');
+                setTimeout(()=> first.classList.remove('ring-2','ring-yellow-300'), 900);
+                // focus qty input so admin can increase
+                const q = first.querySelector('.role-qty-input');
+                if (q) q.focus();
+            }
+            return first || null;
+        }
+    }
+
+    // Otherwise create a new role row
     const frag = tpl.content.cloneNode(true);
     const row = frag.querySelector('.role-row');
 
@@ -381,7 +425,6 @@ function addRoleRow(prefill = {}) {
     const removeBtn = row.querySelector('.remove-role-btn');
 
     if (prefill.role) {
-        // if role is a custom string not in options, select Other and fill otherInput
         const optionExists = Array.from(select.options).some(o => o.value === prefill.role);
         if (optionExists) select.value = prefill.role;
         else {
@@ -401,6 +444,8 @@ function addRoleRow(prefill = {}) {
             otherInput.classList.add('hidden');
             otherInput.value = '';
         }
+        // recalc totals & enable/disable add btn
+        recalcRolesTotal();
     });
 
     qtyInput.addEventListener('input', () => recalcRolesTotal());
@@ -409,7 +454,6 @@ function addRoleRow(prefill = {}) {
         recalcRolesTotal();
     });
 
-    const container = document.getElementById('manpowerRolesContainer');
     container.appendChild(row);
     recalcRolesTotal();
     return row;
@@ -420,19 +464,83 @@ function recalcRolesTotal() {
     const totalSpan = document.getElementById('manpowerRolesTotal');
     const requested = Math.max(0, parseInt(document.getElementById('manpower_count')?.value || '0', 10));
     const warningEl = document.getElementById('manpowerRolesWarning');
+    const addRoleBtn = document.getElementById('addRoleBtn');
 
     if (!container) return;
     let total = 0;
-    container.querySelectorAll('.role-row').forEach(row => {
+    let rowCount = 0;
+    const rows = Array.from(container.querySelectorAll('.role-row'));
+    rows.forEach(row => {
+        rowCount++;
         const qty = parseInt(row.querySelector('.role-qty-input')?.value || '0', 10) || 0;
         total += qty;
     });
+
     if (totalSpan) totalSpan.textContent = String(total);
 
-    // If total exceeds requested, show warning
+    // Disable Add Role button when:
+    //  - requested > 0 and total assigned manpower >= requested, OR
+    //  - requested > 0 and number of role rows >= requested
+    if (addRoleBtn) {
+        const shouldDisable = requested > 0 && (total >= requested || rowCount >= requested);
+        addRoleBtn.disabled = !!shouldDisable;
+        addRoleBtn.classList.toggle('opacity-50', !!shouldDisable);
+        addRoleBtn.classList.toggle('cursor-not-allowed', !!shouldDisable);
+    }
+
+    // If a single row already contains quantity >= requested, lock other rows' inputs (qty/select/notes)
+    if (requested > 0) {
+        const rowWithFullQty = rows.find(r => {
+            const q = parseInt(r.querySelector('.role-qty-input')?.value || '0', 10) || 0;
+            return q >= requested;
+        });
+
+        rows.forEach(r => {
+            const qtyInput = r.querySelector('.role-qty-input');
+            const select = r.querySelector('.role-select');
+            const otherInput = r.querySelector('.role-other-input');
+            const notes = r.querySelector('.role-notes-input');
+            const removeBtn = r.querySelector('.remove-role-btn');
+
+            if (rowWithFullQty && rowWithFullQty !== r) {
+                // block other rows (but keep remove enabled so admin can free up slots)
+                if (qtyInput) qtyInput.disabled = true;
+                if (select) select.disabled = true;
+                if (otherInput) otherInput.disabled = true;
+                if (notes) notes.disabled = true;
+                // visually indicate locked rows
+                r.classList.add('opacity-60');
+            } else {
+                // normal state
+                if (qtyInput) qtyInput.disabled = false;
+                if (select) select.disabled = false;
+                if (otherInput) otherInput.disabled = false;
+                if (notes) notes.disabled = false;
+                r.classList.remove('opacity-60');
+            }
+
+            // always keep remove button enabled so admin can adjust
+            if (removeBtn) removeBtn.disabled = false;
+        });
+    } else {
+        // no requested limit => ensure all rows enabled
+        rows.forEach(r => {
+            const qtyInput = r.querySelector('.role-qty-input');
+            const select = r.querySelector('.role-select');
+            const otherInput = r.querySelector('.role-other-input');
+            const notes = r.querySelector('.role-notes-input');
+            if (qtyInput) qtyInput.disabled = false;
+            if (select) select.disabled = false;
+            if (otherInput) otherInput.disabled = false;
+            if (notes) notes.disabled = false;
+            r.classList.remove('opacity-60');
+        });
+    }
+
+    // Soft warning (no hard stop) if totals exceed requested
     if (requested > 0 && total > requested) {
         if (warningEl) {
-            warningEl.textContent = `Total role quantities (${total}) exceed requested manpower (${requested}). Please adjust.`;
+            warningEl.textContent = `Total assigned manpower (${total}) exceeds requested (${requested}). Please adjust or remove extra roles.`;
             warningEl.classList.remove('hidden');
         }
     } else {
@@ -496,16 +604,63 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // if we referenced route() in blade, the string is already present — if not, fallback to first form.
     if (manpowerInput) {
-        manpowerInput.addEventListener('input', () => {
+        // enforce attributes (helps native browsers)
+        manpowerInput.setAttribute('max', '99');
+        manpowerInput.setAttribute('min', '1');
+        manpowerInput.setAttribute('maxlength', '2');
+
+        // clamp function: allow empty string (optional field), otherwise force 1..99 and max 2 digits
+        const clampManpowerInput = () => {
+            let v = manpowerInput.value?.toString() ?? '';
+            // strip non-digits
+            v = v.replace(/[^\d]/g, '');
+            if (v.length > 2) v = v.slice(0,2);
+            if (v !== '') {
+                let n = parseInt(v, 10) || 0;
+                if (n < 1) n = 1;
+                if (n > 99) n = 99;
+                v = String(n);
+            }
+            // apply if changed
+            if (manpowerInput.value !== v) manpowerInput.value = v;
+            // update visibility + totals UI
             updateManpowerRolesVisibility();
-        });
+            // recalc roles (which will also enable/disable add button)
+            recalcRolesTotal();
+        };
+
+        manpowerInput.addEventListener('input', clampManpowerInput);
+        manpowerInput.addEventListener('blur', clampManpowerInput);
+
         // init visibility on load (use existing old value)
         updateManpowerRolesVisibility();
+        // ensure button state computed on load
+        recalcRolesTotal();
     }
 
-    if (addRoleBtn) {
-        addRoleBtn.addEventListener('click', () => addRoleRow({role: '', qty: 0}));
+  function safeAddRole() {
+    const requested = Math.max(0, parseInt(document.getElementById('manpower_count')?.value || '0', 10));
+    const container = document.getElementById('manpowerRolesContainer');
+    const rowCount = container ? container.querySelectorAll('.role-row').length : 0;
+
+    // If a requested limit exists and we've already added as many rows as requested, block adding
+    if (requested > 0 && rowCount >= requested) {
+        const btn = document.getElementById('addRoleBtn');
+        if (btn) {
+            // brief visual feedback
+            btn.classList.add('opacity-80');
+            setTimeout(()=>btn.classList.remove('opacity-80'), 250);
+        }
+        return;
     }
+
+    addRoleRow({ role: '', qty: 0 });
+}
+
+if (addRoleBtn) {
+    addRoleBtn.addEventListener('click', () => safeAddRole());
+}
+
 
     // If the page had old role data (like from old input), you could prepopulate here
     // (left intentionally simple). You can extend by reading preloaded JSON in a data attribute.
@@ -513,26 +668,31 @@ document.addEventListener('DOMContentLoaded', function() {
     // Intercept form submit: inject hidden inputs for roles and perform client-side validation
     if (borrowForm) {
         borrowForm.addEventListener('submit', function (ev) {
-            // validate totals
+            // validate totals (soft validation only)
             const requested = Math.max(0, parseInt(manpowerInput?.value || '0', 10));
             const total = parseInt(document.getElementById('manpowerRolesTotal')?.textContent || '0', 10) || 0;
+            const warningEl = document.getElementById('manpowerRolesWarning');
+
             if (requested > 0 && total > requested) {
-                ev.preventDefault();
-                const warningEl = document.getElementById('manpowerRolesWarning');
+                // gentle warning but DO NOT block submission
                 if (warningEl) {
-                    warningEl.textContent = `Total role quantities (${total}) exceed requested manpower (${requested}). Please fix before submitting.`;
+                    warningEl.textContent = `Total assigned manpower (${total}) exceeds requested (${requested}). Admin may still submit but please verify.`;
                     warningEl.classList.remove('hidden');
                 } else {
-                    alert(`Total role quantities (${total}) exceed requested manpower (${requested}). Please fix.`);
+                    console.warn(`Total assigned manpower (${total}) exceeds requested (${requested}).`);
                 }
-                return false;
+                // proceed to inject hidden inputs and submit
+            } else {
+                if (warningEl) { warningEl.textContent = ''; warningEl.classList.add('hidden'); }
             }
+
             // build hidden role inputs
             injectRoleHiddenInputs(borrowForm);
-            // location input is already an input `name="address"` in the form so it's sent automatically
+            // location input is already present so it's sent automatically
             return true;
         });
     }
+
 });
 
 

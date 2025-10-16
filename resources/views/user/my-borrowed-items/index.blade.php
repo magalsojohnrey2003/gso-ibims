@@ -80,6 +80,14 @@
                 </div>
 
                 <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
+                    <i class="fas fa-map-marker-alt text-purple-600 mt-1"></i>
+                    <div>
+                        <div class="font-medium text-gray-800">Delivery Location</div>
+                        <div class="text-gray-600" id="mbi-location">—</div>
+                    </div>
+                </div>
+
+                <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
                     <i class="fas fa-calendar-check text-purple-600 mt-1"></i>
                     <div>
                         <div class="font-medium text-gray-800">Return Date</div>
