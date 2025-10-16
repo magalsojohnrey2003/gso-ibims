@@ -34,7 +34,7 @@
         <x-input-label for="category-{{ $item->id }}" value="Category" />
         <select id="category-{{ $item->id }}" name="category"
                 class="mt-1 block w-full min-w-0 appearance-none border rounded px-3 py-2"
-                required data-category-select data-field="category" data-edit-field="category">
+                data-category-select data-field="category" data-edit-field="category">
             <!-- options rendered by JS -->
         </select>
 
@@ -81,6 +81,7 @@
       <p class="mt-2 text-xs text-gray-500">You may edit components in-place. Valid changes will save automatically.</p>
     </div>
 
+    
 
     <!-- Step 3: Additional Details (collapsible) -->
     <div class="bg-gray-50 shadow-md hover:shadow-lg transition rounded-lg">
@@ -262,5 +263,7 @@ document.addEventListener('DOMContentLoaded', () => {
     restoreForm(modalName);
   });
 });
+
 </script>
+
 

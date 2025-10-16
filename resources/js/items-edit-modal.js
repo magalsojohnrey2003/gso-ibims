@@ -6,6 +6,16 @@ const SUBMIT_SELECTOR = '[data-edit-submit]';
 const CANCEL_SELECTOR = '[data-edit-cancel]';
 const OFFICE_ERROR_SELECTOR = '[data-office-error]';
 
+async function showActionConfirm(title, message, icon = '') {
+  if (typeof window.showModalConfirm === 'function') {
+    return await window.showModalConfirm({ title, message, icon }); // must return boolean
+  }
+  return Promise.resolve(window.confirm(message));
+}
+
+
+
+
 const showToast = (typeof window !== 'undefined' && typeof window.showToast === 'function')
   ? window.showToast.bind(window)
   : (type, message) => {
@@ -13,6 +23,7 @@ const showToast = (typeof window !== 'undefined' && typeof window.showToast === 
       else console.log(message);
     };
 
+    
 function showMessage(el, message) {
     if (!el) return;
     el.textContent = message;
@@ -191,6 +202,26 @@ function handleSuccess(form, feedbackEl, errorEl, result) {
 function handleError(feedbackEl, errorEl, error) {
     hideMessage(feedbackEl);
     const msg = error.message || 'Unable to update item.';
+
+    // If backend returned duplicate property number message, try to revert serial
+    const duplicateIndicator = 'Another item already uses the property number';
+    if (msg.includes(duplicateIndicator)) {
+        // find serial input in the form
+        try {
+            const form = document.querySelector('[data-edit-item-form]');
+            if (form) {
+                const serialInput = form.querySelector('[data-edit-field="serial"], input[name="serial"]');
+                if (serialInput) {
+                    const orig = serialInput.getAttribute('data-original-serial');
+                    if (orig !== null) {
+                        serialInput.value = orig;
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('Could not revert serial input:', e);
+        }
+    }
     showMessage(errorEl, msg);
     try { showToast('error', msg); } catch (_) {}
 }
@@ -311,4 +342,243 @@ function initEditForm(form) {
 
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll(SELECTOR).forEach(initEditForm);
+});
+
+// resources/js/admin/item-instances-inline.js
+// If you append to item-edit.js, ensure it's loaded after DOMContentLoaded handlers.
+
+document.addEventListener('DOMContentLoaded', () => {
+  const CSRF = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || window.CSRF_TOKEN || '';
+
+  const debounce = (fn, delay = 500) => {
+    let t;
+    return (...args) => {
+      clearTimeout(t);
+      t = setTimeout(() => fn(...args), delay);
+    };
+  };
+
+  // PATCH an instance (returns { ok, status, json })
+  async function patchInstance(instanceId, payload) {
+    const res = await fetch(`/admin/item-instances/${instanceId}`, {
+      method: 'PATCH',
+      headers: {
+        'X-CSRF-TOKEN': CSRF,
+        'X-Requested-With': 'XMLHttpRequest',
+        'Accept': 'application/json',
+      },
+      body: (function () {
+        // use FormData so we keep usual server expectations
+        const fd = new FormData();
+        Object.keys(payload).forEach(k => {
+          if (payload[k] !== null) fd.append(k, payload[k]);
+          else fd.append(k, '');
+        });
+        return fd;
+      })(),
+      credentials: 'same-origin',
+    });
+
+    const ct = res.headers.get('content-type') || '';
+    const json = ct.includes('application/json') ? await res.json().catch(() => null) : null;
+    return { ok: res.ok, status: res.status, json };
+  }
+
+  // DELETE an instance
+  async function deleteInstance(instanceId) {
+    const res = await fetch(`/admin/item-instances/${instanceId}`, {
+      method: 'DELETE',
+      headers: {
+        'X-CSRF-TOKEN': CSRF,
+        'X-Requested-With': 'XMLHttpRequest',
+        'Accept': 'application/json',
+      },
+      credentials: 'same-origin',
+    });
+    const ct = res.headers.get('content-type') || '';
+    const json = ct.includes('application/json') ? await res.json().catch(() => null) : null;
+    return { ok: res.ok, status: res.status, json };
+  }
+
+  // Helper: assemble visible PN for display (best-effort)
+  function assemblePN({ year_procured, ppe_code, serial, office_code }) {
+    const y = String(year_procured || '').trim();
+    const p = String(ppe_code || '').trim();
+    const s = String(serial || '').trim();
+    const o = String(office_code || '').trim();
+    return [y, p, s, o].every(x => x) ? `${y}-${p}-${s}-${o}` : '';
+  }
+
+  // For each row: set up handlers
+  function initInstanceRow(row) {
+    if (!row || row._instancesInitialized) return;
+    row._instancesInitialized = true;
+
+    const instanceId = row.getAttribute('data-instance-id');
+    const yearEl = row.querySelector('.instance-part-year');
+    const ppeEl = row.querySelector('.instance-part-ppe');
+    const serialEl = row.querySelector('.instance-part-serial');
+    const officeEl = row.querySelector('.instance-part-office');
+    const statusEl = row.querySelector('.instance-status');
+
+    // store original values so we can rollback serial only
+    if (yearEl) yearEl.dataset.orig = yearEl.value ?? '';
+    if (ppeEl) ppeEl.dataset.orig = ppeEl.value ?? '';
+    if (serialEl) serialEl.dataset.orig = serialEl.value ?? '';
+    if (officeEl) officeEl.dataset.orig = officeEl.value ?? '';
+
+    // Debounced save
+    const doSave = debounce(async () => {
+      const payload = {
+        year_procured: yearEl ? yearEl.value.trim() || null : null,
+        ppe_code: ppeEl ? ppeEl.value.trim() || null : null,
+        serial: serialEl ? serialEl.value.trim() || null : null,
+        office_code: officeEl ? officeEl.value.trim() || null : null,
+      };
+
+      const prevStatus = statusEl ? statusEl.textContent : '';
+      if (statusEl) statusEl.textContent = 'Saving...';
+
+      try {
+        const { ok, json } = await patchInstance(instanceId, payload);
+
+        if (ok) {
+          const pn = (json && json.property_number) ? json.property_number : assemblePN(payload);
+          if (statusEl && pn) statusEl.textContent = pn;
+          // update orig snapshots to the new values
+          if (yearEl) yearEl.dataset.orig = yearEl.value ?? '';
+          if (ppeEl) ppeEl.dataset.orig = ppeEl.value ?? '';
+          if (serialEl) serialEl.dataset.orig = serialEl.value ?? '';
+          if (officeEl) officeEl.dataset.orig = officeEl.value ?? '';
+          try { if (typeof window.showToast === 'function') window.showToast('success', 'Instance updated'); } catch (_) {}
+          window.dispatchEvent(new CustomEvent('instance:updated', { detail: { instanceId, payload, response: json } }));
+          return;
+        }
+
+        // if validation failed, detect serial-specific error
+        let serialError = false;
+        if (json) {
+          if (json.errors && (json.errors.serial || json.errors.serial_int)) serialError = true;
+          if (typeof json.message === 'string' && /serial|duplicate|already in use|property number/i.test(json.message)) serialError = true;
+        }
+
+        if (serialError) {
+          // rollback only serial
+          if (serialEl && serialEl.dataset.orig !== undefined) {
+            serialEl.value = serialEl.dataset.orig;
+          }
+          if (statusEl) statusEl.textContent = prevStatus || 'Conflict';
+          const userMsg = (json && (json.message || (json.errors && json.errors.serial && json.errors.serial.join(' ')))) || 'Serial duplicate — reverted.';
+          try { if (typeof window.showToast === 'function') window.showToast('error', userMsg); } catch (_) {}
+          window.dispatchEvent(new CustomEvent('instance:update:serial_conflict', { detail: { instanceId, message: userMsg } }));
+          return;
+        }
+
+        // other validation error — show message but do not revert other fields per your request
+        const fallbackMsg = (json && (json.message || (json.errors && Object.values(json.errors).flat().join(' ')))) || 'Validation failed';
+        if (statusEl) statusEl.textContent = prevStatus || 'Error';
+        try { if (typeof window.showToast === 'function') window.showToast('error', fallbackMsg); } catch (_) {}
+        window.dispatchEvent(new CustomEvent('instance:update:failed', { detail: { instanceId, status: 422, message: fallbackMsg } }));
+      } catch (err) {
+        console.error('Instance update error', err);
+        if (statusEl) statusEl.textContent = prevStatus || 'Error';
+        try { if (typeof window.showToast === 'function') window.showToast('error', 'Failed to update instance.'); } catch (_) {}
+      }
+    }, 700);
+
+    // wire inputs
+    [yearEl, ppeEl, serialEl, officeEl].forEach(el => {
+      if (!el) return;
+      el.addEventListener('input', () => {
+        // sanitize office to alphanumeric and serial to alphanumeric (you already have similar logic)
+        if (el === officeEl) {
+          el.value = el.value.replace(/[^a-zA-Z0-9]/g, '');
+        }
+        if (el === serialEl) {
+          // allow alphanumeric here (you said serial can be alphanumeric)
+          el.value = el.value.replace(/[^A-Za-z0-9]/g, '');
+        }
+        doSave();
+      });
+    });
+
+    // Remove button
+    const removeBtn = row.querySelector('.instance-remove-btn');
+           if (removeBtn) {
+      removeBtn.addEventListener('click', async (ev) => {
+        ev.preventDefault();
+        const confirmed = await showActionConfirm('Remove property number', 'Are you sure you want to remove this property number?', { confirmText: 'Remove' });
+        if (!confirmed) return;
+
+        removeBtn.disabled = true;
+        try {
+          const { ok, json, status } = await deleteInstance(instanceId);
+          if (ok) {
+            row.remove();
+            window.dispatchEvent(new CustomEvent('instance:deleted', { detail: { instanceId, response: json } }));
+            try { if (typeof window.showToast === 'function') window.showToast('success', 'Instance deleted'); } catch (_) {}
+            return;
+          }
+          const msg = (json && (json.message || (json.errors && Object.values(json.errors).flat().join(' ')))) || `Failed to delete instance (${status})`;
+          showToast('error', msg);
+          removeBtn.disabled = false;
+        } catch (err) {
+          console.error('Instance delete failed', err);
+          showToast('error', 'Failed to delete instance');
+          removeBtn.disabled = false;
+        }
+      });
+    }
+
+  }
+
+  // Initialize rows present on load
+  document.querySelectorAll('.edit-instance-row').forEach(initInstanceRow);
+
+  // If you dynamically add new rows in DOM later, use MutationObserver to initialize them automatically
+  const container = document.getElementById('edit_instances_container');
+  if (container) {
+    const mo = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        for (const added of m.addedNodes) {
+          if (added instanceof Element && added.classList.contains('edit-instance-row')) {
+            initInstanceRow(added);
+          } else if (added instanceof Element) {
+            added.querySelectorAll('.edit-instance-row').forEach(initInstanceRow);
+          }
+        }
+      }
+    });
+    mo.observe(container, { childList: true, subtree: true });
+  }
+
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Uppercase and limit serial/office across add/edit forms
+  document.querySelectorAll('input[name="office_code"], input[data-add-field="office"], input[data-edit-field="office"], input.instance-part-office').forEach(inp => {
+    inp.addEventListener('input', () => {
+      inp.value = String(inp.value || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 4);
+    });
+  });
+
+  document.querySelectorAll('input[name="start_serial"], input[data-add-field="serial"], input[data-edit-field="serial"], input.instance-part-serial').forEach(inp => {
+    inp.addEventListener('input', () => {
+      inp.value = String(inp.value || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 5);
+    });
+  });
+
+  // Year fields: digits only
+  document.querySelectorAll('input[name="year_procured"], input[data-manual-config="year"], input[data-property-segment="year"], input[data-edit-field="year"]').forEach(inp => {
+    inp.addEventListener('input', () => {
+      inp.value = String(inp.value || '').replace(/\D/g, '').slice(0,4);
+      if (inp.value.length === 4) {
+        const y = parseInt(inp.value, 10);
+        if (isNaN(y) || y < 2020) {
+          inp.value = '';
+          showToast('error', 'Year must be 2020 or later.');
+        }
+      }
+    });
+  });
 });

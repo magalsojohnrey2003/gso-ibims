@@ -498,5 +498,34 @@ function initAddItemsForm(form) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Uppercase and limit serial/office across add/edit forms
+  document.querySelectorAll('input[name="office_code"], input[data-add-field="office"], input[data-edit-field="office"], input.instance-part-office').forEach(inp => {
+    inp.addEventListener('input', () => {
+      inp.value = String(inp.value || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 4);
+    });
+  });
+
+  document.querySelectorAll('input[name="start_serial"], input[data-add-field="serial"], input[data-edit-field="serial"], input.instance-part-serial').forEach(inp => {
+    inp.addEventListener('input', () => {
+      inp.value = String(inp.value || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 5);
+    });
+  });
+
+  // Year fields: digits only
+  document.querySelectorAll('input[name="year_procured"], input[data-manual-config="year"], input[data-property-segment="year"], input[data-edit-field="year"]').forEach(inp => {
+    inp.addEventListener('input', () => {
+      inp.value = String(inp.value || '').replace(/\D/g, '').slice(0,4);
+      if (inp.value.length === 4) {
+        const y = parseInt(inp.value, 10);
+        if (isNaN(y) || y < 2020) {
+          inp.value = '';
+          showToast('error', 'Year must be 2020 or later.');
+        }
+      }
+    });
+  });
+});
+
+document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll(SELECTOR).forEach(initAddItemsForm);
 });

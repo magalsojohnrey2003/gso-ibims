@@ -169,27 +169,29 @@
     </div>
 </x-modal>
 
-<!-- Assign Manpower Modal -->
+<!-- Assign Manpower + Quantity Adjustment Modal -->
 <x-modal name="assignManpowerModal" maxWidth="2xl">
     <div class="p-6">
-        <h3 class="text-lg font-semibold mb-3">Assign manpower per item</h3>
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h3 class="text-lg font-semibold">Assign Manpower & Adjust Quantities</h3>
+                <p class="text-sm text-gray-500 mt-1">Assign manpower per item and optionally adjust item quantities. Decreasing quantities is allowed here. Use <span class="font-medium">Not in physical inventory</span> when the item is missing or damaged.</p>
+            </div>
+            <button type="button" class="text-gray-400 hover:text-gray-600" @click="$dispatch('close-modal','assignManpowerModal')">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
 
         <form id="assignManpowerForm" class="space-y-4" onsubmit="return false;">
             <input type="hidden" id="assignManpowerRequestId" />
 
             <div class="text-sm text-gray-700 mb-2">
-                Requested manpower (total): <span id="assignRequestedTotal">—</span>
+                Requested manpower (total): <span id="assignRequestedTotal" class="font-medium">—</span>
+                <span id="assignManpowerHint" class="ml-3 text-xs text-gray-400">Tip: Reduce item Qty to mark less units requested (cannot increase).</span>
             </div>
 
             <div id="assignManpowerItemsContainer" class="space-y-3 max-h-72 overflow-auto border rounded p-3 bg-white">
-                <!-- JS will populate rows like:
-                     <div class="grid grid-cols-12 gap-2 items-center">
-                        <div class="col-span-5 font-medium">Item name</div>
-                        <div class="col-span-2"><input type="number" ... /></div>
-                        <div class="col-span-3"><select>...</select></div>
-                        <div class="col-span-2"><input type="text" ... /></div>
-                     </div>
-                -->
+                <!-- JS will populate rows -->
             </div>
 
             <div class="flex items-center gap-3 text-sm">
@@ -206,7 +208,6 @@
         </form>
     </div>
 </x-modal>
-
 
     {{-- Button templates (used by JS to create action buttons per-row) --}}
     <template id="btn-view-details-template">

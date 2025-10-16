@@ -27,97 +27,137 @@
   }
 
   function createRowElement(idx, initial = {}, serialWidthHint = null) {
-    const root = document.createElement('div');
-    root.className = 'flex items-start gap-4';
+  const root = document.createElement('div');
+  root.className = 'flex items-start gap-4 edit-instance-row';
+  root.setAttribute('data-instance-temp-index', String(idx));
 
-    const left = document.createElement('div');
-    left.className = 'flex-none w-10 text-center';
-    const circle = document.createElement('div');
-    circle.className = 'inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-medium';
-    circle.textContent = String(idx + 1);
-    left.appendChild(circle);
+  const left = document.createElement('div');
+  left.className = 'flex-none w-10 text-center';
+  const circle = document.createElement('div');
+  circle.className = 'inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-50 text-indigo-700 font-medium';
+  circle.textContent = String(idx + 1);
+  left.appendChild(circle);
 
-    const panel = document.createElement('div');
-    panel.className = 'flex-1 bg-indigo-50 rounded-lg px-4 py-3 flex items-center gap-3 flex-nowrap';
+  const panel = document.createElement('div');
+  panel.className = 'flex-1 bg-indigo-50 rounded-lg px-4 py-3 flex items-center gap-3 flex-nowrap';
 
-    const yInput = document.createElement('input');
-    yInput.type = 'text';
-    yInput.className = 'w-20 text-center text-sm rounded-md border px-2 py-1 bg-white';
-    yInput.value = initial.year ?? '';
-    yInput.dataset.part = 'year';
+  // YEAR input (digits only, 4 chars, enforce >= 2020)
+  const yInput = document.createElement('input');
+  yInput.type = 'text';
+  yInput.inputMode = 'numeric';
+  yInput.maxLength = 4;
+  yInput.placeholder = 'Year Procured';
+  yInput.className = 'w-20 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-year';
+  yInput.value = initial.year ?? '';
+  yInput.dataset.part = 'year';
 
-    const sep1 = document.createElement('div'); sep1.className = 'text-gray-500 select-none'; sep1.textContent = '-';
+  // PPE
+  const pInput = document.createElement('input');
+  pInput.type = 'text';
+  pInput.placeholder = 'PPE';
+  pInput.className = 'w-16 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-ppe';
+  pInput.value = initial.ppe ?? '';
+  pInput.dataset.part = 'ppe';
 
-    const pInput = document.createElement('input');
-    pInput.type = 'text';
-    pInput.className = 'w-16 text-center text-sm rounded-md border px-2 py-1 bg-white';
-    pInput.value = initial.ppe ?? '';
-    pInput.dataset.part = 'ppe';
+  // SERIAL (uppercase, limit 5)
+  const sInput = document.createElement('input');
+  sInput.type = 'text';
+  sInput.maxLength = 5;
+  sInput.placeholder = 'Serial';
+  sInput.className = 'w-20 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-serial';
+  sInput.value = initial.serial ?? '';
+  sInput.dataset.part = 'serial';
 
-    const sep2 = document.createElement('div'); sep2.className = 'text-gray-500 select-none'; sep2.textContent = '-';
+  // OFFICE (uppercase, max 4)
+  const oInput = document.createElement('input');
+  oInput.type = 'text';
+  oInput.maxLength = 4;
+  oInput.placeholder = 'Office';
+  oInput.className = 'w-20 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-office';
+  oInput.value = initial.office ?? '';
+  oInput.dataset.part = 'office';
 
-    const sInput = document.createElement('input');
-    sInput.type = 'text';
-    sInput.className = 'w-20 text-center text-sm rounded-md border px-2 py-1 bg-white';
-    sInput.value = initial.serial ?? '';
-    sInput.dataset.part = 'serial';
+  const actions = document.createElement('div');
+  actions.className = 'flex-none ml-2';
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'text-red-600 text-sm px-2 py-1 rounded-md hover:bg-red-50 instance-remove-btn';
+  removeBtn.textContent = 'Remove';
+  actions.appendChild(removeBtn);
 
-    const sep3 = document.createElement('div'); sep3.className = 'text-gray-500 select-none'; sep3.textContent = '-';
+  const status = document.createElement('div');
+  status.className = 'flex-none ml-4 text-xs text-yellow-700 instance-status';
+  status.dataset.part = 'status';
 
-    const oInput = document.createElement('input');
-    oInput.type = 'text';
-    oInput.className = 'w-20 text-center text-sm rounded-md border px-2 py-1 bg-white';
-    oInput.value = initial.office ?? '';
-    oInput.dataset.part = 'office';
+  const sep = () => { const d = document.createElement('div'); d.className = 'text-gray-500 select-none'; d.textContent = '-'; return d; };
 
-    const actions = document.createElement('div'); actions.className = 'flex-none ml-2';
-    const removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.className = 'text-red-600 text-sm px-2 py-1 rounded-md hover:bg-red-50';
-    removeBtn.textContent = 'Remove';
-    removeBtn.addEventListener('click', () => { root.remove(); renumberRows(document.getElementById(ROWS_CONTAINER_ID)); });
-    actions.appendChild(removeBtn);
+  panel.appendChild(yInput);
+  panel.appendChild(sep());
+  panel.appendChild(pInput);
+  panel.appendChild(sep());
+  panel.appendChild(sInput);
+  panel.appendChild(sep());
+  panel.appendChild(oInput);
+  panel.appendChild(actions);
 
-    const status = document.createElement('div');
-    status.className = 'flex-none ml-4 text-xs text-yellow-700';
-    status.dataset.part = 'status';
+  root.appendChild(left);
+  root.appendChild(panel);
+  root.appendChild(status);
 
-    panel.appendChild(yInput);
-    panel.appendChild(sep1);
-    panel.appendChild(pInput);
-    panel.appendChild(sep2);
-    panel.appendChild(sInput);
-    panel.appendChild(sep3);
-    panel.appendChild(oInput);
-    panel.appendChild(actions);
+  // initial property number display & status
+  const initialPN = buildPropertyNumber({
+    year: yInput.value,
+    ppe: pInput.value,
+    serial: sInput.value,
+    office: oInput.value
+  }, serialWidthHint);
+  root.dataset.propertyNumber = initialPN;
+  status.textContent = initialPN.includes('----') ? 'Incomplete' : '';
 
-    root.appendChild(left);
-    root.appendChild(panel);
-    root.appendChild(status);
 
-    const initialPN = buildPropertyNumber({
-      year: yInput.value,
-      ppe: pInput.value,
-      serial: sInput.value,
-      office: oInput.value
-    }, serialWidthHint);
-    root.dataset.propertyNumber = initialPN;
-    status.textContent = initialPN.includes('----') ? 'Incomplete' : '';
+function enforceYearInput() {
+  // digits only, max 4 chars
+  yInput.value = (yInput.value || '').replace(/\D/g, '').slice(0, 4);
+  const val = parseInt(yInput.value, 10);
+  const currentYear = new Date().getFullYear();
 
-    const updatePN = () => {
-      const pn = buildPropertyNumber({
-        year: yInput.value,
-        ppe: pInput.value,
-        serial: sInput.value,
-        office: oInput.value
-      }, serialWidthHint);
-      root.dataset.propertyNumber = pn;
-      status.textContent = pn.includes('----') ? 'Incomplete' : '';
-    };
-    [yInput, pInput, sInput, oInput].forEach(el => el.addEventListener('input', updatePN));
-
-    return root;
+  if (!isNaN(val)) {
+    if (val < 2020 || val > currentYear) {
+      yInput.value = '';
+      showToast('error', `Please enter a valid year between 2020 and ${currentYear}.`);
+    }
   }
+}
+
+
+function enforceAlnumUpper(el, maxLen) {
+  // allow letters+digits only and convert to uppercase
+  el.value = String(el.value || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  if (typeof maxLen === 'number') el.value = el.value.slice(0, maxLen);
+}
+
+function updatePN() {
+  const pn = buildPropertyNumber({
+    year: yInput.value,
+    ppe: pInput.value,
+    serial: sInput.value,
+    office: oInput.value
+  }, serialWidthHint);
+  root.dataset.propertyNumber = pn;
+  status.textContent = pn.includes('----') ? 'Incomplete' : '';
+}
+
+// listeners
+yInput.addEventListener('input', () => { enforceYearInput(); updatePN(); });
+pInput.addEventListener('input', () => { enforceAlnumUpper(pInput, 16); updatePN(); });
+sInput.addEventListener('input', () => { enforceAlnumUpper(sInput, 5); updatePN(); });
+oInput.addEventListener('input', () => { enforceAlnumUpper(oInput, 4); updatePN(); });
+
+  // remove button
+  removeBtn.addEventListener('click', () => { root.remove(); renumberRows(document.getElementById(ROWS_CONTAINER_ID)); });
+
+  return root;
+}
 
   function renumberRows(container) {
     if (!container) return;
@@ -189,6 +229,14 @@
     if (!container) return;
 
     const quantityInput = form.querySelector('[data-manual-quantity]');
+    if (quantityInput) {
+      quantityInput.setAttribute('inputmode', 'numeric');
+      quantityInput.setAttribute('maxlength', '3');
+      quantityInput.addEventListener('input', (e) => {
+        e.target.value = e.target.value.replace(/[^0-9]/g, '').slice(0, 3);
+      });
+    }
+
     const submitBtn = form.querySelector('[data-manual-submit]') || form.querySelector('[type="submit"]');
     const feedbackEl = form.querySelector('[data-manual-feedback]');
     const errorEl = form.querySelector('[data-manual-error]');
@@ -214,7 +262,30 @@
     };
 
     const configFields = Array.from(form.querySelectorAll('[data-manual-config]'));
-    configFields.forEach(f => f.addEventListener('input', renderFromQuantity));
+configFields.forEach(f => {
+  f.addEventListener('input', (e) => {
+    const field = e.target.getAttribute('data-manual-config');
+    const container = form.querySelector(`#${ROWS_CONTAINER_ID}`);
+    if (!container) return;
+
+    // Enforce uppercase for OFFICE and SERIAL
+    if (field === 'office' || field === 'serial') {
+      e.target.value = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, field === 'serial' ? 5 : 4);
+    }
+
+    // Update only matching field in every row dynamically
+    container.querySelectorAll(`input[data-part="${field}"]`).forEach(inp => {
+      inp.value = e.target.value;
+      inp.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    // Re-render only if quantity or year changed
+    if (field === 'quantity' || field === 'year') {
+      renderFromQuantity();
+    }
+  });
+});
+
     quantityInput && quantityInput.addEventListener('input', renderFromQuantity);
 
     renderFromQuantity();

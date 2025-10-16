@@ -136,6 +136,30 @@ function createButtonFromTemplate(templateId, id) {
     return frag;
 }
 
+// Collect rows in assign manpower modal (includes qty + not_in_inventory flag)
+function collectManpowerAssignments() {
+    const container = document.getElementById('assignManpowerItemsContainer');
+    if (!container) return [];
+    const rows = [];
+    container.querySelectorAll('div[data-borrow-request-item-id]').forEach(row => {
+        const bri = row.dataset.borrowRequestItemId;
+        const assignedVal = parseInt(row.querySelector('.assign-manpower-input')?.value || '0', 10) || 0;
+        const qtyVal = parseInt(row.querySelector('.assign-qty-input')?.value || '0', 10) || 0;
+        const roleVal = row.querySelector('.assign-manpower-role')?.value || null;
+        const notesVal = row.querySelector('.assign-manpower-notes')?.value || null;
+        const notInInventory = !!row.querySelector('.assign-not-inventory')?.checked;
+        rows.push({
+            borrow_request_item_id: bri,
+            assigned_manpower: assignedVal,
+            quantity: qtyVal,
+            manpower_role: roleVal,
+            manpower_notes: notesVal,
+            not_in_inventory: notInInventory
+        });
+    });
+    return rows;
+}
+
 // Open assign-manpower modal and populate fields from BORROW_CACHE
 function openAssignManpowerModal(id) {
     const req = BORROW_CACHE.find(r => r.id === id);
@@ -162,35 +186,57 @@ function openAssignManpowerModal(id) {
     // roles - keep consistent with backend choices
     const ROLE_OPTIONS = ['', 'Setup', 'Operator', 'Driver', 'Other'];
 
-    (req.items || []).forEach(it => {
+        (req.items || []).forEach(it => {
         const row = document.createElement('div');
-        row.className = 'grid grid-cols-12 gap-2 items-center border-b pb-2';
+        row.className = 'grid grid-cols-12 gap-2 items-center border-b pb-2 py-2';
 
         const nameCol = document.createElement('div');
-        nameCol.className = 'col-span-5';
-        nameCol.innerHTML = `<div class="font-medium">${escapeHtml(it.item?.name ?? 'Unknown')}</div><div class="text-xs text-gray-500">Qty: ${escapeHtml(String(it.quantity || 0))}</div>`;
+        nameCol.className = 'col-span-4';
+        nameCol.innerHTML = `<div class="font-medium">${escapeHtml(it.item?.name ?? 'Unknown')}</div><div class="text-xs text-gray-500">Requested: ${escapeHtml(String(it.quantity || 0))}</div>`;
 
-        // hidden input for borrow_request_item_id
+        // hidden input for borrow_request_item_id (kept for form-style structure)
         const hiddenInput = `<input type="hidden" name="borrow_request_item_id" value="${escapeHtml(String(it.id || (it.borrow_request_item_id ?? '')))}" />`;
 
+        // quantity edit (admin may only reduce here)
+        const qtyCol = document.createElement('div');
+        qtyCol.className = 'col-span-2';
+        qtyCol.innerHTML = `
+            ${hiddenInput}
+            <label class="text-xs text-gray-600">Qty</label>
+            <input type="number" min="0" max="${escapeHtml(String(it.quantity ?? 0))}" class="w-full border rounded px-2 py-1 assign-qty-input" 
+                value="${escapeHtml(String(it.quantity ?? 0))}" />
+        `;
+
+        // assigned manpower
         const assignedInput = document.createElement('div');
         assignedInput.className = 'col-span-2';
         assignedInput.innerHTML = `
-            ${hiddenInput}
+            <label class="text-xs text-gray-600">Manpower</label>
             <input type="number" min="0" class="w-full border rounded px-2 py-1 assign-manpower-input" 
                 value="${escapeHtml(String(it.assigned_manpower ?? 0))}" />
         `;
 
+        // role select
         const roleSelect = document.createElement('div');
-        roleSelect.className = 'col-span-3';
+        roleSelect.className = 'col-span-2';
+        const ROLE_OPTIONS = ['', 'Setup', 'Operator', 'Driver', 'Other'];
         const roleHtml = ROLE_OPTIONS.map(opt => `<option value="${escapeHtml(opt)}" ${it.manpower_role === opt ? 'selected' : ''}>${escapeHtml(opt || '—')}</option>`).join('');
-        roleSelect.innerHTML = `<select class="w-full border rounded px-2 py-1 assign-manpower-role">${roleHtml}</select>`;
+        roleSelect.innerHTML = `
+            <label class="text-xs text-gray-600">Role</label>
+            <select class="w-full border rounded px-2 py-1 assign-manpower-role">${roleHtml}</select>
+        `;
 
+        // notes + not in inventory checkbox
         const notesInput = document.createElement('div');
         notesInput.className = 'col-span-2';
-        notesInput.innerHTML = `<input type="text" class="w-full border rounded px-2 py-1 assign-manpower-notes" value="${escapeHtml(it.manpower_notes ?? '')}" placeholder="notes (optional)" />`;
+        notesInput.innerHTML = `
+            <label class="text-xs text-gray-600">Notes</label>
+            <input type="text" class="w-full border rounded px-2 py-1 assign-manpower-notes" value="${escapeHtml(it.manpower_notes ?? '')}" placeholder="notes (optional)" />
+            <div class="text-xs mt-1"><label><input type="checkbox" class="assign-not-inventory" ${it.manpower_notes && String(it.manpower_notes).includes('[NOT IN INVENTORY]') ? 'checked' : ''} /> Not in physical inventory</label></div>
+        `;
 
         row.appendChild(nameCol);
+        row.appendChild(qtyCol);
         row.appendChild(assignedInput);
         row.appendChild(roleSelect);
         row.appendChild(notesInput);
@@ -266,22 +312,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const forceCheckbox = document.getElementById('assignForceOverride');
             const requestedTotal = parseInt(document.getElementById('assignRequestedTotal')?.textContent || '0', 10) || 0;
 
-            const assignments = [];
-            let totalAssigned = 0;
-
-            container.querySelectorAll('div[data-borrow-request-item-id]').forEach(row => {
-                const bri = row.dataset.borrowRequestItemId;
-                const assignedVal = parseInt(row.querySelector('.assign-manpower-input')?.value || '0', 10) || 0;
-                const roleVal = row.querySelector('.assign-manpower-role')?.value || null;
-                const notesVal = row.querySelector('.assign-manpower-notes')?.value || null;
-                assignments.push({
-                    borrow_request_item_id: bri,
-                    assigned_manpower: assignedVal,
-                    manpower_role: roleVal,
-                    manpower_notes: notesVal
-                });
-                totalAssigned += assignedVal;
-            });
+            const assignments = collectManpowerAssignments();
+            let totalAssigned = assignments.reduce((s, a) => s + (Number(a.assigned_manpower) || 0), 0);
 
             const warningEl = document.getElementById('assignManpowerWarning');
             if (totalAssigned > requestedTotal && !forceCheckbox.checked) {

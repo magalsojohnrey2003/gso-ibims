@@ -343,8 +343,202 @@ function highlightBorrowRange(start, end, options = { jumpToMonth: true }) {
     // If only borrowPick exists, ensure the single day is highlighted (already handled above)
 }
 
+/* ---------- Manpower roles UI & location integration ---------- */
+
+function updateManpowerRolesVisibility() {
+    const wrapper = document.getElementById('manpowerRolesWrapper');
+    const manpowerInput = document.getElementById('manpower_count');
+    const requestedDisplay = document.getElementById('manpowerRequestedDisplay');
+    const totalSpan = document.getElementById('manpowerRolesTotal');
+    const warningEl = document.getElementById('manpowerRolesWarning');
+
+    const requested = Math.max(0, parseInt(manpowerInput?.value || '0', 10));
+    if (requested > 0) {
+        wrapper?.classList.remove('hidden');
+    } else {
+        wrapper?.classList.add('hidden');
+        // clear rows
+        const container = document.getElementById('manpowerRolesContainer');
+        if (container) container.innerHTML = '';
+        if (totalSpan) totalSpan.textContent = '0';
+        if (warningEl) { warningEl.textContent = ''; warningEl.classList.add('hidden'); }
+    }
+    if (requestedDisplay) requestedDisplay.textContent = String(requested);
+    // recalc totals
+    recalcRolesTotal();
+}
+
+function addRoleRow(prefill = {}) {
+    const tpl = document.getElementById('manpowerRoleRowTemplate');
+    if (!tpl) return null;
+    const frag = tpl.content.cloneNode(true);
+    const row = frag.querySelector('.role-row');
+
+    const select = row.querySelector('.role-select');
+    const otherInput = row.querySelector('.role-other-input');
+    const qtyInput = row.querySelector('.role-qty-input');
+    const notesInput = row.querySelector('.role-notes-input');
+    const removeBtn = row.querySelector('.remove-role-btn');
+
+    if (prefill.role) {
+        // if role is a custom string not in options, select Other and fill otherInput
+        const optionExists = Array.from(select.options).some(o => o.value === prefill.role);
+        if (optionExists) select.value = prefill.role;
+        else {
+            select.value = 'Other';
+            otherInput.classList.remove('hidden');
+            otherInput.value = prefill.role;
+        }
+    }
+    if (typeof prefill.qty !== 'undefined') qtyInput.value = String(prefill.qty);
+    if (typeof prefill.notes !== 'undefined') notesInput.value = prefill.notes;
+
+    select.addEventListener('change', () => {
+        if (select.value === 'Other') {
+            otherInput.classList.remove('hidden');
+            otherInput.focus();
+        } else {
+            otherInput.classList.add('hidden');
+            otherInput.value = '';
+        }
+    });
+
+    qtyInput.addEventListener('input', () => recalcRolesTotal());
+    removeBtn.addEventListener('click', () => {
+        row.remove();
+        recalcRolesTotal();
+    });
+
+    const container = document.getElementById('manpowerRolesContainer');
+    container.appendChild(row);
+    recalcRolesTotal();
+    return row;
+}
+
+function recalcRolesTotal() {
+    const container = document.getElementById('manpowerRolesContainer');
+    const totalSpan = document.getElementById('manpowerRolesTotal');
+    const requested = Math.max(0, parseInt(document.getElementById('manpower_count')?.value || '0', 10));
+    const warningEl = document.getElementById('manpowerRolesWarning');
+
+    if (!container) return;
+    let total = 0;
+    container.querySelectorAll('.role-row').forEach(row => {
+        const qty = parseInt(row.querySelector('.role-qty-input')?.value || '0', 10) || 0;
+        total += qty;
+    });
+    if (totalSpan) totalSpan.textContent = String(total);
+
+    // If total exceeds requested, show warning
+    if (requested > 0 && total > requested) {
+        if (warningEl) {
+            warningEl.textContent = `Total role quantities (${total}) exceed requested manpower (${requested}). Please adjust.`;
+            warningEl.classList.remove('hidden');
+        }
+    } else {
+        if (warningEl) { warningEl.textContent = ''; warningEl.classList.add('hidden'); }
+    }
+}
+
+/**
+ * Build hidden inputs for roles so the existing HTML form posts them as regular fields.
+ * Output names are:
+ *    manpower_roles[0][role] = 'Setup' or custom
+ *    manpower_roles[0][qty]  = 5
+ *    manpower_roles[0][notes] = '...'
+ */
+function injectRoleHiddenInputs(form) {
+    // remove prior inputs if any
+    Array.from(form.querySelectorAll('input[name^="manpower_roles"], textarea[name^="manpower_roles"], select[name^="manpower_roles"]')).forEach(el => el.remove());
+
+    const container = document.getElementById('manpowerRolesContainer');
+    if (!container) return;
+
+    const rows = Array.from(container.querySelectorAll('.role-row'));
+    rows.forEach((row, idx) => {
+        const select = row.querySelector('.role-select');
+        const otherInput = row.querySelector('.role-other-input');
+        const qtyInput = row.querySelector('.role-qty-input');
+        const notesInput = row.querySelector('.role-notes-input');
+
+        let roleVal = select?.value || '';
+        if (roleVal === 'Other') {
+            roleVal = otherInput?.value || '';
+        }
+
+        // Create hidden inputs
+        const roleField = document.createElement('input');
+        roleField.type = 'hidden';
+        roleField.name = `manpower_roles[${idx}][role]`;
+        roleField.value = roleVal;
+        form.appendChild(roleField);
+
+        const qtyField = document.createElement('input');
+        qtyField.type = 'hidden';
+        qtyField.name = `manpower_roles[${idx}][qty]`;
+        qtyField.value = qtyInput?.value || '0';
+        form.appendChild(qtyField);
+
+        const notesField = document.createElement('input');
+        notesField.type = 'hidden';
+        notesField.name = `manpower_roles[${idx}][notes]`;
+        notesField.value = notesInput?.value || '';
+        form.appendChild(notesField);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // wire up manpower count -> show roles UI
+    const manpowerInput = document.getElementById('manpower_count');
+    const addRoleBtn = document.getElementById('addRoleBtn');
+    const rolesContainer = document.getElementById('manpowerRolesContainer');
+    const borrowForm = document.getElementById('borrowListForm');
+
+    // if we referenced route() in blade, the string is already present — if not, fallback to first form.
+    if (manpowerInput) {
+        manpowerInput.addEventListener('input', () => {
+            updateManpowerRolesVisibility();
+        });
+        // init visibility on load (use existing old value)
+        updateManpowerRolesVisibility();
+    }
+
+    if (addRoleBtn) {
+        addRoleBtn.addEventListener('click', () => addRoleRow({role: '', qty: 0}));
+    }
+
+    // If the page had old role data (like from old input), you could prepopulate here
+    // (left intentionally simple). You can extend by reading preloaded JSON in a data attribute.
+
+    // Intercept form submit: inject hidden inputs for roles and perform client-side validation
+    if (borrowForm) {
+        borrowForm.addEventListener('submit', function (ev) {
+            // validate totals
+            const requested = Math.max(0, parseInt(manpowerInput?.value || '0', 10));
+            const total = parseInt(document.getElementById('manpowerRolesTotal')?.textContent || '0', 10) || 0;
+            if (requested > 0 && total > requested) {
+                ev.preventDefault();
+                const warningEl = document.getElementById('manpowerRolesWarning');
+                if (warningEl) {
+                    warningEl.textContent = `Total role quantities (${total}) exceed requested manpower (${requested}). Please fix before submitting.`;
+                    warningEl.classList.remove('hidden');
+                } else {
+                    alert(`Total role quantities (${total}) exceed requested manpower (${requested}). Please fix.`);
+                }
+                return false;
+            }
+            // build hidden role inputs
+            injectRoleHiddenInputs(borrowForm);
+            // location input is already an input `name="address"` in the form so it's sent automatically
+            return true;
+        });
+    }
+});
+
+
 /* ---------- Init ---------- */
 document.addEventListener("DOMContentLoaded", function() {
+    
     const borrowHidden = document.querySelector("input[name=borrow_date]");
     const returnHidden = document.querySelector("input[name=return_date]");
     if (borrowHidden && returnHidden && borrowHidden.value && returnHidden.value) {

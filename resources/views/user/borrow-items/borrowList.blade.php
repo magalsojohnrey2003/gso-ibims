@@ -1,7 +1,5 @@
 {{-- resources/views/user/borrow-items/borrowList.blade.php --}}
 <x-app-layout>
-   
-
      <x-title 
         level="h2"
         size="2xl"
@@ -13,6 +11,8 @@
         iconColor="white">
         Borrow List
     </x-title>
+    <form id="borrowListForm" action="{{ route('borrowList.submit') }}" method="POST">
+
     <div class="p-6 max-w-7xl mx-auto">
         {{-- Alerts --}}
         @if(session('success'))
@@ -104,16 +104,77 @@
                         @csrf
 
                         {{-- Hidden inputs MUST be inside the form so they are POSTed --}}
+                                                {{-- Hidden inputs MUST be inside the form so they are POSTed --}}
                         <input id="borrow_date" name="borrow_date" type="hidden" value="{{ old('borrow_date', '') }}" />
                         <input id="return_date" name="return_date" type="hidden" value="{{ old('return_date', '') }}" />
 
                         {{-- Optional manpower --}}
                         <div class="mb-4 w-full md:w-1/3">
                             <x-input-label for="manpower_count" value="Number of Manpower (Optional)" />
-                            <x-text-input id="manpower_count" type="number" name="manpower_count" min="1" class="w-full mt-1"
+                            <x-text-input id="manpower_count" type="number" name="manpower_count" min="0" class="w-full mt-1"
                                           value="{{ old('manpower_count', '') }}" />
                             <x-input-error :messages="$errors->get('manpower_count')" class="mt-1" />
+                            <p id="manpower_hint" class="text-xs text-gray-400 mt-1">Add manpower if you need personnel to handle items.</p>
                         </div>
+
+                        {{-- Location (address) field --}}
+                        <div class="mb-4 w-full md:w-1/2">
+                            <x-input-label for="location" value="Delivery Location / Address" />
+                            <x-text-input id="location" type="text" name="address" class="w-full mt-1"
+                                value="{{ old('address', optional(Auth::user())->address ?? '') }}" placeholder="Enter delivery address or location" />
+                            <x-input-error :messages="$errors->get('address')" class="mt-1" />
+                            <p class="text-xs text-gray-400 mt-1">Specify where the items will be delivered or picked up.</p>
+                        </div>
+
+                        {{-- Manpower roles — shown only when manpower_count >= 1 (populated by JS) --}}
+                        <div id="manpowerRolesWrapper" class="mb-4 w-full md:w-2/3 hidden">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="text-sm text-gray-700 font-medium">Assign Roles</div>
+                                <button type="button" id="addRoleBtn" class="inline-flex items-center px-3 py-1 rounded bg-purple-600 text-white text-sm hover:bg-purple-700">
+                                    <i class="fas fa-plus mr-2"></i> Add Role
+                                </button>
+                            </div>
+
+                            <div id="manpowerRolesContainer" class="space-y-2 max-h-48 overflow-auto border rounded p-3 bg-white">
+                                <!-- JS will populate role rows here. -->
+                            </div>
+
+                            <div id="manpowerRolesWarning" class="text-sm text-red-600 mt-2 hidden"></div>
+                            <div class="text-sm text-gray-500 mt-2">Total selected manpower: <span id="manpowerRolesTotal">0</span> / <span id="manpowerRequestedDisplay">0</span></div>
+                        </div>
+
+                        {{-- Role row template (hidden) --}}
+                        <template id="manpowerRoleRowTemplate">
+                            <div class="grid grid-cols-12 gap-2 items-center border-b pb-2 py-2 role-row">
+                                <div class="col-span-5">
+                                    <label class="text-xs text-gray-600">Role</label>
+                                    <select class="w-full border rounded px-2 py-1 role-select">
+                                        <option value="">— Select role —</option>
+                                        <option value="Setup">Setup</option>
+                                        <option value="Operator">Operator</option>
+                                        <option value="Driver">Driver</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                    <input class="hidden w-full mt-1 border rounded px-2 py-1 role-other-input" placeholder="Specify other role" />
+                                </div>
+
+                                <div class="col-span-3">
+                                    <label class="text-xs text-gray-600">Quantity</label>
+                                    <input type="number" min="0" class="w-full border rounded px-2 py-1 role-qty-input" value="0" />
+                                </div>
+
+                                <div class="col-span-3">
+                                    <label class="text-xs text-gray-600">Notes (optional)</label>
+                                    <input type="text" class="w-full border rounded px-2 py-1 role-notes-input" placeholder="Notes (optional)" />
+                                </div>
+
+                                <div class="col-span-1 flex items-end justify-end">
+                                    <button type="button" class="remove-role-btn inline-flex items-center px-2 py-1 rounded bg-red-100 text-red-700 text-xs">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
 
                         {{-- Calendar card area --}}
                         <div class="border rounded p-4 bg-white flex-1">

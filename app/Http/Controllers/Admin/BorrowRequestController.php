@@ -48,44 +48,68 @@ class BorrowRequestController extends Controller
             $borrowRequest->load('items.item');
 
             $assignmentWarning = null;
-            // When admin saves assignments we now mark the request as "validated" (intermediate step).
-            // Save manpower assignments when new status is 'validated'.
+          
             if ($new === 'validated') {
-                $assignments = $request->input('manpower_assignments', []);
-                $totalAssigned = 0;
+            $assignments = $request->input('manpower_assignments', []);
+            $totalAssigned = 0;
 
-                if ($assignments && is_array($assignments)) {
-                    foreach ($assignments as $a) {
-                        $briId = isset($a['borrow_request_item_id']) ? (int) $a['borrow_request_item_id'] : null;
-                        $assignedMana = isset($a['assigned_manpower']) ? (int) $a['assigned_manpower'] : 0;
-                        $role = isset($a['manpower_role']) ? substr($a['manpower_role'], 0, 100) : null;
-                        $notes = isset($a['manpower_notes']) ? substr($a['manpower_notes'], 0, 2000) : null;
+            if ($assignments && is_array($assignments)) {
+                foreach ($assignments as $a) {
+                    $briId = isset($a['borrow_request_item_id']) ? (int) $a['borrow_request_item_id'] : null;
+                    $assignedMana = isset($a['assigned_manpower']) ? (int) $a['assigned_manpower'] : 0;
+                    $role = isset($a['manpower_role']) ? substr($a['manpower_role'], 0, 100) : null;
+                    $notes = isset($a['manpower_notes']) ? substr($a['manpower_notes'], 0, 2000) : null;
 
-                        $bri = BorrowRequestItem::where('id', $briId)
-                            ->where('borrow_request_id', $borrowRequest->id)
-                            ->first();
+                    $bri = BorrowRequestItem::where('id', $briId)
+                        ->where('borrow_request_id', $borrowRequest->id)
+                        ->first();
 
-                        if (! $bri) {
-                            DB::rollBack();
-                            return response()->json(['message' => 'Invalid manpower assignment row.'], 422);
-                        }
-
-                        $bri->assigned_manpower = $assignedMana;
-                        $bri->manpower_role = $role;
-                        $bri->manpower_notes = $notes;
-                        $bri->assigned_by = \Illuminate\Support\Facades\Auth::id();
-                        $bri->assigned_at = now();
-                        $bri->save();
-
-                        $totalAssigned += $assignedMana;
+                    if (! $bri) {
+                        DB::rollBack();
+                        return response()->json(['message' => 'Invalid manpower assignment row.'], 422);
                     }
-                }
 
-                $requested = (int) $borrowRequest->manpower_count;
-                if ($totalAssigned > $requested) {
-                    $assignmentWarning = "Total assigned manpower ({$totalAssigned}) exceeds requested ({$requested}).";
+                    // Preserve original quantity; admin may only reduce.
+                    $origQty = (int) $bri->quantity;
+                    $newQty = isset($a['quantity']) ? (int) $a['quantity'] : $origQty;
+
+                    if ($newQty < 0) {
+                        DB::rollBack();
+                        return response()->json(['message' => 'Invalid quantity provided.'], 422);
+                    }
+
+                    // Disallow increases at validation stage — only allow same or reduced quantities.
+                    if ($newQty > $origQty) {
+                        // ignore increase and add a small warning to be returned later
+                        $assignmentWarning = ($assignmentWarning ?? '') . " Requested quantity for item #{$bri->item_id} cannot be increased at validation stage. ";
+                        $newQty = $origQty;
+                    }
+
+                    // Mark not in physical inventory if requested -> append to notes so users/admins see it.
+                    $notInInventory = !empty($a['not_in_inventory']);
+
+                    if ($notInInventory) {
+                        $notes = trim(($notes ?: '') . ' [NOT IN INVENTORY]');
+                    }
+
+                    $bri->quantity = $newQty;
+                    $bri->assigned_manpower = $assignedMana;
+                    $bri->manpower_role = $role;
+                    $bri->manpower_notes = $notes;
+                    $bri->assigned_by = \Illuminate\Support\Facades\Auth::id();
+                    $bri->assigned_at = now();
+                    $bri->save();
+
+                    $totalAssigned += $assignedMana;
                 }
             }
+
+            $requested = (int) $borrowRequest->manpower_count;
+            if ($totalAssigned > $requested) {
+                $assignmentWarning = ($assignmentWarning ?? '') . " Total assigned manpower ({$totalAssigned}) exceeds requested ({$requested}).";
+            }
+        }
+
 
             if ($old !== 'approved' && $new === 'approved') {
                 foreach ($borrowRequest->items as $reqItem) {
