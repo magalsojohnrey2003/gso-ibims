@@ -46,65 +46,41 @@
     <div class="bg-gray-50 shadow-md hover:shadow-lg transition rounded-lg p-4">
       <div class="flex items-center mb-4">
         <div class="bg-green-100 text-green-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">2</div>
-        <h4 class="text-lg font-semibold text-gray-900">Identification & Codes</h4>
+        <h4 class="text-lg font-semibold text-gray-900">Existing Property Numbers</h4>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div>
-          <x-input-label for="year_procured-{{ $item->id }}" value="Year Procured" />
-          <x-text-input id="year_procured-{{ $item->id }}" name="year_procured" type="number" maxlength="4"
-                        inputmode="numeric" class="mt-1 block w-full"
-                        value="{{ old('year_procured', $primaryInstance->year_procured ?? '') }}"
-                        required data-property-segment="year" data-edit-field="year" min="2020" max="{{ date('Y') }}" />
-          <x-input-error :messages="$errors->get('year_procured')" class="mt-2" />
-        </div>
+      <p class="text-sm text-gray-600 mb-3">Edit or remove existing property numbers for this item. Changes save automatically.</p>
 
-        <div>
-          <x-input-label for="ppe_code_display-{{ $item->id }}" value="PPE Code" />
-          <x-text-input id="ppe_code_display-{{ $item->id }}" type="text"
-                        class="mt-1 block w-full bg-gray-100" readonly
-                        value="{{ old('ppe_code', $ppeForCategory) }}" data-ppe-display />
-          <input type="hidden" name="ppe_code" value="{{ old('ppe_code', $ppeForCategory) }}" data-property-segment="ppe">
-        </div>
+      <div id="edit_instances_container" class="w-full space-y-3 max-h-72 overflow-auto p-3 border rounded-lg bg-white" aria-live="polite">
+        @foreach ($item->instances as $inst)
+          <div class="flex items-start gap-4 edit-instance-row" data-instance-id="{{ $inst->id }}">
+            <div class="flex-none w-10 text-center">
+              <div class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-50 text-indigo-700 font-medium">{{ $loop->iteration }}</div>
+            </div>
 
-        <div>
-          <x-input-label for="serial-{{ $item->id }}" value="Serial Number" />
-          <x-text-input id="serial-{{ $item->id }}" name="serial" type="text" maxlength="6"
-                        inputmode="numeric"
-                        class="mt-1 block w-full bg-gray-100"
-                        value="{{ old('serial', $primaryInstance?->serial ?? '') }}" readonly />
-          <p class="mt-1 text-xs hidden" data-serial-feedback></p>
-          <x-input-error :messages="$errors->get('serial')" class="mt-2" />
-        </div>
+            <div class="flex-1 bg-indigo-50 rounded-lg px-4 py-3 flex items-center gap-3 flex-nowrap">
+              <input type="text" class="w-20 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-year" value="{{ $inst->year_procured ?? '' }}" placeholder="Year" />
+              <div class="text-gray-500 select-none"> - </div>
+              <input type="text" class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-ppe" value="{{ $inst->ppe_code ?? '' }}" placeholder="PPE" />
+              <div class="text-gray-500 select-none"> - </div>
+              <input type="text" class="w-20 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-serial" value="{{ $inst->serial ?? '' }}" placeholder="Serial" />
+              <div class="text-gray-500 select-none"> - </div>
+              <input type="text" class="w-20 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-office" value="{{ $inst->office_code ?? '' }}" placeholder="Office" />
+              <div class="flex-none ml-2">
+                <button type="button" class="text-red-600 text-sm px-2 py-1 rounded-md hover:bg-red-50 instance-remove-btn">Remove</button>
+              </div>
+            </div>
 
-        <div>
-          <x-input-label for="office_code-{{ $item->id }}" value="Office Code" />
-          <x-text-input id="office_code-{{ $item->id }}" name="office_code" type="text" maxlength="4"
-                        inputmode="text"
-                        class="mt-1 block w-full"
-                        value="{{ old('office_code', $primaryInstance?->office_code ?? '') }}"
-                        required data-property-segment="office" data-edit-field="office" />
-          <p class="mt-1 text-xs text-red-600 hidden" data-office-error>Office code must be 1–4 alphanumeric characters.</p>
-          <x-input-error :messages="$errors->get('office_code')" class="mt-2" />
-        </div>
+            <div class="flex-none ml-4 text-xs text-yellow-700 instance-status">
+              {{ $inst->property_number }}
+            </div>
+          </div>
+        @endforeach
       </div>
 
-      {{-- Property Number Preview --}}
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-        <div>
-          <x-input-label for="property_preview-{{ $item->id ?? 'new' }}" value="Property Number Preview" />
-          <x-text-input id="property_preview-{{ $item->id ?? 'new' }}" type="text"
-                        class="mt-1 block w-full bg-gray-100" readonly
-                        value="{{ old('property_preview', $primaryInstance->property_number ?? '') }}" data-property-preview />
-        </div>
-      </div>
-
-      {{-- optional preview block (kept hidden unless JS needs it) --}}
-      <div data-edit-preview class="hidden rounded-lg border border-dashed border-purple-300 bg-purple-50 px-4 py-3 text-xs text-purple-900 mt-4">
-        <div class="font-semibold">Item Summary</div>
-        <div data-edit-preview-list class="mt-1 space-y-1"></div>
-      </div>
+      <p class="mt-2 text-xs text-gray-500">You may edit components in-place. Valid changes will save automatically.</p>
     </div>
+
 
     <!-- Step 3: Additional Details (collapsible) -->
     <div class="bg-gray-50 shadow-md hover:shadow-lg transition rounded-lg">

@@ -21,6 +21,7 @@ import '../css/borrow-list.css';
 import '../css/return-selected-items.css';
 import './item-categories';
 import './item-manual-entry'; 
+import './item-instances-editor';
 
 window.Alpine = Alpine;
 

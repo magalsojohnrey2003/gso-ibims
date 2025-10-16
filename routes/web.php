@@ -12,8 +12,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\User\DashboardController as UserDashboardController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\Admin\ItemInstanceController;
 use App\Http\Controllers\User\ItemDamageReportController;
-
 
 
 // ??? Root should redirect to login instead of welcome
@@ -72,6 +72,12 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
         Route::post('items/manual-store', [ItemController::class, 'manualStore'])
             ->name('admin.items.manual-store');
 
+        Route::patch('item-instances/{instance}', [ItemInstanceController::class, 'update'])
+            ->name('admin.item-instances.update');
+
+        Route::delete('item-instances/{instance}', [ItemInstanceController::class, 'destroy'])
+            ->name('admin.item-instances.destroy');
+                
         // Borrow Requests
         Route::get('borrow-requests', [BorrowRequestController::class, 'index'])->name('borrow.requests');
         Route::get('borrow-requests/list', [BorrowRequestController::class, 'list'])->name('admin.borrow.requests.list');

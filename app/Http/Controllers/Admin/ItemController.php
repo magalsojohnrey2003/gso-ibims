@@ -705,7 +705,10 @@ class ItemController extends Controller
 
             foreach ($item->instances as $instance) {
                 if (method_exists($instance, 'borrowRecords')) {
-                    if ($instance->borrowRecords()->whereIn('status', $activeStatuses)->exists()) {
+                    // Borrow status is stored on the borrow_request, not on the pivot row.
+                    if ($instance->borrowRecords()->whereHas('borrowRequest', function ($q) use ($activeStatuses) {
+                        $q->whereIn('status', $activeStatuses);
+                    })->exists()) {
                         DB::rollBack();
                         return redirect()->route('items.index')
                                         ->with('error', 'Cannot delete item: some units are borrowed.');

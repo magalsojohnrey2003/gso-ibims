@@ -57,22 +57,25 @@ function hideMessage(el) {
  */
 function collectBase(form) {
   const fields = {
-  year: form.querySelector('[data-add-field="year"]'),
-  ppe: form.querySelector('[data-property-segment="ppe"]'),
-  categoryEl: form.querySelector('[data-category-select]'), // element
-  office: form.querySelector('[data-add-field="office"]'),
-  serial: form.querySelector('[data-add-field="serial"]'),
-  quantity: form.querySelector('[data-add-field="quantity"]'),
-};
+    year: form.querySelector('[data-add-field="year"]'),
+    ppe: form.querySelector('[data-property-segment="ppe"]'),
+    categoryEl: form.querySelector('[data-category-select]'), // element
+    office: form.querySelector('[data-add-field="office"]'),
+    serial: form.querySelector('[data-add-field="serial"]'),
+    quantity: form.querySelector('[data-add-field="quantity"]'),
+  };
 
-const categoryValue = (fields.categoryEl?.value ?? '').trim();
+  const year = (fields.year?.value || '').toString().trim();
+  const categoryValue = (fields.categoryEl?.value ?? '').trim();
 
-let ppeValue = fields.ppe?.value ?? '';
-if (!ppeValue && categoryValue) {
-  ppeValue = resolvePpeCode(categoryValue) || '';
-}
+  let ppeValue = fields.ppe?.value ?? '';
+  if (!ppeValue && categoryValue) {
+    ppeValue = resolvePpeCode(categoryValue) || '';
+  }
 
   const ppe = normalizeSegment(ppeValue, 2);
+
+  const office = (fields.office?.value || '').toString().trim();
 
   const rawSerial = (fields.serial?.value || '').replace(/[^0-9]/g, '');
   const serialWidth = Math.max(4, rawSerial.length || 0);
@@ -82,7 +85,7 @@ if (!ppeValue && categoryValue) {
   if (!Number.isFinite(quantity) || quantity < 1) quantity = 1;
   if (quantity > 500) quantity = 500;
 
-  const ready = Boolean(year && ppe && office && !Number.isNaN(serialStart));
+  const ready = Boolean(year.length === 4 && ppe && office && !Number.isNaN(serialStart));
   const signature = [year, ppe, office, serialWidth, serialStart, quantity].join('|');
 
   return {
@@ -95,7 +98,6 @@ if (!ppeValue && categoryValue) {
     quantity,
     firstSerial: rawSerial ? padSerial(parseInt(rawSerial, 10), serialWidth) : '',
     signature,
-    // include category string for callers that need it
     category: categoryValue,
   };
 }
