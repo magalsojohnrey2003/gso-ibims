@@ -262,6 +262,6 @@
         window.LIST_ROUTE = "{{ route('admin.borrow.requests.list') }}";
     </script>
 
-    @vite(['resources/css/assign-manpower.css', 'resources/js/app.js'])
+    @vite(['resources/js/app.js'])
 
 </x-app-layout>
