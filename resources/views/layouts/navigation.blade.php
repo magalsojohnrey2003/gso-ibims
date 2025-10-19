@@ -3,7 +3,13 @@
             bg-white dark:bg-slate-900">
 
     <!-- Left side -->
-    <div></div>
+    <div class="flex items-center">
+        <!-- Small brand for mobile -->
+        <a href="{{ url('/') }}" class="lg:hidden flex items-center gap-2">
+            <img src="{{ asset('images/logo2.png') }}" class="h-8 w-8" alt="logo">
+            <span class="text-sm font-semibold">GSO</span>
+        </a>
+    </div>
 
     <!-- Right side: Bell + Profile -->
     <div class="hidden sm:flex sm:items-center relative space-x-6">

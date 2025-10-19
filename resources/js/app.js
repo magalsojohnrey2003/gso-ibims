@@ -23,6 +23,7 @@ import './item-categories';
 import './item-instances-manager';
 import './item-manual-entry'; 
 import '../css/assign-manpower.css';
+import './sidebar-toggle';
 
 
 window.Alpine = Alpine;

@@ -1,7 +1,8 @@
 <!-- resources/views/layouts/sidebar-profile.blade.php -->
 <aside id="sidebar"
-    class="w-64 h-screen transition-all duration-300 transform -translate-x-full lg:translate-x-0 lg:relative flex-shrink-0 text-gray-900 dark:text-gray-100 sidebar"
-    data-sidebar-type="profile">
+    class="w-64 sidebar h-screen fixed inset-y-0 left-0 transition-all duration-300 transform -translate-x-full lg:translate-x-0 lg:relative z-40 flex-shrink-0"
+    data-sidebar-type="profile"
+    aria-hidden="true">
 
     <!-- Header -->
     <div class="flex items-center justify-between p-5">
@@ -61,3 +62,5 @@
         </ul>
     </nav>
 </aside>
+<!-- sidebar overlay for mobile -->
+<div id="sidebarOverlay" class="fixed inset-0 bg-black/40 z-30 hidden lg:hidden" aria-hidden="true"></div>
