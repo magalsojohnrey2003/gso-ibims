@@ -29,6 +29,34 @@
             --gov-accent: #A855F7;
         }
 
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+                /* Page container flexbox for sidebar + main content */
+        #pageContainer {
+            display: flex;
+            flex: 1 1 auto;
+            padding-top: 4rem; /* height of fixed nav */
+            overflow: hidden;
+            height: calc(100vh - 4rem); /* fill remaining viewport height */
+        }
+
+        /* Sidebar fills height */
+        #sidebar {
+            height: 100%;
+            overflow-y: auto; /* allow sidebar scrolling if content overflows */
+        }
+
+        /* Main content scrolls vertically */
+        #mainContent {
+            flex: 1 1 auto;
+            overflow-y: auto;
+            height: 100%;
+        }
+        
         /* Ensure body picks up theme variables defined in resources/css/app.css if present.
            These preserve the "original | light | dark" variable approach used elsewhere. */
         body {
