@@ -9,3 +9,35 @@
 .chart-container {
     min-height: 20rem;
 }
+/* Ensure main content and sidebars sit below the top header on small screens.
+   Uses a CSS variable set via JS (fallback to 56px). Also respects safe-area-inset-top.
+*/
+:root {
+  --app-header-height: 56px; /* default fallback height for header on mobile */
+}
+
+/* main content wrapper should add top padding so title and top buttons are visible */
+.main-content,
+.content-wrapper {
+  padding-top: max(env(safe-area-inset-top, 0px), var(--app-header-height));
+}
+
+/* if your sidebar is fixed/absolute, ensure it starts below the header and does not cover header */
+.sidebar,
+#sidebar {
+  top: max(env(safe-area-inset-top, 0px), var(--app-header-height));
+  height: calc(100vh - max(env(safe-area-inset-top, 0px), var(--app-header-height)));
+}
+
+/* On larger screens remove the extra padding (desktop header/layout handles spacing) */
+@media (min-width: 1024px) {
+  .main-content,
+  .content-wrapper {
+    padding-top: 0;
+  }
+  .sidebar,
+  #sidebar {
+    top: 0;
+    height: 100vh;
+  }
+}
