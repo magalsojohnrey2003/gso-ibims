@@ -1,91 +1,181 @@
 // resources/js/sidebar-toggle.js
-(function () {
-  // IDs used in layouts: #sidebar, #sidebarToggle, #sidebarOverlay
-  const sidebar = document.getElementById('sidebar');
-  const toggle = document.getElementById('sidebarToggle');
-  const overlay = document.getElementById('sidebarOverlay');
+// Robust sidebar toggle for mobile & desktop. Defensive checks and consistent scroll-lock handling.
 
-  if (!sidebar || !toggle || !overlay) {
-    // If any element missing, do nothing
-    return;
+(function () {
+  // Config / IDs - adjust if your markup uses different IDs
+  var SIDEBAR_ID = 'sidebar';
+  var OVERLAY_ID = 'sidebarOverlay';
+  var TOGGLE_ID = 'sidebarToggle'; // the button/icon that opens/closes sidebar
+
+  // Cached elements (will be null if missing)
+  var sidebar = document.getElementById(SIDEBAR_ID);
+  var overlay = document.getElementById(OVERLAY_ID);
+  var toggle = document.getElementById(TOGGLE_ID);
+
+  // Small guard to avoid double-click/tap flooding
+  var lastToggleAt = 0;
+  var TOGGLE_DEBOUNCE_MS = 200;
+
+  // Helper: check we have required elements; log useful warning once if missing
+  function warnMissing(el, name) {
+    if (!el) {
+      // Only warn in dev consoles where developers can see it
+      if (typeof console !== 'undefined' && console.warn) {
+        console.warn('[sidebar-toggle] Missing element:', name);
+      }
+    }
   }
 
-  // Helper to open/close
+  warnMissing(sidebar, SIDEBAR_ID);
+  warnMissing(overlay, OVERLAY_ID);
+  warnMissing(toggle, TOGGLE_ID);
+
+  // Helper to know whether the sidebar class indicates open
   function isOpen() {
+    // If sidebar not present, consider false
+    if (!sidebar) return false;
+    // We treat "-translate-x-full" as hidden; absence means open for our markup
     return !sidebar.classList.contains('-translate-x-full');
   }
 
-  function openSidebar() {
-    // show sidebar
-    sidebar.classList.remove('-translate-x-full');
-    sidebar.classList.add('translate-x-0');
-    sidebar.setAttribute('aria-hidden', 'false');
-    // show overlay
-    overlay.classList.remove('hidden');
-    // update toggle aria
-    toggle.setAttribute('aria-expanded', 'true');
-    // prevent body scroll on mobile when sidebar open
+  // Apply scroll lock: add to both html and body to be safe across browsers
+  function applyScrollLock() {
     document.documentElement.classList.add('overflow-hidden');
     document.body.classList.add('overflow-hidden');
   }
-
-  function closeSidebar() {
-    sidebar.classList.add('-translate-x-full');
-    sidebar.classList.remove('translate-x-0');
-    sidebar.setAttribute('aria-hidden', 'true');
-    overlay.classList.add('hidden');
-    toggle.setAttribute('aria-expanded', 'false');
+  function removeScrollLock() {
     document.documentElement.classList.remove('overflow-hidden');
     document.body.classList.remove('overflow-hidden');
   }
 
-  // Initialize aria on toggle
-  toggle.setAttribute('aria-controls', 'sidebar');
-  toggle.setAttribute('aria-expanded', isOpen() ? 'true' : 'false');
+  // Show sidebar (mobile)
+  function openSidebar() {
+    if (!sidebar) return;
+    sidebar.classList.remove('-translate-x-full');
+    sidebar.classList.add('translate-x-0');
+    sidebar.setAttribute('aria-hidden', 'false');
 
-  // Clicking the toggle toggles sidebar
-  toggle.addEventListener('click', (e) => {
-    e.preventDefault();
+    if (overlay) overlay.classList.remove('hidden');
+
+    if (toggle) toggle.setAttribute('aria-expanded', 'true');
+
+    applyScrollLock();
+  }
+
+  // Hide sidebar (mobile)
+  function closeSidebar() {
+    if (!sidebar) return;
+    sidebar.classList.add('-translate-x-full');
+    sidebar.classList.remove('translate-x-0');
+    sidebar.setAttribute('aria-hidden', 'true');
+
+    if (overlay) overlay.classList.add('hidden');
+
+    if (toggle) toggle.setAttribute('aria-expanded', 'false');
+
+    removeScrollLock();
+  }
+
+  // Toggle with debounce
+  function toggleSidebar() {
+    var now = Date.now();
+    if (now - lastToggleAt < TOGGLE_DEBOUNCE_MS) return;
+    lastToggleAt = now;
+
     if (isOpen()) {
       closeSidebar();
     } else {
       openSidebar();
     }
-  });
+  }
 
-  // Clicking overlay closes
-  overlay.addEventListener('click', () => closeSidebar());
-
-  // Close on Escape key
-  document.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Escape' && isOpen()) {
-      closeSidebar();
-    }
-  });
-
-  // Ensure that on resize to lg and above the overlay is hidden and body scroll allowed.
-  function handleResize() {
-    if (window.matchMedia('(min-width: 1024px)').matches) {
-      // large screens: ensure classes set for visible sidebar, no overlay
-      sidebar.classList.remove('-translate-x-full');
-      sidebar.classList.add('translate-x-0');
-      overlay.classList.add('hidden');
-      sidebar.setAttribute('aria-hidden', 'false');
-      document.documentElement.classList.remove('overflow-hidden');
-      document.body.classList.remove('overflow-hidden');
-      toggle.setAttribute('aria-expanded', 'true');
-    } else {
-      // small screens: ensure sidebar starts hidden (unless user opened it)
-      if (!isOpen()) {
-        sidebar.classList.add('-translate-x-full');
-        sidebar.classList.remove('translate-x-0');
-        sidebar.setAttribute('aria-hidden', 'true');
-        toggle.setAttribute('aria-expanded', 'false');
-      }
+  // Overlay click should close the sidebar
+  function bindOverlay() {
+    if (!overlay) return;
+    // Use a single handler (do not add multiple listeners if this function called multiple times)
+    if (!overlay._sidebar_overlay_bound) {
+      overlay._sidebar_overlay_bound = true;
+      overlay.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        closeSidebar();
+      }, { passive: true });
     }
   }
 
-  window.addEventListener('resize', handleResize);
-  // call once to set initial state
-  handleResize();
+  // Ensure toggle button binds click/touch handlers safely
+  function bindToggleButton() {
+    if (!toggle) return;
+    if (!toggle._sidebar_toggle_bound) {
+      toggle._sidebar_toggle_bound = true;
+      toggle.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        toggleSidebar();
+      }, { passive: false });
+
+      // Also handle touchstart to improve responsiveness on mobile
+      toggle.addEventListener('touchstart', function (ev) {
+        // Prevent both click and touch from firing twice
+        ev.preventDefault();
+        toggleSidebar();
+      }, { passive: false });
+    }
+  }
+
+  // Ensure we restore correct state on resize
+  function handleResize() {
+    try {
+      if (!sidebar) return;
+      if (window.matchMedia('(min-width: 1024px)').matches) {
+        // Desktop/large: ensure sidebar visible and overlay hidden, and no scroll lock
+        sidebar.classList.remove('-translate-x-full');
+        sidebar.classList.add('translate-x-0');
+        if (overlay) overlay.classList.add('hidden');
+        sidebar.setAttribute('aria-hidden', 'false');
+        if (toggle) toggle.setAttribute('aria-expanded', 'true');
+        removeScrollLock();
+      } else {
+        // Mobile/tablet: if user hasn't explicitly opened it, keep it hidden by default
+        if (!isOpen()) {
+          sidebar.classList.add('-translate-x-full');
+          sidebar.classList.remove('translate-x-0');
+          sidebar.setAttribute('aria-hidden', 'true');
+          if (toggle) toggle.setAttribute('aria-expanded', 'false');
+        }
+      }
+    } catch (err) {
+      console.error('[sidebar-toggle] handleResize error', err);
+    }
+  }
+
+  // Initialize bindings (safe to call multiple times)
+  function init() {
+    bindToggleButton();
+    bindOverlay();
+    // Ensure initial state is consistent with CSS/responsive classes
+    handleResize();
+
+    // Bind resize with a small debounce
+    var resizeTimer = null;
+    window.addEventListener('resize', function () {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(handleResize, 120);
+    });
+
+    // Expose a global for external scripts to open/close if needed (optional)
+    try {
+      window.GSO_sidebar = {
+        open: openSidebar,
+        close: closeSidebar,
+        toggle: toggleSidebar,
+        isOpen: isOpen
+      };
+    } catch (e) { /* ignore */ }
+  }
+
+  // Start when DOM ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 })();
