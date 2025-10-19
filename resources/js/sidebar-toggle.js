@@ -88,7 +88,7 @@
       openSidebar();
     }
   }
-
+s
   // Overlay click should close the sidebar
   function bindOverlay() {
     if (!overlay) return;
