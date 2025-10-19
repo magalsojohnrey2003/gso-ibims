@@ -1,12 +1,7 @@
-// resources/js/sidebar-toggle.js
-// Robust sidebar toggle for mobile & desktop. Defensive checks and consistent scroll-lock handling.
-
 (function () {
-  // Config / IDs - adjust if your markup uses different IDs
   var SIDEBAR_ID = 'sidebar';
   var OVERLAY_ID = 'sidebarOverlay';
-  var TOGGLE_ID = 'sidebarToggle'; // the button/icon that opens/closes sidebar
-
+  var TOGGLE_ID = 'sidebarToggle'; 
   // Cached elements (will be null if missing)
   var sidebar = document.getElementById(SIDEBAR_ID);
   var overlay = document.getElementById(OVERLAY_ID);

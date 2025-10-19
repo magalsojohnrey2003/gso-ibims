@@ -149,8 +149,6 @@ html.dark .gov-hover:hover::before {
 #sidebarOverlay.hidden { display: none; opacity: 0; pointer-events: none; }
 #sidebarOverlay.visible { display: block; opacity: 1; pointer-events: auto; }
 
-/* ---------- Existing file continues above... */
-
 /* -----------------------------------------------------------------------
    AUTH / LOGIN-REGISTER: Responsive behaviour
    - Desktop: two-column slider (cover + forms) with sliding animation intact
