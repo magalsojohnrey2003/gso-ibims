@@ -149,7 +149,115 @@ html.dark .gov-hover:hover::before {
 #sidebarOverlay.hidden { display: none; opacity: 0; pointer-events: none; }
 #sidebarOverlay.visible { display: block; opacity: 1; pointer-events: auto; }
 
+/* ---------- Existing file continues above... */
 
+/* -----------------------------------------------------------------------
+   AUTH / LOGIN-REGISTER: Responsive behaviour
+   - Desktop: two-column slider (cover + forms) with sliding animation intact
+   - Tablet & Mobile: stacked layout, forms expand to available width (no need to toggle "Desktop site")
+   ----------------------------------------------------------------------- */
+
+/* Shell centers content and gives comfortable padding on small devices */
+.auth-shell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 1rem;
+  background: var(--bg);
+}
+
+/* Wrapper constrains the overall width on large screens but uses viewport width on small */
+.auth-wrapper {
+  width: 100%;
+  max-width: 1100px; /* desktop max width */
+  display: flex;
+  gap: 0;
+  align-items: stretch;
+  position: relative;
+  overflow: visible;
+}
+
+/* Slider: side-by-side on wide screens, stacked on smaller screens */
+.auth-slider {
+  display: flex;
+  width: 100%;
+  min-height: 520px;
+  transition: all 420ms cubic-bezier(.2,.9,.2,1);
+  will-change: transform;
+}
+
+/* Panels: take half width on larger viewports for the two-column layout */
+.auth-panel {
+  width: 50%;
+  padding: 2rem;
+  background: var(--card-bg);
+  color: var(--text);
+  box-shadow: var(--elev-shadow);
+  border-radius: 0.6rem;
+  display: block;
+  box-sizing: border-box;
+}
+
+/* On smaller screens, stack panels and let them be full-width */
+@media (max-width: 1023px) {
+  .auth-wrapper { max-width: 980px; }
+  .auth-slider {
+    flex-direction: column;
+    min-height: auto;
+  }
+  .auth-panel {
+    width: 100%;
+    padding: 1.25rem;
+    border-radius: 0.6rem;
+    margin-bottom: 0.9rem;
+    min-height: auto;
+  }
+
+  /* Keep cover below or above forms depending on your visual preference — here we put it after the forms */
+  .auth-cover {
+    position: relative;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100%;
+    height: auto;
+    margin: 0;
+    padding: 1rem;
+    box-sizing: border-box;
+    background: transparent;
+  }
+
+  /* Make the cover inner content adapt */
+  .cover-content-inner {
+    display: flex;
+    gap: 0.8rem;
+    align-items: center;
+  }
+  .cover-logo { width: 56px; height: 56px; }
+}
+
+/* Desktop (two-column) specifics - keep the visual split and cover positioning for the sliding effect */
+@media (min-width: 1024px) {
+  .auth-wrapper { display: grid; grid-template-columns: 1fr 420px; align-items: center; gap: 1.25rem; }
+  .auth-slider { grid-column: 1 / 2; order: 1; }
+  .auth-cover { grid-column: 2 / 3; order: 2; position: relative; height: 520px; padding: 2rem; border-radius: 0.75rem; }
+  .auth-panel { min-height: 420px; }
+}
+
+/* Small helpers for form inputs inside panels so they scale */
+.auth-form .input-field { width: 100%; margin-bottom: .75rem; }
+
+/* Ensure buttons take full width on small screens for better tap targets */
+@media (max-width: 640px) {
+  .btn-primary { width: 100%; display: inline-block; }
+}
+
+/* Minor visual adjustments to avoid panels bleeding under nav (if present) */
+.auth-shell .auth-wrapper { z-index: 1; }
+
+/* -----------------------------------------------------------------------
+   End of file (rest of app.css continues above)
+   ----------------------------------------------------------------------- */
 /* -----------------------------------------------------------------------
    Additional custom styles for modal, FilePond, and general tweaks
    ----------------------------------------------------------------------- */

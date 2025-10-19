@@ -2,12 +2,20 @@
      class="h-16 flex items-center justify-between px-4 z-40 transition-all duration-300
             bg-white dark:bg-slate-900">
 
-    <!-- Left side -->
-    <div class="flex items-center">
-        <!-- Small brand for mobile -->
-        <a href="{{ url('/') }}" class="lg:hidden flex items-center gap-2">
-            <img src="{{ asset('images/logo2.png') }}" class="h-8 w-8" alt="logo">
-            <span class="text-sm font-semibold">GSO</span>
+    <!-- Left side: Logo + Title + Sidebar Toggle -->
+    <div class="flex items-center space-x-4">
+        <!-- Sidebar Toggle Button -->
+        <button id="sidebarToggle"
+                aria-label="Toggle sidebar"
+                class="p-2 rounded-md transition hover:bg-gray-200 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-1">
+            <i class="fas fa-bars text-lg" aria-hidden="true"></i>
+        </button>
+
+        <!-- Brand logo + title (show on all screen sizes, adjust visibility if needed) -->
+        <a href="{{ auth()->check() ? (auth()->user()->role === 'admin' ? route('admin.dashboard') : route('user.dashboard')) : url('/') }}"
+           class="flex items-center gap-2">
+            <img src="{{ asset('images/logo2.png') }}" class="h-8 w-8 object-contain" alt="logo">
+            <span class="text-lg font-bold">GSO-IBIMS</span>
         </a>
     </div>
 
@@ -21,13 +29,12 @@
             </button>
 
             <!-- Notification Dropdown -->
-            <!-- Notification Dropdown (REPLACED: modern, centered under bell) -->
             <div id="notificationDropdown"
                 class="hidden opacity-0 scale-95 absolute right-4 top-full mt-3 w-80 sm:w-96 max-w-[calc(100vw-2rem)]
                         bg-white dark:bg-gray-800 shadow-2xl rounded-2xl overflow-hidden z-50"
                 role="menu" aria-label="Notifications">
 
-                <!-- triangular pointer (anchored near the right) -->
+                <!-- triangular pointer -->
                 <div class="absolute -top-3 right-8 w-6 h-6 bg-white dark:bg-gray-800 transform rotate-45 border-l border-t border-gray-200 dark:border-gray-700 z-40"></div>
 
                 <!-- Header -->
@@ -51,36 +58,35 @@
                 </div>
             </div>
 
-
             <!-- Notification modal -->
             <div id="notificationModal" class="fixed inset-0 z-60 hidden items-center justify-center">
-            <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" id="notificationModalBackdrop"></div>
-            <div class="relative bg-white dark:bg-slate-900 rounded-xl shadow-xl w-[min(720px,95%)] overflow-hidden">
-                <div class="px-6 py-4 border-b dark:border-gray-700 flex items-center justify-between">
-                <h3 id="notificationModalTitle" class="text-lg font-semibold text-gray-900 dark:text-gray-100">Notification</h3>
-                <button id="notificationModalClose" class="text-gray-500 hover:text-gray-700 dark:text-gray-300">&times;</button>
-                </div>
-                <div class="p-6 space-y-4">
-                <div id="notificationModalMessage" class="text-sm text-gray-700 dark:text-gray-300"></div>
+                <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" id="notificationModalBackdrop"></div>
+                <div class="relative bg-white dark:bg-slate-900 rounded-xl shadow-xl w-[min(720px,95%)] overflow-hidden">
+                    <div class="px-6 py-4 border-b dark:border-gray-700 flex items-center justify-between">
+                        <h3 id="notificationModalTitle" class="text-lg font-semibold text-gray-900 dark:text-gray-100">Notification</h3>
+                        <button id="notificationModalClose" class="text-gray-500 hover:text-gray-700 dark:text-gray-300">&times;</button>
+                    </div>
+                    <div class="p-6 space-y-4">
+                        <div id="notificationModalMessage" class="text-sm text-gray-700 dark:text-gray-300"></div>
 
-                <div id="notificationModalItems" class="space-y-1">
-                    <!-- JS will populate item rows -->
-                </div>
+                        <div id="notificationModalItems" class="space-y-1">
+                            <!-- JS will populate item rows -->
+                        </div>
 
-                <div class="grid grid-cols-2 gap-4 text-sm text-gray-600 dark:text-gray-300">
-                    <div><strong>Borrow Date:</strong> <span id="notificationModalBorrowDate">—</span></div>
-                    <div><strong>Return Date:</strong> <span id="notificationModalReturnDate">—</span></div>
-                </div>
+                        <div class="grid grid-cols-2 gap-4 text-sm text-gray-600 dark:text-gray-300">
+                            <div><strong>Borrow Date:</strong> <span id="notificationModalBorrowDate">—</span></div>
+                            <div><strong>Return Date:</strong> <span id="notificationModalReturnDate">—</span></div>
+                        </div>
 
-                <div id="notificationModalReason" class="text-sm text-red-600 dark:text-red-400"></div>
-                </div>
+                        <div id="notificationModalReason" class="text-sm text-red-600 dark:text-red-400"></div>
+                    </div>
 
-                <div class="px-6 py-3 border-t dark:border-gray-700 flex justify-end gap-2">
-                <button id="notificationModalClose2" class="px-4 py-2 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700">Close</button>
+                    <div class="px-6 py-3 border-t dark:border-gray-700 flex justify-end gap-2">
+                        <button id="notificationModalClose2" class="px-4 py-2 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700">Close</button>
+                    </div>
                 </div>
             </div>
-            </div>
-
+        </div>
 
         <!-- Profile -->
         <div class="relative">
@@ -95,7 +101,7 @@
                 </div>
             </button>
 
-            <!-- Dropdown Menu (starts hidden) -->
+            <!-- Dropdown Menu -->
             <div id="profileDropdown"
                  class="hidden opacity-0 scale-95 absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
                  role="menu" aria-label="User menu">
@@ -134,7 +140,7 @@
                                       class="absolute inset-0 rounded-full bg-gray-200 dark:bg-gray-700 transition-colors"
                                       aria-hidden="true"></span>
 
-                                <!-- knob anchored absolutely (no vertical jitter) -->
+                                <!-- knob -->
                                 <span id="profileThemeToggleKnob"
                                       class="absolute left-1 top-1/2 -translate-y-1/2 h-5 w-5 bg-white rounded-full shadow transition-transform transform flex items-center justify-center"
                                       aria-hidden="true">
@@ -143,12 +149,10 @@
                             </button>
 
                             <div>
-                                <!-- Left label (kept minimal) -->
                                 <span class="text-sm text-black dark:text-gray-200">Dark Mode</span>
                             </div>
                         </div>
 
-                        <!-- concise status text: only "Dark" or "Light" -->
                         <div id="profileThemeLabel" class="text-xs text-gray-500 dark:text-gray-300 flex items-center">—</div>
                     </div>
                 </div>
@@ -174,7 +178,7 @@
         </div>
     </div>
 
-    <!-- Mobile Hamburger -->
+    <!-- Mobile Hamburger remains on right side -->
     <div class="-me-2 flex items-center sm:hidden">
         <button @click="open = ! open"
                 class="inline-flex items-center justify-center p-2 rounded-md text-gray-400

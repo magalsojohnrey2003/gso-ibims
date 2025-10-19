@@ -85,9 +85,15 @@
         $loginMessage = $loginMessage ? (string) $loginMessage : '';
     @endphp
 
-    <div class="flex h-screen">
+<div class="flex flex-col h-screen">
 
-        <!-- Sidebar (role-based includes; keep your existing partials/ref hooks) -->
+    <!-- Navigation -->
+    @include('layouts.navigation')
+
+    <!-- Content wrapper: sidebar + main content -->
+    <div id="contentWrapper" class="flex flex-1 overflow-hidden">
+
+        <!-- Sidebar: role-based includes -->
         @auth
             @if(request()->routeIs('profile.*'))
                 @include('layouts.sidebar-profile')
@@ -100,35 +106,15 @@
             @endif
         @endauth
 
-        <!-- Global Toast: placed directly below the navigation in DOM so JS can position it under the nav -->
-        <div id="toast"
-             data-login-message="{{ e($loginMessage) }}"
-             data-login-status="{{ e(session('status') ?? '') }}"
-             role="status"
-             aria-live="polite"
-             class="hidden text-white px-4 py-2 rounded shadow-lg"></div>
-
-        <!-- Main Content Wrapper -->
-        <div id="contentWrapper" class="flex-1 flex flex-col transition-all duration-300">
-            <!-- Navigation -->
-            @include('layouts.navigation')
-
-            {{-- Named header slot for components --}}
-            @isset($header)
-                <div class="page-header mb-4">
-                    {{ $header }}
-                </div>
-            @endisset
-
-            <!-- Page Content -->
-            <main class="flex-1 overflow-y-auto p-6 transition-all duration-300">
-                {{ $slot }}
-            </main>
-        </div>
+        <!-- Main Content -->
+        <main class="flex-1 overflow-y-auto p-6 transition-all duration-300 bg-gray-50 dark:bg-gray-900">
+            {{ $slot }}
+        </main>
     </div>
+</div>
 
-    <!-- Mobile Sidebar Overlay -->
-    <div id="sidebarOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-20 hidden lg:hidden" aria-hidden="true"></div>
+<!-- Mobile Sidebar Overlay -->
+<div id="sidebarOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-20 hidden lg:hidden" aria-hidden="true"></div>
 
     <!-- Scripts -->
     <script>

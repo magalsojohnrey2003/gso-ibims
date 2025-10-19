@@ -21,11 +21,14 @@
     }
 @endphp
 
-
 <div class="auth-shell">
+    <!-- Wrapper: responsive max width so mobile/tablet users get a usable full-width experience -->
     <div class="wrapper larger-form auth-wrapper {{ $initial === 'login' && ($errors->getBag('login')->any() || $errors->getBag('register')->any()) ? 'shake' : '' }}"
          id="authWrapper" data-initial="{{ $initial }}" aria-live="polite">
+
+        <!-- Slider: behaves as a two-column slider on desktop, stacks panels on small screens -->
         <div class="auth-slider" id="authSlider" role="region" aria-label="Authentication forms">
+
             <!-- REGISTER -->
             <div class="auth-panel register-panel" @if($initial === 'login') hidden inert @endif>
                 <form method="POST" action="{{ route('register') }}" id="registerForm" class="auth-form" novalidate>
@@ -129,9 +132,9 @@
                         @endif
                     </div>
 
-                    <button type="submit">Register</button>
+                    <button type="submit" class="btn-primary w-full mt-3">Register</button>
 
-                    <div class="register">
+                    <div class="register mt-4 text-center">
                         <p>Already have an account? <a href="#" class="switch-text" data-target="login">Login</a></p>
                     </div>
                 </form>
@@ -144,8 +147,6 @@
                     <input type="hidden" name="auth_form" value="login">
 
                     <h2>LOGIN</h2>
-
-                   
 
                     @php $err = $errors->getBag('login')->first('email'); @endphp
                     <div class="input-field {{ $err ? 'error' : '' }}">
@@ -170,20 +171,20 @@
                         @endif
                     </div>
 
-                    <div class="form-options">
-                        <label class="remember">
+                    <div class="form-options flex items-center justify-between mt-2">
+                        <label class="remember inline-flex items-center">
                             <input id="login_remember" type="checkbox" name="remember" {{ old('remember') ? 'checked' : '' }}>
-                            <span>Remember me</span>
+                            <span class="ml-2">Remember me</span>
                         </label>
 
                         @if (Route::has('password.request'))
-                            <a href="{{ route('password.request') }}" class="forgot-link">Forgot password?</a>
+                            <a href="{{ route('password.request') }}" class="forgot-link text-sm">Forgot password?</a>
                         @endif
                     </div>
 
-                    <button type="submit">Log In</button>
+                    <button type="submit" class="btn-primary w-full mt-4">Log In</button>
 
-                    <div class="register">
+                    <div class="register mt-4 text-center">
                         <p>Don't have an account? <a href="#" class="switch-text" data-target="register">Register</a></p>
                     </div>
                 </form>
@@ -191,7 +192,7 @@
         </div>
 
         <!-- Cover -->
-        <div class="auth-cover" id="authCover">
+        <div class="auth-cover" id="authCover" aria-hidden="true">
           <div class="cover-content">
             {{-- register success banner inside cover (slides in then out) --}}
             @if(session('status') === 'register-success')
@@ -201,7 +202,7 @@
             </div>
             @endif
 
-            <div class="cover-content">
+            <div class="cover-content-inner">
               <img src="{{ asset('images/logo2.png') }}" alt="Tagoloan Municipal Government — General Services Office logo" class="cover-logo">
               <div class="cover-text">
                 <strong class="cover-title">GSO Item Borrowing & Inventory System</strong><br>
@@ -235,16 +236,15 @@
 
     if (!cover) return;
 
+    // Keep cover placement simple and responsive:
     if (serverInitial === 'register') {
         if (registerPanel) { registerPanel.hidden = false; registerPanel.removeAttribute('inert'); }
         if (loginPanel) { loginPanel.hidden = true; loginPanel.setAttribute('inert', ''); }
-        cover.style.left = '50%';
         cover.classList.add('cover-right');
         cover.classList.remove('cover-left');
     } else {
         if (registerPanel) { registerPanel.hidden = true; registerPanel.setAttribute('inert', ''); }
         if (loginPanel) { loginPanel.hidden = false; loginPanel.removeAttribute('inert'); }
-        cover.style.left = '0';
         cover.classList.add('cover-left');
         cover.classList.remove('cover-right');
     }
@@ -279,11 +279,9 @@ document.addEventListener('DOMContentLoaded', function () {
             if (target === 'register') {
                 cover.classList.remove('cover-left');
                 cover.classList.add('cover-right');
-                cover.style.left = '50%';
             } else {
                 cover.classList.remove('cover-right');
                 cover.classList.add('cover-left');
-                cover.style.left = '0';
             }
         }
 
@@ -355,16 +353,13 @@ document.addEventListener('DOMContentLoaded', function () {
         // auto-switch after ~2.2s, then hide the banner shortly after
         var autoSwitchTimeout = setTimeout(function () {
             try {
-                // clear register UI & reset the register form (like clicking the switch link)
                 if (registerForm) {
                     try { registerForm.reset(); } catch (e) {}
                     if (window.gsoClearFormUI && typeof window.gsoClearFormUI === 'function') {
                         try { window.gsoClearFormUI(registerForm); } catch (e) {}
                     }
                 }
-                // switch to login panel (slide)
                 try { showPanel('login'); } catch (e) {}
-                // focus login email
                 try {
                     var loginEl = document.querySelector('#login_email');
                     if (loginEl && typeof loginEl.focus === 'function') {
@@ -379,7 +374,6 @@ document.addEventListener('DOMContentLoaded', function () {
             setTimeout(function () { try { coverBanner.remove(); } catch (e) {} }, 320);
         }, 2600);
 
-        // manual dismiss
         var closeBtn = coverBanner.querySelector('.cover-banner-close');
         if (closeBtn) {
             closeBtn.addEventListener('click', function () {

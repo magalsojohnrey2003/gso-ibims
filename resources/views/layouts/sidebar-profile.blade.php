@@ -1,21 +1,7 @@
-<!-- resources/views/layouts/sidebar-profile.blade.php -->
 <aside id="sidebar"
     class="w-64 sidebar h-screen fixed inset-y-0 left-0 transition-all duration-300 transform -translate-x-full lg:translate-x-0 lg:relative z-40 flex-shrink-0"
     data-sidebar-type="profile"
     aria-hidden="true">
-
-    <!-- Header -->
-    <div class="flex items-center justify-between p-5">
-        <a href="{{ auth()->user()->role === 'admin' ? route('admin.dashboard') : route('user.dashboard') }}"
-           class="flex items-center space-x-2 sidebar-logo">
-            <img src="{{ asset('images/logo2.png') }}" alt="Logo" class="h-8 w-8 object-contain logo-img">
-            <span class="text-lg font-bold sidebar-text">GSO-IBIMS</span>
-        </a>
-        <button id="sidebarToggle"
-            class="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-800 transition">
-            <i class="fas fa-bars text-lg"></i>
-        </button>
-    </div>
 
     <!-- Navigation -->
     <nav class="mt-6">
