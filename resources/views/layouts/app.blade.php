@@ -69,6 +69,40 @@
             pointer-events: none;
         }
         #toast.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+
+                /* Ensure html and body fill full height */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Flex container fills viewport height */
+        .min-h-screen {
+            min-height: 100vh;
+        }
+
+        /* Page container flexbox for sidebar + main content */
+        #pageContainer {
+            display: flex;
+            flex: 1 1 auto;
+            padding-top: 4rem; /* height of fixed nav */
+            overflow: hidden;
+            height: calc(100vh - 4rem); /* fill remaining viewport height */
+        }
+
+        /* Sidebar fills height */
+        #sidebar {
+            height: 100%;
+            overflow-y: auto; /* allow sidebar scrolling if content overflows */
+        }
+
+        /* Main content scrolls vertically */
+        #mainContent {
+            flex: 1 1 auto;
+            overflow-y: auto;
+            height: 100%;
+        }
     </style>
 </head>
 
@@ -104,6 +138,7 @@
             @endif
         @endauth
 
+        <!-- Main content area: allow vertical scrolling inside this column only -->
         <main id="mainContent" tabindex="-1" class="flex-1 overflow-y-auto">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                 {{ $slot }}
@@ -310,58 +345,6 @@
                 }, 220);
             }, 4000);
         }
-
-
-        /* ======================================
-           Sidebar toggle + overlay handlers (keeps your IDs intact)
-           ====================================== */
-        document.addEventListener('DOMContentLoaded', () => {
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebarOverlay');
-            const toggleBtn = document.getElementById('sidebarToggle');
-
-            if (toggleBtn) {
-                toggleBtn.addEventListener('click', () => {
-                    if (!sidebar || window.innerWidth < 1024) {
-                        if (sidebar) sidebar.classList.toggle('-translate-x-full');
-                        if (overlay) overlay.classList.toggle('hidden');
-                        return;
-                    }
-                    if (sidebar) {
-                        sidebar.classList.toggle('w-64');
-                        sidebar.classList.toggle('w-20');
-                    }
-                    document.querySelectorAll('.sidebar-text, .sidebar-logo .logo-img').forEach(el => {
-                        el.classList.toggle('hidden');
-                    });
-                });
-            }
-
-            if (overlay) {
-                overlay.addEventListener('click', () => {
-                    if (sidebar) sidebar.classList.add('-translate-x-full');
-                    overlay.classList.add('hidden');
-                });
-            }
-
-            window.addEventListener('resize', () => {
-                if (window.innerWidth >= 1024) {
-                    if (sidebar) sidebar.classList.remove('-translate-x-full');
-                    if (overlay) overlay.classList.add('hidden');
-                }
-            });
-        });
-
-        // Reposition toast on resize/scroll while visible
-        window.addEventListener('resize', function () {
-            var toastEl = document.getElementById('toast');
-            if (toastEl && toastEl.classList.contains('show')) positionToastUnderAnchor(toastEl);
-        }, { passive: true });
-
-        window.addEventListener('scroll', function () {
-            var toastEl = document.getElementById('toast');
-            if (toastEl && toastEl.classList.contains('show')) positionToastUnderAnchor(toastEl);
-        }, { passive: true });
     </script>
 </body>
 </html>
