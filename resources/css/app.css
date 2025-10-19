@@ -100,9 +100,6 @@ html.dark .gov-hover:hover::before {
     top: 0;
     left: 0;
     height: 100vh;
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
     z-index: 40;
     width: min(320px, 85vw);
     transform: translateX(-100%);
@@ -116,38 +113,6 @@ html.dark .gov-hover:hover::before {
   /* ensure the sidebar close toggle is visible and large enough */
   #sidebar .p-5 { padding: 1.25rem; }
 }
-
-/* Make nav inside sidebar fill remaining space for consistent layout */
-#sidebar nav {
-  flex-grow: 1;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-}
-
-/* Ensure the main content fills available height and scrolls */
-#mainContent {
-  height: 100vh;
-  overflow-y: auto;
-}
-
-/* On desktop, prevent sidebar content from being cut off or half shown on zoom */
-@media (min-width: 1024px) {
-  #sidebar {
-    position: fixed;
-    top: 4rem; /* height of fixed nav */
-    left: 0;
-    bottom: 0;
-    width: 16rem;
-  }
-
-  #mainContent {
-    margin-left: 16rem;
-    height: calc(100vh - 4rem);
-    overflow-y: auto;
-  }
-}
-
 
 /* Desktop: persistent column */
 @media (min-width: 1024px) {
