@@ -76,5 +76,3 @@
         </ul>
     </nav>
 </aside>
-<!-- sidebar overlay for mobile -->
-<div id="sidebarOverlay" class="fixed inset-0 bg-black/40 z-30 hidden lg:hidden" aria-hidden="true"></div>

@@ -85,15 +85,13 @@
         $loginMessage = $loginMessage ? (string) $loginMessage : '';
     @endphp
 
-<div class="flex flex-col h-screen">
-
-    <!-- Navigation -->
+<div class="min-h-screen flex flex-col">
+    <!-- Navigation (fixed) -->
     @include('layouts.navigation')
 
-    <!-- Content wrapper: sidebar + main content -->
-    <div id="contentWrapper" class="flex flex-1 overflow-hidden">
-
-        <!-- Sidebar: role-based includes -->
+    <!-- Page container: give top padding equal to nav height so content sits below fixed nav -->
+    <div id="pageContainer" class="flex flex-1 pt-16 overflow-hidden">
+        <!-- Sidebar: role-based includes (keeps same classes) -->
         @auth
             @if(request()->routeIs('profile.*'))
                 @include('layouts.sidebar-profile')
@@ -106,12 +104,15 @@
             @endif
         @endauth
 
-        <!-- Main Content -->
-        <main class="flex-1 overflow-y-auto p-6 transition-all duration-300 bg-gray-50 dark:bg-gray-900">
-            {{ $slot }}
+        <!-- Main content area: allow vertical scrolling inside this column only -->
+        <main id="mainContent" class="flex-1 overflow-y-auto">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                {{ $slot }}
+            </div>
         </main>
     </div>
 </div>
+
 
 <!-- Mobile Sidebar Overlay -->
 <div id="sidebarOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-20 hidden lg:hidden" aria-hidden="true"></div>

@@ -255,6 +255,7 @@ html.dark .gov-hover:hover::before {
 /* Minor visual adjustments to avoid panels bleeding under nav (if present) */
 .auth-shell .auth-wrapper { z-index: 1; }
 
+
 /* -----------------------------------------------------------------------
    End of file (rest of app.css continues above)
    ----------------------------------------------------------------------- */
