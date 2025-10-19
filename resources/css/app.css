@@ -146,6 +146,7 @@ html.dark .gov-hover:hover::before {
     height: calc(100vh - 4rem);
     overflow-y: auto;
   }
+}
 
 
 /* Desktop: persistent column */
