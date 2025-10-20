@@ -53,13 +53,10 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
         // API endpoints used by the admin dashboard JS
         Route::get('/dashboard/borrow-trends', [DashboardController::class, 'borrowTrends']);
         Route::get('/dashboard/most-borrowed', [DashboardController::class, 'mostBorrowed']);
-        Route::get('/dashboard/activity', [DashboardController::class, 'activity']);
-
 
         // Dashboard API endpoints
         Route::get('/dashboard/borrow-trends', [DashboardController::class, 'borrowTrends'])->name('admin.dashboard.borrow-trends');
         Route::get('/dashboard/most-borrowed', [DashboardController::class, 'mostBorrowed'])->name('admin.dashboard.most-borrowed');
-        Route::get('/dashboard/activity', [DashboardController::class, 'activity'])->name('admin.dashboard.activity');
 
         // Item Management
         Route::get('items/search', [ItemController::class, 'search'])->name('admin.items.search');
@@ -113,7 +110,6 @@ Route::middleware(['auth', 'role:user', 'nocache'])
     Route::post('/dashboard/requests/{id}/cancel', [UserDashboardController::class, 'cancelRequest']);
     Route::post('/dashboard/requests/{id}/request-return', [UserDashboardController::class, 'requestReturn']);
     Route::get('/dashboard/borrow-trends', [UserDashboardController::class, 'borrowTrends']);
-    Route::get('/dashboard/activity', [UserDashboardController::class, 'activity']);
     Route::get('/dashboard/available-items', [UserDashboardController::class, 'availableItems']);
 
         // Borrow Items

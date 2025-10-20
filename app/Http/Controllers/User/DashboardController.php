@@ -146,23 +146,6 @@ class DashboardController extends Controller
         return response()->json($data);
     }
 
-    // Recent activity (JSON)
-    public function activity()
-    {
-        $logs = BorrowRequest::where('user_id', Auth::id())
-            ->latest()
-            ->take(10)
-            ->get()
-            ->map(function ($req) {
-                return [
-                    'action' => ucfirst($req->status),
-                    'time'   => Carbon::parse($req->created_at)->diffForHumans(),
-                ];
-            });
-
-        return response()->json($logs);
-    }
-
     // Available items preview
     public function availableItems()
     {

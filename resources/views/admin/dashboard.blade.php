@@ -98,41 +98,9 @@
                     </div>
                 </div>
             </div>
-
-            {{-- Recent Activity (client paginated) --}}
-            <div class="card p-6">
-                <h3 class="text-lg font-semibold mb-6">🕒 Recent Activity</h3>
-                <div id="activity-log" class="divide-y divide-gray-200 dark:divide-gray-700 text-sm">
-                    {{-- JS will inject activity rows here --}}
-                </div>
-
-                <!-- Pagination -->
-                <div class="flex justify-center mt-6">
-                    <nav id="activityPaginationNav" class="inline-flex items-center space-x-2"></nav>
-                </div>
-            </div>
-
         </div>
     </div>
 
-    {{-- Dashboard data (JSON only) — use php echo to avoid editor parsing issues --}}
-    <script type="application/json" id="dashboard-data">
-<?php
-echo json_encode([
-    'borrowLabels' => array_keys($borrowTrends ?? []),
-    'borrowData'   => array_values($borrowTrends ?? []),
-    'itemLabels'   => isset($itemUsage) ? $itemUsage->pluck('name')->toArray() : [],
-    'itemData'     => isset($itemUsage) ? $itemUsage->pluck('total')->toArray() : [],
-    'endpoints'    => [
-        'borrowTrends' => route('admin.dashboard.borrow-trends'),
-        'mostBorrowed' => route('admin.dashboard.most-borrowed'),
-        'activity'     => route('admin.dashboard.activity'),
-    ]
-], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-?>
-    </script>
-
-    {{-- Vite bundle (app.js should import or dynamically import admin-dashboard.js) --}}
     @vite('resources/js/app.js')
 
 </x-app-layout>
