@@ -66,14 +66,20 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
         Route::post('items/validate-pns', [ItemController::class, 'validatePropertyNumbers'])
             ->name('admin.items.validate-pns');
 
-        Route::post('items/manual-store', [ItemController::class, 'manualStore'])
-            ->name('admin.items.manual-store');
-
         Route::patch('item-instances/{instance}', [ItemInstanceController::class, 'update'])
             ->name('admin.item-instances.update');
 
         Route::delete('item-instances/{instance}', [ItemInstanceController::class, 'destroy'])
             ->name('admin.item-instances.destroy');
+
+            // categories & offices API for admin UI
+        Route::get('api/categories', [\App\Http\Controllers\Admin\CategoryController::class, 'index']);
+        Route::post('api/categories', [\App\Http\Controllers\Admin\CategoryController::class, 'store']);
+        Route::delete('api/categories/{name}', [\App\Http\Controllers\Admin\CategoryController::class, 'destroy']);
+
+        Route::get('api/offices', [\App\Http\Controllers\Admin\OfficeController::class, 'index']);
+        Route::post('api/offices', [\App\Http\Controllers\Admin\OfficeController::class, 'store']);
+        Route::delete('api/offices/{code}', [\App\Http\Controllers\Admin\OfficeController::class, 'destroy']);
                 
         // Borrow Requests
         Route::get('borrow-requests', [BorrowRequestController::class, 'index'])->name('borrow.requests');

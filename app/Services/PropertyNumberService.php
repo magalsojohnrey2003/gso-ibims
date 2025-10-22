@@ -20,14 +20,15 @@ class PropertyNumberService
             throw new InvalidArgumentException('Property numbers must contain four non-empty segments.');
         }
 
-        [$year, $ppe, $serial, $office] = $parts;
+        [$year, $categoryCode, $serial, $office] = $parts;
 
         if (! preg_match('/^\d{4}$/', $year)) {
             throw new InvalidArgumentException('Year segment must be four digits.');
         }
 
-        if (! preg_match('/^\d{2}$/', $ppe)) {
-            throw new InvalidArgumentException('PPE code segment must be two digits.');
+        // Accept 1-4 uppercase alphanumeric characters for the category-derived segment.
+        if (! preg_match('/^[A-Z0-9]{1,4}$/', $categoryCode)) {
+            throw new InvalidArgumentException('Category-derived segment must be 1 to 4 uppercase alphanumeric characters.');
         }
 
         $serial = strtoupper($serial);
@@ -49,26 +50,29 @@ class PropertyNumberService
             throw new InvalidArgumentException('Office code segment must be 1 to 4 alphanumeric characters.');
         }
 
+        $assembled = $this->assemble([
+            'year' => $year,
+            'category' => $categoryCode,
+            'serial' => $serial,
+            'office' => $officeRaw,
+        ]);
+
         return [
             'year' => $year,
-            'ppe' => $ppe,
+            'category' => $categoryCode,
+            'category_code' => $categoryCode,
             'serial' => $serial,
             'serial_int' => $serialInt,
-            // store the office exactly as provided (no padding)
             'office' => $officeRaw,
-            'property_number' => $this->assemble([
-                'year' => $year,
-                'ppe' => $ppe,
-                'serial' => $serial,
-                'office' => $officeRaw,
-            ]),
+            'property_number' => $assembled,
         ];
     }
 
     public function assemble(array $components): string
     {
         $year = $components['year'] ?? $components['year_procured'] ?? null;
-        $ppe = $components['ppe'] ?? $components['ppe_code'] ?? null;
+        // accept multiple aliases for category-derived component, but prefer category/category_code
+        $category = $components['category'] ?? $components['category_code'] ?? null;
         $serial = $components['serial'] ?? null;
         $office = $components['office'] ?? $components['office_code'] ?? null;
 
@@ -76,8 +80,8 @@ class PropertyNumberService
             throw new InvalidArgumentException('Year segment must be four digits.');
         }
 
-        if (! is_string($ppe) || ! preg_match('/^\d{2}$/', $ppe)) {
-            throw new InvalidArgumentException('PPE code segment must be two digits.');
+        if (! is_string($category) || ! preg_match('/^[A-Z0-9]{1,4}$/', $category)) {
+            throw new InvalidArgumentException('Category-derived segment must be 1 to 4 uppercase alphanumeric characters.');
         }
 
         if ($serial === null && isset($components['serial_int'])) {
@@ -89,7 +93,6 @@ class PropertyNumberService
             throw new InvalidArgumentException('Serial segment cannot be empty.');
         }
 
-        // Accept 1-4 alphanumeric office as-is (no automatic stripping/padding).
         $officeRaw = (string) $office;
         if ($officeRaw === '') {
             throw new InvalidArgumentException('Office code segment cannot be empty.');
@@ -98,10 +101,8 @@ class PropertyNumberService
             throw new InvalidArgumentException('Office code segment must be 1 to 4 alphanumeric characters.');
         }
 
-        // preserve office exactly as entered
-        return sprintf('%s-%s-%s-%s', $year, $ppe, $serial, $officeRaw);
+        return sprintf('%s-%s-%s-%s', $year, $category, $serial, $officeRaw);
     }
-
 
     public function padSerial(int $n, int $width = 4): string
     {

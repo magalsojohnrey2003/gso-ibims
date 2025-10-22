@@ -1,7 +1,26 @@
+<!-- resources/views/admin/items/edit.blade.php -->
 @php
-    $normalizedCategoryPpe = array_change_key_case($categoryPpeMap, CASE_LOWER);
+    // Create map id => name for quick lookup
+    $categoryMap = collect($categories ?? [])->filter()->keyBy('id')->map(fn($c) => $c['name'])->toArray();
+
+    // If item->category is numeric id, display the mapped name; otherwise display the stored category string.
+    $displayCategoryName = $item->category;
+    if (is_numeric($item->category) && isset($categoryMap[(int)$item->category])) {
+        $displayCategoryName = $categoryMap[(int)$item->category];
+    } else {
+        $displayCategoryName = $displayCategoryName ?? '';
+    }
+
+    $normalizedCategoryCode = array_change_key_case($categoryCodeMap ?? [], CASE_LOWER);
     $primaryInstance = $item->instances->first();
-    $ppeForCategory = $normalizedCategoryPpe[strtolower($item->category)] ?? ($primaryInstance->ppe_code ?? '');
+    $categoryCodeForCategory = '';
+    if (is_numeric($item->category)) {
+        $two = str_pad((int) $item->category, 2, '0', STR_PAD_LEFT);
+        $categoryCodeForCategory = substr(strtoupper(preg_replace('/[^A-Za-z0-9]/','', $two)), 0, 4);
+    } else {
+        $raw = $normalizedCategoryCode[strtolower($item->category)] ?? ($primaryInstance->category_code ?? '');
+        $categoryCodeForCategory = $raw ?? '';
+    }
 @endphp
 
 <form method="POST" action="{{ route('items.update', $item->id) }}" enctype="multipart/form-data"
@@ -32,15 +51,16 @@
 
       <div class="mt-4">
         <x-input-label for="category-{{ $item->id }}" value="Category" />
-        <select id="category-{{ $item->id }}" name="category"
-                class="mt-1 block w-full min-w-0 appearance-none border rounded px-3 py-2"
-                data-category-select data-field="category" data-edit-field="category">
-            <!-- options rendered by JS -->
-        </select>
+        <!-- Category is finalized. Show readonly display and still submit the value via hidden input. -->
+        <input type="text" id="category-{{ $item->id }}" aria-readonly="true"
+               class="mt-1 block w-full min-w-0 appearance-none border rounded px-3 py-2 bg-gray-100 text-gray-700"
+               value="{{ $displayCategoryName }}" readonly />
+
+        <!-- Hidden category code populated by category JS -->
+        <input type="hidden" name="category_code" data-property-segment="category" value="{{ old('category_code', $categoryCodeForCategory) }}" />
 
         <x-input-error :messages="$errors->get('category')" class="mt-2" />
       </div>
-    </div>
 
     <!-- Step 2: Identification & Codes -->
     <div class="bg-gray-50 shadow-md hover:shadow-lg transition rounded-lg p-4">
@@ -61,8 +81,7 @@
             <div class="flex-1 bg-indigo-50 rounded-lg px-4 py-3 flex items-center gap-3 flex-nowrap">
               <input type="text" class="w-20 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-year" value="{{ $inst->year_procured ?? '' }}" placeholder="Year" />
               <div class="text-gray-500 select-none"> - </div>
-              <input type="text" class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-ppe" value="{{ $inst->ppe_code ?? '' }}" placeholder="PPE" />
-              <div class="text-gray-500 select-none"> - </div>
+              <input type="text" readonly class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-gray-100 instance-part-category" value="{{ $inst->category_code ?? $inst->category_id ?? '' }}" placeholder="Category" />
               <input type="text" class="w-20 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-serial" value="{{ $inst->serial ?? '' }}" placeholder="Serial" />
               <div class="text-gray-500 select-none"> - </div>
               <input type="text" class="w-20 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-office" value="{{ $inst->office_code ?? '' }}" placeholder="Office" />
@@ -80,7 +99,6 @@
 
       <p class="mt-2 text-xs text-gray-500">You may edit components in-place. Valid changes will save automatically.</p>
     </div>
-
     
 
     <!-- Step 3: Additional Details (collapsible) -->
@@ -152,21 +170,23 @@
         const yearInput = document.querySelector('#year_procured-{{ $item->id }}');
         
         // Ensure the year input is validated after the user finishes typing the 4 digits
-        yearInput.addEventListener('input', (e) => {
-            const value = e.target.value.trim();
-            
-            // Allow only 4 digits
-            if (value.length === 4) {
-                const year = parseInt(value, 10);
-                const currentYear = new Date().getFullYear();
+        if (yearInput) {
+            yearInput.addEventListener('input', (e) => {
+                const value = e.target.value.trim();
+                
+                // Allow only 4 digits
+                if (value.length === 4) {
+                    const year = parseInt(value, 10);
+                    const currentYear = new Date().getFullYear();
 
-                // Check if the year is valid
-                if (year < 2020 || year > currentYear) {
-                    e.target.value = '';  // Reset the input to blank if invalid
-                    showToast('error', 'Please enter a valid year between 2020 and ' + currentYear + '.');
+                    // Check if the year is valid
+                    if (year < 2020 || year > currentYear) {
+                        e.target.value = '';  // Reset the input to blank if invalid
+                        showToast('error', 'Please enter a valid year between 2020 and ' + currentYear + '.');
+                    }
                 }
-            }
-        });
+            });
+        }
     });
 
     // Function to show the toast message (for invalid year)
@@ -180,7 +200,8 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         const yearInput = document.querySelector('#year_procured-{{ $item->id ?? 'new' }}');
-        const ppeInput = document.querySelector('#ppe_code_display-{{ $item->id ?? 'new' }}');
+        // Read hidden PPE input (populated by category JS)
+        const categoryInput = document.querySelector('input[name="category_code"], input[data-property-segment="category"]');
         const serialInput = document.querySelector('#serial-{{ $item->id ?? 'new' }}');
         const officeInput = document.querySelector('#office_code-{{ $item->id ?? 'new' }}');
         const previewInput = document.querySelector('#property_preview-{{ $item->id ?? 'new' }}');
@@ -188,7 +209,7 @@
         // Function to update the Property Number Preview
         function updatePropertyNumberPreview() {
         const year = (yearInput?.value || '').trim();
-        const ppe = (ppeInput?.value || '').trim();
+        const ppe = (categoryInput?.value || '').trim();
         const serial = (serialInput?.value || '').trim();
         const officeRaw = (officeInput?.value || '').trim();
         const office = officeRaw ? officeRaw.padStart(4, '0') : '';
@@ -205,65 +226,15 @@
 
 
         // Attach event listeners to the input fields
-        yearInput.addEventListener('input', updatePropertyNumberPreview);
-        ppeInput.addEventListener('input', updatePropertyNumberPreview);
-        serialInput.addEventListener('input', updatePropertyNumberPreview);
-        officeInput.addEventListener('input', updatePropertyNumberPreview);
+        if (yearInput) yearInput.addEventListener('input', updatePropertyNumberPreview);
+        if (categoryInput) categoryInput.addEventListener('input', updatePropertyNumberPreview);
+        if (serialInput) serialInput.addEventListener('input', updatePropertyNumberPreview);
+        if (officeInput) officeInput.addEventListener('input', updatePropertyNumberPreview);
 
         // Initial call to update the preview for Edit Item (if values exist)
-        if (yearInput.value.trim() && ppeInput.value.trim() && serialInput.value.trim() && officeInput.value.trim()) {
+        if (yearInput?.value.trim() && categoryInput?.value.trim() && serialInput?.value.trim() && officeInput?.value.trim()) {
             updatePropertyNumberPreview();
         }
     });
 
 </script>
-
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  function restoreForm(modalName) {
-    if (!modalName) return;
-    const form = document.querySelector(`form[data-modal-name="${modalName}"]`);
-    if (!form) return;
-
-    // Reset to initial HTML values
-    form.reset();
-
-    // Clear file inputs (they don't get reset to a file for security)
-    form.querySelectorAll('input[type="file"]').forEach(el => el.value = '');
-
-    // Restore photo from data-original-src if present
-    const photo = form.querySelector('[data-edit-photo]');
-    if (photo) {
-      const orig = photo.getAttribute('data-original-src');
-      if (orig) photo.src = orig;
-    }
-
-    // Hide inline feedback boxes
-    const feedback = form.querySelector('[data-edit-feedback]');
-    if (feedback) feedback.classList.add('hidden');
-    const error = form.querySelector('[data-edit-error]');
-    if (error) error.classList.add('hidden');
-
-    // Trigger inputs change so preview and other listeners re-calc
-    form.querySelectorAll('input, select, textarea').forEach(el => {
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-      el.dispatchEvent(new Event('change', { bubbles: true }));
-    });
-  }
-
-  // When a modal closes, reset that form
-  window.addEventListener('close-modal', (e) => {
-    const modalName = e?.detail;
-    restoreForm(modalName);
-  });
-
-  // When a modal opens, also reset (ensures repeated opens always show server values)
-  window.addEventListener('open-modal', (e) => {
-    const modalName = e?.detail;
-    restoreForm(modalName);
-  });
-});
-
-</script>
-
-

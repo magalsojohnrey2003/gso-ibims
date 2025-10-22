@@ -111,15 +111,15 @@ class PropertyNumberBackfillCommand extends Command
 
     private function looksLikePropertyNumber(string $value): bool
     {
-        return (bool) preg_match('/\\b\\d{4}-\\d{2}-[0-9A-Z]{3,}-\\d{4}\\b/', $value);
+        // category now letters/numbers-only (A-Z0-9), 1-4 chars
+        return (bool) preg_match('/\\b\\d{4}-[A-Z0-9]{1,4}-[0-9A-Z]{3,}-[A-Za-z0-9]{1,4}\\b/', $value);
     }
 
     private function firstPropertyNumber(string $value): ?string
     {
-        if (preg_match('/(\\d{4}-\\d{2}-[0-9A-Z]{3,}-\\d{4})/', $value, $matches)) {
+        if (preg_match('/(\\d{4}-[A-Z0-9]{1,4}-[0-9A-Z]{3,}-[A-Za-z0-9]{1,4})/', $value, $matches)) {
             return $matches[1];
         }
-
         return null;
     }
 
@@ -128,7 +128,8 @@ class PropertyNumberBackfillCommand extends Command
         $mapping = [
             'property_number' => $components['property_number'] ?? null,
             'year_procured' => isset($components['year']) ? (int) $components['year'] : null,
-            'ppe_code' => $components['ppe'] ?? null,
+            // store category into category_code
+            'category_code' => $components['category'] ?? null,
             'serial' => $components['serial'] ?? null,
             'serial_int' => $components['serial_int'] ?? null,
             'office_code' => $components['office'] ?? null,
@@ -149,4 +150,5 @@ class PropertyNumberBackfillCommand extends Command
 
         return $updates;
     }
+
 }

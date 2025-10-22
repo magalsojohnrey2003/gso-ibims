@@ -21,7 +21,7 @@ class ItemInstanceController extends Controller
         $data = $request->validate([
             'property_number' => 'sometimes|string',
             'year' => 'sometimes|digits:4',
-            'ppe' => 'sometimes|string',
+            'category' => 'sometimes|string',
             'serial' => 'sometimes|string',
             'office' => 'sometimes|string|max:4',
         ]);
@@ -31,10 +31,10 @@ class ItemInstanceController extends Controller
             if (!empty($data['property_number'])) {
                 $parsed = $numbers->parse($data['property_number']);
             } else {
-                // build components - require year/ppe/serial/office
+                // build components - require year/category/serial/office
                 $components = [
                     'year' => $data['year'] ?? $instance->year_procured,
-                    'ppe' => $data['ppe'] ?? $instance->ppe_code,
+                    'category' => strtoupper($data['category'] ?? $instance->category_code ?? ''),
                     'serial' => $data['serial'] ?? $instance->serial,
                     'office' => $data['office'] ?? $instance->office_code,
                 ];
@@ -57,7 +57,7 @@ class ItemInstanceController extends Controller
         try {
             $instance->property_number = $parsed['property_number'];
             $instance->year_procured = (int) $parsed['year'];
-            $instance->ppe_code = $parsed['ppe'];
+            $instance->category_code = isset($parsed['category']) ? $parsed['category'] : null;
             $instance->serial = $parsed['serial'];
             $instance->serial_int = $parsed['serial_int'] ?? null;
             $instance->office_code = $parsed['office'];

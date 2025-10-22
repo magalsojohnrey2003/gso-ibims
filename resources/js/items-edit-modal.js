@@ -8,13 +8,10 @@ const OFFICE_ERROR_SELECTOR = '[data-office-error]';
 
 async function showActionConfirm(title, message, icon = '') {
   if (typeof window.showModalConfirm === 'function') {
-    return await window.showModalConfirm({ title, message, icon }); // must return boolean
+    return await window.showModalConfirm({ title, message, icon });
   }
   return Promise.resolve(window.confirm(message));
 }
-
-
-
 
 const showToast = (typeof window !== 'undefined' && typeof window.showToast === 'function')
   ? window.showToast.bind(window)
@@ -23,7 +20,6 @@ const showToast = (typeof window !== 'undefined' && typeof window.showToast === 
       else console.log(message);
     };
 
-    
 function showMessage(el, message) {
     if (!el) return;
     el.textContent = message;
@@ -87,7 +83,6 @@ function handleSuccess(form, feedbackEl, errorEl, result) {
     showMessage(feedbackEl, message);
     try { showToast('success', message); } catch (_) {}
 
-    // Persist updated values
     try {
         const setInput = (selector, val) => {
             const el = form.querySelector(selector);
@@ -95,14 +90,6 @@ function handleSuccess(form, feedbackEl, errorEl, result) {
             try { el.value = val ?? ''; } catch (_) {}
             try { el.defaultValue = val ?? ''; } catch (_) {}
             try { el.setAttribute('value', val ?? ''); } catch (_) {}
-        };
-
-        const setTextarea = (selector, val) => {
-            const el = form.querySelector(selector);
-            if (!el) return;
-            el.textContent = val ?? '';
-            try { el.defaultValue = val ?? ''; } catch (_) {}
-            try { el.value = val ?? ''; } catch (_) {}
         };
 
         if (typeof data.name === 'string') {
@@ -138,13 +125,13 @@ function handleSuccess(form, feedbackEl, errorEl, result) {
             }
         }
 
-        // PPE: update hidden/display if provided
-        if (typeof data.ppe_code === 'string' || typeof data.ppe === 'string') {
-            const ppeVal = (data.ppe_code ?? data.ppe ?? '');
-            const ppeHidden = form.querySelector('[data-property-segment="ppe"]') || form.querySelector('[name="ppe_code"]');
-            const ppeDisplay = form.querySelector('[data-ppe-display]');
-            if (ppeHidden) { ppeHidden.value = ppeVal; try { ppeHidden.defaultValue = ppeVal; } catch(_){} ppeHidden.setAttribute('value', ppeVal); }
-            if (ppeDisplay) { ppeDisplay.value = ppeVal; try { ppeDisplay.defaultValue = ppeVal; } catch(_){} ppeDisplay.setAttribute('value', ppeVal); }
+        // Category code: update hidden/display if provided
+        if (typeof data.category_code === 'string' || typeof data.category === 'string') {
+            const codeVal = (data.category_code ?? data.category ?? '');
+            const hidden = form.querySelector('[data-property-segment="category"]') || form.querySelector('[name="category_code"]');
+            const display = form.querySelector('[data-category-display]');
+            if (hidden) { hidden.value = codeVal; try { hidden.defaultValue = codeVal; } catch(_){} hidden.setAttribute('value', codeVal); }
+            if (display) { display.value = codeVal; try { display.defaultValue = codeVal; } catch(_){} display.setAttribute('value', codeVal); }
         }
 
         if (typeof data.property_number === 'string') {
@@ -183,14 +170,12 @@ function handleSuccess(form, feedbackEl, errorEl, result) {
         console.warn('Could not persist updated values into edit form:', err);
     }
 
-    // Emit table update
     const normalizedDetail = Object.assign({}, data);
     if (!normalizedDetail.item_id && normalizedDetail.normalizedId !== 0 && normalizedDetail.id) {
         normalizedDetail.item_id = normalizedDetail.id;
     }
     form.dispatchEvent(new CustomEvent('items:edit:success', { detail: normalizedDetail, bubbles: true }));
 
-    // Close modal
     try {
         const modalName = form.getAttribute('data-modal-name');
         if (modalName) {
@@ -203,10 +188,8 @@ function handleError(feedbackEl, errorEl, error) {
     hideMessage(feedbackEl);
     const msg = error.message || 'Unable to update item.';
 
-    // If backend returned duplicate property number message, try to revert serial
     const duplicateIndicator = 'Another item already uses the property number';
     if (msg.includes(duplicateIndicator)) {
-        // find serial input in the form
         try {
             const form = document.querySelector('[data-edit-item-form]');
             if (form) {
@@ -265,13 +248,12 @@ function attachOfficeValidation(form) {
 function populateCategorySelects(form) {
     const cats = window.__serverCategories || [];
     form.querySelectorAll('select[data-category-select]').forEach(sel => {
-        // if server rendered options exist, don't wipe them — but ensure at least one option
         if (sel.options && sel.options.length > 0) return;
         sel.innerHTML = '';
         cats.forEach(c => {
             const opt = document.createElement('option');
-            opt.value = c;
-            opt.textContent = c;
+            opt.value = typeof c === 'object' && c !== null ? String(c.id) : String(c);
+            opt.textContent = typeof c === 'object' && c !== null ? String(c.name) : String(c);
             sel.appendChild(opt);
         });
     });
@@ -281,21 +263,20 @@ function attachCategoryListeners(form) {
     form.querySelectorAll('select[data-category-select]').forEach(sel => {
         sel.addEventListener('change', (e) => {
             const chosen = (e.target.value ?? '').toString();
-            const hiddenPpe = form.querySelector('input[data-property-segment="ppe"], input[name="ppe_code"]');
-            if (hiddenPpe) {
-                // Resolve PPE via server map on client
-                const resolved = (window.__serverCategoryPpeMap && window.__serverCategoryPpeMap[chosen]) || '';
-                // If map not available, just set empty; backend will handle fallback
-                hiddenPpe.value = resolved;
-                try { hiddenPpe.defaultValue = resolved; } catch(_) {}
+            const hidden = form.querySelector('input[data-property-segment="category"], input[name="category_code"]');
+            if (hidden) {
+                let resolved = '';
+                if (/^\d+$/.test(chosen)) resolved = String(parseInt(chosen,10)).padStart(4,'0');
+                if (!resolved && window.__serverCategoryCodeMap) resolved = window.__serverCategoryCodeMap[chosen] || '';
+                hidden.value = resolved;
+                try { hidden.defaultValue = resolved; } catch(_) {}
             }
-            const ppeDisplay = form.querySelector('[data-ppe-display]');
-            if (ppeDisplay) {
-                const resolved = (window.__serverCategoryPpeMap && window.__serverCategoryPpeMap[chosen]) || '';
-                ppeDisplay.value = resolved;
+            const display = form.querySelector('[data-category-display]');
+            if (display) {
+                const resolved = (window.__serverCategoryCodeMap && window.__serverCategoryCodeMap[chosen]) || '';
+                display.value = resolved;
             }
 
-            // trigger potential preview recalculation (dispatch input)
             form.querySelectorAll('input, select').forEach(inp => inp.dispatchEvent(new Event('input', { bubbles: true })));
         });
     });
@@ -306,10 +287,6 @@ function initEditForm(form) {
     const errorEl = form.querySelector(ERROR_SELECTOR);
     const submitBtn = form.querySelector(SUBMIT_SELECTOR);
     const cancelBtn = form.querySelector(CANCEL_SELECTOR);
-
-    // populate categories on edit forms
-    populateCategorySelects(form);
-    attachCategoryListeners(form);
 
     attachOfficeValidation(form);
 
@@ -401,13 +378,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Helper: assemble visible PN for display (best-effort)
-  function assemblePN({ year_procured, ppe_code, serial, office_code }) {
-    const y = String(year_procured || '').trim();
-    const p = String(ppe_code || '').trim();
-    const s = String(serial || '').trim();
-    const o = String(office_code || '').trim();
-    return [y, p, s, o].every(x => x) ? `${y}-${p}-${s}-${o}` : '';
-  }
+function assemblePN({ year_procured, category_code, serial, office_code }) {
+  const y = String(year_procured || '').trim();
+  const p = String(category_code || '').trim();
+  const s = String(serial || '').trim();
+  const o = String(office_code || '').trim();
+  return [y, p, s, o].every(x => x) ? `${y}-${p}-${s}-${o}` : '';
+}
 
   // For each row: set up handlers
   function initInstanceRow(row) {
@@ -416,24 +393,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const instanceId = row.getAttribute('data-instance-id');
     const yearEl = row.querySelector('.instance-part-year');
-    const ppeEl = row.querySelector('.instance-part-ppe');
+    const categoryEl = row.querySelector('.instance-part-category');
     const serialEl = row.querySelector('.instance-part-serial');
     const officeEl = row.querySelector('.instance-part-office');
     const statusEl = row.querySelector('.instance-status');
 
     // store original values so we can rollback serial only
     if (yearEl) yearEl.dataset.orig = yearEl.value ?? '';
-    if (ppeEl) ppeEl.dataset.orig = ppeEl.value ?? '';
+    if (categoryEl) categoryEl.dataset.orig = categoryEl.value ?? '';
     if (serialEl) serialEl.dataset.orig = serialEl.value ?? '';
     if (officeEl) officeEl.dataset.orig = officeEl.value ?? '';
 
     // Debounced save
     const doSave = debounce(async () => {
       const payload = {
-        year_procured: yearEl ? yearEl.value.trim() || null : null,
-        ppe_code: ppeEl ? ppeEl.value.trim() || null : null,
+        year: yearEl ? yearEl.value.trim() || null : null,
+        category: categoryEl ? categoryEl.value.trim() || null : null,
+        category_code: categoryEl ? categoryEl.value.trim() || null : null,
         serial: serialEl ? serialEl.value.trim() || null : null,
-        office_code: officeEl ? officeEl.value.trim() || null : null,
+        office: officeEl ? officeEl.value.trim() || null : null,
       };
 
       const prevStatus = statusEl ? statusEl.textContent : '';
@@ -447,7 +425,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (statusEl && pn) statusEl.textContent = pn;
           // update orig snapshots to the new values
           if (yearEl) yearEl.dataset.orig = yearEl.value ?? '';
-          if (ppeEl) ppeEl.dataset.orig = ppeEl.value ?? '';
+          if (categoryEl) categoryEl.dataset.orig = categoryEl.value ?? '';
           if (serialEl) serialEl.dataset.orig = serialEl.value ?? '';
           if (officeEl) officeEl.dataset.orig = officeEl.value ?? '';
           try { if (typeof window.showToast === 'function') window.showToast('success', 'Instance updated'); } catch (_) {}
@@ -480,14 +458,14 @@ document.addEventListener('DOMContentLoaded', () => {
         try { if (typeof window.showToast === 'function') window.showToast('error', fallbackMsg); } catch (_) {}
         window.dispatchEvent(new CustomEvent('instance:update:failed', { detail: { instanceId, status: 422, message: fallbackMsg } }));
       } catch (err) {
-        console.error('Instance update error', err);
+        console.error(err);
         if (statusEl) statusEl.textContent = prevStatus || 'Error';
         try { if (typeof window.showToast === 'function') window.showToast('error', 'Failed to update instance.'); } catch (_) {}
       }
     }, 700);
 
     // wire inputs
-    [yearEl, ppeEl, serialEl, officeEl].forEach(el => {
+    [yearEl, categoryEl, serialEl, officeEl].forEach(el => {
       if (!el) return;
       el.addEventListener('input', () => {
         // sanitize office to alphanumeric and serial to alphanumeric (you already have similar logic)
@@ -519,7 +497,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try { if (typeof window.showToast === 'function') window.showToast('success', 'Instance deleted'); } catch (_) {}
             return;
           }
-          const msg = (json && (json.message || (json.errors && Object.values(json.errors).flat().join(' ')))) || `Failed to delete instance (${status})`;
+          const msg = (json && (json.message || (json.errors && json.errors.serial && json.errors.serial.join(' ')))) || `Failed to delete instance (${status})`;
           showToast('error', msg);
           removeBtn.disabled = false;
         } catch (err) {

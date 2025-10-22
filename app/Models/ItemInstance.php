@@ -17,7 +17,8 @@ class ItemInstance extends Model
         'item_id',
         'property_number',
         'year_procured',
-        'ppe_code',
+        'category_code',
+        'category_id',
         'serial',
         'serial_int',
         'office_code',
@@ -62,7 +63,16 @@ class ItemInstance extends Model
 
         $this->attributes['property_number'] = $components['property_number'];
         $this->attributes['year_procured'] = (int) $components['year'];
-        $this->attributes['ppe_code'] = $components['ppe'];
+
+        // Store category-derived code (1-4 uppercase alnum)
+        $category = isset($components['category']) ? strtoupper($components['category']) : (isset($components['category_code']) ? strtoupper($components['category_code']) : null);
+        if ($category !== null) {
+            $category = preg_replace('/[^A-Z0-9]/', '', $category);
+            $this->attributes['category_code'] = $category !== '' ? substr($category, 0, 4) : null;
+        } else {
+            $this->attributes['category_code'] = null;
+        }
+
         $this->attributes['serial'] = $components['serial'];
         $this->attributes['serial_int'] = $components['serial_int'];
         $this->attributes['office_code'] = $components['office'];

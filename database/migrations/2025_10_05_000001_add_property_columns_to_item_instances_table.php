@@ -21,8 +21,8 @@ return new class extends Migration
             if (! Schema::hasColumn('item_instances', 'year_procured')) {
                 $table->unsignedSmallInteger('year_procured')->nullable()->after('property_number');
             }
-            if (! Schema::hasColumn('item_instances', 'ppe_code')) {
-                $table->string('ppe_code', 20)->nullable()->after('year_procured');
+            if (! Schema::hasColumn('item_instances', 'category_code')) {
+                $table->string('category_code', 20)->nullable()->after('year_procured')->comment('Optional category-derived code (1-4 chars)');
             }
             if (! Schema::hasColumn('item_instances', 'serial_int')) {
                 $table->unsignedInteger('serial_int')->nullable()->after('serial');
@@ -54,8 +54,8 @@ return new class extends Migration
             if (Schema::hasColumn('item_instances', 'serial_int')) {
                 $table->dropColumn('serial_int');
             }
-            if (Schema::hasColumn('item_instances', 'ppe_code')) {
-                $table->dropColumn('ppe_code');
+            if (Schema::hasColumn('item_instances', 'category_code')) {
+                $table->dropColumn('category_code');
             }
             if (Schema::hasColumn('item_instances', 'year_procured')) {
                 $table->dropColumn('year_procured');

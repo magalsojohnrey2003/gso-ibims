@@ -1,5 +1,4 @@
-// resources/js/item-add.js
-import { normalizeSegment, resolvePpeCode } from './property-number';
+import { normalizeSegment, resolveCategoryCode } from './property-number';
 
 const SELECTOR = '[data-add-items-form]';
 const FEEDBACK_SELECTOR = '[data-add-feedback]';
@@ -51,15 +50,11 @@ function hideMessage(el) {
   el.classList.add('hidden');
 }
 
-/**
- * Collect base config from form.
- * Accept both data-add-field="category" and data-category-select.
- */
 function collectBase(form) {
   const fields = {
     year: form.querySelector('[data-add-field="year"]'),
-    ppe: form.querySelector('[data-property-segment="ppe"]'),
-    categoryEl: form.querySelector('[data-category-select]'), // element
+    categoryEl: form.querySelector('[data-category-select]'),
+    categoryHidden: form.querySelector('[data-property-segment="category"], input[name="category_code"]'),
     office: form.querySelector('[data-add-field="office"]'),
     serial: form.querySelector('[data-add-field="serial"]'),
     quantity: form.querySelector('[data-add-field="quantity"]'),
@@ -68,12 +63,12 @@ function collectBase(form) {
   const year = (fields.year?.value || '').toString().trim();
   const categoryValue = (fields.categoryEl?.value ?? '').trim();
 
-  let ppeValue = fields.ppe?.value ?? '';
-  if (!ppeValue && categoryValue) {
-    ppeValue = resolvePpeCode(categoryValue) || '';
+  let categoryCodeValue = fields.categoryHidden?.value ?? '';
+  if (!categoryCodeValue && categoryValue) {
+    categoryCodeValue = resolveCategoryCode(categoryValue) || '';
   }
 
-  const ppe = normalizeSegment(ppeValue, 2);
+  const categoryCode = normalizeSegment(categoryCodeValue, 4);
 
   const office = (fields.office?.value || '').toString().trim();
 
@@ -85,20 +80,20 @@ function collectBase(form) {
   if (!Number.isFinite(quantity) || quantity < 1) quantity = 1;
   if (quantity > 500) quantity = 500;
 
-  const ready = Boolean(year.length === 4 && ppe && office && !Number.isNaN(serialStart));
-  const signature = [year, ppe, office, serialWidth, serialStart, quantity].join('|');
+  const ready = Boolean(year.length === 4 && categoryCode && office && !Number.isNaN(serialStart));
+  const signature = [year, categoryCode, office, serialWidth, serialStart, quantity].join('|');
 
   return {
     ready,
     year,
-    ppe,
+    category: categoryValue,
+    category_code: categoryCode,
     office,
     serialWidth,
     serialStart,
     quantity,
     firstSerial: rawSerial ? padSerial(parseInt(rawSerial, 10), serialWidth) : '',
     signature,
-    category: categoryValue,
   };
 }
 
@@ -110,8 +105,8 @@ function buildPreviewData(base) {
   const firstSerial = padSerial(firstSerialInt, base.serialWidth);
   const lastSerial = padSerial(lastSerialInt, base.serialWidth);
 
-  const firstPn = `${base.year}-${base.ppe}-${firstSerial}-${base.office}`;
-  const lastPn = `${base.year}-${base.ppe}-${lastSerial}-${base.office}`;
+  const firstPn = `${base.year}-${base.category_code}-${firstSerial}-${base.office}`;
+  const lastPn = `${base.year}-${base.category_code}-${lastSerial}-${base.office}`;
 
   return {
     count,
@@ -164,7 +159,7 @@ async function fetchSerialConflicts(base, { signal } = {}) {
     start_serial: base.firstSerial,
     quantity: String(base.quantity),
   });
-  if (base.ppe) params.append('ppe_code', base.ppe);
+  if (base.category_code) params.append('category_code', base.category_code);
 
   const response = await fetch(`${SERIAL_CHECK_ENDPOINT}?${params.toString()}`, {
     headers: { Accept: 'application/json' },
@@ -285,23 +280,64 @@ async function submitForm(form) {
     body: formData,
   });
 
+async function submitForm(form) {
+  const action = form.getAttribute('action') || window.location.href;
+  const method = (form.getAttribute('method') || 'POST').toUpperCase();
+  const formData = new FormData(form);
+
+  const response = await fetch(action, {
+    method,
+    headers: {
+      Accept: 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+    },
+    body: formData,
+  });
+
   const contentType = response.headers.get('content-type') || '';
   const isJson = contentType.includes('application/json');
-  const payload = isJson ? await response.json() : null;
 
-  if (response.ok) return { ok: true, status: response.status, data: payload };
+  // If response is JSON, parse it. If not, get text (server probably returned HTML / error page).
+  let payload = null;
+  let rawText = null;
+  if (isJson) {
+    payload = await response.json().catch(() => null);
+  } else {
+    rawText = await response.text().catch(() => null);
+  }
 
-  if (response.status === 409 || response.status === 422) {
+  if (response.ok) {
+    return { ok: true, status: response.status, data: payload, raw: rawText };
+  }
+
+  // For 409/422 prefer JSON message structure, but fall back to rawText if present
+  if ((response.status === 409 || response.status === 422) && (payload || rawText)) {
     const messages = [];
     if (payload?.errors) {
       Object.values(payload.errors).forEach((arr) => { if (Array.isArray(arr)) messages.push(...arr); });
     }
     if (payload?.message) messages.push(payload.message);
+    if (messages.length === 0 && rawText) {
+      // strip simple HTML tags for readability (keep it small)
+      const stripped = rawText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      messages.push(stripped || 'Validation failed.');
+    }
     throw new Error(messages.join(' ') || 'Validation failed.');
   }
-  throw new Error(payload?.message || `Request failed (${response.status}).`);
-}
 
+  // Generic non-ok path: try JSON.message then fallback to stripped raw HTML or status
+  const messageFromJson = payload?.message;
+  if (messageFromJson) {
+    throw new Error(messageFromJson);
+  }
+  if (rawText) {
+    const stripped = rawText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    throw new Error(stripped || `Request failed (${response.status}).`);
+  }
+
+  throw new Error(`Request failed (${response.status}).`);
+}
+}
 function handleSuccess(form, elements, result) {
   const data = result?.data || {};
   const hasSkipped = Array.isArray(data.skipped_serials) && data.skipped_serials.length > 0;
@@ -314,7 +350,6 @@ function handleSuccess(form, elements, result) {
   form.reset();
   form.dispatchEvent(new Event('reset'));
   window.dispatchEvent(new CustomEvent('close-modal', { detail: 'create-item' }));
-  // Let the items table refresh (simple approach)
   window.location.reload();
 }
 
@@ -335,7 +370,6 @@ function attachOfficeValidation(form) {
     const value = (input.value || '').trim();
     const isEmpty = value === '';
 
-    // allow 1 to 4 alphanumeric characters
     const isValid = /^[A-Za-z0-9]{1,4}$/.test(value);
 
     if (isEmpty) {
@@ -361,54 +395,73 @@ function attachOfficeValidation(form) {
     errorEl.classList.add('hidden');
   });
 
-  // initialize
   validate();
 }
 
 function populateCategorySelects(form) {
-  const cats = window.__serverCategories || [];
+  const cats = Array.isArray(window.__serverCategories) ? window.__serverCategories : [];
   form.querySelectorAll('select[data-category-select]').forEach(sel => {
-    // If already populated (options exist), skip to preserve server-selected option
-    if (sel.options && sel.options.length > 0) return;
     sel.innerHTML = '';
+    if (!cats.length) {
+      sel.appendChild(new Option('-- No categories --', ''));
+      sel.disabled = true;
+      return;
+    }
+    sel.appendChild(new Option('- Select Category -', ''));
     cats.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c;
-      opt.textContent = c;
-      sel.appendChild(opt);
+       if (typeof c === 'object' && c !== null) sel.appendChild(new Option(c.name, c.id));
+       else sel.appendChild(new Option(c, c));
+     });
+    sel.disabled = false;
+  });
+}
+
+function populateOfficeSelects(form) {
+  const offices = Array.isArray(window.__serverOffices) ? window.__serverOffices : [];
+  form.querySelectorAll('select[data-office-select]').forEach(sel => {
+    sel.innerHTML = '';
+    if (!offices.length) {
+      sel.appendChild(new Option('-- No offices --', ''));
+      sel.disabled = true;
+      return;
+    }
+    sel.appendChild(new Option('- Select Office -', ''));
+    offices.forEach(o => {
+      const code = typeof o === 'object' ? (o.code ?? '') : o;
+      const label = typeof o === 'object' ? (o.name ?? code) : o;
+      sel.appendChild(new Option(label, code));
     });
+    sel.disabled = false;
   });
 }
 
 function attachCategoryListeners(form) {
-  // update hidden PPE and preview on change
   form.querySelectorAll('select[data-category-select]').forEach(sel => {
     sel.addEventListener('change', (e) => {
       const chosen = (e.target.value ?? '').toString();
-      // populate hidden ppe
-      const hiddenPpe = form.querySelector('input[data-property-segment="ppe"], input[name="ppe_code"]');
-      if (hiddenPpe) {
-        const resolved = resolvePpeCode(chosen) || '';
-        hiddenPpe.value = resolved;
-        try { hiddenPpe.defaultValue = resolved; } catch(_) {}
-        hiddenPpe.setAttribute('value', resolved);
+      const hidden = form.querySelector('input[data-property-segment="category"], input[name="category_code"]');
+      if (hidden) {
+        const resolved = resolveCategoryCode(chosen) || '';
+        hidden.value = resolved;
+        try { hidden.defaultValue = resolved; } catch(_) {}
+        hidden.setAttribute('value', resolved);
       }
-      // also update displayed ppe if present
-      const ppeDisplay = form.querySelector('[data-ppe-display]');
-      if (ppeDisplay) {
-        const resolved = resolvePpeCode(chosen) || '';
-        ppeDisplay.value = resolved;
+      const display = form.querySelector('[data-category-display]');
+      if (display) {
+        const resolved = resolveCategoryCode(chosen) || '';
+        display.value = resolved;
       }
 
-      // trigger other listeners to recompute preview/checks
       form.querySelectorAll('[data-add-field]').forEach(inp => inp.dispatchEvent(new Event('input', { bubbles: true })));
-      // Also dispatch a change on year/office if needed (ensures preview update)
       form.querySelectorAll('[data-add-field="year"], [data-add-field="office"]').forEach(inp => inp.dispatchEvent(new Event('input', { bubbles: true })));
     });
   });
 }
 
 function initAddItemsForm(form) {
+  populateCategorySelects(form);
+  populateOfficeSelects(form);
+  attachCategoryListeners(form);
   const elements = {
     feedback: form.querySelector(FEEDBACK_SELECTOR),
     error: form.querySelector(ERROR_SELECTOR),
@@ -423,9 +476,9 @@ function initAddItemsForm(form) {
     lastSerialResult: null,
   };
 
-  // populate category selects
+  window.addEventListener('server:categories:updated', () => { populateCategorySelects(form); });
+  window.addEventListener('server:offices:updated', () => { populateOfficeSelects(form); });
   populateCategorySelects(form);
-  // attach category change handlers
   attachCategoryListeners(form);
 
   attachOfficeValidation(form);
@@ -464,7 +517,7 @@ function initAddItemsForm(form) {
 
     const base = collectBase(form);
     if (!base.ready) {
-      const msg = 'Complete year, PPE code, serial, and office code before saving.';
+      const msg = 'Complete year, category code, serial, and office code before saving.';
       showToast('error', msg);
       handleError(elements, new Error(msg));
       return;
@@ -498,7 +551,6 @@ function initAddItemsForm(form) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Uppercase and limit serial/office across add/edit forms
   document.querySelectorAll('input[name="office_code"], input[data-add-field="office"], input[data-edit-field="office"], input.instance-part-office').forEach(inp => {
     inp.addEventListener('input', () => {
       inp.value = String(inp.value || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 4);
@@ -511,7 +563,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Year fields: digits only
   document.querySelectorAll('input[name="year_procured"], input[data-manual-config="year"], input[data-property-segment="year"], input[data-edit-field="year"]').forEach(inp => {
     inp.addEventListener('input', () => {
       inp.value = String(inp.value || '').replace(/\D/g, '').slice(0,4);

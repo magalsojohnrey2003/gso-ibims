@@ -19,17 +19,12 @@ class ItemController extends Controller
 {
     protected string $defaultPhoto = 'images/item.png';
 
-    protected array $categoryPpeMap = [
-        'electronics' => '08',
-        'furniture' => '06',
-        'vehicles' => '04',
-        'tools' => '02',
-    ];
+    protected array $categoryCodeMap = [];
 
     protected array $auditInstanceFields = [
         'property_number',
         'year_procured',
-        'ppe_code',
+        'category_id',
         'serial',
         'serial_int',
         'office_code',
@@ -43,62 +38,33 @@ class ItemController extends Controller
 
     protected function getCategories(): array
     {
-        $fromItems = Item::query()
-            ->distinct('category')
-            ->pluck('category')
-            ->filter()
-            ->values()
-            ->toArray();
-
-        $known = array_keys($this->categoryPpeMap);
-
-        $merged = array_merge($known, $fromItems);
-
-        $seen = [];
-        $result = [];
-
-        foreach ($merged as $cat) {
-            if ($cat === null) {
-                continue;
-            }
-
-            $normalized = strtolower((string) $cat);
-
-            if (isset($seen[$normalized])) {
-                continue;
-            }
-
-            $seen[$normalized] = true;
-
-            // prefer item casing if present
-            $preferred = null;
-            foreach ($fromItems as $fi) {
-                if (strtolower((string) $fi) === $normalized) {
-                    $preferred = $fi;
-                    break;
-                }
-            }
-
-            if ($preferred !== null) {
-                $result[] = $preferred;
-            } else {
-                // fall back to a readable version of the known key
-                $result[] = ucfirst($normalized);
-            }
+        try {
+            $cats = \App\Models\Category::orderBy('name')->get(['id', 'name']);
+            return $cats->map(function ($c) {
+                return ['id' => $c->id, 'name' => $c->name];
+            })->values()->toArray();
+        } catch (\Throwable $e) {
+            return [];
         }
-
-        return array_values($result);
     }
 
-    protected function resolvePpeCode(string $category, ?string $fallback = null): string
-    {
-        $normalized = array_change_key_case($this->categoryPpeMap, CASE_LOWER);
-        $code = $normalized[strtolower($category)] ?? null;
-        if ($fallback && preg_match('/^\d{2}$/', $fallback)) {
-            return $fallback;
-        }
-        return $code ?? '00';
-    }
+    protected function resolveCategoryCode(string $category, ?string $fallback = null): string
+     {
+         if ($fallback && preg_match('/^[A-Z0-9]{1,4}$/', (string) $fallback)) {
+             return $fallback;
+         }
+ 
+         $normalized = array_change_key_case($this->categoryCodeMap, CASE_LOWER);
+         $code = $normalized[strtolower($category)] ?? null;
+         if ($code && preg_match('/^[A-Z0-9]{1,4}$/', $code)) {
+             $clean = preg_replace('/[^A-Za-z0-9]/', '', strtoupper($code));
+             return substr($clean, 0, 4);
+         }
+ 
+         $only = preg_replace('/[^A-Za-z0-9]/', '', strtoupper((string) $category));
+         if ($only === '') return '';
+         return substr($only, 0, 4);
+     }
 
     public function index(Request $request)
     {
@@ -113,19 +79,34 @@ class ItemController extends Controller
         }
 
         $items = $query->orderBy('created_at', 'desc')->get();
+
         $categories = $this->getCategories();
-        $categoryPpeMap = $this->categoryPpeMap;
-        $file = storage_path('app/ppe_codes.json');
+
+        $categoryCodeMap = [];
+        try {
+            $dbMap = \App\Models\Category::query()->pluck('category_code', 'name')->filter()->toArray();
+            foreach ($dbMap as $k => $v) {
+                if ($v !== null && $v !== '') {
+                    $categoryCodeMap[$k] = strtoupper($v);
+                }
+            }
+        } catch (\Throwable $e) {
+            //
+        }
+
+        $file = storage_path('app/category_codes.json');
         if (file_exists($file)) {
             $json = json_decode(file_get_contents($file), true);
             if (is_array($json)) {
-                // keys might be mixed-case — normalize keys to lowercase to match old behavior if you rely on that
                 foreach ($json as $k => $v) {
-                    $categoryPpeMap[$k] = $v;
+                    $categoryCodeMap[$k] = $v;
                 }
             }
         }
-        return view('admin.items.index', compact('items', 'categories', 'categoryPpeMap'));
+
+        $offices = [];
+
+        return view('admin.items.index', compact('items', 'categories', 'categoryCodeMap', 'offices'));
     }
 
     public function search(Request $request)
@@ -148,6 +129,7 @@ class ItemController extends Controller
                     'item_id' => $instance->item_id,
                     'item_name' => $instance->item?->name,
                     'office_code' => $instance->office_code,
+                    'category_code' => $instance->category_code ?? null,
                 ];
             });
 
@@ -167,7 +149,6 @@ class ItemController extends Controller
         foreach ($pns as $pn) {
             $pn = (string) $pn;
             try {
-                // Try parse (to validate structure). If parse fails, mark invalid.
                 $parsed = $numbers->parse($pn);
                 $exists = ItemInstance::where('property_number', $parsed['property_number'])->exists();
                 $results[] = [
@@ -176,7 +157,6 @@ class ItemController extends Controller
                     'exists' => (bool) $exists,
                 ];
             } catch (\InvalidArgumentException $e) {
-                // Try a more lenient assemble attempt if the input looks like components (skip)
                 $results[] = [
                     'property_number' => $pn,
                     'valid' => false,
@@ -196,124 +176,6 @@ class ItemController extends Controller
         return response()->json(['valid' => true, 'results' => $results]);
     }
 
-    /**
-     * Manual store: expects item fields (name, category, optional description, photo)
-     * and property_numbers[] as an array of full property number strings.
-     */
-    public function manualStore(Request $request, PropertyNumberService $numbers)
-    {
-
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'category' => 'required|string',
-            'description' => 'nullable|string|max:1000',
-            'photo' => 'nullable|image|max:2048',
-            'property_numbers' => 'required|array|min:1|max:500',
-            'property_numbers.*' => 'required|string',
-        ]);
-
-        $pns = array_values(array_filter($validated['property_numbers'], fn($v) => is_string($v) && trim($v) !== ''));
-
-        if (empty($pns)) {
-            return response()->json(['message' => 'No property numbers provided.'], 422);
-        }
-
-        // store photo
-        $photoPath = null;
-        if ($request->hasFile('photo')) {
-            $photoPath = $request->file('photo')->store('items', 'public');
-        } else {
-            $photoPath = $this->defaultPhoto;
-        }
-
-        DB::beginTransaction();
-        try {
-            $item = Item::create([
-                'name' => $validated['name'],
-                'category' => $validated['category'],
-                'total_qty' => 0,
-                'available_qty' => 0,
-                'photo' => $photoPath,
-            ]);
-
-            $created = [];
-            $skipped = [];
-
-            foreach ($pns as $pnRaw) {
-                $pnRaw = (string) $pnRaw;
-                try {
-                    $parsed = $numbers->parse($pnRaw);
-                    $propertyNumber = $parsed['property_number'];
-                } catch (\InvalidArgumentException $e) {
-                    // skip invalid format
-                    $skipped[] = $pnRaw;
-                    continue;
-                }
-
-                // check duplicates
-                if (ItemInstance::where('property_number', $propertyNumber)->exists()) {
-                    $skipped[] = $propertyNumber;
-                    continue;
-                }
-
-                try {
-                    $instance = ItemInstance::create([
-                        'item_id' => $item->id,
-                        'property_number' => $propertyNumber,
-                        'status' => 'available',
-                        'notes' => $validated['description'] ?? null,
-                        'year_procured' => (int) $parsed['year'] ?? null,
-                        'ppe_code' => $parsed['ppe'] ?? null,
-                        'serial' => $parsed['serial'] ?? null,
-                        'serial_int' => $parsed['serial_int'] ?? null,
-                        'office_code' => $parsed['office'] ?? null,
-                    ]);
-
-                    $created[] = $propertyNumber;
-
-                    // log event
-                    $this->instanceLogger->log(
-                        $instance,
-                        'created',
-                        [
-                            'property_number' => $propertyNumber,
-                            'context' => ['source' => 'admin_manual_store'],
-                        ],
-                        $request->user()
-                    );
-                } catch (QueryException $qe) {
-                    if ($this->isDuplicateKeyException($qe)) {
-                        $skipped[] = $propertyNumber;
-                        continue;
-                    }
-                    throw $qe;
-                }
-            }
-
-            $this->syncItemQuantities($item);
-
-            DB::commit();
-
-            $statusCode = empty($skipped) ? 201 : 207;
-            return response()->json([
-                'message' => (count($created) ? 'Created ' . count($created) . ' items.' : 'No items created.'),
-                'created' => $created,
-                'skipped' => $skipped,
-                'created_count' => count($created),
-                'skipped_count' => count($skipped),
-                'item_id' => $item->id,
-            ], $statusCode);
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            if ($request->hasFile('photo') && $photoPath) {
-                Storage::disk('public')->delete($photoPath);
-            }
-            if ($request->wantsJson()) {
-                return response()->json(['message' => 'Failed to create manual items: ' . $e->getMessage()], 500);
-            }
-            return redirect()->route('items.index')->with('error', 'Failed to create items: ' . $e->getMessage());
-        }
-    }
     public function checkSerial(Request $request, PropertyNumberService $numbers)
     {
         $data = $request->validate([
@@ -322,13 +184,13 @@ class ItemController extends Controller
             'start_serial' => 'required|digits_between:1,8',
             'quantity' => 'required|integer|min:1|max:500',
             'category' => 'nullable|string',
-            'ppe_code' => 'nullable|string|max:20',
+            'category_code' => 'nullable|string|max:20',
             'exclude_instance_id' => 'nullable|integer|exists:item_instances,id',
         ]);
 
         $category = (string) ($data['category'] ?? '');
-        $ppeInput = (string) ($data['ppe_code'] ?? '');
-        $ppe = $ppeInput ?: $this->resolvePpeCode($category, $ppeInput ?: null);
+        $categoryCodeInput = (string) ($data['category_code'] ?? '');
+        $categoryCode = $categoryCodeInput ?: $this->resolveCategoryCode($category, $categoryCodeInput ?: null);
 
         $serialSeed = $data['start_serial'];
         $serialWidth = max(strlen($serialSeed), 4);
@@ -338,7 +200,7 @@ class ItemController extends Controller
 
         $components = [
             'year' => $data['year_procured'],
-            'ppe' => $ppe,
+            'category' => $categoryCode,
             'office' => $data['office_code'],
         ];
 
@@ -388,11 +250,62 @@ class ItemController extends Controller
             'photo' => 'nullable|image|max:2048',
         ]);
 
-        $ppeCode = $this->resolvePpeCode($data['category'], $request->input('ppe_code'));
+        $categoryId = (string) ($data['category'] ?? '');
+        $categoryCode = $this->resolveCategoryCode($categoryId, $request->input('category_code') ?? null);
+
         $quantity = (int) $data['quantity'];
         $serialSeed = $data['start_serial'];
         $serialWidth = max(strlen($serialSeed), 4);
-        $serialStart = (int) ltrim($serialSeed, '0');
+        $serialStartRaw = ltrim($serialSeed, '0');
+        $serialStart = $serialStartRaw === '' ? 0 : (int) $serialStartRaw;
+
+        $components = [
+            'year' => $data['year_procured'],
+            'category' => $categoryCode,
+            'office' => $data['office_code'],
+        ];
+
+        try {
+            $propertyNumbersToCheck = [];
+            for ($i = 0; $i < $quantity; $i++) {
+                $serialInt = $serialStart + $i;
+                $serial = $numbers->padSerial($serialInt, $serialWidth);
+                $payload = $components + ['serial' => $serial, 'serial_width' => $serialWidth];
+                $pn = $numbers->assemble($payload);
+                $propertyNumbersToCheck[] = $pn;
+            }
+
+            $existing = ItemInstance::query()
+                ->whereIn('property_number', $propertyNumbersToCheck)
+                ->pluck('property_number')
+                ->all();
+
+            if (!empty($existing)) {
+                $conflictSerials = [];
+                foreach ($existing as $exPn) {
+                    $conflictSerials[] = $numbers->parse($exPn)['serial'] ?? $exPn;
+                }
+
+                if ($request->wantsJson() || $request->isXmlHttpRequest()) {
+                    return response()->json([
+                        'message' => 'This Property Number is already taken.',
+                        'conflicts' => array_values(array_unique($conflictSerials)),
+                        'existing_property_numbers' => array_values(array_unique($existing)),
+                    ], 409);
+                }
+
+                // Non-AJAX form submit: attach validation error to the session and redirect back with old input.
+                return redirect()->back()
+                    ->withInput()
+                    ->with('error', 'This Property Number is already taken.');
+            }
+        } catch (\Throwable $e) {
+            // If parse/assemble failed unexpectedly, fall through to normal handling and return a JSON error for AJAX.
+            if ($request->wantsJson() || $request->isXmlHttpRequest()) {
+                return response()->json(['message' => 'Unable to validate property numbers: ' . $e->getMessage()], 422);
+            }
+            return redirect()->back()->withInput()->with('error', 'Unable to validate property numbers: ' . $e->getMessage());
+        }
 
         $photoPath = null;
         if ($request->hasFile('photo')) {
@@ -405,7 +318,7 @@ class ItemController extends Controller
         try {
             $item = Item::create([
                 'name' => $data['name'],
-                'category' => $data['category'],
+                'category' => (string) $data['category'],
                 'total_qty' => 0,
                 'available_qty' => 0,
                 'photo' => $photoPath,
@@ -416,7 +329,7 @@ class ItemController extends Controller
                 $numbers,
                 [
                     'year' => $data['year_procured'],
-                    'ppe' => $ppeCode,
+                    'category' => $categoryCode,
                     'office' => $data['office_code'],
                 ],
                 $serialStart,
@@ -431,25 +344,32 @@ class ItemController extends Controller
 
             DB::commit();
 
-                        if ($request->wantsJson()) {
-                            return response()->json([
-                                'message' => (count($created) > 1) ? 'Items created.' : 'Item created.',
-                                'item_id' => $item->id,
-                                'created_count' => count($created),
-                                'created_pns' => $created,
-                                'skipped_serials' => $skipped,
-                            ], $skipped ? 207 : 201);
-                        }
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'message' => (count($created) > 1) ? 'Items created.' : 'Item created.',
+                    'item_id' => $item->id,
+                    'created_count' => count($created),
+                    'created_pns' => $created,
+                    'skipped_serials' => $skipped,
+                    'item' => [
+                        'id' => $item->id,
+                        'name' => $item->name,
+                        'category' => $item->category,
+                        'total_qty' => $item->total_qty,
+                        'available_qty' => $item->available_qty,
+                    ],
+                ], $skipped ? 207 : 201);
+            }
 
-                        if (! empty($skipped)) {
-                            $message = (count($created) > 1)
-                                ? 'Items created. Some serials skipped.'
-                                : 'Item created. Some serials skipped.';
-                        } else {
-                            $message = (count($created) > 1) ? 'Items created.' : 'Item created.';
-                        }
+            if (! empty($skipped)) {
+                $message = (count($created) > 1)
+                    ? 'Items created. Some serials skipped.'
+                    : 'Item created. Some serials skipped.';
+            } else {
+                $message = (count($created) > 1) ? 'Items created.' : 'Item created.';
+            }
 
-                        return redirect()->route('items.index')->with('success', $message);
+            return redirect()->route('items.index')->with('success', $message);
 
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -457,138 +377,152 @@ class ItemController extends Controller
                 Storage::disk('public')->delete($photoPath);
             }
 
-            if ($request->wantsJson()) {
-                throw $e;
+            // For AJAX/JS clients: return JSON error instead of allowing an HTML error page
+            if ($request->wantsJson() || $request->isXmlHttpRequest()) {
+                $status = $e instanceof \RuntimeException ? 409 : 500;
+                return response()->json(['message' => $e->getMessage() ?: 'Failed to create item.'], $status);
             }
-
             return redirect()->route('items.index')->with('error', 'Failed to create item: ' . $e->getMessage());
         }
     }
 
-    public function update(Request $request, Item $item, PropertyNumberService $numbers)
-    {
-        $data = $request->validate([
-            'name' => 'required|string|max:255',
-            'category' => 'required|string',
-            'year_procured' => 'required|digits:4|integer|min:2020|max:' . date('Y'),
-            'office_code' => 'required|alpha_num|min:1|max:4',
-            'serial' => 'required|digits_between:1,8',
-            'description' => 'nullable|string|max:1000',
-            'photo' => 'nullable|image|max:2048',
-            'item_instance_id' => 'nullable|exists:item_instances,id',
-        ]);
 
-        $ppeCode = $this->resolvePpeCode($data['category'], $request->input('ppe_code'));
-        $serialWidth = max(strlen($data['serial']), 4);
-        $photoPath = $item->photo;
-        $uploadedNewPhoto = false;
+public function update(Request $request, Item $item, PropertyNumberService $numbers)
+{
+    $data = $request->validate([
+        'name' => 'required|string|max:255',
+        'category' => 'required|string',
+        'year_procured' => 'required|digits:4|integer|min:2020|max:' . date('Y'),
+        'office_code' => 'required|alpha_num|min:1|max:4',
+        'serial' => 'required|digits_between:1,8',
+        'description' => 'nullable|string|max:1000',
+        'photo' => 'nullable|image|max:2048',
+        'item_instance_id' => 'nullable|exists:item_instances,id',
+    ]);
 
-        if ($request->hasFile('photo')) {
-            $photoPath = $request->file('photo')->store('items', 'public');
-            $uploadedNewPhoto = true;
-        } elseif (! $item->photo) {
-            $photoPath = $this->defaultPhoto;
-        }
+    $categoryCode = $this->resolveCategoryCode($data['category'], $request->input('category_code'));
+    $serialWidth = max(strlen($data['serial']), 4);
+    $photoPath = $item->photo;
+    $uploadedNewPhoto = false;
 
-
-        DB::beginTransaction();
-        try {
-            $item->name = $data['name'];
-            $item->category = $data['category'];
-            $item->photo = $photoPath;
-            $item->save();
-
-            $instance = $data['item_instance_id']
-                ? ItemInstance::find($data['item_instance_id'])
-                : $item->instances()->first();
-
-            if ($instance) {
-                $trackedKeys = array_flip($this->auditInstanceFields);
-                $before = array_intersect_key($instance->getOriginal(), $trackedKeys);
-
-                $payload = [
-                    'year' => $data['year_procured'],
-                    'ppe' => $ppeCode,
-                    'serial' => str_pad($data['serial'], $serialWidth, '0', STR_PAD_LEFT),
-                    'office' => $data['office_code'],
-                ];
-
-                $propertyNumber = $numbers->assemble($payload);
-
-                $exists = ItemInstance::where('property_number', $propertyNumber)
-                    ->where('id', '!=', $instance->id)
-                    ->exists();
-                if ($exists) {
-                    throw new \RuntimeException('Another item already uses the property number ' . $propertyNumber . '.');
-                }
-
-                $instance->property_number = $propertyNumber;
-                $instance->year_procured = (int) $data['year_procured'];
-                $instance->ppe_code = $ppeCode;
-                $instance->serial = $payload['serial'];
-                $instance->serial_int = (int) ltrim($payload['serial'], '0');
-                $instance->office_code = $data['office_code'];
-                if ($data['description'] ?? null) {
-                    $instance->notes = $data['description'];
-                }
-                $instance->save();
-
-                $after = array_intersect_key($instance->getAttributes(), $trackedKeys);
-                $changes = $this->diffInstanceChanges($before, $after);
-
-                if (! empty($changes)) {
-                    $this->instanceLogger->log(
-                        $instance,
-                        'updated',
-                        [
-                            'changes' => $changes,
-                            'source' => 'admin_item_update',
-                        ],
-                        $request->user()
-                    );
-                }
-            }
-
-            $this->syncItemQuantities($item);
-
-            if ($uploadedNewPhoto && $item->getOriginal('photo') && ! str_starts_with($item->getOriginal('photo'), 'defaults/')) {
-                Storage::disk('public')->delete($item->getOriginal('photo'));
-            }
-
-            DB::commit();
-
-           if ($request->wantsJson()) {
-                return response()->json([
-                    'message' => 'Item updated.',
-                    'item_id' => $item->id,
-                    'property_number' => $instance?->property_number ?? null,
-                    'office_code' => $instance?->office_code ?? null,
-                    'name' => $item->name,
-                    'year_procured' => $instance?->year_procured ?? null,
-                    'serial' => $instance?->serial ?? null,
-                    'ppe_code' => $instance?->ppe_code ?? null,
-                    'item_instance_id' => $instance?->id ?? null,
-                    // provide full URL for photo if stored in public disk, null otherwise
-                    'photo' => $item->photo ? asset('storage/' . ltrim($item->photo, '/')) : null,
-                ]);
-            }
-
-            return redirect()->route('items.index')->with('success', 'Item updated.');
-
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            if ($uploadedNewPhoto && $photoPath && ! str_starts_with($photoPath, 'defaults/')) {
-                Storage::disk('public')->delete($photoPath);
-            }
-
-            if ($request->wantsJson()) {
-                $status = $e instanceof \RuntimeException ? 409 : 500;
-                return response()->json(['message' => $e->getMessage()], $status);
-            }
-
-            return redirect()->back()->withInput()->with('error', 'Failed to update item: ' . $e->getMessage());
-        }
+    if ($request->hasFile('photo')) {
+        $photoPath = $request->file('photo')->store('items', 'public');
+        $uploadedNewPhoto = true;
+    } elseif (! $item->photo) {
+        $photoPath = $this->defaultPhoto;
     }
+
+    DB::beginTransaction();
+    try {
+        $item->name = $data['name'];
+        $item->category = $data['category'];
+        $item->photo = $photoPath;
+        $item->save();
+
+        $instance = $data['item_instance_id']
+            ? ItemInstance::find($data['item_instance_id'])
+            : $item->instances()->first();
+
+        if ($instance) {
+            $trackedKeys = array_flip($this->auditInstanceFields);
+            $before = array_intersect_key($instance->getOriginal(), $trackedKeys);
+
+            $payload = [
+                'year' => $data['year_procured'],
+                'category' => $categoryCode,
+                'serial' => str_pad($data['serial'], $serialWidth, '0', STR_PAD_LEFT),
+                'office' => $data['office_code'],
+            ];
+
+            $propertyNumber = $numbers->assemble($payload);
+
+            $exists = ItemInstance::where('property_number', $propertyNumber)
+                ->where('id', '!=', $instance->id)
+                ->exists();
+            if ($exists) {
+                throw new \RuntimeException('Another item already uses the property number ' . $propertyNumber . '.');
+            }
+
+            $instance->property_number = $propertyNumber;
+            $instance->year_procured = (int) $data['year_procured'];
+            $instance->category_code = $categoryCode;
+            $instance->serial = $payload['serial'];
+            $instance->serial_int = (int) ltrim($payload['serial'], '0');
+            $instance->office_code = $data['office_code'];
+            if (! empty($data['description'])) {
+                $instance->notes = $data['description'];
+            }
+            $instance->save();
+
+            $after = array_intersect_key($instance->getAttributes(), $trackedKeys);
+            $changes = $this->diffInstanceChanges($before, $after);
+
+            if (! empty($changes)) {
+                $this->instanceLogger->log(
+                    $instance,
+                    'updated',
+                    [
+                        'changes' => $changes,
+                        'source' => 'admin_item_update',
+                    ],
+                    $request->user()
+                );
+            }
+        }
+
+        $this->syncItemQuantities($item);
+
+        if ($uploadedNewPhoto && $item->getOriginal('photo') && ! str_starts_with($item->getOriginal('photo'), 'defaults/')) {
+            Storage::disk('public')->delete($item->getOriginal('photo'));
+        }
+
+        DB::commit();
+
+        if ($request->wantsJson()) {
+            $photoUrl = $item->photo ? asset('storage/' . ltrim($item->photo, '/')) : null;
+            return response()->json([
+                'message' => 'Item updated.',
+                'item_id' => $item->id,
+                'id' => $item->id,
+                'name' => $item->name,
+                'category' => $item->category,
+                'total_qty' => $item->total_qty,
+                'available_qty' => $item->available_qty,
+                'property_number' => $instance?->property_number ?? null,
+                'office_code' => $instance?->office_code ?? null,
+                'year_procured' => $instance?->year_procured ?? null,
+                'serial' => $instance?->serial ?? null,
+                'category_code' => $instance?->category_code ?? null,
+                'item_instance_id' => $instance?->id ?? null,
+                'photo' => $photoUrl,
+                'item' => [
+                    'id' => $item->id,
+                    'name' => $item->name,
+                    'category' => $item->category,
+                    'total_qty' => $item->total_qty,
+                    'available_qty' => $item->available_qty,
+                    'photo' => $photoUrl,
+                ],
+            ]);
+        }
+
+        return redirect()->route('items.index')->with('success', 'Item updated.');
+
+    } catch (\Throwable $e) {
+        DB::rollBack();
+
+        if ($uploadedNewPhoto && $photoPath && ! str_starts_with($photoPath, 'defaults/')) {
+            Storage::disk('public')->delete($photoPath);
+        }
+
+        if ($request->wantsJson()) {
+            $status = $e instanceof \RuntimeException ? 409 : 500;
+            return response()->json(['message' => $e->getMessage()], $status);
+        }
+
+        return redirect()->back()->withInput()->with('error', 'Failed to update item: ' . $e->getMessage());
+    }
+}
 
     protected function createInstances(
         Item $item,
@@ -705,7 +639,6 @@ class ItemController extends Controller
 
             foreach ($item->instances as $instance) {
                 if (method_exists($instance, 'borrowRecords')) {
-                    // Borrow status is stored on the borrow_request, not on the pivot row.
                     if ($instance->borrowRecords()->whereHas('borrowRequest', function ($q) use ($activeStatuses) {
                         $q->whereIn('status', $activeStatuses);
                     })->exists()) {
