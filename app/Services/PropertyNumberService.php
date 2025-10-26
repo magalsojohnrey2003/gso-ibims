@@ -16,11 +16,12 @@ class PropertyNumberService
         $normalized = preg_replace('/\s+/', '', $value);
         $parts = explode('-', $normalized);
 
-        if (count($parts) !== 4 || in_array('', $parts, true)) {
-            throw new InvalidArgumentException('Property numbers must contain four non-empty segments.');
+        // Expect five segments now: year-category-gla-serial-office
+        if (count($parts) !== 5 || in_array('', $parts, true)) {
+            throw new InvalidArgumentException('Property numbers must contain five non-empty segments (year-category-gla-serial-office).');
         }
 
-        [$year, $categoryCode, $serial, $office] = $parts;
+        [$year, $categoryCode, $gla, $serial, $office] = $parts;
 
         if (! preg_match('/^\d{4}$/', $year)) {
             throw new InvalidArgumentException('Year segment must be four digits.');
@@ -29,6 +30,11 @@ class PropertyNumberService
         // Accept 1-4 uppercase alphanumeric characters for the category-derived segment.
         if (! preg_match('/^[A-Z0-9]{1,4}$/', $categoryCode)) {
             throw new InvalidArgumentException('Category-derived segment must be 1 to 4 uppercase alphanumeric characters.');
+        }
+
+        // GLA: must be 1-4 digits
+        if (! preg_match('/^\d{1,4}$/', $gla)) {
+            throw new InvalidArgumentException('GLA segment must be 1 to 4 digits.');
         }
 
         $serial = strtoupper($serial);
@@ -41,7 +47,7 @@ class PropertyNumberService
             $serialInt = (int) $serial;
         }
 
-        // Accept alphanumeric office (1-4 chars). Preserve exactly as entered.
+        // Accept alphanumeric office (1-4 chars).
         $officeRaw = (string) $office;
         if ($officeRaw === '') {
             throw new InvalidArgumentException('Office code segment cannot be empty.');
@@ -53,6 +59,7 @@ class PropertyNumberService
         $assembled = $this->assemble([
             'year' => $year,
             'category' => $categoryCode,
+            'gla' => $gla,
             'serial' => $serial,
             'office' => $officeRaw,
         ]);
@@ -61,6 +68,7 @@ class PropertyNumberService
             'year' => $year,
             'category' => $categoryCode,
             'category_code' => $categoryCode,
+            'gla' => $gla,
             'serial' => $serial,
             'serial_int' => $serialInt,
             'office' => $officeRaw,
@@ -71,8 +79,8 @@ class PropertyNumberService
     public function assemble(array $components): string
     {
         $year = $components['year'] ?? $components['year_procured'] ?? null;
-        // accept multiple aliases for category-derived component, but prefer category/category_code
         $category = $components['category'] ?? $components['category_code'] ?? null;
+        $gla = isset($components['gla']) ? (string) $components['gla'] : null;
         $serial = $components['serial'] ?? null;
         $office = $components['office'] ?? $components['office_code'] ?? null;
 
@@ -82,6 +90,14 @@ class PropertyNumberService
 
         if (! is_string($category) || ! preg_match('/^[A-Z0-9]{1,4}$/', $category)) {
             throw new InvalidArgumentException('Category-derived segment must be 1 to 4 uppercase alphanumeric characters.');
+        }
+
+        // GLA must be digits 1-4
+        if ($gla === null || $gla === '') {
+            throw new InvalidArgumentException('GLA segment cannot be empty.');
+        }
+        if (! preg_match('/^\d{1,4}$/', (string) $gla)) {
+            throw new InvalidArgumentException('GLA segment must be 1 to 4 digits.');
         }
 
         if ($serial === null && isset($components['serial_int'])) {
@@ -101,7 +117,7 @@ class PropertyNumberService
             throw new InvalidArgumentException('Office code segment must be 1 to 4 alphanumeric characters.');
         }
 
-        return sprintf('%s-%s-%s-%s', $year, $category, $serial, $officeRaw);
+        return sprintf('%s-%s-%s-%s-%s', $year, $category, $gla, $serial, $officeRaw);
     }
 
     public function padSerial(int $n, int $width = 4): string

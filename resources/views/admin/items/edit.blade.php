@@ -59,6 +59,8 @@
         <!-- Hidden category code populated by category JS -->
         <input type="hidden" name="category_code" data-property-segment="category" value="{{ old('category_code', $categoryCodeForCategory) }}" />
 
+        <input type="hidden" name="gla" data-property-segment="gla" value="{{ old('gla', '') }}" />
+
         <x-input-error :messages="$errors->get('category')" class="mt-2" />
       </div>
 
@@ -78,15 +80,24 @@
               <div class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-50 text-indigo-700 font-medium">{{ $loop->iteration }}</div>
             </div>
 
-            <div class="flex-1 bg-indigo-50 rounded-lg px-4 py-3 flex items-center gap-3 flex-nowrap">
-              <input type="text" class="w-20 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-year" value="{{ $inst->year_procured ?? '' }}" placeholder="Year" />
+            <div class="flex-1 bg-indigo-50 rounded-lg px-3 py-2 flex items-center gap-2 flex-wrap">
+              <input type="text" class="w-20 sm:w-16 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-year" value="{{ $inst->year_procured ?? '' }}" placeholder="Year" />
               <div class="text-gray-500 select-none"> - </div>
+
               <input type="text" readonly class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-gray-100 instance-part-category" value="{{ $inst->category_code ?? $inst->category_id ?? '' }}" placeholder="Category" />
-              <input type="text" class="w-20 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-serial" value="{{ $inst->serial ?? '' }}" placeholder="Serial" />
               <div class="text-gray-500 select-none"> - </div>
-              <input type="text" class="w-20 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-office" value="{{ $inst->office_code ?? '' }}" placeholder="Office" />
+
+              <input type="text" class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-gla" value="{{ $inst->gla ?? '' }}" placeholder="GLA" />
+              <div class="text-gray-500 select-none"> - </div>
+
+              <input type="text" class="w-20 sm:w-16 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-serial" value="{{ $inst->serial ?? '' }}" placeholder="Serial" />
+              <div class="text-gray-500 select-none"> - </div>
+
+              <input type="text" class="w-20 sm:w-16 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-office" value="{{ $inst->office_code ?? '' }}" placeholder="Office" />
               <div class="flex-none ml-2">
-                <button type="button" class="text-red-600 text-sm px-2 py-1 rounded-md hover:bg-red-50 instance-remove-btn">Remove</button>
+                <button type="button" class="instance-remove-btn inline-flex items-center justify-center text-red-600 p-1 rounded hover:bg-red-50" aria-label="Remove instance">
+                  <i class="fas fa-trash"></i>
+                </button>
               </div>
             </div>
 
@@ -96,25 +107,6 @@
           </div>
         @endforeach
       </div>
-
-      <p class="mt-2 text-xs text-gray-500">You may edit components in-place. Valid changes will save automatically.</p>
-    </div>
-    
-
-    <!-- Step 3: Additional Details (collapsible) -->
-    <div class="bg-gray-50 shadow-md hover:shadow-lg transition rounded-lg">
-      <button
-        type="button"
-        data-step3-header
-        aria-expanded="false"
-        aria-controls="edit-step3-body-{{ $item->id }}"
-        class="w-full text-left p-4 flex items-center justify-between focus:outline-none"
-      >
-        <div class="flex items-center space-x-3">
-          <div class="bg-purple-100 text-purple-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">3</div>
-          <h4 class="text-lg font-semibold text-gray-900">Additional Details</h4>
-        </div>
-        <svg class="w-5 h-5 text-gray-500 transform transition-transform" data-step3-caret xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
         </svg>
       </button>
@@ -205,18 +197,20 @@
         const serialInput = document.querySelector('#serial-{{ $item->id ?? 'new' }}');
         const officeInput = document.querySelector('#office_code-{{ $item->id ?? 'new' }}');
         const previewInput = document.querySelector('#property_preview-{{ $item->id ?? 'new' }}');
+````````const glaInput = document.querySelector('#gla-{{ $item->id ?? 'new' }}') || document.querySelector('input[name="gla"], input[data-property-segment="gla"]');
 
         // Function to update the Property Number Preview
         function updatePropertyNumberPreview() {
         const year = (yearInput?.value || '').trim();
         const ppe = (categoryInput?.value || '').trim();
+        const gla = (glaInput?.value || '').trim();
         const serial = (serialInput?.value || '').trim();
         const officeRaw = (officeInput?.value || '').trim();
         const office = officeRaw ? officeRaw.padStart(4, '0') : '';
 
         // Only show preview when we have year(4), ppe(2+), serial (non-empty), and office (1-4 digits padded)
-         if (year.length === 4 && ppe && serial && officeRaw.length >= 1 && officeRaw.length <= 4) {
-            const propertyNumber = `${year}-${ppe}-${serial}-${officeRaw}`;
+         if (year.length === 4 && ppe && gla && serial && officeRaw.length >= 1 && officeRaw.length <= 4) {
+            const propertyNumber = `${year}-${ppe}-${gla}-${serial}-${officeRaw}`;
             if (previewInput) previewInput.value = propertyNumber;
         } else if (previewInput) {
             // clear if incomplete

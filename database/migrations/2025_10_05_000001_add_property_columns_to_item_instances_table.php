@@ -24,6 +24,9 @@ return new class extends Migration
             if (! Schema::hasColumn('item_instances', 'category_code')) {
                 $table->string('category_code', 20)->nullable()->after('year_procured')->comment('Optional category-derived code (1-4 chars)');
             }
+            if (! Schema::hasColumn('item_instances', 'gla')) {
+                $table->string('gla', 4)->nullable()->after('category_code')->comment('GLA segment (1-4 digits)');
+            }
             if (! Schema::hasColumn('item_instances', 'serial_int')) {
                 $table->unsignedInteger('serial_int')->nullable()->after('serial');
             }
@@ -53,6 +56,9 @@ return new class extends Migration
             }
             if (Schema::hasColumn('item_instances', 'serial_int')) {
                 $table->dropColumn('serial_int');
+            }
+            if (Schema::hasColumn('item_instances', 'gla')) {
+                $table->dropColumn('gla');
             }
             if (Schema::hasColumn('item_instances', 'category_code')) {
                 $table->dropColumn('category_code');

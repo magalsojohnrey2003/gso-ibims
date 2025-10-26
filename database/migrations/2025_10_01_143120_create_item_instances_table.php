@@ -1,3 +1,5 @@
+// ... existing code ...
+
 <?php
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -9,7 +11,8 @@ return new class extends Migration {
         Schema::create('item_instances', function (Blueprint $table) {
             $table->id();
             $table->foreignId('item_id')->constrained()->onDelete('cascade');
-            $table->string('serial')->unique(); // e.g. CHR-0001
+            // serial used for human display/seed — do not enforce unique at base level (property_number is the canonical unique key)
+            $table->string('serial')->index(); // e.g. CHR-0001
             $table->enum('status', ['available','borrowed','damaged','under_repair','retired','missing'])
                   ->default('available');
             $table->text('notes')->nullable();

@@ -63,7 +63,6 @@
             <x-input-label for="year_procured" value="Year Procured" />
             <select id="year_procured" name="year_procured"
                     class="mt-1 block w-full bg-gray-100 border border-gray-300 text-gray-900 rounded-md px-3 py-2 shadow-sm focus:border-blue-400 focus:ring focus:ring-blue-100 transition"
-                    required
                     data-property-segment="year"
                     data-add-field="year">
                 <option value="">-- Select year --</option>
@@ -82,9 +81,26 @@
             <x-input-label for="category" value="Category" />
                 <select id="category" name="category"
                     class="mt-1 block w-full min-w-0 appearance-none border rounded px-3 py-2"
-                    required data-category-select data-field="category" data-add-field="category">
+                    data-category-select data-field="category" data-add-field="category">
                 </select>
             <x-input-error :messages="$errors->get('category')" class="mt-2" />
+        </div>
+
+        <div>
+            <x-input-label for="gla" value="GLA" />
+            <x-text-input
+                id="gla"
+                name="gla"
+                type="text"
+                maxlength="4"
+                inputmode="numeric"
+                pattern="\d{1,4}"
+                class="mt-1 block w-full bg-gray-100 border border-gray-300 text-gray-900 rounded-md px-2 py-2 shadow-sm focus:border-blue-400 focus:ring focus:ring-blue-100 transition"
+                :value="old('gla')"
+                placeholder="digits only (1-4)"
+                data-add-field="gla"
+            />
+            <x-input-error :messages="$errors->get('gla')" class="mt-2" />
         </div>
 
         <div>
@@ -97,7 +113,6 @@
                 inputmode="numeric"
                 class="mt-1 block w-full bg-gray-100 border border-gray-300 text-gray-900 rounded-md px-3 py-2 shadow-sm focus:border-blue-400 focus:ring focus:ring-blue-100 transition"
                 :value="old('start_serial')"
-                required
                 data-property-segment="serial"
                 data-add-field="serial"
             />
@@ -106,10 +121,9 @@
         </div>
 
         <div>
-            <x-input-label for="office_code" value="Office Code" />
+            <x-input-label for="office_code" value="Office" />
             <select id="office_code" name="office_code"
                     class="mt-1 block w-full bg-gray-100 border border-gray-300 text-gray-900 rounded-md px-3 py-2 shadow-sm focus:border-blue-400 focus:ring focus:ring-blue-100 transition"
-                    required
                     data-office-select
                     data-add-field="office">
                 <!-- JS will populate; initially blank & disabled if no offices -->
@@ -118,6 +132,7 @@
             <x-input-error :messages="$errors->get('office_code')" class="mt-2" />
         </div>
     </div>
+
 
     <!-- Hidden category code: populated by category selection JS -->
     <input type="hidden" name="category_code" data-property-segment="category" value="" />
@@ -206,6 +221,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     const yearInput = document.querySelector('#year_procured');
     const quantityInput = document.querySelector('#quantity');
+    const glaInput = document.querySelector('#gla');
     const serialInput = document.querySelector('#start_serial');
     const officeInput = document.querySelector('#office_code');
     const categoryInputHidden = document.querySelector('input[name="category_code"], input[data-property-segment="category"]');
@@ -250,6 +266,19 @@ document.addEventListener('DOMContentLoaded', () => {
         quantityInput.addEventListener('input', (e) => {
             e.target.value = e.target.value.replace(/[^0-9]/g, '');
             generateRows();
+        });
+    }
+
+    /* GLA: digits only, max 4, reflect into rows */
+    if (glaInput) {
+        glaInput.addEventListener('input', (e) => {
+            // keep only digits and max 4
+            e.target.value = (e.target.value || '').replace(/\D/g, '').slice(0, 4);
+            generateRows();
+        });
+        glaInput.addEventListener('blur', (e) => {
+            // ensure non-empty GLA isn't longer than 4; nothing else to do
+            e.target.value = (e.target.value || '').replace(/\D/g, '').slice(0, 4);
         });
     }
 
@@ -302,6 +331,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const startSerialRaw = (serialInput?.value || '').trim() || '1';
         const officeRaw = (officeInput?.value || '').trim();
+        const glaRaw = (glaInput?.value || '').trim();
 
         // Determine serial width: preserve provided width or default 4
         const serialSeed = startSerialRaw || '1';
@@ -314,8 +344,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // pad serial to width
             let serial = String(serialInt).padStart(serialWidth, '0');
             // but allow the user-provided serial to be alphanumeric too — if original seed contained letters, use simple incrementing numerics for preview
-            const pnDisplay = `${year || 'YYYY'}-${(categoryCode || '----')}-${serial}-${officeRaw || 'OFF'}`;
-            rows.push({ index: i + 1, year: year, categoryCode: categoryCode, serial: serial, office: officeRaw, pn: pnDisplay });
+            const pnDisplay = `${year || 'YYYY'}-${(categoryCode || '----')}-${glaRaw || 'GLA'}-${serial}-${officeRaw || 'OFF'}`;
+            rows.push({ index: i + 1, year: year, categoryCode: categoryCode, gla: glaRaw, serial: serial, office: officeRaw, pn: pnDisplay });
         }
 
         // render rows: per-row Category input is readonly and shows first 4 uppercase letters
@@ -323,17 +353,24 @@ document.addEventListener('DOMContentLoaded', () => {
             return `
             <div class="flex items-center gap-4 per-row-panel" data-row-index="${r.index}">
               <div class="flex-none w-10 text-center">
-                <div class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-50 text-indigo-700 font-medium mr-2">${r.index}</div>
+                <div class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-50 text-indigo-700 font-medium">${r.index}</div>
               </div>
 
-              <div class="flex-1 bg-indigo-50 rounded-lg px-4 py-3 flex items-center gap-3 flex-nowrap">
+              <div class="flex-1 bg-indigo-50 rounded-lg px-3 py-2 flex items-center gap-2 flex-nowrap">
                 <input type="text" name="property_numbers_components[${r.index}][year]" class="w-20 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-year" value="${r.year || ''}" placeholder="Year" />
                 <div class="text-gray-500 select-none"> - </div>
+
                 <input type="text" readonly name="property_numbers_components[${r.index}][category_code]" class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-gray-100 instance-part-category" value="${r.categoryCode || ''}" placeholder="Category" />
                 <div class="text-gray-500 select-none"> - </div>
+
+                <input type="text" name="property_numbers_components[${r.index}][gla]" inputmode="numeric" class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-gla" value="${r.gla || ''}" placeholder="GLA" />
+                <div class="text-gray-500 select-none"> - </div>
+
                 <input type="text" name="property_numbers_components[${r.index}][serial]" class="w-20 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-serial" value="${r.serial || ''}" placeholder="Serial" />
                 <div class="text-gray-500 select-none"> - </div>
+
                 <input type="text" name="property_numbers_components[${r.index}][office]" class="w-20 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-office" value="${r.office || ''}" placeholder="Office" />
+
                 <div class="flex-none ml-2">
                   <button type="button" class="text-red-600 text-sm px-2 py-1 rounded-md hover:bg-red-50 per-row-remove-btn">Remove</button>
                 </div>
@@ -354,6 +391,13 @@ document.addEventListener('DOMContentLoaded', () => {
         generatedRowsContainer.querySelectorAll('.instance-part-serial').forEach(inp => {
             inp.addEventListener('input', (e) => {
                 e.target.value = (e.target.value || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0,5);
+            });
+        });
+
+        // attach GLA sanitization per row (digits only, max 4)
+        generatedRowsContainer.querySelectorAll('.instance-part-gla').forEach(inp => {
+            inp.addEventListener('input', (e) => {
+                e.target.value = (e.target.value || '').replace(/\D/g, '').slice(0,4);
             });
         });
     }

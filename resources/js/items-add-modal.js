@@ -55,6 +55,7 @@ function collectBase(form) {
     year: form.querySelector('[data-add-field="year"]'),
     categoryEl: form.querySelector('[data-category-select]'),
     categoryHidden: form.querySelector('[data-property-segment="category"], input[name="category_code"]'),
+    gla: form.querySelector('[data-add-field="gla"], input[name="gla"]'),
     office: form.querySelector('[data-add-field="office"]'),
     serial: form.querySelector('[data-add-field="serial"]'),
     quantity: form.querySelector('[data-add-field="quantity"]'),
@@ -69,9 +70,8 @@ function collectBase(form) {
   }
 
   const categoryCode = normalizeSegment(categoryCodeValue, 4);
-
+  const glaVal = (fields.gla?.value || '').replace(/\D/g, '').slice(0,6);
   const office = (fields.office?.value || '').toString().trim();
-
   const rawSerial = (fields.serial?.value || '').replace(/[^0-9]/g, '');
   const serialWidth = Math.max(4, rawSerial.length || 0);
   const serialStart = rawSerial ? parseInt(rawSerial, 10) : Number.NaN;
@@ -81,13 +81,14 @@ function collectBase(form) {
   if (quantity > 500) quantity = 500;
 
   const ready = Boolean(year.length === 4 && categoryCode && office && !Number.isNaN(serialStart));
-  const signature = [year, categoryCode, office, serialWidth, serialStart, quantity].join('|');
+  const signature = [year, categoryCode, glaVal, office, serialWidth, serialStart, quantity].join('|');
 
   return {
     ready,
     year,
     category: categoryValue,
     category_code: categoryCode,
+    gla: glaVal,
     office,
     serialWidth,
     serialStart,
@@ -105,8 +106,8 @@ function buildPreviewData(base) {
   const firstSerial = padSerial(firstSerialInt, base.serialWidth);
   const lastSerial = padSerial(lastSerialInt, base.serialWidth);
 
-  const firstPn = `${base.year}-${base.category_code}-${firstSerial}-${base.office}`;
-  const lastPn = `${base.year}-${base.category_code}-${lastSerial}-${base.office}`;
+  const firstPn = `${base.year}-${base.category_code}-${(base.gla||'')}-${firstSerial}-${base.office}`;
+  const lastPn = `${base.year}-${base.category_code}-${(base.gla||'')}-${lastSerial}-${base.office}`;
 
   return {
     count,
@@ -563,6 +564,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // GLA sanitizers: digits only, max 4 chars
+  document.querySelectorAll('input[name="gla"], input[data-add-field="gla"], input.instance-part-gla').forEach(inp => {
+    inp.addEventListener('input', () => {
+      inp.value = String(inp.value || '').replace(/\D/g, '').slice(0, 4);
+    });
+    inp.addEventListener('blur', () => {
+      inp.value = String(inp.value || '').replace(/\D/g, '').slice(0, 4);
+    });
+  });
+
   document.querySelectorAll('input[name="year_procured"], input[data-manual-config="year"], input[data-property-segment="year"], input[data-edit-field="year"]').forEach(inp => {
     inp.addEventListener('input', () => {
       inp.value = String(inp.value || '').replace(/\D/g, '').slice(0,4);
@@ -576,6 +587,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 });
+
 
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll(SELECTOR).forEach(initAddItemsForm);

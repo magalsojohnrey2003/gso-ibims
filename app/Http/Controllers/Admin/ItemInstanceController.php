@@ -22,6 +22,7 @@ class ItemInstanceController extends Controller
             'property_number' => 'sometimes|string',
             'year' => 'sometimes|digits:4',
             'category' => 'sometimes|string',
+            'gla' => 'sometimes|digits_between:1,4',
             'serial' => 'sometimes|string',
             'office' => 'sometimes|string|max:4',
         ]);
@@ -31,10 +32,11 @@ class ItemInstanceController extends Controller
             if (!empty($data['property_number'])) {
                 $parsed = $numbers->parse($data['property_number']);
             } else {
-                // build components - require year/category/serial/office
+                // build components - require year/category/gla/serial/office (fall back to existing instance)
                 $components = [
                     'year' => $data['year'] ?? $instance->year_procured,
                     'category' => strtoupper($data['category'] ?? $instance->category_code ?? ''),
+                    'gla' => isset($data['gla']) ? (string) $data['gla'] : ($instance->gla ?? null),
                     'serial' => $data['serial'] ?? $instance->serial,
                     'office' => $data['office'] ?? $instance->office_code,
                 ];
@@ -58,6 +60,7 @@ class ItemInstanceController extends Controller
             $instance->property_number = $parsed['property_number'];
             $instance->year_procured = (int) $parsed['year'];
             $instance->category_code = isset($parsed['category']) ? $parsed['category'] : null;
+            $instance->gla = isset($parsed['gla']) ? $parsed['gla'] : null;
             $instance->serial = $parsed['serial'];
             $instance->serial_int = $parsed['serial_int'] ?? null;
             $instance->office_code = $parsed['office'];

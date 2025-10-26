@@ -54,6 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return {
       yearEl: row.querySelector('.instance-part-year'),
       categoryEl: row.querySelector('.instance-part-category, .instance-part-category'),
+      glaEl: row.querySelector('.instance-part-gla'),
       serialEl: row.querySelector('.instance-part-serial'),
       officeEl: row.querySelector('.instance-part-office'),
       statusEl: row.querySelector('.instance-status'),
@@ -85,6 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const payload = {
       year: yearEl?.value?.trim() || undefined,
       category_code: categoryEl?.value?.trim()?.toUpperCase() || undefined,
+      gla: glaEl?.value?.trim() || undefined,
       serial: serialEl?.value?.trim() || undefined,
       office: officeEl?.value?.trim() || undefined,
     };
@@ -150,6 +152,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (t.classList.contains('instance-part-serial')) {
       t.value = t.value.replace(/[^A-Za-z0-9]/g, '');
+    }
+    if (t.classList.contains('instance-part-gla')) {
+      t.value = t.value.replace(/\D/g, '').slice(0,6);
     }
 
     scheduleSaveForRow(row);

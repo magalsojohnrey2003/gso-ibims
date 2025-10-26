@@ -33,13 +33,14 @@ function normalizeSegment(value, minLength = 0, allowAlpha = false) {
 function buildPreview(form) {
     const year = normalizeSegment(form.querySelector('[data-property-segment="year"]')?.value || '', 4);
     const category = normalizeSegment(form.querySelector('[data-property-segment="category"]')?.value || '', 1);
+    const gla = (form.querySelector('[data-property-segment="gla"]')?.value || '').replace(/\D/g, '');
     const rawSerial = form.querySelector('[data-property-segment="serial"]')?.value ?? '';
     const serialWidth = Math.max(4, rawSerial.trim().length || 0);
     const serial = normalizeSegment(rawSerial, serialWidth);
     const office = normalizeSegment(form.querySelector('[data-property-segment="office"]')?.value || '', 4, true);
 
-    if (year || category || serial || office) {
-        return [year || '----', category || '----', serial || '----', office || '----'].join('-');
+    if (year || category || gla || serial || office) {
+        return [year || '----', category ||  '----', gla || '----', serial || '----', office || '----'].join('-');
     }
 
     return '----';

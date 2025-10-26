@@ -28,6 +28,7 @@ class ItemController extends Controller
         'serial',
         'serial_int',
         'office_code',
+        'gla',
         'status',
         'notes',
     ];
@@ -130,6 +131,7 @@ class ItemController extends Controller
                     'item_name' => $instance->item?->name,
                     'office_code' => $instance->office_code,
                     'category_code' => $instance->category_code ?? null,
+                    'gla' => $instance->gla ?? null,
                 ];
             });
 
@@ -181,6 +183,7 @@ class ItemController extends Controller
         $data = $request->validate([
             'year_procured' => 'required|digits:4',
             'office_code' => 'required|alpha_num|min:1|max:4',
+            'gla' => 'required|digits_between:1,4',
             'start_serial' => 'required|digits_between:1,8',
             'quantity' => 'required|integer|min:1|max:500',
             'category' => 'nullable|string',
@@ -201,6 +204,7 @@ class ItemController extends Controller
         $components = [
             'year' => $data['year_procured'],
             'category' => $categoryCode,
+            'gla' => (string) $data['gla'],
             'office' => $data['office_code'],
         ];
 
@@ -237,36 +241,105 @@ class ItemController extends Controller
         ]);
     }
 
-    public function store(Request $request, PropertyNumberService $numbers)
-    {
-        $data = $request->validate([
-            'name' => 'required|string|max:255',
-            'category' => 'required|string',
-            'quantity' => 'required|integer|min:1|max:500',
-            'year_procured' => 'required|digits:4|integer|min:2020|max:' . date('Y'),
-            'office_code' => 'required|alpha_num|min:1|max:4',
-            'start_serial' => 'required|digits_between:1,8',
-            'description' => 'nullable|string|max:1000',
-            'photo' => 'nullable|image|max:2048',
-        ]);
+public function store(Request $request, PropertyNumberService $numbers)
+{
+    $data = $request->validate([
+        'name' => 'required|string|max:255',
+        'category' => 'required|string',
+        'quantity' => 'required|integer|min:1|max:500',
+        // Make the generate inputs optional (not required)
+        'year_procured' => 'nullable|digits:4|integer|min:2020|max:' . date('Y'),
+        'gla' => 'nullable|digits_between:1,4',
+        'office_code' => 'nullable|alpha_num|min:1|max:4',
+        'start_serial' => 'nullable|digits_between:1,8',
+        'description' => 'nullable|string|max:1000',
+        'photo' => 'nullable|image|max:2048',
+        // support per-row components (array)
+        'property_numbers_components' => 'nullable|array',
+        'property_numbers_components.*.year' => 'nullable|digits:4',
+        'property_numbers_components.*.category_code' => 'nullable|string',
+        'property_numbers_components.*.gla' => 'nullable|digits_between:1,4',
+        'property_numbers_components.*.serial' => 'nullable|string',
+        'property_numbers_components.*.office' => 'nullable|string|max:4',
+    ]);
 
-        $categoryId = (string) ($data['category'] ?? '');
-        $categoryCode = $this->resolveCategoryCode($categoryId, $request->input('category_code') ?? null);
+    $categoryId = (string) ($data['category'] ?? '');
+    $categoryCode = $this->resolveCategoryCode($categoryId, $request->input('category_code') ?? null);
 
-        $quantity = (int) $data['quantity'];
-        $serialSeed = $data['start_serial'];
-        $serialWidth = max(strlen($serialSeed), 4);
-        $serialStartRaw = ltrim($serialSeed, '0');
-        $serialStart = $serialStartRaw === '' ? 0 : (int) $serialStartRaw;
+    // If per-row components exist, prefer them
+    $perRow = $request->input('property_numbers_components', null);
 
-        $components = [
-            'year' => $data['year_procured'],
-            'category' => $categoryCode,
-            'office' => $data['office_code'],
-        ];
+    // If generate bulk inputs are present and sensible, preserve old behavior; otherwise allow creating item without instances
+    $hasBulkInputs = !empty($data['year_procured']) && !empty($data['start_serial']) && !empty($data['office_code']);
 
-        try {
-            $propertyNumbersToCheck = [];
+    $quantity = (int) $data['quantity'];
+    $serialSeed = $data['start_serial'] ?? '';
+    $serialWidth = max(strlen((string)$serialSeed), 4);
+    $serialStartRaw = ltrim((string)$serialSeed, '0');
+    $serialStart = $serialStartRaw === '' ? 0 : (int) $serialStartRaw;
+
+    $components = [
+        'year' => $data['year_procured'] ?? null,
+        'category' => $categoryCode,
+        'gla' => isset($data['gla']) ? (string)$data['gla'] : null,
+        'office' => $data['office_code'] ?? null,
+    ];
+
+    try {
+        // If per-row data provided -> validate/prepare property numbers from rows
+        $propertyNumbersToCheck = [];
+        $rowsToCreate = []; // each row: ['components' => [...], 'notes' => null]
+
+        if (is_array($perRow) && count($perRow) > 0) {
+                // Check for duplicate serials within submitted rows
+                $serials = array_map(fn($r) => strtoupper($r['payload']['serial']), $rowsToCreate);
+                $duplicates = array_unique(array_diff_assoc($serials, array_unique($serials)));
+                if (!empty($duplicates)) {
+                    $dupList = implode(', ', $duplicates);
+                    if ($request->wantsJson() || $request->isXmlHttpRequest()) {
+                        return response()->json([
+                            'message' => 'Duplicate serial numbers detected in the input rows.',
+                            'duplicates' => $duplicates,
+                        ], 422);
+                    }
+                    return redirect()->back()->withInput()->with('error', 'Duplicate serial numbers detected in the input rows: ' . $dupList);
+                }
+
+            foreach ($perRow as $idx => $row) {
+                // normalize keys (some inputs may come as property_numbers_components[1][year], etc.)
+                $year = isset($row['year']) ? (string)$row['year'] : null;
+                $cat = isset($row['category_code']) ? (string)$row['category_code'] : null;
+                $gla = isset($row['gla']) ? (string)$row['gla'] : null;
+                $serial = isset($row['serial']) ? (string)$row['serial'] : null;
+                $office = isset($row['office']) ? (string)$row['office'] : null;
+
+                // Basic server-side sanity check (rows are expected to be complete per requirements)
+                if (empty($year) || empty($cat) || empty($gla) || empty($serial) || empty($office)) {
+                    // invalid row -> abort with 422 and minimal message (client side should prevent this)
+                    if ($request->wantsJson() || $request->isXmlHttpRequest()) {
+                        return response()->json(['message' => 'Each property number row must include year, category, gla, serial and office.'], 422);
+                    }
+                    return redirect()->back()->withInput()->with('error', 'Each property number row must include year, category, gla, serial and office.');
+                }
+
+                // Normalize category code to uppercase and strip non-alnum (PropertyNumberService expects uppercase alnum)
+                $catNorm = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $cat));
+                $payload = [
+                    'year' => $year,
+                    'category' => $catNorm,
+                    'gla' => (string)$gla,
+                    'serial' => (string)$serial,
+                    'serial_width' => max(strlen((string)$serial), 4),
+                    'office' => (string)$office,
+                ];
+
+                // Attempt to assemble canonical PN (this may throw if components invalid)
+                $pn = $numbers->assemble($payload);
+                $propertyNumbersToCheck[] = $pn;
+                $rowsToCreate[] = ['payload' => $payload, 'pn' => $pn];
+            }
+        } elseif ($hasBulkInputs) {
+            // Existing bulk flow: compute expected property numbers
             for ($i = 0; $i < $quantity; $i++) {
                 $serialInt = $serialStart + $i;
                 $serial = $numbers->padSerial($serialInt, $serialWidth);
@@ -274,7 +347,13 @@ class ItemController extends Controller
                 $pn = $numbers->assemble($payload);
                 $propertyNumbersToCheck[] = $pn;
             }
+        } else {
+            // No rows and no bulk inputs: create item only (no instances)
+            $propertyNumbersToCheck = [];
+        }
 
+        // Check duplicates among existing instances
+        if (!empty($propertyNumbersToCheck)) {
             $existing = ItemInstance::query()
                 ->whereIn('property_number', $propertyNumbersToCheck)
                 ->pluck('property_number')
@@ -283,7 +362,11 @@ class ItemController extends Controller
             if (!empty($existing)) {
                 $conflictSerials = [];
                 foreach ($existing as $exPn) {
-                    $conflictSerials[] = $numbers->parse($exPn)['serial'] ?? $exPn;
+                    try {
+                        $conflictSerials[] = $numbers->parse($exPn)['serial'] ?? $exPn;
+                    } catch (\Throwable $e) {
+                        $conflictSerials[] = $exPn;
+                    }
                 }
 
                 if ($request->wantsJson() || $request->isXmlHttpRequest()) {
@@ -294,42 +377,92 @@ class ItemController extends Controller
                     ], 409);
                 }
 
-                // Non-AJAX form submit: attach validation error to the session and redirect back with old input.
                 return redirect()->back()
                     ->withInput()
                     ->with('error', 'This Property Number is already taken.');
             }
-        } catch (\Throwable $e) {
-            // If parse/assemble failed unexpectedly, fall through to normal handling and return a JSON error for AJAX.
-            if ($request->wantsJson() || $request->isXmlHttpRequest()) {
-                return response()->json(['message' => 'Unable to validate property numbers: ' . $e->getMessage()], 422);
+        }
+
+    } catch (\Throwable $e) {
+        if ($request->wantsJson() || $request->isXmlHttpRequest()) {
+            return response()->json(['message' => 'Unable to validate property numbers: ' . $e->getMessage()], 422);
+        }
+        return redirect()->back()->withInput()->with('error', 'Unable to validate property numbers: ' . $e->getMessage());
+    }
+
+    $photoPath = null;
+    if ($request->hasFile('photo')) {
+        $photoPath = $request->file('photo')->store('items', 'public');
+    } else {
+        $photoPath = $this->defaultPhoto;
+    }
+
+    DB::beginTransaction();
+    try {
+        $item = Item::create([
+            'name' => $data['name'],
+            'category' => (string) $data['category'],
+            'total_qty' => 0,
+            'available_qty' => 0,
+            'photo' => $photoPath,
+        ]);
+
+        $created = [];
+        $skipped = [];
+
+        // Create instances either from rowsToCreate or using bulk generation
+        if (!empty($rowsToCreate)) {
+            foreach ($rowsToCreate as $r) {
+                $payload = $r['payload'];
+                $propertyNumber = $r['pn'];
+                if (ItemInstance::where('property_number', $propertyNumber)->exists()) {
+                    $skipped[] = $payload['serial'];
+                    continue;
+                }
+                try {
+                    $instance = ItemInstance::create([
+                        'item_id' => $item->id,
+                        'property_number' => $propertyNumber,
+                        'year_procured' => (int) $payload['year'],
+                        'category_code' => $payload['category'] ?? null,
+                        'gla' => isset($payload['gla']) ? (string) $payload['gla'] : null,
+                        'serial' => (string) $payload['serial'],
+                        'serial_int' => is_numeric($payload['serial']) ? (int) ltrim($payload['serial'], '0') : null,
+                        'office_code' => $payload['office'] ?? null,
+                        'status' => 'available',
+                        'notes' => $data['description'] ?? null,
+                    ]);
+                    $created[] = $propertyNumber;
+
+                    $this->instanceLogger->log(
+                        $instance,
+                        'created',
+                        [
+                            'property_number' => $propertyNumber,
+                            'serial' => $payload['serial'],
+                            'serial_int' => is_numeric($payload['serial']) ? (int) ltrim($payload['serial'], '0') : null,
+                            'notes' => $data['description'] ?? null,
+                            'context' => ['source' => 'admin_item_store'],
+                        ],
+                        $request->user()
+                    );
+                } catch (QueryException $exception) {
+                    if ($this->isDuplicateKeyException($exception)) {
+                        $skipped[] = $payload['serial'];
+                        continue;
+                    }
+                    throw $exception;
+                }
             }
-            return redirect()->back()->withInput()->with('error', 'Unable to validate property numbers: ' . $e->getMessage());
-        }
-
-        $photoPath = null;
-        if ($request->hasFile('photo')) {
-            $photoPath = $request->file('photo')->store('items', 'public');
-        } else {
-            $photoPath = $this->defaultPhoto;
-        }
-
-        DB::beginTransaction();
-        try {
-            $item = Item::create([
-                'name' => $data['name'],
-                'category' => (string) $data['category'],
-                'total_qty' => 0,
-                'available_qty' => 0,
-                'photo' => $photoPath,
-            ]);
-
+        } elseif ($hasBulkInputs) {
+            // original bulk creation using createInstances helper
             [$created, $skipped] = $this->createInstances(
                 $item,
                 $numbers,
                 [
                     'year' => $data['year_procured'],
                     'category' => $categoryCode,
+                    'gla' => (string) ($data['gla'] ?? ''),
                     'office' => $data['office_code'],
                 ],
                 $serialStart,
@@ -339,52 +472,54 @@ class ItemController extends Controller
                 $request->user(),
                 ['source' => 'admin_item_store']
             );
-
-            $this->syncItemQuantities($item);
-
-            DB::commit();
-
-            if ($request->wantsJson()) {
-                return response()->json([
-                    'message' => (count($created) > 1) ? 'Items created.' : 'Item created.',
-                    'item_id' => $item->id,
-                    'created_count' => count($created),
-                    'created_pns' => $created,
-                    'skipped_serials' => $skipped,
-                    'item' => [
-                        'id' => $item->id,
-                        'name' => $item->name,
-                        'category' => $item->category,
-                        'total_qty' => $item->total_qty,
-                        'available_qty' => $item->available_qty,
-                    ],
-                ], $skipped ? 207 : 201);
-            }
-
-            if (! empty($skipped)) {
-                $message = (count($created) > 1)
-                    ? 'Items created. Some serials skipped.'
-                    : 'Item created. Some serials skipped.';
-            } else {
-                $message = (count($created) > 1) ? 'Items created.' : 'Item created.';
-            }
-
-            return redirect()->route('items.index')->with('success', $message);
-
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            if ($request->hasFile('photo') && $photoPath) {
-                Storage::disk('public')->delete($photoPath);
-            }
-
-            // For AJAX/JS clients: return JSON error instead of allowing an HTML error page
-            if ($request->wantsJson() || $request->isXmlHttpRequest()) {
-                $status = $e instanceof \RuntimeException ? 409 : 500;
-                return response()->json(['message' => $e->getMessage() ?: 'Failed to create item.'], $status);
-            }
-            return redirect()->route('items.index')->with('error', 'Failed to create item: ' . $e->getMessage());
+        } else {
+            // no instances to create
         }
+
+        $this->syncItemQuantities($item);
+
+        DB::commit();
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'message' => (count($created) > 1) ? 'Items created.' : (count($created) === 1 ? 'Item created.' : 'Item created.'),
+                'item_id' => $item->id,
+                'created_count' => count($created),
+                'created_pns' => $created,
+                'skipped_serials' => $skipped,
+                'item' => [
+                    'id' => $item->id,
+                    'name' => $item->name,
+                    'category' => $item->category,
+                    'total_qty' => $item->total_qty,
+                    'available_qty' => $item->available_qty,
+                ],
+            ], $skipped ? 207 : 201);
+        }
+
+        if (! empty($skipped)) {
+            $message = (count($created) > 1)
+                ? 'Items created. Some serials skipped.'
+                : (count($created) === 1 ? 'Item created. Some serials skipped.' : 'Item created. Some serials skipped.');
+        } else {
+            $message = (count($created) > 1) ? 'Items created.' : (count($created) === 1 ? 'Item created.' : 'Item created.');
+        }
+
+        return redirect()->route('items.index')->with('success', $message);
+
+    } catch (\Throwable $e) {
+        DB::rollBack();
+        if ($request->hasFile('photo') && $photoPath) {
+            Storage::disk('public')->delete($photoPath);
+        }
+
+        if ($request->wantsJson() || $request->isXmlHttpRequest()) {
+            $status = $e instanceof \RuntimeException ? 409 : 500;
+            return response()->json(['message' => $e->getMessage() ?: 'Failed to create item.'], $status);
+        }
+        return redirect()->route('items.index')->with('error', 'Failed to create item: ' . $e->getMessage());
     }
+}
 
 
 public function update(Request $request, Item $item, PropertyNumberService $numbers)
@@ -393,6 +528,7 @@ public function update(Request $request, Item $item, PropertyNumberService $numb
         'name' => 'required|string|max:255',
         'category' => 'required|string',
         'year_procured' => 'required|digits:4|integer|min:2020|max:' . date('Y'),
+        'gla' => 'nullable|digits_between:1,4',
         'office_code' => 'required|alpha_num|min:1|max:4',
         'serial' => 'required|digits_between:1,8',
         'description' => 'nullable|string|max:1000',
@@ -430,6 +566,7 @@ public function update(Request $request, Item $item, PropertyNumberService $numb
             $payload = [
                 'year' => $data['year_procured'],
                 'category' => $categoryCode,
+                'gla' => isset($data['gla']) ? (string) $data['gla'] : ($instance->gla ?? null),
                 'serial' => str_pad($data['serial'], $serialWidth, '0', STR_PAD_LEFT),
                 'office' => $data['office_code'],
             ];
@@ -446,6 +583,7 @@ public function update(Request $request, Item $item, PropertyNumberService $numb
             $instance->property_number = $propertyNumber;
             $instance->year_procured = (int) $data['year_procured'];
             $instance->category_code = $categoryCode;
+            $instance->gla = isset($payload['gla']) ? (string) $payload['gla'] : null;
             $instance->serial = $payload['serial'];
             $instance->serial_int = (int) ltrim($payload['serial'], '0');
             $instance->office_code = $data['office_code'];
@@ -492,6 +630,7 @@ public function update(Request $request, Item $item, PropertyNumberService $numb
                 'office_code' => $instance?->office_code ?? null,
                 'year_procured' => $instance?->year_procured ?? null,
                 'serial' => $instance?->serial ?? null,
+                'gla' => $instance?->gla ?? null,
                 'category_code' => $instance?->category_code ?? null,
                 'item_instance_id' => $instance?->id ?? null,
                 'photo' => $photoUrl,
@@ -558,6 +697,12 @@ public function update(Request $request, Item $item, PropertyNumberService $numb
                 $instance = ItemInstance::create([
                     'item_id' => $item->id,
                     'property_number' => $propertyNumber,
+                    'year_procured' => (int) $payload['year'],
+                    'category_code' => $payload['category'] ?? null,
+                    'gla' => isset($payload['gla']) ? (string) $payload['gla'] : null,
+                    'serial' => $serial,
+                    'serial_int' => $serialInt,
+                    'office_code' => $payload['office'] ?? null,
                     'status' => 'available',
                     'notes' => $notes,
                 ]);

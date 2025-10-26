@@ -28,15 +28,24 @@ class PropertyNumberBackfillCommand extends Command
         $updated = 0;
         $skipped = 0;
         $failed = [];
+        $processed = 0;
+
+        $total = ItemInstance::count();
+        if ($total > 0) {
+            $this->info("Total instances to scan: {$total}");
+            $this->output->progressStart($total);
+        }
 
         ItemInstance::query()
             ->with('item')
             ->orderBy('id')
-            ->chunkById($chunk, function ($instances) use ($service, $dryRun, $force, &$updated, &$skipped, &$failed) {
+            ->chunkById($chunk, function ($instances) use ($service, $dryRun, $force, &$updated, &$skipped, &$failed, &$processed) {
                 foreach ($instances as $instance) {
+                    $processed++;
                     $candidate = $this->findCandidate($instance);
                     if (! $candidate) {
                         $skipped++;
+                        $this->output->progressAdvance();
                         continue;
                     }
 
@@ -48,18 +57,21 @@ class PropertyNumberBackfillCommand extends Command
                             'value' => $candidate,
                             'reason' => $exception->getMessage(),
                         ];
+                        $this->output->progressAdvance();
                         continue;
                     }
 
                     $updates = $this->buildUpdates($instance, $components, $force);
                     if (empty($updates)) {
                         $skipped++;
+                        $this->output->progressAdvance();
                         continue;
                     }
 
                     if ($dryRun) {
                         $updated++;
                         $this->line(sprintf('[DRY-RUN] #%d -> %s', $instance->id, json_encode($updates)));
+                        $this->output->progressAdvance();
                         continue;
                     }
 
@@ -69,11 +81,16 @@ class PropertyNumberBackfillCommand extends Command
                         ->update($updates);
 
                     $updated++;
+                    $this->output->progressAdvance();
                 }
             });
 
+        if ($total > 0) {
+            $this->output->progressFinish();
+        }
+
         $this->newLine();
-        $this->info(sprintf('Updated %d instance(s); skipped %d.', $updated, $skipped));
+        $this->info(sprintf('Processed %d instance(s); updated %d; skipped %d.', $processed, $updated, $skipped));
 
         if (! empty($failed)) {
             $this->warn('Could not parse the following rows:');
@@ -111,14 +128,14 @@ class PropertyNumberBackfillCommand extends Command
 
     private function looksLikePropertyNumber(string $value): bool
     {
-        // category now letters/numbers-only (A-Z0-9), 1-4 chars
-        return (bool) preg_match('/\\b\\d{4}-[A-Z0-9]{1,4}-[0-9A-Z]{3,}-[A-Za-z0-9]{1,4}\\b/', $value);
+        // tolerate variable serial segment (allow alnum serial) and optional GLA digits
+        return (bool) preg_match('/\b\d{4}-[A-Z0-9]{1,4}-\d{1,4}-[A-Za-z0-9\-]{1,}-[A-Za-z0-9]{1,4}\b/i', $value);
     }
 
     private function firstPropertyNumber(string $value): ?string
     {
-        if (preg_match('/(\\d{4}-[A-Z0-9]{1,4}-[0-9A-Z]{3,}-[A-Za-z0-9]{1,4})/', $value, $matches)) {
-            return $matches[1];
+        if (preg_match('/(\d{4}-[A-Z0-9]{1,4}-\d{1,4}-[A-Za-z0-9\-]{1,}-[A-Za-z0-9]{1,4})/i', $value, $matches)) {
+            return strtoupper($matches[1]);
         }
         return null;
     }
@@ -130,6 +147,7 @@ class PropertyNumberBackfillCommand extends Command
             'year_procured' => isset($components['year']) ? (int) $components['year'] : null,
             // store category into category_code
             'category_code' => $components['category'] ?? null,
+            'gla' => $components['gla'] ?? null,
             'serial' => $components['serial'] ?? null,
             'serial_int' => $components['serial_int'] ?? null,
             'office_code' => $components['office'] ?? null,
