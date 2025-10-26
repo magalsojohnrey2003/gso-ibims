@@ -67,6 +67,60 @@ class ItemController extends Controller
          return substr($only, 0, 4);
      }
 
+    protected function determineSerialWidth(string $serial): int
+    {
+        $digits = strlen(preg_replace('/\D/', '', $serial));
+        if ($digits <= 1) {
+            return 2;
+        }
+        if ($digits === 2) {
+            return 2;
+        }
+        if ($digits === 3) {
+            return 4;
+        }
+        return max($digits, 2);
+    }
+
+    protected function formatSerialForStorage(string $serial): string
+    {
+        $sanitized = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $serial));
+        if ($sanitized === '') {
+            return '';
+        }
+
+        $segments = preg_split('/(?<=\d)(?=[A-Z])|(?<=[A-Z])(?=\d)/', $sanitized) ?: [];
+        $lettersLength = 0;
+        foreach ($segments as $segment) {
+            if ($segment !== '' && !ctype_digit($segment)) {
+                $lettersLength += strlen($segment);
+            }
+        }
+
+        $formatted = '';
+        foreach ($segments as $segment) {
+            if ($segment === '') {
+                continue;
+            }
+            if (ctype_digit($segment)) {
+                $digitsLength = strlen($segment);
+                $width = $this->determineSerialWidth($segment);
+                $maxAvailable = max($digitsLength, 5 - $lettersLength);
+                $width = min($width, $maxAvailable);
+                $padded = str_pad($segment, $width, '0', STR_PAD_LEFT);
+                if (($lettersLength + strlen($padded)) > 5) {
+                    $allowed = max($digitsLength, 5 - $lettersLength);
+                    $padded = substr($padded, -$allowed);
+                }
+                $formatted .= $padded;
+            } else {
+                $formatted .= $segment;
+            }
+        }
+
+        return substr($formatted, 0, 5);
+    }
+
     public function index(Request $request)
     {
         $query = Item::query()->with('instances');
@@ -196,7 +250,7 @@ class ItemController extends Controller
         $categoryCode = $categoryCodeInput ?: $this->resolveCategoryCode($category, $categoryCodeInput ?: null);
 
         $serialSeed = $data['start_serial'];
-        $serialWidth = max(strlen($serialSeed), 4);
+        $serialWidth = $this->determineSerialWidth($serialSeed);
         $serialStartRaw = ltrim($serialSeed, '0');
         $serialStart = $serialStartRaw === '' ? 0 : (int) $serialStartRaw;
         $quantity = (int) $data['quantity'];
@@ -251,7 +305,7 @@ public function store(Request $request, PropertyNumberService $numbers)
         'year_procured' => 'nullable|digits:4|integer|min:2020|max:' . date('Y'),
         'gla' => 'nullable|digits_between:1,4',
         'office_code' => 'nullable|alpha_num|min:1|max:4',
-        'start_serial' => 'nullable|digits_between:1,8',
+        'start_serial' => 'nullable|alpha_num|min:1|max:5',
         'description' => 'nullable|string|max:1000',
         'photo' => 'nullable|image|max:2048',
         // support per-row components (array)
@@ -259,7 +313,7 @@ public function store(Request $request, PropertyNumberService $numbers)
         'property_numbers_components.*.year' => 'nullable|digits:4',
         'property_numbers_components.*.category_code' => 'nullable|string',
         'property_numbers_components.*.gla' => 'nullable|digits_between:1,4',
-        'property_numbers_components.*.serial' => 'nullable|string',
+        'property_numbers_components.*.serial' => ['nullable', 'regex:/^(?=.*\d)[A-Za-z0-9]{1,5}$/i'],
         'property_numbers_components.*.office' => 'nullable|string|max:4',
     ]);
 
@@ -269,13 +323,14 @@ public function store(Request $request, PropertyNumberService $numbers)
     // If per-row components exist, prefer them
     $perRow = $request->input('property_numbers_components', null);
 
-    // If generate bulk inputs are present and sensible, preserve old behavior; otherwise allow creating item without instances
-    $hasBulkInputs = !empty($data['year_procured']) && !empty($data['start_serial']) && !empty($data['office_code']);
+    $serialSeed = (string) ($data['start_serial'] ?? '');
+    // If generate bulk inputs are present and sensible (numeric serial only)
+    $hasBulkInputs = !empty($data['year_procured']) && $serialSeed !== '' && !empty($data['office_code']) && preg_match('/^\d+$/', $serialSeed);
 
     $quantity = (int) $data['quantity'];
-    $serialSeed = $data['start_serial'] ?? '';
-    $serialWidth = max(strlen((string)$serialSeed), 4);
-    $serialStartRaw = ltrim((string)$serialSeed, '0');
+    $serialWidth = $this->determineSerialWidth($serialSeed);
+    $serialDigitsOnly = preg_replace('/\D/', '', $serialSeed);
+    $serialStartRaw = ltrim($serialDigitsOnly, '0');
     $serialStart = $serialStartRaw === '' ? 0 : (int) $serialStartRaw;
 
     $components = [
@@ -291,27 +346,13 @@ public function store(Request $request, PropertyNumberService $numbers)
         $rowsToCreate = []; // each row: ['components' => [...], 'notes' => null]
 
         if (is_array($perRow) && count($perRow) > 0) {
-                // Check for duplicate serials within submitted rows
-                $serials = array_map(fn($r) => strtoupper($r['payload']['serial']), $rowsToCreate);
-                $duplicates = array_unique(array_diff_assoc($serials, array_unique($serials)));
-                if (!empty($duplicates)) {
-                    $dupList = implode(', ', $duplicates);
-                    if ($request->wantsJson() || $request->isXmlHttpRequest()) {
-                        return response()->json([
-                            'message' => 'Duplicate serial numbers detected in the input rows.',
-                            'duplicates' => $duplicates,
-                        ], 422);
-                    }
-                    return redirect()->back()->withInput()->with('error', 'Duplicate serial numbers detected in the input rows: ' . $dupList);
-                }
-
             foreach ($perRow as $idx => $row) {
                 // normalize keys (some inputs may come as property_numbers_components[1][year], etc.)
-                $year = isset($row['year']) ? (string)$row['year'] : null;
-                $cat = isset($row['category_code']) ? (string)$row['category_code'] : null;
-                $gla = isset($row['gla']) ? (string)$row['gla'] : null;
-                $serial = isset($row['serial']) ? (string)$row['serial'] : null;
-                $office = isset($row['office']) ? (string)$row['office'] : null;
+                $year = isset($row['year']) ? trim((string) $row['year']) : null;
+                $cat = isset($row['category_code']) ? trim((string) $row['category_code']) : null;
+                $gla = isset($row['gla']) ? trim((string) $row['gla']) : null;
+                $serial = isset($row['serial']) ? trim((string) $row['serial']) : null;
+                $office = isset($row['office']) ? trim((string) $row['office']) : null;
 
                 // Basic server-side sanity check (rows are expected to be complete per requirements)
                 if (empty($year) || empty($cat) || empty($gla) || empty($serial) || empty($office)) {
@@ -324,19 +365,45 @@ public function store(Request $request, PropertyNumberService $numbers)
 
                 // Normalize category code to uppercase and strip non-alnum (PropertyNumberService expects uppercase alnum)
                 $catNorm = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $cat));
+                $serialNorm = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $serial));
+                $officeNorm = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $office));
+
+                if ($serialNorm === '' || !preg_match('/\d/', $serialNorm)) {
+                    $message = 'Serial entries must include at least one number.';
+                    if ($request->wantsJson() || $request->isXmlHttpRequest()) {
+                        return response()->json(['message' => $message], 422);
+                    }
+                    return redirect()->back()->withInput()->with('error', $message);
+                }
+
+                $formattedSerial = $this->formatSerialForStorage($serialNorm);
+
                 $payload = [
                     'year' => $year,
                     'category' => $catNorm,
-                    'gla' => (string)$gla,
-                    'serial' => (string)$serial,
-                    'serial_width' => max(strlen((string)$serial), 4),
-                    'office' => (string)$office,
+                    'gla' => preg_replace('/\D/', '', (string) $gla),
+                    'serial' => $formattedSerial,
+                    'serial_width' => $this->determineSerialWidth($formattedSerial),
+                    'office' => $officeNorm,
                 ];
 
                 // Attempt to assemble canonical PN (this may throw if components invalid)
                 $pn = $numbers->assemble($payload);
                 $propertyNumbersToCheck[] = $pn;
                 $rowsToCreate[] = ['payload' => $payload, 'pn' => $pn];
+            }
+
+            // Check for duplicate serials within submitted rows (after gathering payloads)
+            $serials = array_map(static fn ($r) => $r['payload']['serial'], $rowsToCreate);
+            $duplicates = array_values(array_unique(array_diff_assoc($serials, array_unique($serials))));
+            if (!empty($duplicates)) {
+                if ($request->wantsJson() || $request->isXmlHttpRequest()) {
+                    return response()->json([
+                        'message' => 'Duplicate serial numbers detected in the input rows.',
+                        'duplicates' => $duplicates,
+                    ], 422);
+                }
+                return redirect()->back()->withInput()->with('error', 'Duplicate serial numbers detected in the input rows: ' . implode(', ', $duplicates));
             }
         } elseif ($hasBulkInputs) {
             // Existing bulk flow: compute expected property numbers
@@ -350,6 +417,23 @@ public function store(Request $request, PropertyNumberService $numbers)
         } else {
             // No rows and no bulk inputs: create item only (no instances)
             $propertyNumbersToCheck = [];
+        }
+
+        // Prevent duplicate property numbers inside the submission itself
+        if (!empty($propertyNumbersToCheck)) {
+            $dupNew = array_values(array_unique(array_diff_assoc($propertyNumbersToCheck, array_unique($propertyNumbersToCheck))));
+            if (!empty($dupNew)) {
+                if ($request->wantsJson() || $request->isXmlHttpRequest()) {
+                    return response()->json([
+                        'message' => 'Duplicate property numbers detected in the submission.',
+                        'duplicates' => $dupNew,
+                    ], 422);
+                }
+
+                return redirect()->back()
+                    ->withInput()
+                    ->with('error', 'Duplicate property numbers detected: ' . implode(', ', $dupNew));
+            }
         }
 
         // Check duplicates among existing instances
@@ -427,7 +511,7 @@ public function store(Request $request, PropertyNumberService $numbers)
                         'category_code' => $payload['category'] ?? null,
                         'gla' => isset($payload['gla']) ? (string) $payload['gla'] : null,
                         'serial' => (string) $payload['serial'],
-                        'serial_int' => is_numeric($payload['serial']) ? (int) ltrim($payload['serial'], '0') : null,
+                        'serial_int' => ctype_digit($payload['serial']) ? (int) ltrim($payload['serial'], '0') : null,
                         'office_code' => $payload['office'] ?? null,
                         'status' => 'available',
                         'notes' => $data['description'] ?? null,
@@ -440,7 +524,7 @@ public function store(Request $request, PropertyNumberService $numbers)
                         [
                             'property_number' => $propertyNumber,
                             'serial' => $payload['serial'],
-                            'serial_int' => is_numeric($payload['serial']) ? (int) ltrim($payload['serial'], '0') : null,
+                            'serial_int' => ctype_digit($payload['serial']) ? (int) ltrim($payload['serial'], '0') : null,
                             'notes' => $data['description'] ?? null,
                             'context' => ['source' => 'admin_item_store'],
                         ],
@@ -530,14 +614,17 @@ public function update(Request $request, Item $item, PropertyNumberService $numb
         'year_procured' => 'required|digits:4|integer|min:2020|max:' . date('Y'),
         'gla' => 'nullable|digits_between:1,4',
         'office_code' => 'required|alpha_num|min:1|max:4',
-        'serial' => 'required|digits_between:1,8',
+        'serial' => ['required', 'regex:/^(?=.*\d)[A-Za-z0-9]{1,5}$/i'],
         'description' => 'nullable|string|max:1000',
         'photo' => 'nullable|image|max:2048',
         'item_instance_id' => 'nullable|exists:item_instances,id',
     ]);
 
     $categoryCode = $this->resolveCategoryCode($data['category'], $request->input('category_code'));
-    $serialWidth = max(strlen($data['serial']), 4);
+    $serialRaw = (string) $data['serial'];
+    $serialNormalized = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $serialRaw));
+    $formattedSerial = $this->formatSerialForStorage($serialNormalized);
+    $serialWidth = $this->determineSerialWidth($formattedSerial);
     $photoPath = $item->photo;
     $uploadedNewPhoto = false;
 
@@ -567,7 +654,7 @@ public function update(Request $request, Item $item, PropertyNumberService $numb
                 'year' => $data['year_procured'],
                 'category' => $categoryCode,
                 'gla' => isset($data['gla']) ? (string) $data['gla'] : ($instance->gla ?? null),
-                'serial' => str_pad($data['serial'], $serialWidth, '0', STR_PAD_LEFT),
+                'serial' => $formattedSerial,
                 'office' => $data['office_code'],
             ];
 
@@ -585,7 +672,7 @@ public function update(Request $request, Item $item, PropertyNumberService $numb
             $instance->category_code = $categoryCode;
             $instance->gla = isset($payload['gla']) ? (string) $payload['gla'] : null;
             $instance->serial = $payload['serial'];
-            $instance->serial_int = (int) ltrim($payload['serial'], '0');
+            $instance->serial_int = ctype_digit($payload['serial']) ? (int) ltrim($payload['serial'], '0') : null;
             $instance->office_code = $data['office_code'];
             if (! empty($data['description'])) {
                 $instance->notes = $data['description'];

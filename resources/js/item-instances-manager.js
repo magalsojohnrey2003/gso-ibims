@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const instanceId = row.getAttribute('data-instance-id');
     if (!instanceId) return;
 
-    const { yearEl, categoryEl, serialEl, officeEl, statusEl } = inputsForRow(row);
+    const { yearEl, categoryEl, glaEl, serialEl, officeEl, statusEl } = inputsForRow(row);
 
     const payload = {
       year: yearEl?.value?.trim() || undefined,
@@ -144,17 +144,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   container.addEventListener('input', (e) => {
     const t = e.target;
-    if (!t.matches('.instance-part-year, .instance-part-category, .instance-part-serial, .instance-part-office, .instance-part-category')) return;
+    if (!t.matches('.instance-part-year, .instance-part-category, .instance-part-serial, .instance-part-office, .instance-part-gla')) return;
     const row = t.closest('[data-instance-id]');
     if (!row) return;
     if (t.classList.contains('instance-part-office')) {
-      t.value = t.value.replace(/[^a-zA-Z0-9]/g, '').slice(0,4);
+      t.value = t.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase();
     }
     if (t.classList.contains('instance-part-serial')) {
-      t.value = t.value.replace(/[^A-Za-z0-9]/g, '');
+      t.value = t.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 5);
     }
     if (t.classList.contains('instance-part-gla')) {
-      t.value = t.value.replace(/\D/g, '').slice(0,6);
+      t.value = t.value.replace(/\D/g, '').slice(0, 6);
     }
 
     scheduleSaveForRow(row);

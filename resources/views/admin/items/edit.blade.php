@@ -90,7 +90,7 @@
               <input type="text" class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-gla" value="{{ $inst->gla ?? '' }}" placeholder="GLA" />
               <div class="text-gray-500 select-none"> - </div>
 
-              <input type="text" class="w-20 sm:w-16 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-serial" value="{{ $inst->serial ?? '' }}" placeholder="Serial" />
+              <input type="text" class="w-20 sm:w-16 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-serial" maxlength="5" value="{{ $inst->serial ?? '' }}" placeholder="Serial" />
               <div class="text-gray-500 select-none"> - </div>
 
               <input type="text" class="w-20 sm:w-16 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-office" value="{{ $inst->office_code ?? '' }}" placeholder="Office" />
@@ -156,79 +156,3 @@
       <x-button iconName="arrow-path" type="submit" data-edit-submit>Update</x-button>
     </div>
 </form>
-
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const yearInput = document.querySelector('#year_procured-{{ $item->id }}');
-        
-        // Ensure the year input is validated after the user finishes typing the 4 digits
-        if (yearInput) {
-            yearInput.addEventListener('input', (e) => {
-                const value = e.target.value.trim();
-                
-                // Allow only 4 digits
-                if (value.length === 4) {
-                    const year = parseInt(value, 10);
-                    const currentYear = new Date().getFullYear();
-
-                    // Check if the year is valid
-                    if (year < 2020 || year > currentYear) {
-                        e.target.value = '';  // Reset the input to blank if invalid
-                        showToast('error', 'Please enter a valid year between 2020 and ' + currentYear + '.');
-                    }
-                }
-            });
-        }
-    });
-
-    // Function to show the toast message (for invalid year)
-    function showToast(type, message) {
-        if (type === 'error') {
-            console.error(message);  // For error, log it to the console
-        } else {
-            console.log(message);  // For success, log it
-        }
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-        const yearInput = document.querySelector('#year_procured-{{ $item->id ?? 'new' }}');
-        // Read hidden PPE input (populated by category JS)
-        const categoryInput = document.querySelector('input[name="category_code"], input[data-property-segment="category"]');
-        const serialInput = document.querySelector('#serial-{{ $item->id ?? 'new' }}');
-        const officeInput = document.querySelector('#office_code-{{ $item->id ?? 'new' }}');
-        const previewInput = document.querySelector('#property_preview-{{ $item->id ?? 'new' }}');
-````````const glaInput = document.querySelector('#gla-{{ $item->id ?? 'new' }}') || document.querySelector('input[name="gla"], input[data-property-segment="gla"]');
-
-        // Function to update the Property Number Preview
-        function updatePropertyNumberPreview() {
-        const year = (yearInput?.value || '').trim();
-        const ppe = (categoryInput?.value || '').trim();
-        const gla = (glaInput?.value || '').trim();
-        const serial = (serialInput?.value || '').trim();
-        const officeRaw = (officeInput?.value || '').trim();
-        const office = officeRaw ? officeRaw.padStart(4, '0') : '';
-
-        // Only show preview when we have year(4), ppe(2+), serial (non-empty), and office (1-4 digits padded)
-         if (year.length === 4 && ppe && gla && serial && officeRaw.length >= 1 && officeRaw.length <= 4) {
-            const propertyNumber = `${year}-${ppe}-${gla}-${serial}-${officeRaw}`;
-            if (previewInput) previewInput.value = propertyNumber;
-        } else if (previewInput) {
-            // clear if incomplete
-            previewInput.value = '';
-        }                                                                   
-    }
-
-
-        // Attach event listeners to the input fields
-        if (yearInput) yearInput.addEventListener('input', updatePropertyNumberPreview);
-        if (categoryInput) categoryInput.addEventListener('input', updatePropertyNumberPreview);
-        if (serialInput) serialInput.addEventListener('input', updatePropertyNumberPreview);
-        if (officeInput) officeInput.addEventListener('input', updatePropertyNumberPreview);
-
-        // Initial call to update the preview for Edit Item (if values exist)
-        if (yearInput?.value.trim() && categoryInput?.value.trim() && serialInput?.value.trim() && officeInput?.value.trim()) {
-            updatePropertyNumberPreview();
-        }
-    });
-
-</script>

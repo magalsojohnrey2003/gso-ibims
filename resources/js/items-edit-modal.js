@@ -289,6 +289,47 @@ function initEditForm(form) {
     const cancelBtn = form.querySelector(CANCEL_SELECTOR);
 
     attachOfficeValidation(form);
+    populateCategorySelects(form);
+    attachCategoryListeners(form);
+
+    const yearInput = form.querySelector('[data-edit-field="year"], input[name="year_procured"]');
+    const categoryCodeInput = form.querySelector('input[data-property-segment="category"], input[name="category_code"]');
+    const glaInput = form.querySelector('input[data-property-segment="gla"], input[name="gla"]');
+    const serialInput = form.querySelector('[data-edit-field="serial"], input[name="serial"]');
+    const officeInput = form.querySelector('[data-edit-field="office"], input[name="office_code"]');
+    const previewInput = form.querySelector('[data-property-preview]');
+
+    const updatePropertyPreview = () => {
+      if (!previewInput) return;
+      const year = (yearInput?.value || '').trim();
+      const categoryCode = (categoryCodeInput?.value || '').trim().toUpperCase();
+      const gla = (glaInput?.value || '').replace(/\D/g, '').slice(0, 4);
+      const serial = (serialInput?.value || '').trim().toUpperCase();
+      const office = (officeInput?.value || '').trim().toUpperCase();
+
+      if (glaInput) glaInput.value = gla;
+      if (officeInput) officeInput.value = office;
+
+      if (
+        year.length === 4 &&
+        categoryCode &&
+        gla &&
+        serial &&
+        office
+      ) {
+        previewInput.value = `${year}-${categoryCode}-${gla}-${serial}-${office}`;
+      } else {
+        previewInput.value = '';
+      }
+    };
+
+    [yearInput, categoryCodeInput, glaInput, serialInput, officeInput].forEach((input) => {
+      if (!input) return;
+      input.addEventListener('input', updatePropertyPreview);
+      input.addEventListener('change', updatePropertyPreview);
+    });
+
+    updatePropertyPreview();
 
     form.addEventListener('input', () => {
         hideMessage(errorEl);
@@ -320,6 +361,36 @@ function initEditForm(form) {
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll(SELECTOR).forEach(initEditForm);
 });
+
+document.addEventListener('items:edit:success', (event) => {
+  const data = event.detail || {};
+  const id = data.item_id ?? data.id;
+  if (!id) return;
+  const row = document.querySelector(`[data-item-row="${id}"]`);
+  if (!row) return;
+
+  const setCellText = (selector, value) => {
+    const cell = row.querySelector(selector);
+    if (!cell) return;
+    const target = cell.querySelector('span') || cell;
+    target.textContent = value !== undefined && value !== null ? String(value) : '';
+  };
+
+  if (typeof data.name === 'string') setCellText('[data-item-name]', data.name);
+
+  if (typeof data.category === 'string') {
+    const text = data.category.charAt(0).toUpperCase() + data.category.slice(1);
+    setCellText('[data-item-category]', text);
+  }
+
+  if (typeof data.total_qty !== 'undefined') setCellText('[data-item-total]', data.total_qty);
+  if (typeof data.available_qty !== 'undefined') setCellText('[data-item-available]', data.available_qty);
+
+  if (typeof data.photo === 'string' && data.photo) {
+    const img = row.querySelector('[data-item-photo-img]');
+    if (img) img.src = data.photo;
+  }
+}, { passive: true });
 
 // resources/js/admin/item-instances-inline.js
 // If you append to item-edit.js, ensure it's loaded after DOMContentLoaded handlers.

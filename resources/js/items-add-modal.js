@@ -1,4 +1,4 @@
-import { normalizeSegment, resolveCategoryCode } from './property-number';
+﻿import { normalizeSegment, resolveCategoryCode } from './property-number';
 
 const SELECTOR = '[data-add-items-form]';
 const FEEDBACK_SELECTOR = '[data-add-feedback]';
@@ -13,6 +13,7 @@ const SERIAL_CHECK_ENDPOINT = '/admin/items/check-serial';
 const SERIAL_CHECK_DELAY = 300;
 const SERIAL_ERROR_CLASSES = ['ring-2', 'ring-red-300', 'border-red-500', 'focus:border-red-500', 'focus:ring-red-300'];
 const SERIAL_OK_CLASSES = ['ring-2', 'ring-green-300', 'border-green-500', 'focus:border-green-500', 'focus:ring-green-300'];
+const ROW_INVALID_CLASSES = ['border-red-300', 'ring-1', 'ring-red-200', 'focus:border-red-400', 'focus:ring-red-200'];
 
 const showToast = (typeof window !== 'undefined' && typeof window.showToast === 'function')
   ? window.showToast.bind(window)
@@ -21,10 +22,184 @@ const showToast = (typeof window !== 'undefined' && typeof window.showToast === 
       else console.log(message);
     };
 
-function padSerial(n, width) {
-  const w = Math.max(1, width || 1);
-  const val = Number.isFinite(n) ? Math.max(0, n) : 0;
-  return String(val).padStart(w, '0');
+const FIELD_LABELS = {
+  year: 'Year',
+  category: 'Category',
+  gla: 'GLA',
+  serial: 'Serial',
+  office: 'Office',
+};
+
+function sanitizeSerialInput(value) {
+  if (!value) return '';
+  return String(value).toUpperCase().replace(/[^A-Za-z0-9]/g, '').slice(0, 5);
+}
+
+function parseSerialSegments(value) {
+  const segments = [];
+  if (!value) return segments;
+  let currentType = null;
+  let currentValue = '';
+  for (const char of value) {
+    const type = /[0-9]/.test(char) ? 'digit' : 'letter';
+    if (type !== currentType) {
+      if (currentValue) {
+        segments.push({ type: currentType, value: currentValue });
+      }
+      currentType = type;
+      currentValue = char;
+    } else {
+      currentValue += char;
+    }
+  }
+  if (currentValue) {
+    segments.push({ type: currentType, value: currentValue });
+  }
+  return segments;
+}
+
+function computeDigitWidth(length, lettersLength = 0) {
+  if (length <= 1) return Math.min(2, Math.max(1, 5 - lettersLength));
+  if (length === 2) return Math.min(2, Math.max(2, 5 - lettersLength));
+  if (length === 3) return Math.min(4, Math.max(3, 5 - lettersLength));
+  return Math.min(length, Math.max(length, 5 - lettersLength));
+}
+
+function serialContainsDigit(serial) {
+  return /[0-9]/.test(serial || '');
+}
+
+function incrementLetters(value) {
+  return value
+    .split('')
+    .map((char) => {
+      const code = char.charCodeAt(0);
+      if (code < 65 || code > 90) return char;
+      const next = ((code - 65 + 1) % 26) + 65;
+      return String.fromCharCode(next);
+    })
+    .join('');
+}
+
+function formatSerialValue(raw) {
+  const sanitized = sanitizeSerialInput(raw);
+  if (!sanitized) return '';
+  const segments = parseSerialSegments(sanitized);
+  const letterLengthTotal = segments
+    .filter((seg) => seg.type === 'letter')
+    .reduce((sum, seg) => sum + seg.value.length, 0);
+
+  const formattedSegments = segments.map((segment) => {
+    if (segment.type === 'digit') {
+      const width = computeDigitWidth(segment.value.length, letterLengthTotal);
+      let padded = segment.value.padStart(width, '0');
+      if (padded.length + letterLengthTotal > 5) {
+        const allowed = Math.max(segment.value.length, 5 - letterLengthTotal);
+        padded = padded.slice(-allowed);
+      }
+      return padded;
+    }
+    return segment.value;
+  });
+
+  const result = formattedSegments.join('').slice(0, 5);
+  return result;
+}
+
+function incrementSerialValue(value) {
+  const sanitized = sanitizeSerialInput(value);
+  if (!sanitized) return '';
+  const segments = parseSerialSegments(sanitized);
+  return segments
+    .map((segment) => {
+      if (segment.type === 'digit') {
+        const width = segment.value.length;
+        const incremented = String(parseInt(segment.value, 10) + 1);
+        return incremented.padStart(width, '0');
+      }
+      return incrementLetters(segment.value);
+    })
+    .join('')
+    .slice(0, 5);
+}
+
+function buildErrorSummary(fields) {
+  if (!fields || fields.size === 0) return '';
+  const labels = Array.from(fields).map((field) => FIELD_LABELS[field] || field);
+  if (labels.length === 1) {
+    return `${labels[0]} field is incorrect`;
+  }
+  return `${labels.join(' & ')} fields are incorrect`;
+}
+
+function bootstrapItemsData() {
+  if (typeof document === 'undefined') return;
+  const source = document.querySelector('[data-items-bootstrap]');
+  if (!source) return;
+
+  const parseJSON = (raw) => {
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch (_) {
+      return null;
+    }
+  };
+
+  const categories = parseJSON(source.dataset.itemsCategories) || [];
+  const offices = parseJSON(source.dataset.itemsOffices) || [];
+  const categoryCodes = parseJSON(source.dataset.itemsCategoryCodes) || {};
+
+  if (typeof window !== 'undefined') {
+    if (Array.isArray(categories) && categories.length) {
+      window.__serverCategories = categories;
+    } else if (!Array.isArray(window.__serverCategories)) {
+      window.__serverCategories = [];
+    }
+
+    if (Array.isArray(offices) && offices.length) {
+      window.__serverOffices = offices;
+    } else if (!Array.isArray(window.__serverOffices)) {
+      window.__serverOffices = [];
+    }
+
+    if (categoryCodes && typeof categoryCodes === 'object') {
+      window.__servercategoryCodeMap = categoryCodes;
+      window.__serverCategoryCodeMap = categoryCodes;
+    } else if (typeof window.__servercategoryCodeMap !== 'object') {
+      window.__servercategoryCodeMap = {};
+      window.__serverCategoryCodeMap = {};
+    }
+  }
+}
+
+bootstrapItemsData();
+
+function normalizeCategory(item) {
+  if (item && typeof item === 'object') {
+    return {
+      id: item.id ?? null,
+      name: item.name ?? '',
+    };
+  }
+  return {
+    id: null,
+    name: item !== undefined && item !== null ? String(item) : '',
+  };
+}
+
+function normalizeOffice(item) {
+  if (item && typeof item === 'object') {
+    return {
+      code: item.code ?? '',
+      name: item.name ?? '',
+    };
+  }
+  const value = item !== undefined && item !== null ? String(item) : '';
+  return {
+    code: value,
+    name: '',
+  };
 }
 
 function formatSerialConflictMessage(conflicts = []) {
@@ -70,18 +245,27 @@ function collectBase(form) {
   }
 
   const categoryCode = normalizeSegment(categoryCodeValue, 4);
-  const glaVal = (fields.gla?.value || '').replace(/\D/g, '').slice(0,6);
+  const glaVal = (fields.gla?.value || '').replace(/\D/g, '').slice(0, 6);
   const office = (fields.office?.value || '').toString().trim();
-  const rawSerial = (fields.serial?.value || '').replace(/[^0-9]/g, '');
-  const serialWidth = Math.max(4, rawSerial.length || 0);
-  const serialStart = rawSerial ? parseInt(rawSerial, 10) : Number.NaN;
+
+  const rawSerialInput = fields.serial?.value ?? '';
+  const sanitizedSerial = sanitizeSerialInput(rawSerialInput);
+  const formattedSerial = sanitizedSerial ? formatSerialValue(sanitizedSerial) : '';
+  const serialHasDigit = serialContainsDigit(formattedSerial);
+  const serialDigitsOnly = formattedSerial.replace(/[^0-9]/g, '');
+  const serialLettersLength = formattedSerial.replace(/[^A-Z]/g, '').length;
+  const serialWidth = serialDigitsOnly
+    ? computeDigitWidth(serialDigitsOnly.length, serialLettersLength)
+    : 0;
+  const serialStartInt = serialDigitsOnly ? parseInt(serialDigitsOnly, 10) : Number.NaN;
+  const hasSerialLetters = /[A-Z]/.test(formattedSerial);
 
   let quantity = parseInt(fields.quantity?.value ?? '1', 10);
   if (!Number.isFinite(quantity) || quantity < 1) quantity = 1;
   if (quantity > 500) quantity = 500;
 
-  const ready = Boolean(year.length === 4 && categoryCode && office && !Number.isNaN(serialStart));
-  const signature = [year, categoryCode, glaVal, office, serialWidth, serialStart, quantity].join('|');
+  const ready = Boolean(year.length === 4 && categoryCode && office && serialHasDigit);
+  const signature = [year, categoryCode, glaVal, office, formattedSerial, quantity].join('|');
 
   return {
     ready,
@@ -90,24 +274,29 @@ function collectBase(form) {
     category_code: categoryCode,
     gla: glaVal,
     office,
+    serialValue: formattedSerial,
+    serialHasDigit,
+    serialHasLetters: hasSerialLetters,
+    serialDigitsOnly,
     serialWidth,
-    serialStart,
+    serialStartInt,
     quantity,
-    firstSerial: rawSerial ? padSerial(parseInt(rawSerial, 10), serialWidth) : '',
     signature,
   };
 }
 
 function buildPreviewData(base) {
-  if (!base.ready) return null;
+  if (!base.ready || !base.serialValue) return null;
   const count = base.quantity;
-  const firstSerialInt = base.serialStart;
-  const lastSerialInt = firstSerialInt + (count - 1);
-  const firstSerial = padSerial(firstSerialInt, base.serialWidth);
-  const lastSerial = padSerial(lastSerialInt, base.serialWidth);
+  const firstSerial = base.serialValue;
+  let lastSerial = firstSerial;
 
-  const firstPn = `${base.year}-${base.category_code}-${(base.gla||'')}-${firstSerial}-${base.office}`;
-  const lastPn = `${base.year}-${base.category_code}-${(base.gla||'')}-${lastSerial}-${base.office}`;
+  for (let i = 1; i < count; i += 1) {
+    lastSerial = incrementSerialValue(lastSerial);
+  }
+
+  const firstPn = `${base.year}-${base.category_code}-${base.gla || ''}-${firstSerial}-${base.office}`;
+  const lastPn = `${base.year}-${base.category_code}-${base.gla || ''}-${lastSerial}-${base.office}`;
 
   return {
     count,
@@ -117,6 +306,406 @@ function buildPreviewData(base) {
     lastPn,
     isBulk: count > 1,
   };
+}
+
+class PropertyRowsManager {
+  constructor(form) {
+    this.form = form;
+    this.container = form.querySelector('[data-property-rows-container]');
+    this.template = form.querySelector('template[data-property-row-template]');
+    this.quantityInput = form.querySelector('[data-add-field="quantity"]');
+    this.invalidReasons = new WeakMap();
+    this.cachedBaseSerial = '';
+    this.serialCache = [];
+    this.latestBase = {};
+
+    if (this.quantityInput) {
+      this.quantityInput.addEventListener('input', () => {
+        this.sanitizeQuantity();
+        this.sync(this.latestBase);
+      });
+    }
+
+    if (this.container) {
+      this.container.addEventListener('input', (event) => this.handleInput(event));
+      this.container.addEventListener('blur', (event) => this.handleBlur(event), true);
+      this.container.addEventListener('click', (event) => this.handleRemove(event));
+    }
+  }
+
+  sanitizeQuantity() {
+    if (!this.quantityInput) return 1;
+    const raw = String(this.quantityInput.value || '').replace(/\D/g, '');
+    let value = parseInt(raw || '1', 10);
+    if (!Number.isFinite(value) || value < 1) value = 1;
+    if (value > 500) value = 500;
+    this.quantityInput.value = String(value);
+    return value;
+  }
+
+  getQuantity() {
+    return this.sanitizeQuantity();
+  }
+
+  hasRows() {
+    return Boolean(this.container && this.container.querySelector('[data-property-row]'));
+  }
+
+  resetCaches(baseSerial) {
+    const normalized = baseSerial || '';
+    if (this.cachedBaseSerial !== normalized) {
+      this.cachedBaseSerial = normalized;
+      this.serialCache = normalized ? [normalized] : [];
+    }
+  }
+
+  getSerialForIndex(baseSerial, index) {
+    if (!baseSerial) return '';
+    this.resetCaches(baseSerial);
+    if (!this.serialCache.length) {
+      this.serialCache = [baseSerial];
+    }
+    while (this.serialCache.length <= index) {
+      const previous = this.serialCache[this.serialCache.length - 1];
+      const next = incrementSerialValue(previous);
+      if (!serialContainsDigit(next)) break;
+      this.serialCache.push(next);
+    }
+    return this.serialCache[index] || '';
+  }
+
+  sync(base = {}) {
+    if (!this.container || !this.template) return;
+    this.latestBase = base || {};
+    this.resetCaches(base.serialValue || '');
+    const target = this.getQuantity();
+    let rows = Array.from(this.container.querySelectorAll('[data-property-row]'));
+
+    while (rows.length < target) {
+      const index = rows.length;
+      const row = this.createRow(index, this.latestBase);
+      if (!row) break;
+      rows.push(row);
+    }
+
+    while (rows.length > target) {
+      const row = rows.pop();
+      row?.remove();
+    }
+
+    rows = Array.from(this.container.querySelectorAll('[data-property-row]'));
+    rows.forEach((row, idx) => this.populateRow(row, idx, this.latestBase, false));
+    this.updateRemoveButtons();
+    this.checkDuplicates();
+  }
+
+  createRow(index, base) {
+    if (!this.template) return null;
+    const fragment = document.importNode(this.template.content, true);
+    const row = fragment.querySelector('[data-property-row]');
+    if (!row) return null;
+    this.populateRow(row, index, base, true);
+    this.container.appendChild(fragment);
+    return row;
+  }
+
+  populateRow(row, index, base, isNew) {
+    if (!row) return;
+    row.dataset.rowIndex = String(index);
+    const display = row.querySelector('[data-row-index]');
+    if (display) {
+      display.textContent = String(index + 1);
+    }
+
+    row.querySelectorAll('[data-row-field]').forEach((input) => {
+      if (!(input instanceof HTMLInputElement)) return;
+      const field = input.dataset.rowField;
+      if (!field) return;
+      const nameKey = input.dataset.rowName || field;
+      input.name = `property_numbers_components[${index + 1}][${nameKey}]`;
+
+      const baseValue = this.resolveBaseValue(field, base, index);
+
+      if (field === 'category') {
+        input.value = baseValue ?? input.value ?? '';
+        input.dataset.autofill = baseValue ? '1' : '';
+        input.dataset.autofillValue = baseValue || '';
+        return;
+      }
+
+      const shouldAutofill = input.dataset.autofill === '1' || !input.value || isNew;
+
+      if (field === 'serial' && !baseValue && !shouldAutofill) {
+        const formatted = formatSerialValue(input.value);
+        if (formatted !== input.value) {
+          input.value = formatted;
+        }
+      }
+
+      if (baseValue) {
+        if (shouldAutofill || input.dataset.autofill === '1') {
+          input.value = baseValue;
+          input.dataset.autofill = '1';
+          input.dataset.autofillValue = baseValue;
+        }
+      } else if (input.dataset.autofill === '1') {
+        delete input.dataset.autofill;
+        delete input.dataset.autofillValue;
+      }
+    });
+    this.validateRow(row);
+  }
+
+  resolveBaseValue(field, base, index) {
+    if (!base) return '';
+    switch (field) {
+      case 'year':
+        return base.year && base.year.length === 4 ? base.year : '';
+      case 'category':
+        return base.category_code || '';
+      case 'gla':
+        return base.gla || '';
+      case 'serial':
+        if (!base.serialValue) return '';
+        return this.getSerialForIndex(base.serialValue, index);
+      case 'office':
+        return base.office ? base.office.toString().slice(0, 4).toUpperCase() : '';
+      default:
+        return '';
+    }
+  }
+
+  updateRemoveButtons() {
+    if (!this.container) return;
+    const rows = Array.from(this.container.querySelectorAll('[data-property-row]'));
+    rows.forEach((row) => {
+      const btn = row.querySelector('[data-row-remove]');
+      if (!(btn instanceof HTMLButtonElement)) return;
+      if (rows.length <= 1) {
+        btn.disabled = true;
+        btn.classList.add('opacity-50', 'cursor-not-allowed');
+      } else {
+        btn.disabled = false;
+        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+    });
+  }
+
+  handleInput(event) {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    const field = target.dataset.rowField;
+    if (!field) return;
+
+    const sanitized = this.sanitizeFieldValue(field, target.value || '');
+    if (sanitized !== target.value) {
+      target.value = sanitized;
+    }
+
+    if (target.dataset.autofill === '1' && target.dataset.autofillValue !== sanitized) {
+      delete target.dataset.autofill;
+      delete target.dataset.autofillValue;
+    }
+
+    const row = target.closest('[data-property-row]');
+    if (row) {
+      this.validateRow(row);
+    }
+    this.checkDuplicates();
+  }
+
+  handleBlur(event) {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    if (target.dataset.rowField !== 'serial') return;
+    const formatted = formatSerialValue(target.value || '');
+    if (formatted !== target.value) {
+      target.value = formatted;
+    }
+    const row = target.closest('[data-property-row]');
+    if (row) {
+      this.validateRow(row);
+    }
+    this.checkDuplicates();
+    if (target.dataset.duplicate === '1') {
+      setTimeout(() => {
+        try {
+          target.focus({ preventScroll: true });
+        } catch (_) {
+          target.focus();
+        }
+      }, 0);
+    }
+  }
+
+  handleRemove(event) {
+    const button = event.target instanceof Element ? event.target.closest('[data-row-remove]') : null;
+    if (!button) return;
+    event.preventDefault();
+    const row = button.closest('[data-property-row]');
+    if (!row || !this.container) return;
+    const rows = Array.from(this.container.querySelectorAll('[data-property-row]'));
+    if (rows.length <= 1) return;
+    row.remove();
+    const remaining = Array.from(this.container.querySelectorAll('[data-property-row]'));
+    if (this.quantityInput) {
+      this.quantityInput.value = String(Math.max(1, remaining.length));
+    }
+    remaining.forEach((r, idx) => this.populateRow(r, idx, this.latestBase, false));
+    this.updateRemoveButtons();
+    this.checkDuplicates();
+  }
+
+  sanitizeFieldValue(field, value) {
+    switch (field) {
+      case 'year':
+        return value.replace(/\D/g, '').slice(0, 4);
+      case 'gla':
+        return value.replace(/\D/g, '').slice(0, 4);
+      case 'serial':
+        return sanitizeSerialInput(value);
+      case 'office':
+        return value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 4);
+      case 'category':
+        return value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 4);
+      default:
+        return value;
+    }
+  }
+
+  setInvalidReason(input, reason) {
+    if (!(input instanceof HTMLInputElement)) return;
+    let set = this.invalidReasons.get(input);
+    if (!set) {
+      set = new Set();
+      this.invalidReasons.set(input, set);
+    }
+    if (!set.has(reason)) {
+      set.add(reason);
+      ROW_INVALID_CLASSES.forEach((cls) => input.classList.add(cls));
+      input.dataset.invalid = '1';
+      input.setAttribute('aria-invalid', 'true');
+      if (reason === 'duplicate') {
+        input.dataset.duplicate = '1';
+      }
+    }
+  }
+
+  clearInvalidReason(input, reason) {
+    if (!(input instanceof HTMLInputElement)) return;
+    const set = this.invalidReasons.get(input);
+    if (!set) return;
+    set.delete(reason);
+    if (set.size === 0) {
+      this.invalidReasons.delete(input);
+      ROW_INVALID_CLASSES.forEach((cls) => input.classList.remove(cls));
+      delete input.dataset.invalid;
+      input.removeAttribute('aria-invalid');
+    }
+    if (reason === 'duplicate') {
+      delete input.dataset.duplicate;
+    }
+  }
+
+  validateRow(row) {
+    const invalidFields = new Set();
+    if (!row) return invalidFields;
+    row.querySelectorAll('[data-row-field]').forEach((input) => {
+      if (!(input instanceof HTMLInputElement)) return;
+      const field = input.dataset.rowField;
+      if (!field) return;
+      const value = input.value.trim();
+      if (!value) {
+        this.setInvalidReason(input, 'empty');
+        invalidFields.add(field);
+      } else {
+        this.clearInvalidReason(input, 'empty');
+      }
+      if (field === 'serial') {
+        if (!serialContainsDigit(value)) {
+          this.setInvalidReason(input, 'digit');
+          invalidFields.add('serial');
+        } else {
+          this.clearInvalidReason(input, 'digit');
+        }
+      }
+    });
+    return invalidFields;
+  }
+
+  validateAll() {
+    if (!this.container) return { valid: true, fields: new Set() };
+    const rows = Array.from(this.container.querySelectorAll('[data-property-row]'));
+    const aggregate = new Set();
+    let valid = true;
+    rows.forEach((row) => {
+      const rowErrors = this.validateRow(row);
+      if (rowErrors.size) valid = false;
+      rowErrors.forEach((field) => aggregate.add(field));
+    });
+    if (this.checkDuplicates()) {
+      valid = false;
+      aggregate.add('serial');
+    }
+    return { valid, fields: aggregate };
+  }
+
+  checkDuplicates() {
+    if (!this.container) return false;
+    const serialInputs = Array.from(this.container.querySelectorAll('[data-row-field="serial"]')).filter((el) => el instanceof HTMLInputElement);
+    const seen = new Map();
+    const duplicates = new Set();
+
+    serialInputs.forEach((input) => {
+      const formatted = formatSerialValue(input.value.trim());
+      if (!formatted || !serialContainsDigit(formatted)) {
+        this.clearInvalidReason(input, 'duplicate');
+        return;
+      }
+      if (seen.has(formatted)) {
+        duplicates.add(input);
+        duplicates.add(seen.get(formatted));
+      } else {
+        seen.set(formatted, input);
+      }
+    });
+
+    serialInputs.forEach((input) => {
+      if (duplicates.has(input)) {
+        this.setInvalidReason(input, 'duplicate');
+      } else {
+        this.clearInvalidReason(input, 'duplicate');
+      }
+    });
+
+    return duplicates.size > 0;
+  }
+
+  focusFirstInvalid() {
+    if (!this.container) return;
+    const target = this.container.querySelector('[data-invalid="1"], [data-duplicate="1"]');
+    if (target instanceof HTMLInputElement) {
+      try {
+        target.focus({ preventScroll: true });
+      } catch (_) {
+        target.focus();
+      }
+    }
+  }
+
+  reset() {
+    if (this.quantityInput) this.quantityInput.value = '1';
+    if (this.container) {
+      while (this.container.firstChild) {
+        this.container.removeChild(this.container.firstChild);
+      }
+    }
+    this.invalidReasons = new WeakMap();
+    this.latestBase = {};
+    this.cachedBaseSerial = '';
+    this.serialCache = [];
+    this.sync(this.latestBase);
+  }
 }
 
 function applySerialState(elements, state, message = '') {
@@ -150,14 +739,14 @@ function applySerialState(elements, state, message = '') {
 }
 
 async function fetchSerialConflicts(base, { signal } = {}) {
-  if (!base.ready || !base.firstSerial) {
+  if (!base.ready || !base.serialValue || base.serialHasLetters) {
     return { available: true, conflict_serials: [] };
   }
 
   const params = new URLSearchParams({
     year_procured: base.year,
     office_code: base.office,
-    start_serial: base.firstSerial,
+    start_serial: base.serialValue,
     quantity: String(base.quantity),
   });
   if (base.category_code) params.append('category_code', base.category_code);
@@ -186,7 +775,7 @@ function queueSerialCheck(form, elements, base) {
     elements.serialAbort = null;
   }
 
-  if (!base.ready || !base.firstSerial) {
+  if (!base.ready || !base.serialValue || base.serialHasLetters) {
     elements.lastSerialResult = null;
     applySerialState(elements, 'idle');
     return;
@@ -219,7 +808,7 @@ function queueSerialCheck(form, elements, base) {
 }
 
 async function ensureSerialAvailability(elements, base) {
-  if (!elements.serialInput || !base.ready || !base.firstSerial) {
+  if (!elements.serialInput || !base.ready || !base.serialValue || base.serialHasLetters) {
     return { available: true, conflicts: [] };
   }
   if (elements.lastSerialResult && elements.lastSerialResult.signature === base.signature) {
@@ -240,21 +829,31 @@ function renderPreview(form, base, elements) {
   const data = base ? buildPreviewData(base) : null;
   if (!data) {
     wrap.classList.add('hidden');
-    list.innerHTML = '';
+    while (list.firstChild) list.removeChild(list.firstChild);
     return;
   }
 
   wrap.classList.remove('hidden');
-  const rows = [];
+  while (list.firstChild) list.removeChild(list.firstChild);
+
+  const makeRow = (label, value) => {
+    const row = document.createElement('div');
+    const strong = document.createElement('span');
+    strong.classList.add('font-semibold');
+    strong.textContent = `${label}: `;
+    row.appendChild(strong);
+    row.appendChild(document.createTextNode(value));
+    return row;
+  };
+
   if (data.isBulk) {
-    rows.push(`<div><span class="font-semibold">Total:</span> ${data.count} items</div>`);
-    rows.push(`<div><span class="font-semibold">Serial range:</span> ${data.firstSerial} → ${data.lastSerial}</div>`);
-    rows.push(`<div><span class="font-semibold">First PN:</span> ${data.firstPn}</div>`);
-    rows.push(`<div><span class="font-semibold">Last PN:</span> ${data.lastPn}</div>`);
+    list.appendChild(makeRow('Total', `${data.count} items`));
+    list.appendChild(makeRow('Serial range', `${data.firstSerial} → ${data.lastSerial}`));
+    list.appendChild(makeRow('First PN', data.firstPn));
+    list.appendChild(makeRow('Last PN', data.lastPn));
   } else {
-    rows.push(`<div><span class="font-semibold">Property Number:</span> ${data.firstPn}</div>`);
+    list.appendChild(makeRow('Property Number', data.firstPn));
   }
-  list.innerHTML = rows.join('');
 
   const previewInput = form.querySelector('[data-property-preview]');
   if (previewInput) previewInput.value = data.firstPn;
@@ -436,6 +1035,261 @@ function populateOfficeSelects(form) {
   });
 }
 
+function initCategoryOfficeManagement() {
+  if (typeof document === 'undefined') return;
+
+  const categoryListBody = document.getElementById('category-list-body');
+  const officeListBody = document.getElementById('office-list-body');
+  const categoryRowTemplate = document.querySelector('template[data-category-row-template]');
+  const categoryEmptyTemplate = document.querySelector('template[data-category-empty-template]');
+  const officeRowTemplate = document.querySelector('template[data-office-row-template]');
+  const officeEmptyTemplate = document.querySelector('template[data-office-empty-template]');
+  const categoryAddBtn = document.getElementById('category-add-btn');
+  const officeAddBtn = document.getElementById('office-add-btn');
+  const newCategoryInput = document.getElementById('new-category-name');
+  const newOfficeCodeInput = document.getElementById('new-office-code');
+  const newOfficeNameInput = document.getElementById('new-office-name');
+  const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+  if (!categoryListBody && !officeListBody) return;
+
+  const state = {
+    categories: Array.isArray(window.__serverCategories) ? window.__serverCategories.map(normalizeCategory) : [],
+    offices: Array.isArray(window.__serverOffices) ? window.__serverOffices.map(normalizeOffice) : [],
+  };
+
+  const renderCategories = () => {
+    if (!categoryListBody) return;
+    while (categoryListBody.firstChild) categoryListBody.removeChild(categoryListBody.firstChild);
+    if (!state.categories.length) {
+      if (categoryEmptyTemplate) {
+        categoryListBody.appendChild(document.importNode(categoryEmptyTemplate.content, true));
+      }
+      return;
+    }
+    state.categories.forEach((cat, idx) => {
+      if (!categoryRowTemplate) return;
+      const fragment = document.importNode(categoryRowTemplate.content, true);
+      const row = fragment.querySelector('[data-category-row]');
+      if (row) {
+        row.dataset.categoryId = cat.id ?? '';
+        row.dataset.index = String(idx);
+      }
+      const nameEl = fragment.querySelector('[data-category-name]');
+      if (nameEl) {
+        nameEl.textContent = cat.name || '';
+      }
+      const viewBtn = fragment.querySelector('[data-view-cat]');
+      if (viewBtn) {
+        if (cat.id !== undefined && cat.id !== null) viewBtn.setAttribute('data-id', String(cat.id));
+        viewBtn.setAttribute('data-name', cat.name || '');
+      }
+      const deleteBtn = fragment.querySelector('[data-delete-cat]');
+      if (deleteBtn) {
+        if (cat.id !== undefined && cat.id !== null) deleteBtn.setAttribute('data-id', String(cat.id));
+        deleteBtn.setAttribute('data-name', cat.name || '');
+      }
+      categoryListBody.appendChild(fragment);
+    });
+  };
+
+  const renderOffices = () => {
+    if (!officeListBody) return;
+    while (officeListBody.firstChild) officeListBody.removeChild(officeListBody.firstChild);
+    if (!state.offices.length) {
+      if (officeEmptyTemplate) {
+        officeListBody.appendChild(document.importNode(officeEmptyTemplate.content, true));
+      }
+      return;
+    }
+    state.offices.forEach((office, idx) => {
+      if (!officeRowTemplate) return;
+      const fragment = document.importNode(officeRowTemplate.content, true);
+      const row = fragment.querySelector('[data-office-row]');
+      if (row) {
+        row.dataset.officeCode = office.code || '';
+        row.dataset.index = String(idx);
+      }
+      const codeEl = fragment.querySelector('[data-office-code]');
+      if (codeEl) codeEl.textContent = office.code || '';
+      const nameEl = fragment.querySelector('[data-office-name]');
+      if (nameEl) nameEl.textContent = office.name || '';
+      const viewBtn = fragment.querySelector('[data-view-office]');
+      if (viewBtn) viewBtn.setAttribute('data-code', office.code || '');
+      const deleteBtn = fragment.querySelector('[data-delete-office]');
+      if (deleteBtn) deleteBtn.setAttribute('data-code', office.code || '');
+      officeListBody.appendChild(fragment);
+    });
+  };
+
+  const updateCategoryState = (categories) => {
+    state.categories = Array.isArray(categories) ? categories.map(normalizeCategory) : [];
+    window.__serverCategories = state.categories;
+    renderCategories();
+    window.dispatchEvent(new Event('server:categories:updated'));
+  };
+
+  const updateOfficeState = (offices) => {
+    state.offices = Array.isArray(offices) ? offices.map(normalizeOffice) : [];
+    window.__serverOffices = state.offices;
+    renderOffices();
+    window.dispatchEvent(new Event('server:offices:updated'));
+  };
+
+  const fetchJSON = async (url, options = {}) => {
+    const response = await fetch(url, options);
+    const contentType = response.headers.get('content-type') || '';
+    if (!response.ok) {
+      let message = `Request failed (${response.status})`;
+      if (contentType.includes('application/json')) {
+        const body = await response.json().catch(() => null);
+        if (body?.message) message = body.message;
+      }
+      throw new Error(message);
+    }
+    if (!contentType.includes('application/json')) return null;
+    return response.json().catch(() => null);
+  };
+
+  const fetchCategoriesFromServer = async () => {
+    try {
+      const data = await fetchJSON('/admin/api/categories', { headers: { Accept: 'application/json' } });
+      if (data && Array.isArray(data.data)) {
+        updateCategoryState(data.data);
+      }
+    } catch (error) {
+      console.warn('Failed to load categories', error);
+      renderCategories();
+    }
+  };
+
+  const fetchOfficesFromServer = async () => {
+    try {
+      const data = await fetchJSON('/admin/api/offices', { headers: { Accept: 'application/json' } });
+      if (data && Array.isArray(data.data)) {
+        updateOfficeState(data.data);
+      }
+    } catch (error) {
+      console.warn('Failed to load offices', error);
+      renderOffices();
+    }
+  };
+
+  renderCategories();
+  renderOffices();
+
+  if (!state.categories.length) {
+    fetchCategoriesFromServer();
+  }
+  if (!state.offices.length) {
+    fetchOfficesFromServer();
+  }
+
+  categoryAddBtn?.addEventListener('click', async () => {
+    const name = (newCategoryInput?.value || '').trim();
+    if (!name) {
+      showToast('error', 'Enter category name');
+      return;
+    }
+    try {
+      await fetchJSON('/admin/api/categories', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': csrf,
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({ name }),
+      });
+      if (newCategoryInput) newCategoryInput.value = '';
+      await fetchCategoriesFromServer();
+      showToast('success', 'Category saved');
+    } catch (error) {
+      showToast('error', error.message || 'Failed to save category');
+    }
+  });
+
+  officeAddBtn?.addEventListener('click', async () => {
+    const code = (newOfficeCodeInput?.value || '').trim().toUpperCase();
+    const displayName = (newOfficeNameInput?.value || '').trim();
+    if (!/^[A-Za-z0-9]{1,4}$/.test(code)) {
+      showToast('error', 'Office code should be 1-4 alphanumeric characters');
+      return;
+    }
+    try {
+      await fetchJSON('/admin/api/offices', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': csrf,
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({ code, name: displayName }),
+      });
+      if (newOfficeCodeInput) newOfficeCodeInput.value = '';
+      if (newOfficeNameInput) newOfficeNameInput.value = '';
+      await fetchOfficesFromServer();
+      showToast('success', 'Office saved');
+    } catch (error) {
+      showToast('error', error.message || 'Failed to save office');
+    }
+  });
+
+  categoryListBody?.addEventListener('click', async (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return;
+
+    const deleteBtn = target.closest('[data-delete-cat]');
+    if (deleteBtn) {
+      const nameAttr = deleteBtn.getAttribute('data-name') || '';
+      if (!window.confirm(`Delete category "${nameAttr}"?`)) return;
+      try {
+        await fetchJSON(`/admin/api/categories/${encodeURIComponent(nameAttr)}`, {
+          method: 'DELETE',
+          headers: { 'X-CSRF-TOKEN': csrf, Accept: 'application/json' },
+        });
+        await fetchCategoriesFromServer();
+      } catch (error) {
+        showToast('error', error.message || 'Failed to delete category');
+      }
+      return;
+    }
+
+    const viewBtn = target.closest('[data-view-cat]');
+    if (viewBtn) {
+      const nameAttr = viewBtn.getAttribute('data-name') || '';
+      window.alert(`View items in category: ${nameAttr}\n(Implement server-side view to display associated items.)`);
+    }
+  });
+
+  officeListBody?.addEventListener('click', async (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return;
+
+    const deleteBtn = target.closest('[data-delete-office]');
+    if (deleteBtn) {
+      const codeAttr = deleteBtn.getAttribute('data-code') || '';
+      if (!window.confirm(`Delete office "${codeAttr}"?`)) return;
+      try {
+        await fetchJSON(`/admin/api/offices/${encodeURIComponent(codeAttr)}`, {
+          method: 'DELETE',
+          headers: { 'X-CSRF-TOKEN': csrf, Accept: 'application/json' },
+        });
+        await fetchOfficesFromServer();
+      } catch (error) {
+        showToast('error', error.message || 'Failed to delete office');
+      }
+      return;
+    }
+
+    const viewBtn = target.closest('[data-view-office]');
+    if (viewBtn) {
+      const codeAttr = viewBtn.getAttribute('data-code') || '';
+      window.alert(`View items for office: ${codeAttr}\n(Implement server-side view to display associated items.)`);
+    }
+  });
+}
+
 function attachCategoryListeners(form) {
   form.querySelectorAll('select[data-category-select]').forEach(sel => {
     sel.addEventListener('change', (e) => {
@@ -463,6 +1317,7 @@ function initAddItemsForm(form) {
   populateCategorySelects(form);
   populateOfficeSelects(form);
   attachCategoryListeners(form);
+  const rowsManager = new PropertyRowsManager(form);
   const elements = {
     feedback: form.querySelector(FEEDBACK_SELECTOR),
     error: form.querySelector(ERROR_SELECTOR),
@@ -488,6 +1343,7 @@ function initAddItemsForm(form) {
     const base = collectBase(form);
     renderPreview(form, base, elements);
     queueSerialCheck(form, elements, base);
+    rowsManager.sync(base);
   };
 
   form.querySelectorAll('[data-add-field]').forEach((input) => {
@@ -500,6 +1356,7 @@ function initAddItemsForm(form) {
     if (elements.serialTimer) { clearTimeout(elements.serialTimer); elements.serialTimer = null; }
     if (elements.serialAbort) { elements.serialAbort.abort(); elements.serialAbort = null; }
     applySerialState(elements, 'idle');
+    rowsManager.reset();
   });
 
   elements.cancelBtn?.addEventListener('click', () => {
@@ -517,22 +1374,45 @@ function initAddItemsForm(form) {
     hideMessage(elements.error);
 
     const base = collectBase(form);
-    if (!base.ready) {
-      const msg = 'Complete year, category code, serial, and office code before saving.';
-      showToast('error', msg);
-      handleError(elements, new Error(msg));
+    const hasRows = rowsManager.hasRows();
+
+    const errorFields = new Set();
+
+    if (base.serialValue && !base.serialHasDigit) {
+      errorFields.add('serial');
+      applySerialState(elements, 'error', 'Serial must include at least one number.');
+    } else {
+      applySerialState(elements, 'idle');
+    }
+
+    const rowValidation = rowsManager.validateAll();
+    rowValidation.fields.forEach((field) => errorFields.add(field));
+
+    if (errorFields.size > 0) {
+      const summary = buildErrorSummary(errorFields);
+      if (summary) {
+        showMessage(elements.error, summary);
+        showToast('error', summary);
+      }
+      rowsManager.focusFirstInvalid();
       return;
     }
 
+    hideMessage(elements.error);
+
     toggleLoading(elements, true);
     try {
-      const serialResult = await ensureSerialAvailability(elements, base);
-      if (serialResult && serialResult.available === false) {
-        const msg = formatSerialConflictMessage(serialResult.conflicts || serialResult.conflict_serials || []);
-        applySerialState(elements, 'error', msg);
-        showToast('error', msg);
-        handleError(elements, new Error(msg));
-        return;
+      if (!hasRows) {
+        if (!base.ready) {
+          const msg = 'Complete property number details before saving.';
+          throw new Error(msg);
+        }
+        const serialResult = await ensureSerialAvailability(elements, base);
+        if (serialResult && serialResult.available === false) {
+          const msg = formatSerialConflictMessage(serialResult.conflicts || serialResult.conflict_serials || []);
+          applySerialState(elements, 'error', msg);
+          throw new Error(msg);
+        }
       }
 
       const result = await submitForm(form);
@@ -552,6 +1432,7 @@ function initAddItemsForm(form) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  initCategoryOfficeManagement();
   document.querySelectorAll('input[name="office_code"], input[data-add-field="office"], input[data-edit-field="office"], input.instance-part-office').forEach(inp => {
     inp.addEventListener('input', () => {
       inp.value = String(inp.value || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 4);
@@ -560,7 +1441,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.querySelectorAll('input[name="start_serial"], input[data-add-field="serial"], input[data-edit-field="serial"], input.instance-part-serial').forEach(inp => {
     inp.addEventListener('input', () => {
-      inp.value = String(inp.value || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 5);
+      const sanitized = sanitizeSerialInput(inp.value || '');
+      if (sanitized !== inp.value) {
+        inp.value = sanitized;
+      }
     });
   });
 
@@ -592,3 +1476,4 @@ document.addEventListener('DOMContentLoaded', () => {
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll(SELECTOR).forEach(initAddItemsForm);
 });
+
