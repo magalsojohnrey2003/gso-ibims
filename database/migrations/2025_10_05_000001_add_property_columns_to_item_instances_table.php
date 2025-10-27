@@ -2,17 +2,18 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('item_instances', function (Blueprint $table) {
-            if (Schema::hasColumn('item_instances', 'serial')) {
+        if ($this->indexExists('item_instances', 'item_instances_serial_unique')) {
+            Schema::table('item_instances', function (Blueprint $table) {
                 $table->dropUnique('item_instances_serial_unique');
-            }
-        });
+            });
+        }
 
         Schema::table('item_instances', function (Blueprint $table) {
             if (! Schema::hasColumn('item_instances', 'property_number')) {
@@ -35,20 +36,44 @@ return new class extends Migration
             }
         });
 
-        Schema::table('item_instances', function (Blueprint $table) {
-            $table->unique('property_number', 'item_instances_property_number_unique');
-            $table->index('serial', 'item_instances_serial_index');
-            $table->index('serial_int', 'item_instances_serial_int_index');
-        });
+        if (! $this->indexExists('item_instances', 'item_instances_property_number_unique')) {
+            Schema::table('item_instances', function (Blueprint $table) {
+                $table->unique('property_number', 'item_instances_property_number_unique');
+            });
+        }
+
+        if (! $this->indexExists('item_instances', 'item_instances_serial_index')) {
+            Schema::table('item_instances', function (Blueprint $table) {
+                $table->index('serial', 'item_instances_serial_index');
+            });
+        }
+
+        if (! $this->indexExists('item_instances', 'item_instances_serial_int_index')) {
+            Schema::table('item_instances', function (Blueprint $table) {
+                $table->index('serial_int', 'item_instances_serial_int_index');
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('item_instances', function (Blueprint $table) {
-            $table->dropUnique('item_instances_property_number_unique');
-            $table->dropIndex('item_instances_serial_index');
-            $table->dropIndex('item_instances_serial_int_index');
-        });
+        if ($this->indexExists('item_instances', 'item_instances_property_number_unique')) {
+            Schema::table('item_instances', function (Blueprint $table) {
+                $table->dropUnique('item_instances_property_number_unique');
+            });
+        }
+
+        if ($this->indexExists('item_instances', 'item_instances_serial_index')) {
+            Schema::table('item_instances', function (Blueprint $table) {
+                $table->dropIndex('item_instances_serial_index');
+            });
+        }
+
+        if ($this->indexExists('item_instances', 'item_instances_serial_int_index')) {
+            Schema::table('item_instances', function (Blueprint $table) {
+                $table->dropIndex('item_instances_serial_int_index');
+            });
+        }
 
         Schema::table('item_instances', function (Blueprint $table) {
             if (Schema::hasColumn('item_instances', 'office_code')) {
@@ -71,8 +96,20 @@ return new class extends Migration
             }
         });
 
-        Schema::table('item_instances', function (Blueprint $table) {
-            $table->unique('serial', 'item_instances_serial_unique');
-        });
+        if (! $this->indexExists('item_instances', 'item_instances_serial_unique')) {
+            Schema::table('item_instances', function (Blueprint $table) {
+                $table->unique('serial', 'item_instances_serial_unique');
+            });
+        }
+    }
+
+    private function indexExists(string $table, string $index): bool
+    {
+        $connection = Schema::getConnection();
+        $tableName = $connection->getTablePrefix() . $table;
+
+        $result = DB::select("SHOW INDEX FROM `{$tableName}` WHERE Key_name = ?", [$index]);
+
+        return ! empty($result);
     }
 };

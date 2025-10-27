@@ -73,10 +73,10 @@ class ItemInstance extends Model
             $this->attributes['property_number'] = $components['property_number'];
             $this->attributes['year_procured'] = (int) $components['year'];
 
-            // Store category-derived code (1-4 uppercase alnum)
-            $category = isset($components['category']) ? strtoupper($components['category']) : (isset($components['category_code']) ? strtoupper($components['category_code']) : null);
+            // Store category code (4 digits)
+            $category = $components['category'] ?? $components['category_code'] ?? null;
             if ($category !== null) {
-                $category = preg_replace('/[^A-Z0-9]/', '', $category);
+                $category = preg_replace('/\D/', '', (string) $category);
                 $this->attributes['category_code'] = $category !== '' ? substr($category, 0, 4) : null;
             } else {
                 $this->attributes['category_code'] = null;
@@ -94,13 +94,13 @@ class ItemInstance extends Model
             $raw = trim((string) $value);
             $this->attributes['property_number'] = $raw;
             // Attempt lightweight extraction using regex to avoid full parse failing
-            if (preg_match('/(\d{4})-([A-Z0-9]{1,4})-([0-9]{1,4})-([A-Za-z0-9]+)-([A-Za-z0-9]{1,4})/', strtoupper($raw), $m)) {
+            if (preg_match('/(\d{4})-(\d{4})-([0-9]{1,4})-([A-Za-z0-9]+)-(\d{4})/', strtoupper($raw), $m)) {
                 $this->attributes['year_procured'] = isset($m[1]) ? (int) $m[1] : null;
-                $this->attributes['category_code'] = isset($m[2]) ? substr(preg_replace('/[^A-Z0-9]/', '', $m[2]), 0, 4) : null;
+                $this->attributes['category_code'] = isset($m[2]) ? substr(preg_replace('/\D/', '', $m[2]), 0, 4) : null;
                 $this->attributes['gla'] = isset($m[3]) ? $m[3] : null;
                 $this->attributes['serial'] = isset($m[4]) ? $m[4] : null;
                 $this->attributes['serial_int'] = isset($m[4]) && ctype_digit($m[4]) ? (int) ltrim($m[4], '0') : null;
-                $this->attributes['office_code'] = isset($m[5]) ? $m[5] : null;
+                $this->attributes['office_code'] = isset($m[5]) ? substr(preg_replace('/\D/', '', $m[5]), 0, 4) : null;
             } else {
                 // best effort: don't populate segments
                 $this->attributes['year_procured'] = $this->attributes['year_procured'] ?? null;

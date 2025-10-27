@@ -21,10 +21,10 @@ class ItemInstanceController extends Controller
         $data = $request->validate([
             'property_number' => 'sometimes|string',
             'year' => 'sometimes|digits:4',
-            'category' => 'sometimes|string',
+            'category' => 'sometimes|digits:4',
             'gla' => 'sometimes|digits_between:1,4',
-            'serial' => 'sometimes|string',
-            'office' => 'sometimes|string|max:4',
+            'serial' => ['sometimes', 'regex:/^(?=.*\d)[A-Za-z0-9]{1,5}$/'],
+            'office' => 'sometimes|digits:4',
         ]);
 
         // Accept a full property_number, or components
@@ -35,7 +35,7 @@ class ItemInstanceController extends Controller
                 // build components - require year/category/gla/serial/office (fall back to existing instance)
                 $components = [
                     'year' => $data['year'] ?? $instance->year_procured,
-                    'category' => strtoupper($data['category'] ?? $instance->category_code ?? ''),
+                    'category' => $data['category'] ?? $instance->category_code ?? '',
                     'gla' => isset($data['gla']) ? (string) $data['gla'] : ($instance->gla ?? null),
                     'serial' => $data['serial'] ?? $instance->serial,
                     'office' => $data['office'] ?? $instance->office_code,

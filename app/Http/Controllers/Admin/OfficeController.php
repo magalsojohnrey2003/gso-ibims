@@ -17,11 +17,13 @@ class OfficeController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'code' => 'required|alpha_num|min:1|max:4|unique:offices,code',
+            'code' => 'required|digits:4|unique:offices,code',
             'name' => 'nullable|string|max:255',
+        ], [
+            'code.digits' => 'Office code must be exactly 4 digits.',
         ]);
         $office = Office::create([
-            'code' => strtoupper($data['code']),
+            'code' => $data['code'],
             'name' => $data['name'] ?? null,
         ]);
         return response()->json(['data' => $office], 201);

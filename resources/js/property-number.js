@@ -57,29 +57,31 @@ function resolveCategoryCode(selectEl) {
      if (!selectEl) return '';
      const rawValue = (typeof selectEl === 'string') ? selectEl : (selectEl.value ?? '');
      if (!rawValue) return '';
- 
+
+     const normalizeDigits = (value) => String(value || '').replace(/\D/g, '').slice(0, 4);
+
      const key = String(rawValue);
      const direct = CASELESS_CATEGORY_MAP[key] ?? CASELESS_CATEGORY_MAP[key.toLowerCase()];
      if (direct) {
-         const cleaned = String(direct).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0,4);
+         const cleaned = normalizeDigits(direct);
          return cleaned;
      }
- 
+
      if (typeof selectEl === 'object' && selectEl.options) {
          const option = selectEl.options?.[selectEl.selectedIndex];
          if (option) {
              const attr = option.getAttribute('data-category-code') || option.getAttribute('data-category-id') || option.getAttribute('data-category-name');
              if (attr) {
-                 const cleaned = String(attr).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0,4);
+                 const cleaned = normalizeDigits(attr);
                  return cleaned;
              }
          }
      }
- 
-     const only = String(rawValue).replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+
+     const only = normalizeDigits(rawValue);
      if (!only) return '';
-     return only.slice(0,4);
- }
+     return only;
+}
 
 function applyCategoryCode(form) {
     const categorySelect = form.querySelector('[data-category-select]');

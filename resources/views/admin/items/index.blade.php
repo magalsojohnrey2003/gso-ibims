@@ -1,6 +1,46 @@
 @php
     // Build a map of category id => name for quick lookup (safe default if $categories empty)
     $categoryMap = collect($categories ?? [])->filter()->keyBy('id')->map(fn($c) => $c['name'])->toArray();
+    $bootstrapCategories = collect($categories ?? [])->map(function ($c) {
+        return [
+            'id' => $c['id'] ?? null,
+            'name' => $c['name'] ?? '',
+            'category_code' => isset($c['category_code'])
+                ? preg_replace('/\D+/', '', (string) $c['category_code'])
+                : '',
+        ];
+    })->values()->toArray();
+
+    $bootstrapOffices = collect($offices ?? [])->map(function ($o) {
+        return [
+            'code' => isset($o['code']) ? preg_replace('/\D+/', '', (string) $o['code']) : '',
+            'name' => $o['name'] ?? '',
+        ];
+    })->values()->toArray();
+
+    $bootstrapCategoryCodes = [];
+
+    foreach ($categoryCodeMap ?? [] as $name => $codeValue) {
+        $digits = preg_replace('/\D+/', '', (string) $codeValue);
+        if ($name && $digits !== '') {
+            $bootstrapCategoryCodes[$name] = str_pad(substr($digits, 0, 4), 4, '0', STR_PAD_LEFT);
+        }
+    }
+
+    foreach ($categories ?? [] as $category) {
+        $digits = isset($category['category_code']) ? preg_replace('/\D+/', '', (string) $category['category_code']) : '';
+        if ($digits === '') {
+            continue;
+        }
+
+        $code = str_pad(substr($digits, 0, 4), 4, '0', STR_PAD_LEFT);
+        if (! empty($category['name'])) {
+            $bootstrapCategoryCodes[$category['name']] = $code;
+        }
+        if (isset($category['id'])) {
+            $bootstrapCategoryCodes[(string) $category['id']] = $code;
+        }
+    }
 @endphp
 
 <x-app-layout>
@@ -15,11 +55,9 @@
     <div
         class="hidden"
         data-items-bootstrap
-        data-items-categories='@json(collect($categories)->map(function($c){
-            return ['id' => $c['id'] ?? null, 'name' => $c['name'] ?? ''];
-        })->values())'
-        data-items-offices='@json($offices ?? [])'
-        data-items-category-codes='@json($categoryCodeMap ?? [])'>
+        data-items-categories='@json($bootstrapCategories)'
+        data-items-offices='@json($bootstrapOffices)'
+        data-items-category-codes='@json($bootstrapCategoryCodes)'>
     </div>
 
   <div class="py-6">

@@ -40,32 +40,50 @@ class ItemController extends Controller
     protected function getCategories(): array
     {
         try {
-            $cats = \App\Models\Category::orderBy('name')->get(['id', 'name']);
-            return $cats->map(function ($c) {
-                return ['id' => $c->id, 'name' => $c->name];
-            })->values()->toArray();
+            return \App\Models\Category::orderBy('name')
+                ->get(['id', 'name', 'category_code'])
+                ->map(function ($category) {
+                    $digits = preg_replace('/\D/', '', (string) ($category->category_code ?? ''));
+                    $code = $digits !== '' ? str_pad(substr($digits, 0, 4), 4, '0', STR_PAD_LEFT) : '';
+                    return [
+                        'id' => $category->id,
+                        'name' => $category->name,
+                        'category_code' => $code,
+                    ];
+                })
+                ->values()
+                ->toArray();
         } catch (\Throwable $e) {
             return [];
         }
     }
 
-    protected function resolveCategoryCode(string $category, ?string $fallback = null): string
-     {
-         if ($fallback && preg_match('/^[A-Z0-9]{1,4}$/', (string) $fallback)) {
-             return $fallback;
-         }
- 
-         $normalized = array_change_key_case($this->categoryCodeMap, CASE_LOWER);
-         $code = $normalized[strtolower($category)] ?? null;
-         if ($code && preg_match('/^[A-Z0-9]{1,4}$/', $code)) {
-             $clean = preg_replace('/[^A-Za-z0-9]/', '', strtoupper($code));
-             return substr($clean, 0, 4);
-         }
- 
-         $only = preg_replace('/[^A-Za-z0-9]/', '', strtoupper((string) $category));
-         if ($only === '') return '';
-         return substr($only, 0, 4);
-     }
+    protected function resolveCategoryCode($category, ?string $fallback = null): string
+    {
+        $fallbackDigits = $fallback ? preg_replace('/\D/', '', (string) $fallback) : '';
+        if ($fallbackDigits !== '' && strlen($fallbackDigits) >= 4) {
+            return substr($fallbackDigits, 0, 4);
+        }
+
+        $normalized = array_change_key_case($this->categoryCodeMap ?? [], CASE_LOWER);
+        $key = is_scalar($category) ? strtolower((string) $category) : '';
+        if ($key !== '') {
+            $mapped = $normalized[$key] ?? null;
+            if ($mapped) {
+                $digits = preg_replace('/\D/', '', (string) $mapped);
+                if ($digits !== '') {
+                    return substr(str_pad($digits, 4, '0', STR_PAD_LEFT), 0, 4);
+                }
+            }
+        }
+
+        $rawDigits = preg_replace('/\D/', '', (string) $category);
+        if ($rawDigits === '') {
+            return '';
+        }
+
+        return substr(str_pad($rawDigits, 4, '0', STR_PAD_LEFT), 0, 4);
+    }
 
     protected function determineSerialWidth(string $serial): int
     {
@@ -140,9 +158,13 @@ class ItemController extends Controller
         $categoryCodeMap = [];
         try {
             $dbMap = \App\Models\Category::query()->pluck('category_code', 'name')->filter()->toArray();
-            foreach ($dbMap as $k => $v) {
-                if ($v !== null && $v !== '') {
-                    $categoryCodeMap[$k] = strtoupper($v);
+            foreach ($dbMap as $name => $code) {
+                if ($code === null || $code === '') {
+                    continue;
+                }
+                $digits = preg_replace('/\D/', '', (string) $code);
+                if ($digits !== '') {
+                    $categoryCodeMap[$name] = str_pad(substr($digits, 0, 4), 4, '0', STR_PAD_LEFT);
                 }
             }
         } catch (\Throwable $e) {
@@ -153,13 +175,28 @@ class ItemController extends Controller
         if (file_exists($file)) {
             $json = json_decode(file_get_contents($file), true);
             if (is_array($json)) {
-                foreach ($json as $k => $v) {
-                    $categoryCodeMap[$k] = $v;
+                foreach ($json as $name => $code) {
+                    if ($code === null) {
+                        continue;
+                    }
+                    $digits = preg_replace('/\D/', '', (string) $code);
+                    if ($digits !== '') {
+                        $categoryCodeMap[$name] = str_pad(substr($digits, 0, 4), 4, '0', STR_PAD_LEFT);
+                    }
                 }
             }
         }
 
-        $offices = [];
+        $this->categoryCodeMap = $categoryCodeMap;
+
+        $offices = \App\Models\Office::orderBy('code')->get(['code', 'name'])->map(function ($office) {
+            $digits = preg_replace('/\D+/', '', (string) ($office->code ?? ''));
+            $code = $digits ? str_pad(substr($digits, 0, 4), 4, '0', STR_PAD_LEFT) : '';
+            return [
+                'code' => $code,
+                'name' => $office->name,
+            ];
+        })->values()->toArray();
 
         return view('admin.items.index', compact('items', 'categories', 'categoryCodeMap', 'offices'));
     }
@@ -237,7 +274,7 @@ class ItemController extends Controller
         $data = $request->validate([
             'year_procured' => 'required|digits:4',
             'office_code' => 'required|alpha_num|min:1|max:4',
-            'gla' => 'required|digits_between:1,4',
+            'gla' => 'nullable|digits_between:1,4',
             'start_serial' => 'required|digits_between:1,8',
             'quantity' => 'required|integer|min:1|max:500',
             'category' => 'nullable|string',
@@ -249,6 +286,15 @@ class ItemController extends Controller
         $categoryCodeInput = (string) ($data['category_code'] ?? '');
         $categoryCode = $categoryCodeInput ?: $this->resolveCategoryCode($category, $categoryCodeInput ?: null);
 
+        $glaValue = isset($data['gla']) ? trim((string) $data['gla']) : '';
+        if ($glaValue === '' || $categoryCode === '') {
+            return response()->json([
+                'available' => true,
+                'conflict_serials' => [],
+                'available_slots' => (int) $data['quantity'],
+            ]);
+        }
+
         $serialSeed = $data['start_serial'];
         $serialWidth = $this->determineSerialWidth($serialSeed);
         $serialStartRaw = ltrim($serialSeed, '0');
@@ -258,7 +304,7 @@ class ItemController extends Controller
         $components = [
             'year' => $data['year_procured'],
             'category' => $categoryCode,
-            'gla' => (string) $data['gla'],
+            'gla' => $glaValue,
             'office' => $data['office_code'],
         ];
 
@@ -606,32 +652,24 @@ public function store(Request $request, PropertyNumberService $numbers)
 }
 
 
-public function update(Request $request, Item $item, PropertyNumberService $numbers)
+public function update(Request $request, Item $item)
 {
     $data = $request->validate([
         'name' => 'required|string|max:255',
         'category' => 'required|string',
-        'year_procured' => 'required|digits:4|integer|min:2020|max:' . date('Y'),
-        'gla' => 'nullable|digits_between:1,4',
-        'office_code' => 'required|alpha_num|min:1|max:4',
-        'serial' => ['required', 'regex:/^(?=.*\d)[A-Za-z0-9]{1,5}$/i'],
         'description' => 'nullable|string|max:1000',
         'photo' => 'nullable|image|max:2048',
-        'item_instance_id' => 'nullable|exists:item_instances,id',
+        'existing_photo' => 'nullable|string',
     ]);
 
-    $categoryCode = $this->resolveCategoryCode($data['category'], $request->input('category_code'));
-    $serialRaw = (string) $data['serial'];
-    $serialNormalized = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $serialRaw));
-    $formattedSerial = $this->formatSerialForStorage($serialNormalized);
-    $serialWidth = $this->determineSerialWidth($formattedSerial);
-    $photoPath = $item->photo;
+    $originalPhoto = $item->photo;
+    $photoPath = $originalPhoto;
     $uploadedNewPhoto = false;
 
     if ($request->hasFile('photo')) {
         $photoPath = $request->file('photo')->store('items', 'public');
         $uploadedNewPhoto = true;
-    } elseif (! $item->photo) {
+    } elseif (! $item->photo && empty($data['existing_photo'])) {
         $photoPath = $this->defaultPhoto;
     }
 
@@ -642,66 +680,19 @@ public function update(Request $request, Item $item, PropertyNumberService $numb
         $item->photo = $photoPath;
         $item->save();
 
-        $instance = $data['item_instance_id']
-            ? ItemInstance::find($data['item_instance_id'])
-            : $item->instances()->first();
-
-        if ($instance) {
-            $trackedKeys = array_flip($this->auditInstanceFields);
-            $before = array_intersect_key($instance->getOriginal(), $trackedKeys);
-
-            $payload = [
-                'year' => $data['year_procured'],
-                'category' => $categoryCode,
-                'gla' => isset($data['gla']) ? (string) $data['gla'] : ($instance->gla ?? null),
-                'serial' => $formattedSerial,
-                'office' => $data['office_code'],
-            ];
-
-            $propertyNumber = $numbers->assemble($payload);
-
-            $exists = ItemInstance::where('property_number', $propertyNumber)
-                ->where('id', '!=', $instance->id)
-                ->exists();
-            if ($exists) {
-                throw new \RuntimeException('Another item already uses the property number ' . $propertyNumber . '.');
-            }
-
-            $instance->property_number = $propertyNumber;
-            $instance->year_procured = (int) $data['year_procured'];
-            $instance->category_code = $categoryCode;
-            $instance->gla = isset($payload['gla']) ? (string) $payload['gla'] : null;
-            $instance->serial = $payload['serial'];
-            $instance->serial_int = ctype_digit($payload['serial']) ? (int) ltrim($payload['serial'], '0') : null;
-            $instance->office_code = $data['office_code'];
-            if (! empty($data['description'])) {
-                $instance->notes = $data['description'];
-            }
-            $instance->save();
-
-            $after = array_intersect_key($instance->getAttributes(), $trackedKeys);
-            $changes = $this->diffInstanceChanges($before, $after);
-
-            if (! empty($changes)) {
-                $this->instanceLogger->log(
-                    $instance,
-                    'updated',
-                    [
-                        'changes' => $changes,
-                        'source' => 'admin_item_update',
-                    ],
-                    $request->user()
-                );
-            }
+        $primaryInstance = $item->instances()->first();
+        if ($primaryInstance && array_key_exists('description', $data)) {
+            $primaryInstance->notes = $data['description'] ?? null;
+            $primaryInstance->save();
         }
 
         $this->syncItemQuantities($item);
 
-        if ($uploadedNewPhoto && $item->getOriginal('photo') && ! str_starts_with($item->getOriginal('photo'), 'defaults/')) {
-            Storage::disk('public')->delete($item->getOriginal('photo'));
-        }
-
         DB::commit();
+
+        if ($uploadedNewPhoto && $originalPhoto && $originalPhoto !== $photoPath && ! str_starts_with($originalPhoto, 'defaults/')) {
+            Storage::disk('public')->delete($originalPhoto);
+        }
 
         if ($request->wantsJson()) {
             $photoUrl = $item->photo ? asset('storage/' . ltrim($item->photo, '/')) : null;
@@ -713,27 +704,12 @@ public function update(Request $request, Item $item, PropertyNumberService $numb
                 'category' => $item->category,
                 'total_qty' => $item->total_qty,
                 'available_qty' => $item->available_qty,
-                'property_number' => $instance?->property_number ?? null,
-                'office_code' => $instance?->office_code ?? null,
-                'year_procured' => $instance?->year_procured ?? null,
-                'serial' => $instance?->serial ?? null,
-                'gla' => $instance?->gla ?? null,
-                'category_code' => $instance?->category_code ?? null,
-                'item_instance_id' => $instance?->id ?? null,
                 'photo' => $photoUrl,
-                'item' => [
-                    'id' => $item->id,
-                    'name' => $item->name,
-                    'category' => $item->category,
-                    'total_qty' => $item->total_qty,
-                    'available_qty' => $item->available_qty,
-                    'photo' => $photoUrl,
-                ],
+                'description' => $primaryInstance?->notes,
             ]);
         }
 
         return redirect()->route('items.index')->with('success', 'Item updated.');
-
     } catch (\Throwable $e) {
         DB::rollBack();
 
@@ -742,8 +718,7 @@ public function update(Request $request, Item $item, PropertyNumberService $numb
         }
 
         if ($request->wantsJson()) {
-            $status = $e instanceof \RuntimeException ? 409 : 500;
-            return response()->json(['message' => $e->getMessage()], $status);
+            return response()->json(['message' => $e->getMessage()], 500);
         }
 
         return redirect()->back()->withInput()->with('error', 'Failed to update item: ' . $e->getMessage());

@@ -12,6 +12,7 @@ import './return-items';
 import './admin-dashboard';
 import './property-number';
 import './items-add-modal';
+import './item-instances-manager';
 import './items-edit-modal';
 import '../css/admin-dashboard.css';
 import './user-dashboard';
@@ -19,7 +20,6 @@ import './reports';
 import './qty-controls';
 import '../css/borrow-list.css';
 import '../css/return-selected-items.css';
-import './item-instances-manager';
 import '../css/assign-manpower.css';
 import './sidebar-toggle';
 
@@ -163,7 +163,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 });
-
 
 
 

@@ -162,7 +162,7 @@
             <input type="text" class="w-20 text-center text-sm rounded-md border px-2 py-1 bg-white" placeholder="Year" data-row-field="year" data-row-name="year" inputmode="numeric" maxlength="4" />
             <div class="text-gray-500 select-none"> - </div>
 
-            <input type="text" readonly class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-gray-100" placeholder="Category" data-row-field="category" data-row-name="category_code" />
+            <input type="text" readonly class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-gray-100" placeholder="Category" data-row-field="category" data-row-name="category_code" maxlength="4" />
             <div class="text-gray-500 select-none"> - </div>
 
             <input type="text" class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-white" placeholder="GLA" data-row-field="gla" data-row-name="gla" inputmode="numeric" maxlength="4" />
@@ -171,7 +171,7 @@
             <input type="text" class="w-20 text-center text-sm rounded-md border px-2 py-1 bg-white" placeholder="Serial" data-row-field="serial" data-row-name="serial" maxlength="5" />
             <div class="text-gray-500 select-none"> - </div>
 
-            <input type="text" class="w-20 text-center text-sm rounded-md border px-2 py-1 bg-white" placeholder="Office" data-row-field="office" data-row-name="office" maxlength="4" />
+            <input type="text" class="w-20 text-center text-sm rounded-md border px-2 py-1 bg-white" placeholder="Office" data-row-field="office" data-row-name="office" maxlength="4" inputmode="numeric" />
 
             <div class="flex-none ml-2">
               <button type="button" class="text-red-600 text-sm px-2 py-1 rounded-md hover:bg-red-50" data-row-remove>Remove</button>

@@ -1,4 +1,4 @@
-﻿import { normalizeSegment, resolveCategoryCode } from './property-number';
+import { normalizeSegment, resolveCategoryCode } from './property-number';
 
 const SELECTOR = '[data-add-items-form]';
 const FEEDBACK_SELECTOR = '[data-add-feedback]';
@@ -148,58 +148,80 @@ function bootstrapItemsData() {
 
   const categories = parseJSON(source.dataset.itemsCategories) || [];
   const offices = parseJSON(source.dataset.itemsOffices) || [];
-  const categoryCodes = parseJSON(source.dataset.itemsCategoryCodes) || {};
+  const categoryCodesRaw = parseJSON(source.dataset.itemsCategoryCodes) || {};
 
   if (typeof window !== 'undefined') {
-    if (Array.isArray(categories) && categories.length) {
-      window.__serverCategories = categories;
+    const normalizedCategories = Array.isArray(categories) ? categories.map(normalizeCategory) : [];
+    if (normalizedCategories.length) {
+      window.__serverCategories = normalizedCategories;
     } else if (!Array.isArray(window.__serverCategories)) {
       window.__serverCategories = [];
     }
 
     if (Array.isArray(offices) && offices.length) {
-      window.__serverOffices = offices;
+      window.__serverOffices = offices.map(normalizeOffice);
     } else if (!Array.isArray(window.__serverOffices)) {
       window.__serverOffices = [];
     }
 
-    if (categoryCodes && typeof categoryCodes === 'object') {
-      window.__servercategoryCodeMap = categoryCodes;
-      window.__serverCategoryCodeMap = categoryCodes;
-    } else if (typeof window.__servercategoryCodeMap !== 'object') {
-      window.__servercategoryCodeMap = {};
-      window.__serverCategoryCodeMap = {};
-    }
+    const seededMap = (categoryCodesRaw && typeof categoryCodesRaw === 'object' && !Array.isArray(categoryCodesRaw))
+      ? Object.entries(categoryCodesRaw).reduce((acc, [key, value]) => {
+          const digits = String(value || '').replace(/\D/g, '').slice(0, 4);
+          if (digits) acc[String(key)] = digits.padStart(4, '0');
+          return acc;
+        }, {})
+      : {};
+
+    const mergedMap = buildCategoryCodeMap(normalizedCategories, seededMap);
+    window.__servercategoryCodeMap = mergedMap;
+    window.__serverCategoryCodeMap = mergedMap;
+    window.CATEGORY_CODE_MAP = mergedMap;
   }
 }
 
-bootstrapItemsData();
-
 function normalizeCategory(item) {
-  if (item && typeof item === 'object') {
-    return {
-      id: item.id ?? null,
-      name: item.name ?? '',
-    };
-  }
+  const name = item && typeof item === 'object' ? (item.name ?? '') : (item ?? '');
+  const id = item && typeof item === 'object' ? (item.id ?? null) : null;
+  const rawCode = item && typeof item === 'object'
+    ? (item.category_code ?? item.code ?? '')
+    : '';
+  const digits = String(rawCode || '').replace(/\D/g, '').slice(0, 4);
+  const code = digits ? digits.padStart(4, '0') : '';
   return {
-    id: null,
-    name: item !== undefined && item !== null ? String(item) : '',
+    id,
+    name: String(name || ''),
+    category_code: code,
+    code,
   };
 }
 
 function normalizeOffice(item) {
-  if (item && typeof item === 'object') {
-    return {
-      code: item.code ?? '',
-      name: item.name ?? '',
-    };
-  }
-  const value = item !== undefined && item !== null ? String(item) : '';
+  const rawCode = item && typeof item === 'object' ? (item.code ?? '') : (item ?? '');
+  const digits = String(rawCode || '').replace(/\D/g, '').slice(0, 4);
+  const code = digits ? digits.padStart(4, '0') : '';
+  const name = item && typeof item === 'object' ? (item.name ?? '') : '';
   return {
-    code: value,
-    name: '',
+    code,
+    name: String(name || ''),
   };
+}
+
+function buildCategoryCodeMap(categories, seed = {}) {
+  const map = { ...(seed || {}) };
+  (Array.isArray(categories) ? categories : []).forEach((cat) => {
+    if (!cat || typeof cat !== 'object') return;
+    const raw = cat.code ?? cat.category_code ?? '';
+    const digits = String(raw || '').replace(/\D/g, '').slice(0, 4);
+    if (!digits) return;
+    const code = digits.padStart(4, '0');
+    if (cat.name) {
+      map[String(cat.name)] = code;
+    }
+    if (cat.id !== undefined && cat.id !== null) {
+      map[String(cat.id)] = code;
+    }
+  });
+  return map;
 }
 
 function formatSerialConflictMessage(conflicts = []) {
@@ -240,13 +262,17 @@ function collectBase(form) {
   const categoryValue = (fields.categoryEl?.value ?? '').trim();
 
   let categoryCodeValue = fields.categoryHidden?.value ?? '';
+  if (!categoryCodeValue && fields.categoryEl) {
+    categoryCodeValue = resolveCategoryCode(fields.categoryEl) || '';
+  }
   if (!categoryCodeValue && categoryValue) {
     categoryCodeValue = resolveCategoryCode(categoryValue) || '';
   }
 
-  const categoryCode = normalizeSegment(categoryCodeValue, 4);
-  const glaVal = (fields.gla?.value || '').replace(/\D/g, '').slice(0, 6);
-  const office = (fields.office?.value || '').toString().trim();
+  const categoryCode = normalizeSegment(categoryCodeValue, 4).replace(/\D/g, '').slice(0, 4);
+  const glaVal = (fields.gla?.value || '').replace(/\D/g, '').slice(0, 4);
+  const officeDigits = (fields.office?.value || '').toString().replace(/\D/g, '').slice(0, 4);
+  const office = officeDigits;
 
   const rawSerialInput = fields.serial?.value ?? '';
   const sanitizedSerial = sanitizeSerialInput(rawSerialInput);
@@ -264,7 +290,7 @@ function collectBase(form) {
   if (!Number.isFinite(quantity) || quantity < 1) quantity = 1;
   if (quantity > 500) quantity = 500;
 
-  const ready = Boolean(year.length === 4 && categoryCode && office && serialHasDigit);
+  const ready = Boolean(year.length === 4 && categoryCode.length === 4 && office.length === 4 && serialHasDigit);
   const signature = [year, categoryCode, glaVal, office, formattedSerial, quantity].join('|');
 
   return {
@@ -565,9 +591,9 @@ class PropertyRowsManager {
       case 'serial':
         return sanitizeSerialInput(value);
       case 'office':
-        return value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 4);
+        return value.replace(/\D/g, '').slice(0, 4);
       case 'category':
-        return value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 4);
+        return value.replace(/\D/g, '').slice(0, 4);
       default:
         return value;
     }
@@ -610,26 +636,78 @@ class PropertyRowsManager {
   validateRow(row) {
     const invalidFields = new Set();
     if (!row) return invalidFields;
-    row.querySelectorAll('[data-row-field]').forEach((input) => {
-      if (!(input instanceof HTMLInputElement)) return;
+
+    const inputs = Array.from(row.querySelectorAll('[data-row-field]')).filter((input) => input instanceof HTMLInputElement);
+
+    inputs.forEach((input) => {
       const field = input.dataset.rowField;
       if (!field) return;
+
       const value = input.value.trim();
       if (!value) {
         this.setInvalidReason(input, 'empty');
         invalidFields.add(field);
-      } else {
-        this.clearInvalidReason(input, 'empty');
+        return;
       }
-      if (field === 'serial') {
-        if (!serialContainsDigit(value)) {
-          this.setInvalidReason(input, 'digit');
-          invalidFields.add('serial');
-        } else {
-          this.clearInvalidReason(input, 'digit');
+      this.clearInvalidReason(input, 'empty');
+
+      switch (field) {
+        case 'year': {
+          const isValidYear = /^\d{4}$/.test(value);
+          if (!isValidYear) {
+            this.setInvalidReason(input, 'format');
+            invalidFields.add('year');
+          } else {
+            this.clearInvalidReason(input, 'format');
+          }
+          break;
         }
+        case 'category': {
+          const isValidCategory = /^\d{4}$/.test(value);
+          if (!isValidCategory) {
+            this.setInvalidReason(input, 'format');
+            invalidFields.add('category');
+          } else {
+            this.clearInvalidReason(input, 'format');
+          }
+          break;
+        }
+        case 'gla': {
+          const isValidGla = /^\d{1,4}$/.test(value);
+          if (!isValidGla) {
+            this.setInvalidReason(input, 'format');
+            invalidFields.add('gla');
+          } else {
+            this.clearInvalidReason(input, 'format');
+          }
+          break;
+        }
+        case 'serial': {
+          const formatted = formatSerialValue(value);
+          if (formatted !== input.value) input.value = formatted;
+          if (!serialContainsDigit(formatted)) {
+            this.setInvalidReason(input, 'digit');
+            invalidFields.add('serial');
+          } else {
+            this.clearInvalidReason(input, 'digit');
+          }
+          break;
+        }
+        case 'office': {
+          const isValidOffice = /^\d{4}$/.test(value);
+          if (!isValidOffice) {
+            this.setInvalidReason(input, 'format');
+            invalidFields.add('office');
+          } else {
+            this.clearInvalidReason(input, 'format');
+          }
+          break;
+        }
+        default:
+          break;
       }
     });
+
     return invalidFields;
   }
 
@@ -811,6 +889,9 @@ async function ensureSerialAvailability(elements, base) {
   if (!elements.serialInput || !base.ready || !base.serialValue || base.serialHasLetters) {
     return { available: true, conflicts: [] };
   }
+  if (!base.gla) {
+    return { available: true, conflicts: [] };
+  }
   if (elements.lastSerialResult && elements.lastSerialResult.signature === base.signature) {
     return elements.lastSerialResult;
   }
@@ -967,20 +1048,20 @@ function attachOfficeValidation(form) {
   if (!input || !errorEl) return;
 
   const validate = () => {
-    const value = (input.value || '').trim();
-    const isEmpty = value === '';
-
-    const isValid = /^[A-Za-z0-9]{1,4}$/.test(value);
-
-    if (isEmpty) {
+    const raw = (input.value || '').trim();
+    if (raw === '') {
       input.setCustomValidity('');
       errorEl.classList.add('hidden');
       return;
     }
 
+    const digits = raw.replace(/\D/g, '');
+    const isValid = /^\d{4}$/.test(digits);
+    input.value = digits.slice(0, 4);
+
     if (!isValid) {
-      input.setCustomValidity('Office Code must be 1 to 4 alphanumeric characters.');
-      errorEl.textContent = 'Office code must be 1–4 alphanumeric characters.';
+      input.setCustomValidity('Office code must be exactly 4 digits.');
+      errorEl.textContent = 'Office code must be exactly 4 digits.';
       errorEl.classList.remove('hidden');
     } else {
       input.setCustomValidity('');
@@ -1008,10 +1089,19 @@ function populateCategorySelects(form) {
       return;
     }
     sel.appendChild(new Option('- Select Category -', ''));
-    cats.forEach(c => {
-       if (typeof c === 'object' && c !== null) sel.appendChild(new Option(c.name, c.id));
-       else sel.appendChild(new Option(c, c));
-     });
+    cats.forEach((cat) => {
+      if (cat && typeof cat === 'object') {
+        const option = new Option(cat.name || '', cat.id ?? cat.code ?? '');
+        const code = cat.code || cat.category_code || '';
+        if (code) option.dataset.categoryCode = code;
+        option.dataset.categoryName = cat.name || '';
+        if (cat.id !== undefined && cat.id !== null) option.dataset.categoryId = String(cat.id);
+        sel.appendChild(option);
+      } else {
+        const option = new Option(String(cat || ''), String(cat || ''));
+        sel.appendChild(option);
+      }
+    });
     sel.disabled = false;
   });
 }
@@ -1028,8 +1118,14 @@ function populateOfficeSelects(form) {
     sel.appendChild(new Option('- Select Office -', ''));
     offices.forEach(o => {
       const code = typeof o === 'object' ? (o.code ?? '') : o;
-      const label = typeof o === 'object' ? (o.name ?? code) : o;
-      sel.appendChild(new Option(label, code));
+      const sanitized = String(code || '').replace(/\D/g, '').slice(0, 4);
+      const finalCode = sanitized ? sanitized.padStart(4, '0') : '';
+      const name = typeof o === 'object' ? (o.name ?? '') : '';
+      const label = name ? `${name} (${finalCode})` : finalCode;
+      const option = new Option(label, finalCode);
+      option.dataset.officeCode = finalCode;
+      option.dataset.officeName = name;
+      sel.appendChild(option);
     });
     sel.disabled = false;
   });
@@ -1047,9 +1143,18 @@ function initCategoryOfficeManagement() {
   const categoryAddBtn = document.getElementById('category-add-btn');
   const officeAddBtn = document.getElementById('office-add-btn');
   const newCategoryInput = document.getElementById('new-category-name');
+  const newCategoryCodeInput = document.getElementById('new-category-code');
   const newOfficeCodeInput = document.getElementById('new-office-code');
   const newOfficeNameInput = document.getElementById('new-office-name');
   const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+  const enforceDigits = (input) => {
+    if (!input) return;
+    input.value = String(input.value || '').replace(/\D/g, '').slice(0, 4);
+  };
+
+  newCategoryCodeInput?.addEventListener('input', () => enforceDigits(newCategoryCodeInput));
+  newOfficeCodeInput?.addEventListener('input', () => enforceDigits(newOfficeCodeInput));
 
   if (!categoryListBody && !officeListBody) return;
 
@@ -1076,18 +1181,20 @@ function initCategoryOfficeManagement() {
         row.dataset.index = String(idx);
       }
       const nameEl = fragment.querySelector('[data-category-name]');
-      if (nameEl) {
-        nameEl.textContent = cat.name || '';
-      }
+      if (nameEl) nameEl.textContent = cat.name || 'N/A';
+      const codeEl = fragment.querySelector('[data-category-code]');
+      if (codeEl) codeEl.textContent = cat.code || 'N/A';
       const viewBtn = fragment.querySelector('[data-view-cat]');
       if (viewBtn) {
         if (cat.id !== undefined && cat.id !== null) viewBtn.setAttribute('data-id', String(cat.id));
         viewBtn.setAttribute('data-name', cat.name || '');
+        if (cat.code) viewBtn.setAttribute('data-code', cat.code);
       }
       const deleteBtn = fragment.querySelector('[data-delete-cat]');
       if (deleteBtn) {
         if (cat.id !== undefined && cat.id !== null) deleteBtn.setAttribute('data-id', String(cat.id));
         deleteBtn.setAttribute('data-name', cat.name || '');
+        if (cat.code) deleteBtn.setAttribute('data-code', cat.code);
       }
       categoryListBody.appendChild(fragment);
     });
@@ -1111,11 +1218,14 @@ function initCategoryOfficeManagement() {
         row.dataset.index = String(idx);
       }
       const codeEl = fragment.querySelector('[data-office-code]');
-      if (codeEl) codeEl.textContent = office.code || '';
+      if (codeEl) codeEl.textContent = office.code || 'N/A';
       const nameEl = fragment.querySelector('[data-office-name]');
-      if (nameEl) nameEl.textContent = office.name || '';
+      if (nameEl) nameEl.textContent = office.name || 'N/A';
       const viewBtn = fragment.querySelector('[data-view-office]');
-      if (viewBtn) viewBtn.setAttribute('data-code', office.code || '');
+      if (viewBtn) {
+        viewBtn.setAttribute('data-code', office.code || '');
+        if (office.name) viewBtn.setAttribute('data-name', office.name);
+      }
       const deleteBtn = fragment.querySelector('[data-delete-office]');
       if (deleteBtn) deleteBtn.setAttribute('data-code', office.code || '');
       officeListBody.appendChild(fragment);
@@ -1125,6 +1235,10 @@ function initCategoryOfficeManagement() {
   const updateCategoryState = (categories) => {
     state.categories = Array.isArray(categories) ? categories.map(normalizeCategory) : [];
     window.__serverCategories = state.categories;
+    const merged = buildCategoryCodeMap(state.categories, {});
+    window.__servercategoryCodeMap = merged;
+    window.__serverCategoryCodeMap = merged;
+    window.CATEGORY_CODE_MAP = merged;
     renderCategories();
     window.dispatchEvent(new Event('server:categories:updated'));
   };
@@ -1187,8 +1301,14 @@ function initCategoryOfficeManagement() {
 
   categoryAddBtn?.addEventListener('click', async () => {
     const name = (newCategoryInput?.value || '').trim();
+    const rawCode = (newCategoryCodeInput?.value || '').trim();
+    const code = rawCode.replace(/\D/g, '').slice(0, 4);
     if (!name) {
       showToast('error', 'Enter category name');
+      return;
+    }
+    if (code.length !== 4) {
+      showToast('error', 'Category code must be exactly 4 digits');
       return;
     }
     try {
@@ -1199,9 +1319,10 @@ function initCategoryOfficeManagement() {
           'X-CSRF-TOKEN': csrf,
           Accept: 'application/json',
         },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, category_code: code }),
       });
       if (newCategoryInput) newCategoryInput.value = '';
+      if (newCategoryCodeInput) newCategoryCodeInput.value = '';
       await fetchCategoriesFromServer();
       showToast('success', 'Category saved');
     } catch (error) {
@@ -1210,10 +1331,11 @@ function initCategoryOfficeManagement() {
   });
 
   officeAddBtn?.addEventListener('click', async () => {
-    const code = (newOfficeCodeInput?.value || '').trim().toUpperCase();
+    const rawCode = (newOfficeCodeInput?.value || '').trim();
+    const code = rawCode.replace(/\D/g, '').slice(0, 4);
     const displayName = (newOfficeNameInput?.value || '').trim();
-    if (!/^[A-Za-z0-9]{1,4}$/.test(code)) {
-      showToast('error', 'Office code should be 1-4 alphanumeric characters');
+    if (code.length !== 4) {
+      showToast('error', 'Office code should be exactly 4 digits');
       return;
     }
     try {
@@ -1293,17 +1415,18 @@ function initCategoryOfficeManagement() {
 function attachCategoryListeners(form) {
   form.querySelectorAll('select[data-category-select]').forEach(sel => {
     sel.addEventListener('change', (e) => {
-      const chosen = (e.target.value ?? '').toString();
+      const selectEl = e.target;
+      const chosen = (selectEl?.value ?? '').toString();
       const hidden = form.querySelector('input[data-property-segment="category"], input[name="category_code"]');
       if (hidden) {
-        const resolved = resolveCategoryCode(chosen) || '';
+        const resolved = resolveCategoryCode(selectEl) || resolveCategoryCode(chosen) || '';
         hidden.value = resolved;
         try { hidden.defaultValue = resolved; } catch(_) {}
         hidden.setAttribute('value', resolved);
       }
       const display = form.querySelector('[data-category-display]');
       if (display) {
-        const resolved = resolveCategoryCode(chosen) || '';
+        const resolved = resolveCategoryCode(selectEl) || resolveCategoryCode(chosen) || '';
         display.value = resolved;
       }
 
@@ -1435,7 +1558,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initCategoryOfficeManagement();
   document.querySelectorAll('input[name="office_code"], input[data-add-field="office"], input[data-edit-field="office"], input.instance-part-office').forEach(inp => {
     inp.addEventListener('input', () => {
-      inp.value = String(inp.value || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 4);
+      inp.value = String(inp.value || '').replace(/\D/g, '').slice(0, 4);
     });
   });
 
