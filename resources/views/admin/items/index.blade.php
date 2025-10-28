@@ -177,7 +177,7 @@
                                           data-print-quantity="{{ max(1, $item->instances->count()) }}"
                                           data-print-item="{{ $item->name }}"
                                           data-print-description="{{ $item->description }}"
-                                          data-print-acquisition="{{ $item->acquisition_date }}"
+                                          data-print-acquisition="{{ optional($item->acquisition_date)->format('m/d/Y') }}"
                                           :disabled="$item->instances->isEmpty()">
                                           Print
                                       </x-button>

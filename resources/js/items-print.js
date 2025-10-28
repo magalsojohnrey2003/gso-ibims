@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let drawing = false;
   let hasSignature = false;
+  const PEN_WIDTH = 2.5;
   const state = {
     route: '',
     quantity: 1,
@@ -30,15 +31,23 @@ document.addEventListener('DOMContentLoaded', () => {
     acquisition: '',
   };
 
+  const applyPenStyle = () => {
+    ctx.lineWidth = PEN_WIDTH;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#1f2937';
+  };
+
   const setCanvasDimensions = () => {
     const rect = canvas.getBoundingClientRect();
     const ratio = window.devicePixelRatio || 1;
-    canvas.width = rect.width * ratio;
-    canvas.height = rect.height * ratio;
+    const fallbackWidth = 480;
+    const fallbackHeight = 180;
+    const displayWidth = rect.width > 1 ? rect.width : fallbackWidth;
+    const displayHeight = rect.height > 1 ? rect.height : fallbackHeight;
+    canvas.width = displayWidth * ratio;
+    canvas.height = displayHeight * ratio;
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = '#1f2937';
+    applyPenStyle();
     clearSignature();
   };
 
@@ -47,13 +56,11 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, width, height);
-    ctx.restore();
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, width, height);
+    ctx.restore();
     ctx.beginPath();
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = '#1f2937';
+    applyPenStyle();
     hasSignature = false;
   };
 
@@ -92,6 +99,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   canvas.style.touchAction = 'none';
   canvas.style.cursor = 'crosshair';
+  canvas.style.border = '1px solid #d1d5db';
+  canvas.style.backgroundColor = '#ffffff';
   setCanvasDimensions();
   window.addEventListener('resize', setCanvasDimensions);
 
@@ -108,6 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   cancelBtn.addEventListener('click', (event) => {
     event.preventDefault();
+    clearSignature();
     window.dispatchEvent(new CustomEvent('close-modal', { detail: 'print-stickers' }));
   });
 
@@ -197,5 +207,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.removeChild(tempForm);
 
     window.dispatchEvent(new CustomEvent('close-modal', { detail: 'print-stickers' }));
+    clearSignature();
   });
 });

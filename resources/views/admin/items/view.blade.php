@@ -14,6 +14,10 @@
     $categoryLabel = $displayCategory ?? ($item->category ?? '');
     $updatedAt = optional($item->updated_at)->format('M d, Y g:i A');
     $createdAt = optional($item->created_at)->format('M d, Y g:i A');
+    $acquisitionDateDisplay = optional($item->acquisition_date)->format('M d, Y');
+    $acquisitionCostDisplay = $item->acquisition_cost !== null
+        ? '₱' . number_format($item->acquisition_cost, 0)
+        : null;
 @endphp
 
 <div class="space-y-8">
@@ -45,6 +49,14 @@
                     <p class="text-base font-semibold {{ $item->available_qty > 0 ? 'text-green-600' : 'text-red-600' }}">
                         {{ $item->available_qty }}
                     </p>
+                </div>
+                <div>
+                    <span class="text-xs uppercase tracking-wide text-gray-500">Acquisition Date</span>
+                    <p class="text-base font-medium text-gray-900">{{ $acquisitionDateDisplay ?: '—' }}</p>
+                </div>
+                <div>
+                    <span class="text-xs uppercase tracking-wide text-gray-500">Acquisition Cost</span>
+                    <p class="text-base font-medium text-gray-900">{{ $acquisitionCostDisplay ?: '—' }}</p>
                 </div>
                 <div>
                     <span class="text-xs uppercase tracking-wide text-gray-500">Created</span>
@@ -131,5 +143,4 @@
             </div>
         </div>
     </section>
-
 </div>

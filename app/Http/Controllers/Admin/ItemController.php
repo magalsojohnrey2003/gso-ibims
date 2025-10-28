@@ -358,6 +358,8 @@ public function store(Request $request, PropertyNumberService $numbers)
         'start_serial' => 'nullable|alpha_num|min:1|max:5',
         'description' => 'nullable|string|max:1000',
         'photo' => 'nullable|image|max:2048',
+        'acquisition_date' => 'nullable|date',
+        'acquisition_cost' => 'nullable|string|max:50',
         'include_serial_no' => 'nullable|boolean',
         'include_model_no' => 'nullable|boolean',
         // support per-row components (array)
@@ -569,6 +571,16 @@ public function store(Request $request, PropertyNumberService $numbers)
         $photoPath = $this->defaultPhoto;
     }
 
+    $acquisitionDateValue = null;
+    if ($request->filled('acquisition_date')) {
+        try {
+            $acquisitionDateValue = Carbon::parse($request->input('acquisition_date'))->toDateString();
+        } catch (\Throwable $e) {
+            $acquisitionDateValue = null;
+        }
+    }
+    $acquisitionCostValue = $this->normalizeCurrency($request->input('acquisition_cost'));
+
     DB::beginTransaction();
     try {
         $item = Item::create([
@@ -577,6 +589,8 @@ public function store(Request $request, PropertyNumberService $numbers)
             'total_qty' => 0,
             'available_qty' => 0,
             'photo' => $photoPath,
+            'acquisition_date' => $acquisitionDateValue,
+            'acquisition_cost' => $acquisitionCostValue,
         ]);
 
         $created = [];
@@ -707,6 +721,8 @@ public function update(Request $request, Item $item)
         'description' => 'nullable|string|max:1000',
         'photo' => 'nullable|image|max:2048',
         'existing_photo' => 'nullable|string',
+        'acquisition_date' => 'nullable|date',
+        'acquisition_cost' => 'nullable|string|max:50',
     ]);
 
     $originalPhoto = $item->photo;
@@ -725,6 +741,22 @@ public function update(Request $request, Item $item)
         $item->name = $data['name'];
         $item->category = $data['category'];
         $item->photo = $photoPath;
+
+        if ($request->has('acquisition_date')) {
+            if ($request->filled('acquisition_date')) {
+                try {
+                    $item->acquisition_date = Carbon::parse($request->input('acquisition_date'))->toDateString();
+                } catch (\Throwable $e) {
+                    $item->acquisition_date = null;
+                }
+            } else {
+                $item->acquisition_date = null;
+            }
+        }
+
+        if ($request->has('acquisition_cost')) {
+            $item->acquisition_cost = $this->normalizeCurrency($request->input('acquisition_cost'));
+        }
         $item->save();
 
         $primaryInstance = $item->instances()->first();
@@ -771,6 +803,30 @@ public function update(Request $request, Item $item)
         return redirect()->back()->withInput()->with('error', 'Failed to update item: ' . $e->getMessage());
     }
 }
+
+    protected function normalizeCurrency(mixed $value): ?int
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $digits = preg_replace('/\D+/', '', (string) $value);
+        if ($digits === '') {
+            return null;
+        }
+
+        if (strlen($digits) > 18) {
+            $digits = substr($digits, 0, 18);
+        }
+
+        $normalized = (int) $digits;
+
+        if ($normalized < 0) {
+            return null;
+        }
+
+        return $normalized;
+    }
 
     protected function createInstances(
         Item $item,

@@ -8,7 +8,18 @@ class Item extends Model
 {
     use HasFactory;
     protected $fillable = [
-        'name', 'category', 'total_qty', 'available_qty', 'photo'
+        'name',
+        'category',
+        'total_qty',
+        'available_qty',
+        'photo',
+        'acquisition_date',
+        'acquisition_cost',
+    ];
+
+    protected $casts = [
+        'acquisition_date' => 'date',
+        'acquisition_cost' => 'integer',
     ];
 
     public function borrowItems()
