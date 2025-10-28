@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let drawing = false;
   let hasSignature = false;
-  const PEN_WIDTH = 2.5;
+  const PEN_WIDTH = 3.5;
   const state = {
     route: '',
     quantity: 1,
@@ -178,7 +178,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (hasSignature) {
       try {
-        signatureData = canvas.toDataURL('image/png');
+        const candidate = canvas.toDataURL('image/png');
+        if (candidate && candidate.startsWith('data:image')) {
+          signatureData = candidate;
+        }
       } catch (error) {
         console.warn('Failed to export signature:', error);
       }
@@ -199,6 +202,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     appendField('_token', csrfToken);
     appendField('person_accountable', person);
+    if (!signatureData) {
+      signatureData = ' ';
+    }
     appendField('signature_data', signatureData);
     appendField('quantity', String(quantity));
 
@@ -210,3 +216,4 @@ document.addEventListener('DOMContentLoaded', () => {
     clearSignature();
   });
 });
+

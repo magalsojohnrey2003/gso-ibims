@@ -122,33 +122,6 @@
                 <input type="hidden" name="existing_photo" value="{{ $existingPath }}">
             </div>
 
-            <div>
-                <span class="block text-sm font-semibold text-gray-700">Include Additional Identifiers</span>
-                <div class="mt-2 flex flex-wrap gap-4">
-                    <label class="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
-                        <input
-                            type="checkbox"
-                            class="h-4 w-4 rounded-full border-gray-300 text-purple-600 focus:ring-purple-500"
-                            data-instance-toggle="serial_no"
-                            data-row-toggle="serial_no"
-                            {{ $hasSerialNo ? 'checked' : '' }}>
-                        <span>Serial No.</span>
-                    </label>
-
-                    <label class="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
-                        <input
-                            type="checkbox"
-                            class="h-4 w-4 rounded-full border-gray-300 text-purple-600 focus:ring-purple-500"
-                            data-instance-toggle="model_no"
-                            data-row-toggle="model_no"
-                            {{ $hasModelNo ? 'checked' : '' }}>
-                        <span>Model No.</span>
-                    </label>
-                </div>
-                <p class="mt-2 text-xs text-gray-500">
-                    Enable these options to edit Serial or Model numbers for each property number row.
-                </p>
-            </div>
         </div>
     </div>
 
@@ -181,16 +154,16 @@
 
             <div id="edit_instances_container" class="w-full space-y-3 max-h-72 overflow-auto p-3 border rounded-lg bg-white" aria-live="polite">
                 @forelse ($item->instances as $inst)
-                    <div class="flex items-start gap-4 edit-instance-row" data-instance-id="{{ $inst->id }}">
+                    <div class="flex items-center gap-4 edit-instance-row" data-instance-id="{{ $inst->id }}">
                         <div class="flex-none w-10 text-center">
                             <div class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-50 text-indigo-700 font-medium">{{ $loop->iteration }}</div>
                         </div>
 
-                        <div class="flex-1 bg-indigo-50 rounded-lg px-3 py-3 overflow-x-auto">
+                        <div class="flex-1 bg-indigo-50 rounded-lg px-3 py-2 overflow-x-auto">
                             <div class="flex items-center gap-2 flex-nowrap">
                                 <input
                                     type="text"
-                                    class="w-20 sm:w-16 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-year"
+                                    class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-year"
                                     value="{{ $inst->year_procured ?? '' }}"
                                     placeholder="Year"
                                     inputmode="numeric"
@@ -217,7 +190,7 @@
 
                                 <input
                                     type="text"
-                                    class="w-20 sm:w-16 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-serial"
+                                    class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-serial"
                                     value="{{ $inst->serial ?? '' }}"
                                     placeholder="Serial"
                                     maxlength="5">
@@ -225,7 +198,7 @@
 
                                 <input
                                     type="text"
-                                    class="w-20 sm:w-16 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-office"
+                                    class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-office"
                                     value="{{ $inst->office_code ?? '' }}"
                                     placeholder="Office"
                                     inputmode="numeric"
@@ -271,7 +244,7 @@
 
         <div id="edit-item-{{ $item->id }}-serial-model" class="p-4 border-t border-gray-100 space-y-4" data-accordion-panel data-edit-serial-panel>
             <p class="text-sm text-gray-600" data-edit-serial-message>
-                Provide serial and model numbers per property number. This section is enabled when the corresponding options are checked in Item Information.
+                Provide serial and model numbers per property number once property number rows are complete.
             </p>
 
             <div class="w-full space-y-3 max-h-72 overflow-auto p-3 border rounded-lg bg-white" data-edit-serial-container aria-live="polite">

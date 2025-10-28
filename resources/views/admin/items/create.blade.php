@@ -58,7 +58,7 @@
             </div>
 
             <div class="sm:col-span-2">
-                <span class="block text-sm font-semibold text-gray-700">Serial &amp; Model Options</span>
+                <span class="block text-sm font-semibold text-gray-700">Serial &amp; Model Number</span>
                 <div class="mt-2 flex flex-wrap gap-4">
                     <label class="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
                         <input
@@ -119,8 +119,8 @@
     </button>
 
     <div id="create-property-config" class="p-4 border-t border-gray-100 space-y-6" data-accordion-panel>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div class="flex flex-col">
                 <x-input-label for="year_procured" value="Year Procured" />
                 <select id="year_procured" name="year_procured"
                         class="mt-1 block w-full bg-gray-100 border border-gray-300 text-gray-900 rounded-md px-3 py-2 shadow-sm focus:border-blue-400 focus:ring focus:ring-blue-100 transition"
@@ -138,7 +138,7 @@
                 <x-input-error :messages="$errors->get('year_procured')" class="mt-2" />
             </div>
 
-            <div>
+            <div class="flex flex-col">
                 <x-input-label for="category" value="Category" />
                 <select id="category" name="category"
                         class="mt-1 block w-full min-w-0 appearance-none border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:border-blue-400 focus:ring focus:ring-blue-100 transition"
@@ -147,7 +147,7 @@
                 <x-input-error :messages="$errors->get('category')" class="mt-2" />
             </div>
 
-            <div>
+            <div class="flex flex-col">
                 <x-input-label for="gla" value="GLA" />
                 <x-text-input
                     id="gla"
@@ -164,7 +164,7 @@
                 <x-input-error :messages="$errors->get('gla')" class="mt-2" />
             </div>
 
-            <div>
+            <div class="flex flex-col">
                 <x-input-label for="serial" value="Serial" />
                 <x-text-input
                     id="serial"
@@ -181,7 +181,7 @@
                 <x-input-error :messages="$errors->get('serial')" class="mt-2" />
             </div>
 
-            <div>
+            <div class="flex flex-col">
                 <x-input-label for="office" value="Office" />
                 <select
                     id="office"
@@ -204,7 +204,7 @@
             </div>
 
             <div class="text-xs text-gray-600 mb-2">
-                Rows will be generated based on Quantity, Year, Category, Serial and Office. You can edit rows before saving.
+                Rows will be generated Year, Category, GLA, Serial and Office. You can edit rows before saving.
             </div>
 
             <div
@@ -215,14 +215,14 @@
             </div>
 
             <template data-property-row-template>
-                <div class="flex items-start gap-4 per-row-panel" data-property-row>
+                <div class="flex items-center gap-3 per-row-panel" data-property-row>
                     <div class="flex-none w-10 text-center pt-2">
                         <div class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-50 text-indigo-700 font-medium" data-row-index>1</div>
                     </div>
 
-                    <div class="flex-1 bg-indigo-50 rounded-lg px-3 py-3 overflow-x-auto">
+                    <div class="flex-1 bg-indigo-50 rounded-lg px-3 py-2 overflow-x-auto">
                         <div class="flex items-center gap-2 flex-nowrap" data-row-fields>
-                            <input type="text" class="w-20 text-center text-sm rounded-md border px-2 py-1 bg-white" placeholder="Year" data-row-field="year" data-row-name="year" inputmode="numeric" maxlength="4" />
+                            <input type="text" class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-white" placeholder="Year" data-row-field="year" data-row-name="year" inputmode="numeric" maxlength="4" />
                             <div class="text-gray-500 select-none">-</div>
 
                             <input type="text" readonly class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-gray-100" placeholder="Category" data-row-field="category" data-row-name="category_code" maxlength="4" />
@@ -231,15 +231,15 @@
                             <input type="text" class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-white" placeholder="GLA" data-row-field="gla" data-row-name="gla" inputmode="numeric" maxlength="4" />
                             <div class="text-gray-500 select-none">-</div>
 
-                            <input type="text" class="w-20 text-center text-sm rounded-md border px-2 py-1 bg-white" placeholder="Serial" data-row-field="serial" data-row-name="serial" maxlength="5" />
+                            <input type="text" class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-white" placeholder="Serial" data-row-field="serial" data-row-name="serial" maxlength="5" />
                             <div class="text-gray-500 select-none">-</div>
 
-                            <input type="text" class="w-20 text-center text-sm rounded-md border px-2 py-1 bg-white" placeholder="Office" data-row-field="office" data-row-name="office" maxlength="4" inputmode="numeric" />
-                        </div>
-
-                        <div class="flex justify-end">
+                            <input type="text" class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-white" placeholder="Office" data-row-field="office" data-row-name="office" maxlength="4" inputmode="numeric" />
+                            <div class="flex-1"></div>
                             <button type="button" class="text-red-600 text-sm px-2 py-1 rounded-md hover:bg-red-50" data-row-remove>Remove</button>
                         </div>
+
+                
                     </div>
                 </div>
             </template>
@@ -269,7 +269,7 @@
 
     <div id="create-serial-model" class="p-4 border-t border-gray-100 space-y-4" data-accordion-panel data-serial-model-panel>
         <p class="text-sm text-gray-600" data-serial-model-message>
-            Serial and model numbers become available once property number rows are completed and the corresponding options are enabled above.
+            Serial and model numbers become available once property number rows are completed.
         </p>
 
         <div

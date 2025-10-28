@@ -18,6 +18,20 @@ const sanitizeSerialInput = (value) => String(value || '').toUpperCase().replace
 const sanitizeSerialNo = (value) => String(value || '').toUpperCase().replace(/[^A-Za-z0-9]/g, '').slice(0, 4);
 const sanitizeModelNo = (value) => String(value || '').toUpperCase().replace(/[^A-Za-z0-9]/g, '').slice(0, 15);
 
+const stripSerialPadding = (value) => {
+  if (!value) return '';
+  const upper = String(value).toUpperCase();
+  const match = upper.match(/^([A-Z]*)(0*)(\d+)$/);
+  if (match) {
+    const prefix = match[1] || '';
+    const digits = match[3] || '';
+    const trimmed = digits.replace(/^0+/, '');
+    const normalized = trimmed === '' ? (digits ? '0' : '') : trimmed;
+    return prefix + normalized;
+  }
+  return upper;
+};
+
 function parseSerialSegments(value) {
   const segments = [];
   if (!value) return segments;
@@ -78,7 +92,7 @@ function formatSerialValue(raw) {
 
 function sanitizeSerial(value) {
   const formatted = formatSerialValue(value);
-  return formatted;
+  return stripSerialPadding(formatted);
 }
 
 function readRow(inputs, serialInputs = {}) {
@@ -185,7 +199,7 @@ class ItemInstancesManager {
     this.serialSectionReason = '';
 
     this.toggleInputs = Array.from(form.querySelectorAll('[data-instance-toggle]'));
-    this.activeOptions = new Set();
+    this.activeOptions = new Set(['serial_no', 'model_no']);
 
     const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || window.CSRF_TOKEN || '';
     this.api = {
@@ -294,8 +308,6 @@ class ItemInstancesManager {
   }
 
   evaluateSerialSection() {
-    const active = this.getActiveOptions();
-    const hasOption = active.has('serial_no') || active.has('model_no');
     const rowsComplete = this.rows.every((state) => {
       if (state.removed) return true;
       const current = state.current || {};
@@ -305,9 +317,6 @@ class ItemInstancesManager {
     if (!rowsComplete) {
       this.serialSectionLocked = true;
       this.serialSectionReason = 'Complete property number rows before editing serial or model numbers.';
-    } else if (!hasOption) {
-      this.serialSectionLocked = true;
-      this.serialSectionReason = 'Enable the Serial and/or Model options in Item Information to edit these fields.';
     } else {
       this.serialSectionLocked = false;
       this.serialSectionReason = '';
@@ -468,8 +477,8 @@ class ItemInstancesManager {
   }
 
   updateActiveOptions() {
-    if (!Array.isArray(this.toggleInputs)) {
-      this.activeOptions = new Set();
+    if (!Array.isArray(this.toggleInputs) || this.toggleInputs.length === 0) {
+      this.activeOptions = new Set(['serial_no', 'model_no']);
       return;
     }
     this.activeOptions = new Set(
@@ -494,8 +503,8 @@ class ItemInstancesManager {
 
   applyToggleState() {
     const active = this.getActiveOptions();
-    const serialEnabled = active.has('serial_no');
-    const modelEnabled = active.has('model_no');
+    const serialEnabled = active.has('serial_no') && !this.serialSectionLocked;
+    const modelEnabled = active.has('model_no') && !this.serialSectionLocked;
 
     this.serialRows.forEach((inputs) => {
       const { serialInput, modelInput } = inputs;

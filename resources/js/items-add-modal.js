@@ -12,7 +12,7 @@ const SERIAL_FEEDBACK_SELECTOR = '[data-serial-feedback]';
 const SERIAL_CHECK_ENDPOINT = '/admin/items/check-serial';
 const SERIAL_CHECK_DELAY = 300;
 const SERIAL_ERROR_CLASSES = ['ring-2', 'ring-red-300', 'border-red-500', 'focus:border-red-500', 'focus:ring-red-300'];
-const SERIAL_OK_CLASSES = ['ring-2', 'ring-green-300', 'border-green-500', 'focus:border-green-500', 'focus:ring-green-300'];
+const SERIAL_OK_CLASSES = [];
 const ROW_INVALID_CLASSES = ['border-red-300', 'ring-1', 'ring-red-200', 'focus:border-red-400', 'focus:ring-red-200'];
 
 const showToast = (typeof window !== 'undefined' && typeof window.showToast === 'function')
@@ -123,6 +123,25 @@ function incrementSerialValue(value) {
     })
     .join('')
     .slice(0, 5);
+}
+
+function stripSerialPadding(value) {
+  if (!value) return '';
+  const upper = String(value).toUpperCase();
+  const match = upper.match(/^([A-Z]*)(0*)(\d+)$/);
+  if (match) {
+    const prefix = match[1] || '';
+    const digits = match[3] || '';
+    const trimmedDigits = digits.replace(/^0+/, '');
+    const normalizedDigits = trimmedDigits === '' ? (digits ? '0' : '') : trimmedDigits;
+    return prefix + normalizedDigits;
+  }
+  return upper;
+}
+
+function displaySerialValue(value) {
+  if (!value) return '';
+  return stripSerialPadding(value);
 }
 
 function buildErrorSummary(fields) {
@@ -470,16 +489,17 @@ class PropertyRowsManager {
 
       if (field === 'serial' && !baseValue && !shouldAutofill) {
         const formatted = formatSerialValue(input.value);
-        if (formatted !== input.value) {
-          input.value = formatted;
+        const display = stripSerialPadding(formatted);
+        if (display !== input.value) {
+          input.value = display;
         }
       }
 
       if (baseValue) {
         if (shouldAutofill || input.dataset.autofill === '1') {
-          input.value = baseValue;
+          input.value = field === 'serial' ? displaySerialValue(baseValue) : baseValue;
           input.dataset.autofill = '1';
-          input.dataset.autofillValue = baseValue;
+          input.dataset.autofillValue = field === 'serial' ? displaySerialValue(baseValue) : baseValue;
         }
       } else if (input.dataset.autofill === '1') {
         delete input.dataset.autofill;
@@ -553,8 +573,9 @@ class PropertyRowsManager {
     if (!(target instanceof HTMLInputElement)) return;
     if (target.dataset.rowField !== 'serial') return;
     const formatted = formatSerialValue(target.value || '');
-    if (formatted !== target.value) {
-      target.value = formatted;
+    const display = stripSerialPadding(formatted);
+    if (display !== target.value) {
+      target.value = display;
     }
     const row = target.closest('[data-property-row]');
     if (row) {
@@ -599,7 +620,7 @@ class PropertyRowsManager {
       case 'gla':
         return value.replace(/\D/g, '').slice(0, 4);
       case 'serial':
-        return sanitizeSerialInput(value);
+        return stripSerialPadding(sanitizeSerialInput(value));
       case 'office':
         return value.replace(/\D/g, '').slice(0, 4);
       case 'category':
@@ -694,7 +715,8 @@ class PropertyRowsManager {
         }
         case 'serial': {
           const formatted = formatSerialValue(value);
-          if (formatted !== input.value) input.value = formatted;
+          const display = stripSerialPadding(formatted);
+          if (display !== input.value) input.value = display;
           if (!serialContainsDigit(formatted)) {
             this.setInvalidReason(input, 'digit');
             invalidFields.add('serial');
@@ -873,11 +895,8 @@ class SerialModelRowsManager {
     this.container = form.querySelector('[data-serial-model-container]');
     this.template = form.querySelector('template[data-serial-model-template]');
     this.messageEl = form.querySelector('[data-serial-model-message]');
-    this.serialToggle = form.querySelector('input[name="include_serial_no"]');
-    this.modelToggle = form.querySelector('input[name="include_model_no"]');
-
-    this.allowSerial = Boolean(this.serialToggle?.checked);
-    this.allowModel = Boolean(this.modelToggle?.checked);
+    this.allowSerial = true;
+    this.allowModel = true;
     this.rows = [];
     this.rowsComplete = false;
     this.isLocked = true;
@@ -887,13 +906,6 @@ class SerialModelRowsManager {
     if (this.trigger) {
       this.trigger.addEventListener('click', (event) => this.handleTriggerClick(event));
     }
-    if (this.serialToggle) {
-      this.serialToggle.addEventListener('change', () => this.handleToggleChange());
-    }
-    if (this.modelToggle) {
-      this.modelToggle.addEventListener('change', () => this.handleToggleChange());
-    }
-
     if (this.rowsManager && typeof this.rowsManager.onChange === 'function') {
       // no-op, just documenting dependency
     }
@@ -909,13 +921,6 @@ class SerialModelRowsManager {
     this.buildRows(this.rows);
     this.updateAvailability();
     this.applyOptionState();
-  }
-
-  handleToggleChange() {
-    this.allowSerial = Boolean(this.serialToggle?.checked);
-    this.allowModel = Boolean(this.modelToggle?.checked);
-    this.applyOptionState();
-    this.updateAvailability();
   }
 
   handleTriggerClick(event) {
@@ -996,14 +1001,10 @@ class SerialModelRowsManager {
 
   updateAvailability() {
     const hasRows = Array.isArray(this.rows) && this.rows.length > 0;
-    const hasOption = this.allowSerial || this.allowModel;
 
     if (!hasRows || !this.rowsComplete) {
       this.isLocked = true;
       this.lockMessage = 'Complete property number rows before adding serial or model numbers.';
-    } else if (!hasOption) {
-      this.isLocked = true;
-      this.lockMessage = 'Enable the Serial and/or Model options in Item Information to edit these fields.';
     } else {
       this.isLocked = false;
       this.lockMessage = '';
@@ -1014,7 +1015,7 @@ class SerialModelRowsManager {
         this.messageEl.textContent = this.lockMessage;
         this.messageEl.classList.remove('hidden');
       } else {
-        this.messageEl.textContent = 'Provide per-row Serial and Model numbers. Leave fields blank only if the option is disabled.';
+        this.messageEl.textContent = 'Provide per-row Serial and Model numbers as needed.';
         this.messageEl.classList.remove('hidden');
       }
     }
@@ -1025,7 +1026,7 @@ class SerialModelRowsManager {
         this.trigger.classList.add('opacity-60', 'cursor-not-allowed');
         if (this.trigger.getAttribute('aria-expanded') === 'true') {
           window.setTimeout(() => {
-            if (this.trigger.getAttribute('aria-expanded') === 'true') {
+            if (this.trigger && this.trigger.getAttribute('aria-expanded') === 'true') {
               this.trigger.click();
             }
           }, 0);
@@ -1033,6 +1034,13 @@ class SerialModelRowsManager {
       } else {
         this.trigger.removeAttribute('aria-disabled');
         this.trigger.classList.remove('opacity-60', 'cursor-not-allowed');
+        if (this.trigger.getAttribute('aria-expanded') !== 'true') {
+          window.setTimeout(() => {
+            if (this.trigger && this.trigger.getAttribute('aria-expanded') !== 'true') {
+              this.trigger.click();
+            }
+          }, 0);
+        }
       }
     }
   }
@@ -1046,7 +1054,7 @@ class SerialModelRowsManager {
       const modelWrap = modelInput?.closest('.flex-1');
 
       if (serialInput) {
-        const enabled = this.allowSerial && !this.isLocked;
+        const enabled = !this.isLocked;
         serialInput.disabled = !enabled;
         if (serialWrap) {
           serialWrap.classList.toggle('opacity-50', !enabled);
@@ -1058,7 +1066,7 @@ class SerialModelRowsManager {
       }
 
       if (modelInput) {
-        const enabled = this.allowModel && !this.isLocked;
+        const enabled = !this.isLocked;
         modelInput.disabled = !enabled;
         if (modelWrap) {
           modelWrap.classList.toggle('opacity-50', !enabled);
@@ -1073,14 +1081,8 @@ class SerialModelRowsManager {
 
   validate() {
     const errors = new Set();
-    if (!this.allowSerial && !this.allowModel) {
+    if (this.isLocked || !this.rows.length) {
       return { ok: true, fields: errors };
-    }
-    if (!this.rows.length) {
-      return { ok: true, fields: errors };
-    }
-    if (this.isLocked) {
-      return { ok: false, fields: errors, message: this.lockMessage };
     }
 
     const serialRegex = /^[A-Za-z0-9]{1,4}$/;
@@ -1089,7 +1091,7 @@ class SerialModelRowsManager {
     const rows = Array.from(this.container?.querySelectorAll('[data-serial-model-row]') || []);
     rows.forEach((rowEl) => {
       const serialInput = rowEl.querySelector('[data-serial-model-field="serial_no"]');
-      if (serialInput && this.allowSerial && !serialInput.disabled) {
+      if (serialInput && !serialInput.disabled) {
         const value = (serialInput.value || '').trim().toUpperCase();
         serialInput.value = value;
         if (!value) {
@@ -1106,7 +1108,7 @@ class SerialModelRowsManager {
       }
 
       const modelInput = rowEl.querySelector('[data-serial-model-field="model_no"]');
-      if (modelInput && this.allowModel && !modelInput.disabled) {
+      if (modelInput && !modelInput.disabled) {
         const value = (modelInput.value || '').trim().toUpperCase();
         modelInput.value = value;
         if (!value) {
