@@ -144,20 +144,31 @@
                               </td>
 
                               <td class="px-6 py-4">
-                                  <div class="flex items-center justify-center gap-2">
+                                  <div class="flex items-center justify-center gap-3">
                                       <x-button
                                           variant="primary"
                                           size="sm"
-                                          class="min-w-[80px] justify-center"
+                                          class="h-10 w-10 !px-0 !py-0 rounded-full shadow-lg [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
                                           iconName="pencil-square"
                                           x-data
                                           x-on:click.prevent="$dispatch('open-modal', 'edit-item-{{ $item->id }}')">
                                           Edit
                                       </x-button>
+
                                       <x-button
                                           variant="secondary"
                                           size="sm"
-                                          class="min-w-[80px] justify-center"
+                                          class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
+                                          iconName="eye"
+                                          x-data
+                                          x-on:click.prevent="$dispatch('open-modal', 'view-item-{{ $item->id }}')">
+                                          View
+                                      </x-button>
+
+                                      <x-button
+                                          variant="secondary"
+                                          size="sm"
+                                          class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
                                           iconName="printer"
                                           type="button"
                                           data-print-stickers
@@ -170,10 +181,11 @@
                                           :disabled="$item->instances->isEmpty()">
                                           Print
                                       </x-button>
+
                                       <x-button
                                           variant="danger"
                                           size="sm"
-                                          class="min-w-[80px] justify-center"
+                                          class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
                                           iconName="trash"
                                           x-data
                                           x-on:click.prevent="$dispatch('open-modal', 'confirm-delete-{{ $item->id }}')">
@@ -182,50 +194,75 @@
                                   </div>
                               </td>
                           </tr>
-                          <x-modal name="edit-item-{{ $item->id }}" maxWidth="2xl">
-                              <div class="w-full bg-white shadow-lg overflow-hidden">
-                                  <div class="bg-purple-600 text-white px-6 py-5">
-                                      <h3 class="text-2xl font-bold flex items-center">
-                                          <i class="fas fa-pencil-alt mr-2"></i>
-                                          EDIT ITEM
-                                      </h3>
-                                      <p class="text-purple-100 mt-2 text-sm leading-relaxed">Modify the Details of the Selected Inventory Item.</p>
-                                  </div>
 
-                                  <div class="p-5">
-                                      @include('admin.items.edit', [
-                                          'item' => $item,
-                                          'categories' => $categories,
-                                          'categoryCodeMap' => $categoryCodeMap,
-                                      ])
-                                  </div>
-                              </div>
-                          </x-modal>
+                          @push('item-modals')
+                              <x-modal name="edit-item-{{ $item->id }}" maxWidth="2xl">
+                                  <div class="w-full bg-white shadow-lg overflow-hidden">
+                                      <div class="bg-purple-600 text-white px-6 py-5">
+                                          <h3 class="text-2xl font-bold flex items-center">
+                                              <i class="fas fa-pencil-alt mr-2"></i>
+                                              EDIT ITEM
+                                          </h3>
+                                          <p class="text-purple-100 mt-2 text-sm leading-relaxed">Modify the Details of the Selected Inventory Item.</p>
+                                      </div>
 
-                          <x-modal name="confirm-delete-{{ $item->id }}">
-                              <div class="p-6">
-                                  <h2 class="text-lg font-bold text-red-600">
-                                      Delete <strong>{{ $item->name }}</strong>?
-                                  </h2>
-                                  <p class="mt-2 text-sm text-gray-600">This action cannot be undone.</p>
-                                  <div class="mt-6 flex justify-end space-x-3">
-                                      <x-button
-                                          variant="secondary"
-                                          iconName="x-mark"
-                                          x-on:click="$dispatch('close-modal', 'confirm-delete-{{ $item->id }}')">
-                                          Cancel
-                                      </x-button>
-                                      <form method="POST" action="{{ route('items.destroy', $item->id) }}">
-                                          @csrf
-                                          @method('DELETE')
+                                      <div class="p-5">
+                                          @include('admin.items.edit', [
+                                              'item' => $item,
+                                              'categories' => $categories,
+                                              'categoryCodeMap' => $categoryCodeMap,
+                                          ])
+                                      </div>
+                                  </div>
+                              </x-modal>
+
+                              <x-modal name="view-item-{{ $item->id }}" maxWidth="3xl">
+                                  <div class="w-full bg-white shadow-xl overflow-hidden">
+                                      <div class="bg-indigo-600 text-white px-6 py-5">
+                                          <h3 class="text-2xl font-bold flex items-center">
+                                              <i class="fas fa-eye mr-2"></i>
+                                              ITEM OVERVIEW
+                                          </h3>
+                                          <p class="text-indigo-100 mt-2 text-sm leading-relaxed">
+                                              Review the latest information for <strong>{{ $item->name }}</strong>.
+                                          </p>
+                                      </div>
+
+                                      <div class="p-6">
+                                          @include('admin.items.view', [
+                                              'item' => $item,
+                                              'displayCategory' => $displayCategory,
+                                              'categoryMap' => $categoryMap,
+                                          ])
+                                      </div>
+                                  </div>
+                              </x-modal>
+
+                              <x-modal name="confirm-delete-{{ $item->id }}">
+                                  <div class="p-6">
+                                      <h2 class="text-lg font-bold text-red-600">
+                                          Delete <strong>{{ $item->name }}</strong>?
+                                      </h2>
+                                      <p class="mt-2 text-sm text-gray-600">This action cannot be undone.</p>
+                                      <div class="mt-6 flex justify-end space-x-3">
                                           <x-button
-                                              variant="danger"
-                                              iconName="trash"
-                                              type="submit">Delete</x-button>
-                                      </form>
+                                              variant="secondary"
+                                              iconName="x-mark"
+                                              x-on:click="$dispatch('close-modal', 'confirm-delete-{{ $item->id }}')">
+                                              Cancel
+                                          </x-button>
+                                          <form method="POST" action="{{ route('items.destroy', $item->id) }}">
+                                              @csrf
+                                              @method('DELETE')
+                                              <x-button
+                                                  variant="danger"
+                                                  iconName="trash"
+                                                  type="submit">Delete</x-button>
+                                          </form>
+                                      </div>
                                   </div>
-                              </div>
-                          </x-modal>
+                              </x-modal>
+                          @endpush
                       @empty
                           <tr>
                               <td colspan="6" class="px-6 py-4 text-center text-gray-500">
@@ -259,8 +296,6 @@
           
       </div>
   </x-modal>
-
-</x-app-layout>
 
 <!-- Floating Action Menu -->
 <div x-data="{ open: false }" class="fixed bottom-8 right-8 z-50">
@@ -339,8 +374,10 @@
                 <div class="text-xs text-yellow-500">Manage office codes</div>
             </div>
         </button>
-    </div>
 </div>
+</div>
+
+@stack('item-modals')
 
 @include('admin.items.modals.category')
 @include('admin.items.modals.office')
@@ -398,5 +435,7 @@
         </form>
     </div>
 </x-modal>
+
+</x-app-layout>
 
 @vite(['resources/js/app.js'])

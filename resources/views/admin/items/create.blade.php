@@ -82,9 +82,6 @@
                         <span>Model No.</span>
                     </label>
                 </div>
-                <p class="mt-2 text-xs text-gray-500">
-                    Enable these options when you need to capture Serial or Model numbers for each generated property number.
-                </p>
             </div>
 
             <div class="sm:col-span-2">
@@ -195,7 +192,6 @@
                     data-office-select>
                     <option value="">- Select Office -</option>
                 </select>
-                <p class="mt-1 text-xs text-red-600 hidden" data-office-error>Office code must be 1-4 digits.</p>
                 <x-input-error :messages="$errors->get('office')" class="mt-2" />
             </div>
         </div>

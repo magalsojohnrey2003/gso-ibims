@@ -57,7 +57,7 @@
             class="w-full text-left focus:outline-none"
             data-accordion-trigger
             data-accordion-target="edit-item-{{ $item->id }}-info"
-            aria-expanded="true">
+            aria-expanded="false">
             <div class="flex items-center justify-between p-4">
                 <div class="flex items-center space-x-3">
                     <div class="bg-blue-100 text-blue-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">1</div>
@@ -69,7 +69,7 @@
             </div>
         </button>
 
-        <div class="p-4 border-t border-gray-100 space-y-4" id="edit-item-{{ $item->id }}-info" data-accordion-panel data-accordion-open>
+        <div class="p-4 border-t border-gray-100 space-y-4" id="edit-item-{{ $item->id }}-info" data-accordion-panel>
             <div>
                 <x-input-label for="name-{{ $item->id }}" value="Item Name" />
                 <x-text-input
@@ -313,7 +313,7 @@
     </div>
 
     <!-- Actions -->
-    <div class="mt-4 border-t pt-4 flex justify-end gap-3">
+    <div class="mt-6 border-t pt-6 flex justify-end gap-3 px-2 sm:px-0">
         <x-button
             variant="secondary"
             iconName="x-mark"
