@@ -5,7 +5,7 @@
 <div data-add-feedback class="hidden rounded-md border border-transparent bg-green-50 px-4 py-3 text-sm text-green-700"></div>
 <div data-add-error class="hidden rounded-md border border-transparent bg-red-50 px-4 py-3 text-sm text-red-700"></div>
 
-<!-- Step 1: Basic Information -->
+<!-- Step 1: Item Information -->
 <div class="bg-gray-50 shadow-md hover:shadow-lg transition rounded-lg mt-6" data-accordion-item>
     <button
         type="button"
@@ -55,33 +55,6 @@
                     data-add-field="quantity"
                 />
                 <x-input-error :messages="$errors->get('quantity')" class="mt-2" />
-            </div>
-
-            <div class="sm:col-span-2">
-                <span class="block text-sm font-semibold text-gray-700">Serial &amp; Model Number</span>
-                <div class="mt-2 flex flex-wrap gap-4">
-                    <label class="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
-                        <input
-                            type="checkbox"
-                            name="include_serial_no"
-                            value="1"
-                            class="h-4 w-4 rounded-full border-gray-300 text-purple-600 focus:ring-purple-500"
-                            data-row-toggle="serial_no"
-                            {{ old('include_serial_no') ? 'checked' : '' }}>
-                        <span>Serial No.</span>
-                    </label>
-
-                    <label class="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
-                        <input
-                            type="checkbox"
-                            name="include_model_no"
-                            value="1"
-                            class="h-4 w-4 rounded-full border-gray-300 text-purple-600 focus:ring-purple-500"
-                            data-row-toggle="model_no"
-                            {{ old('include_model_no') ? 'checked' : '' }}>
-                        <span>Model No.</span>
-                    </label>
-                </div>
             </div>
 
             <div class="sm:col-span-2">
