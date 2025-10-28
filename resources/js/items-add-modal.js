@@ -28,6 +28,8 @@ const FIELD_LABELS = {
   gla: 'GLA',
   serial: 'Serial',
   office: 'Office',
+  serial_no: 'Serial No.',
+  model_no: 'Model No.',
 };
 
 function sanitizeSerialInput(value) {
@@ -335,8 +337,10 @@ function buildPreviewData(base) {
 }
 
 class PropertyRowsManager {
-  constructor(form) {
+  constructor(form, options = {}) {
     this.form = form;
+    this.options = options || {};
+    this.onChange = typeof this.options.onChange === 'function' ? this.options.onChange : null;
     this.container = form.querySelector('[data-property-rows-container]');
     this.template = form.querySelector('template[data-property-row-template]');
     this.quantityInput = form.querySelector('[data-add-field="quantity"]');
@@ -357,6 +361,8 @@ class PropertyRowsManager {
       this.container.addEventListener('blur', (event) => this.handleBlur(event), true);
       this.container.addEventListener('click', (event) => this.handleRemove(event));
     }
+
+    this.emitChange('init');
   }
 
   sanitizeQuantity() {
@@ -423,6 +429,7 @@ class PropertyRowsManager {
     rows.forEach((row, idx) => this.populateRow(row, idx, this.latestBase, false));
     this.updateRemoveButtons();
     this.checkDuplicates();
+    this.emitChange('sync');
   }
 
   createRow(index, base) {
@@ -538,6 +545,7 @@ class PropertyRowsManager {
       this.validateRow(row);
     }
     this.checkDuplicates();
+    this.emitChange('input');
   }
 
   handleBlur(event) {
@@ -562,6 +570,7 @@ class PropertyRowsManager {
         }
       }, 0);
     }
+    this.emitChange('blur');
   }
 
   handleRemove(event) {
@@ -580,6 +589,7 @@ class PropertyRowsManager {
     remaining.forEach((r, idx) => this.populateRow(r, idx, this.latestBase, false));
     this.updateRemoveButtons();
     this.checkDuplicates();
+    this.emitChange('remove');
   }
 
   sanitizeFieldValue(field, value) {
@@ -783,6 +793,394 @@ class PropertyRowsManager {
     this.cachedBaseSerial = '';
     this.serialCache = [];
     this.sync(this.latestBase);
+    this.emitChange('reset');
+  }
+
+  getRowValues() {
+    if (!this.container) return [];
+    return Array.from(this.container.querySelectorAll('[data-property-row]')).map((row, index) => {
+      const values = {
+        index,
+        year: '',
+        category: '',
+        gla: '',
+        serial: '',
+        office: '',
+      };
+      row.querySelectorAll('[data-row-field]').forEach((input) => {
+        if (!(input instanceof HTMLInputElement)) return;
+        const field = input.dataset.rowField;
+        if (!field) return;
+        let value = (input.value || '').trim();
+        if (['year', 'category', 'gla', 'office'].includes(field)) {
+          value = value.replace(/\s+/g, '');
+        }
+        if (field === 'serial') {
+          value = formatSerialValue(value);
+        }
+        values[field] = value.toUpperCase();
+      });
+      values.propertyNumber = this.composePropertyNumber(values);
+      return values;
+    });
+  }
+
+  composePropertyNumber(fields = {}) {
+    const segment = (value, fallback) => {
+      if (!value) return fallback;
+      const trimmed = String(value).trim();
+      return trimmed === '' ? fallback : trimmed.toUpperCase();
+    };
+    const year = segment(fields.year, '----');
+    const category = segment(fields.category, '----');
+    const gla = segment(fields.gla, '----');
+    const serial = segment(fields.serial, '-----');
+    const office = segment(fields.office, '----');
+    return [year, category, gla, serial, office].join('-');
+  }
+
+  areRowsComplete(rows = null) {
+    const dataset = Array.isArray(rows) ? rows : this.getRowValues();
+    if (!dataset.length) return false;
+    return dataset.every((row) => Boolean(row.year && row.category && row.gla && row.serial && row.office));
+  }
+
+  emitChange(reason = 'sync') {
+    if (typeof this.onChange !== 'function') return;
+    const rows = this.getRowValues();
+    try {
+      this.onChange({
+        reason,
+        rows,
+        complete: this.areRowsComplete(rows),
+      });
+    } catch (error) {
+      console.error('PropertyRowsManager onChange handler failed', error);
+    }
+  }
+}
+
+class SerialModelRowsManager {
+  constructor(form, rowsManager, options = {}) {
+    this.form = form;
+    this.rowsManager = rowsManager;
+    this.options = options || {};
+    this.toast = typeof this.options.toast === 'function' ? this.options.toast : null;
+
+    this.section = form.querySelector('[data-serial-model-section]');
+    this.trigger = form.querySelector('[data-serial-model-trigger]');
+    this.panel = form.querySelector('[data-serial-model-panel]');
+    this.container = form.querySelector('[data-serial-model-container]');
+    this.template = form.querySelector('template[data-serial-model-template]');
+    this.messageEl = form.querySelector('[data-serial-model-message]');
+    this.serialToggle = form.querySelector('input[name="include_serial_no"]');
+    this.modelToggle = form.querySelector('input[name="include_model_no"]');
+
+    this.allowSerial = Boolean(this.serialToggle?.checked);
+    this.allowModel = Boolean(this.modelToggle?.checked);
+    this.rows = [];
+    this.rowsComplete = false;
+    this.isLocked = true;
+    this.lockMessage = '';
+    this.invalidReasons = new WeakMap();
+
+    if (this.trigger) {
+      this.trigger.addEventListener('click', (event) => this.handleTriggerClick(event));
+    }
+    if (this.serialToggle) {
+      this.serialToggle.addEventListener('change', () => this.handleToggleChange());
+    }
+    if (this.modelToggle) {
+      this.modelToggle.addEventListener('change', () => this.handleToggleChange());
+    }
+
+    if (this.rowsManager && typeof this.rowsManager.onChange === 'function') {
+      // no-op, just documenting dependency
+    }
+  }
+
+  handleRowsChanged(payload = {}) {
+    this.rows = Array.isArray(payload.rows) ? payload.rows : [];
+    this.rowsComplete = Boolean(payload.complete);
+    this.refresh();
+  }
+
+  refresh() {
+    this.buildRows(this.rows);
+    this.updateAvailability();
+    this.applyOptionState();
+  }
+
+  handleToggleChange() {
+    this.allowSerial = Boolean(this.serialToggle?.checked);
+    this.allowModel = Boolean(this.modelToggle?.checked);
+    this.applyOptionState();
+    this.updateAvailability();
+  }
+
+  handleTriggerClick(event) {
+    if (!this.trigger) return;
+    const expanded = this.trigger.getAttribute('aria-expanded') === 'true';
+    if (this.isLocked && !expanded) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (this.toast && this.lockMessage) {
+        this.toast('error', this.lockMessage);
+      }
+    }
+  }
+
+  buildRows(rows = []) {
+    if (!this.container || !this.template) return;
+    const existingBySignature = new Map();
+    const existingByIndex = new Map();
+
+    Array.from(this.container.querySelectorAll('[data-serial-model-row]')).forEach((rowEl) => {
+      const serialInput = rowEl.querySelector('[data-serial-model-field="serial_no"]');
+      const modelInput = rowEl.querySelector('[data-serial-model-field="model_no"]');
+      const record = {
+        serial: serialInput?.value || '',
+        model: modelInput?.value || '',
+      };
+      const signature = (rowEl.dataset.serialSignature || serialInput?.dataset.propertyNumber || '').trim().toUpperCase();
+      if (signature) {
+        existingBySignature.set(signature, record);
+      }
+      const index = Number(rowEl.dataset.serialRowIndex ?? -1);
+      if (!Number.isNaN(index) && index >= 0) {
+        existingByIndex.set(index, record);
+      }
+    });
+
+    this.container.innerHTML = '';
+
+    rows.forEach((rowData, index) => {
+      const fragment = document.importNode(this.template.content, true);
+      const rowEl = fragment.querySelector('[data-serial-model-row]');
+      if (!rowEl) return;
+      const signature = (rowData.propertyNumber || '').trim().toUpperCase();
+      const stored = existingBySignature.get(signature) || existingByIndex.get(index) || null;
+      this.populateRow(rowEl, rowData, index, stored);
+      this.container.appendChild(fragment);
+    });
+  }
+
+  populateRow(rowEl, rowData, index, storedValues = null) {
+    if (!rowEl) return;
+    rowEl.dataset.serialRowIndex = String(index);
+    rowEl.dataset.serialSignature = (rowData.propertyNumber || '').trim().toUpperCase();
+    const pnDisplay = rowEl.querySelector('[data-serial-model-pn]');
+    if (pnDisplay) {
+      pnDisplay.textContent = rowData.propertyNumber || '---- ---- ----';
+    }
+
+    const serialInput = rowEl.querySelector('[data-serial-model-field="serial_no"]');
+    const modelInput = rowEl.querySelector('[data-serial-model-field="model_no"]');
+
+    if (serialInput) {
+      serialInput.name = `property_numbers_components[${index + 1}][serial_no]`;
+      serialInput.dataset.propertyNumber = rowData.propertyNumber || '';
+      if (storedValues && typeof storedValues.serial === 'string') {
+        serialInput.value = storedValues.serial;
+      }
+    }
+
+    if (modelInput) {
+      modelInput.name = `property_numbers_components[${index + 1}][model_no]`;
+      modelInput.dataset.propertyNumber = rowData.propertyNumber || '';
+      if (storedValues && typeof storedValues.model === 'string') {
+        modelInput.value = storedValues.model;
+      }
+    }
+  }
+
+  updateAvailability() {
+    const hasRows = Array.isArray(this.rows) && this.rows.length > 0;
+    const hasOption = this.allowSerial || this.allowModel;
+
+    if (!hasRows || !this.rowsComplete) {
+      this.isLocked = true;
+      this.lockMessage = 'Complete property number rows before adding serial or model numbers.';
+    } else if (!hasOption) {
+      this.isLocked = true;
+      this.lockMessage = 'Enable the Serial and/or Model options in Item Information to edit these fields.';
+    } else {
+      this.isLocked = false;
+      this.lockMessage = '';
+    }
+
+    if (this.messageEl) {
+      if (this.isLocked) {
+        this.messageEl.textContent = this.lockMessage;
+        this.messageEl.classList.remove('hidden');
+      } else {
+        this.messageEl.textContent = 'Provide per-row Serial and Model numbers. Leave fields blank only if the option is disabled.';
+        this.messageEl.classList.remove('hidden');
+      }
+    }
+
+    if (this.trigger) {
+      if (this.isLocked) {
+        this.trigger.setAttribute('aria-disabled', 'true');
+        this.trigger.classList.add('opacity-60', 'cursor-not-allowed');
+        if (this.trigger.getAttribute('aria-expanded') === 'true') {
+          window.setTimeout(() => {
+            if (this.trigger.getAttribute('aria-expanded') === 'true') {
+              this.trigger.click();
+            }
+          }, 0);
+        }
+      } else {
+        this.trigger.removeAttribute('aria-disabled');
+        this.trigger.classList.remove('opacity-60', 'cursor-not-allowed');
+      }
+    }
+  }
+
+  applyOptionState() {
+    const rows = Array.from(this.container?.querySelectorAll('[data-serial-model-row]') || []);
+    rows.forEach((rowEl) => {
+      const serialInput = rowEl.querySelector('[data-serial-model-field="serial_no"]');
+      const serialWrap = serialInput?.closest('.flex-1');
+      const modelInput = rowEl.querySelector('[data-serial-model-field="model_no"]');
+      const modelWrap = modelInput?.closest('.flex-1');
+
+      if (serialInput) {
+        const enabled = this.allowSerial && !this.isLocked;
+        serialInput.disabled = !enabled;
+        if (serialWrap) {
+          serialWrap.classList.toggle('opacity-50', !enabled);
+        }
+        if (!enabled) {
+          this.clearInvalid(serialInput, 'empty');
+          this.clearInvalid(serialInput, 'format');
+        }
+      }
+
+      if (modelInput) {
+        const enabled = this.allowModel && !this.isLocked;
+        modelInput.disabled = !enabled;
+        if (modelWrap) {
+          modelWrap.classList.toggle('opacity-50', !enabled);
+        }
+        if (!enabled) {
+          this.clearInvalid(modelInput, 'empty');
+          this.clearInvalid(modelInput, 'format');
+        }
+      }
+    });
+  }
+
+  validate() {
+    const errors = new Set();
+    if (!this.allowSerial && !this.allowModel) {
+      return { ok: true, fields: errors };
+    }
+    if (!this.rows.length) {
+      return { ok: true, fields: errors };
+    }
+    if (this.isLocked) {
+      return { ok: false, fields: errors, message: this.lockMessage };
+    }
+
+    const serialRegex = /^[A-Za-z0-9]{1,4}$/;
+    const modelRegex = /^[A-Za-z0-9]{1,15}$/;
+
+    const rows = Array.from(this.container?.querySelectorAll('[data-serial-model-row]') || []);
+    rows.forEach((rowEl) => {
+      const serialInput = rowEl.querySelector('[data-serial-model-field="serial_no"]');
+      if (serialInput && this.allowSerial && !serialInput.disabled) {
+        const value = (serialInput.value || '').trim().toUpperCase();
+        serialInput.value = value;
+        if (!value) {
+          this.markInvalid(serialInput, 'empty');
+          errors.add('serial_no');
+        } else if (!serialRegex.test(value)) {
+          this.clearInvalid(serialInput, 'empty');
+          this.markInvalid(serialInput, 'format');
+          errors.add('serial_no');
+        } else {
+          this.clearInvalid(serialInput, 'empty');
+          this.clearInvalid(serialInput, 'format');
+        }
+      }
+
+      const modelInput = rowEl.querySelector('[data-serial-model-field="model_no"]');
+      if (modelInput && this.allowModel && !modelInput.disabled) {
+        const value = (modelInput.value || '').trim().toUpperCase();
+        modelInput.value = value;
+        if (!value) {
+          this.markInvalid(modelInput, 'empty');
+          errors.add('model_no');
+        } else if (!modelRegex.test(value)) {
+          this.clearInvalid(modelInput, 'empty');
+          this.markInvalid(modelInput, 'format');
+          errors.add('model_no');
+        } else {
+          this.clearInvalid(modelInput, 'empty');
+          this.clearInvalid(modelInput, 'format');
+        }
+      }
+    });
+
+    if (errors.size > 0) {
+      const summary = buildErrorSummary(errors);
+      return { ok: false, fields: errors, message: summary };
+    }
+    return { ok: true, fields: errors };
+  }
+
+  markInvalid(input, reason) {
+    if (!(input instanceof HTMLInputElement)) return;
+    let set = this.invalidReasons.get(input);
+    if (!set) {
+      set = new Set();
+      this.invalidReasons.set(input, set);
+    }
+    if (!set.has(reason)) {
+      set.add(reason);
+      ROW_INVALID_CLASSES.forEach((cls) => input.classList.add(cls));
+      input.dataset.invalid = '1';
+      input.setAttribute('aria-invalid', 'true');
+    }
+  }
+
+  clearInvalid(input, reason) {
+    if (!(input instanceof HTMLInputElement)) return;
+    const set = this.invalidReasons.get(input);
+    if (!set) return;
+    set.delete(reason);
+    if (set.size === 0) {
+      this.invalidReasons.delete(input);
+      ROW_INVALID_CLASSES.forEach((cls) => input.classList.remove(cls));
+      input.removeAttribute('data-invalid');
+      input.removeAttribute('aria-invalid');
+    }
+  }
+
+  focusFirstInvalid() {
+    if (!this.container) return;
+    const target = this.container.querySelector('input[data-invalid="1"]');
+    if (target instanceof HTMLInputElement) {
+      try {
+        target.focus({ preventScroll: true });
+      } catch (_) {
+        target.focus();
+      }
+    }
+  }
+
+  reset() {
+    this.rows = [];
+    this.rowsComplete = false;
+    this.invalidReasons = new WeakMap();
+    if (this.container) {
+      while (this.container.firstChild) {
+        this.container.removeChild(this.container.firstChild);
+      }
+    }
+    this.updateAvailability();
+    this.applyOptionState();
   }
 }
 
@@ -1440,7 +1838,20 @@ function initAddItemsForm(form) {
   populateCategorySelects(form);
   populateOfficeSelects(form);
   attachCategoryListeners(form);
-  const rowsManager = new PropertyRowsManager(form);
+  let serialManager = null;
+  const rowsManager = new PropertyRowsManager(form, {
+    onChange: (payload) => {
+      if (serialManager) {
+        serialManager.handleRowsChanged(payload);
+      }
+    },
+  });
+  serialManager = new SerialModelRowsManager(form, rowsManager, { toast: showToast });
+  serialManager.handleRowsChanged({
+    reason: 'init',
+    rows: rowsManager.getRowValues(),
+    complete: rowsManager.areRowsComplete(),
+  });
   const elements = {
     feedback: form.querySelector(FEEDBACK_SELECTOR),
     error: form.querySelector(ERROR_SELECTOR),
@@ -1453,6 +1864,7 @@ function initAddItemsForm(form) {
     serialTimer: null,
     serialAbort: null,
     lastSerialResult: null,
+    serialManager,
   };
 
   window.addEventListener('server:categories:updated', () => { populateCategorySelects(form); });
@@ -1480,6 +1892,7 @@ function initAddItemsForm(form) {
     if (elements.serialAbort) { elements.serialAbort.abort(); elements.serialAbort = null; }
     applySerialState(elements, 'idle');
     rowsManager.reset();
+    elements.serialManager?.reset();
   });
 
   elements.cancelBtn?.addEventListener('click', () => {
@@ -1511,13 +1924,35 @@ function initAddItemsForm(form) {
     const rowValidation = rowsManager.validateAll();
     rowValidation.fields.forEach((field) => errorFields.add(field));
 
-    if (errorFields.size > 0) {
-      const summary = buildErrorSummary(errorFields);
+    let serialValidation = { ok: true, fields: new Set(), message: '' };
+    if (elements.serialManager) {
+      serialValidation = elements.serialManager.validate();
+      if (serialValidation.fields instanceof Set) {
+        serialValidation.fields.forEach((field) => errorFields.add(field));
+      }
+    }
+
+    if (errorFields.size > 0 || !serialValidation.ok) {
+      let summary = '';
+      if (rowValidation.fields.size) {
+        summary = buildErrorSummary(rowValidation.fields);
+      }
+      if (!summary && !serialValidation.ok) {
+        const serialFields = serialValidation.fields instanceof Set ? serialValidation.fields : new Set();
+        summary = serialValidation.message || buildErrorSummary(serialFields);
+      }
+      if (!summary && errorFields.size) {
+        summary = buildErrorSummary(errorFields);
+      }
       if (summary) {
         showMessage(elements.error, summary);
         showToast('error', summary);
       }
-      rowsManager.focusFirstInvalid();
+      if (rowValidation.fields.size) {
+        rowsManager.focusFirstInvalid();
+      } else if (!serialValidation.ok) {
+        elements.serialManager?.focusFirstInvalid();
+      }
       return;
     }
 
@@ -1599,4 +2034,3 @@ document.addEventListener('DOMContentLoaded', () => {
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll(SELECTOR).forEach(initAddItemsForm);
 });
-

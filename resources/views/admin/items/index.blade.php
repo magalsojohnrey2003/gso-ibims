@@ -94,18 +94,18 @@
           </div>
 
           <div class="overflow-x-auto rounded-2xl shadow-lg">
-              <table class="w-full text-sm text-left text-gray-600 shadow-sm border rounded-lg overflow-hidden">
-                  <thead class="bg-purple-600 text-white text-xs uppercase font-semibold">
+              <table class="w-full text-sm text-center text-gray-600 shadow-sm border rounded-lg overflow-hidden">
+                  <thead class="bg-purple-600 text-white text-xs uppercase font-semibold text-center">
                       <tr>
                           <th class="px-6 py-3">Photo</th>
                           <th class="px-6 py-3">Name</th>
                           <th class="px-6 py-3">Category</th>
-                          <th class="px-6 py-3 text-center ">Total Qty</th>
-                          <th class="px-6 py-3 text- center">Available</th>
-                          <th class="px-6 py-3 text-right">Actions</th>
+                          <th class="px-6 py-3">Total Qty</th>
+                          <th class="px-6 py-3">Available</th>
+                          <th class="px-6 py-3">Actions</th>
                       </tr>
                   </thead>
-            <tbody class="divide-y bg-white">
+            <tbody class="divide-y bg-white text-center">
                       @forelse ($items as $item)
                           @php
                               // Determine display name for category: if item->category is numeric id and map exists, use mapped name.
@@ -118,46 +118,68 @@
                               }
                           @endphp
                           <tr class="hover:bg-gray-50" data-item-row="{{ $item->id }}">
-                              <td class="px-6 py-4" data-item-photo>
-                              @if($item->photo)
-                                  @php
-                                      $photoUrl = Storage::disk('public')->exists($item->photo)
-                                          ? Storage::disk('public')->url($item->photo)
-                                          : asset($item->photo);
-                                  @endphp
+                              <td class="px-6 py-4 text-center" data-item-photo>
+                                  @if($item->photo)
+                                      @php
+                                          $photoUrl = Storage::disk('public')->exists($item->photo)
+                                              ? Storage::disk('public')->url($item->photo)
+                                              : asset($item->photo);
+                                      @endphp
 
-                                  <img src="{{ $photoUrl }}" data-item-photo-img class="h-12 w-12 object-cover rounded-lg shadow-sm">
-                              @else
-                                  <x-status-badge type="gray" text="No photo" />
-                              @endif
-
+                                      <div class="flex justify-center">
+                                          <img src="{{ $photoUrl }}" data-item-photo-img class="h-12 w-12 object-cover rounded-lg shadow-sm">
+                                      </div>
+                                  @else
+                                      <x-status-badge type="gray" text="No photo" />
+                                  @endif
                               </td>
 
-                              <td class="px-6 py-4 font-medium" data-item-name>{{ $item->name }}</td>
+                              <td class="px-6 py-4 font-semibold text-gray-900" data-item-name>{{ $item->name }}</td>
                               <td class="px-6 py-4" data-item-category>{{ $displayCategory }}</td>
-                              <td class="px-6 py-4 text-center" data-item-total>{{ $item->total_qty }}</td>
-                              <td class="px-6 py-4 text-center" data-item-available>
+                              <td class="px-6 py-4" data-item-total>{{ $item->total_qty }}</td>
+                              <td class="px-6 py-4" data-item-available>
                                   <span class="{{ $item->available_qty > 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold' }}">
                                       {{ $item->available_qty }}
                                   </span>
                               </td>
 
-                              <td class="px-6 py-4 text-right space-x-2">
-
-                                  <x-button
-                                      variant="primary"
-                                      iconName="pencil-square"
-                                      x-data
-                                      x-on:click.prevent="$dispatch('open-modal', 'edit-item-{{ $item->id }}')">
-                                      Edit
-                                  </x-button>
-                                  <x-button
-                                      variant="danger"
-                                      iconName="trash"
-                                      x-data
-                                      x-on:click.prevent="$dispatch('open-modal', 'confirm-delete-{{ $item->id }}')">
-                                      Delete
-                                  </x-button>
+                              <td class="px-6 py-4">
+                                  <div class="flex items-center justify-center gap-2">
+                                      <x-button
+                                          variant="primary"
+                                          size="sm"
+                                          class="min-w-[80px] justify-center"
+                                          iconName="pencil-square"
+                                          x-data
+                                          x-on:click.prevent="$dispatch('open-modal', 'edit-item-{{ $item->id }}')">
+                                          Edit
+                                      </x-button>
+                                      <x-button
+                                          variant="secondary"
+                                          size="sm"
+                                          class="min-w-[80px] justify-center"
+                                          iconName="printer"
+                                          type="button"
+                                          data-print-stickers
+                                          data-print-route="{{ route('admin.items.stickers', $item) }}"
+                                          data-print-default="{{ max(1, min(5, $item->instances->count())) }}"
+                                          data-print-quantity="{{ max(1, $item->instances->count()) }}"
+                                          data-print-item="{{ $item->name }}"
+                                          data-print-description="{{ $item->description }}"
+                                          data-print-acquisition="{{ $item->acquisition_date }}"
+                                          :disabled="$item->instances->isEmpty()">
+                                          Print
+                                      </x-button>
+                                      <x-button
+                                          variant="danger"
+                                          size="sm"
+                                          class="min-w-[80px] justify-center"
+                                          iconName="trash"
+                                          x-data
+                                          x-on:click.prevent="$dispatch('open-modal', 'confirm-delete-{{ $item->id }}')">
+                                          Delete
+                                      </x-button>
+                                  </div>
                               </td>
                           </tr>
                           <x-modal name="edit-item-{{ $item->id }}" maxWidth="2xl">
@@ -320,6 +342,61 @@
     </div>
 </div>
 
-@include('admin.items.modals')
+@include('admin.items.modals.category')
+@include('admin.items.modals.office')
+
+<x-modal name="print-stickers" maxWidth="lg">
+    <div class="p-6 space-y-6" data-print-modal>
+        <div>
+            <h3 class="text-xl font-semibold text-gray-900">Print Stickers</h3>
+            <p class="text-sm text-gray-500" data-print-summary></p>
+        </div>
+
+        <form class="space-y-5" data-print-form>
+            <input type="hidden" data-print-route-input>
+            <input type="hidden" data-print-quantity-input>
+
+            <div class="space-y-2">
+                <x-input-label for="print-person-accountable" value="Person Accountable" />
+                <x-text-input
+                    id="print-person-accountable"
+                    type="text"
+                    class="mt-1 block w-full"
+                    autocomplete="off"
+                    data-print-person>
+                </x-text-input>
+                <p class="text-xs text-gray-500">Optional: include who will receive the assets.</p>
+            </div>
+
+            <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="text-sm font-medium text-gray-700">Signature</span>
+                    <button type="button" class="text-xs text-blue-600 hover:underline" data-print-signature-clear>Clear</button>
+                </div>
+                <div class="border border-gray-300 rounded-lg bg-white overflow-hidden">
+                    <canvas data-print-signature-canvas class="w-full h-40 touch-pan-y"></canvas>
+                </div>
+                <p class="text-xs text-gray-500">Sign using your mouse, trackpad, or finger. Leave blank if a handwritten signature will be applied later.</p>
+            </div>
+
+            <div class="flex justify-end gap-3">
+                <x-button
+                    type="button"
+                    variant="secondary"
+                    data-print-cancel
+                    iconName="x-mark">
+                    Cancel
+                </x-button>
+
+                <x-button
+                    type="submit"
+                    iconName="printer"
+                    data-print-submit>
+                    Generate Stickers
+                </x-button>
+            </div>
+        </form>
+    </div>
+</x-modal>
 
 @vite(['resources/js/app.js'])

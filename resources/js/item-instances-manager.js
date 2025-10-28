@@ -15,6 +15,8 @@ const sanitizeOffice = (value) => String(value || '').replace(/\D/g, '').slice(0
 const sanitizeCategory = (value) => String(value || '').replace(/\D/g, '').slice(0, 4);
 
 const sanitizeSerialInput = (value) => String(value || '').toUpperCase().replace(/[^A-Za-z0-9]/g, '').slice(0, SERIAL_MAX_LENGTH);
+const sanitizeSerialNo = (value) => String(value || '').toUpperCase().replace(/[^A-Za-z0-9]/g, '').slice(0, 4);
+const sanitizeModelNo = (value) => String(value || '').toUpperCase().replace(/[^A-Za-z0-9]/g, '').slice(0, 15);
 
 function parseSerialSegments(value) {
   const segments = [];
@@ -79,22 +81,28 @@ function sanitizeSerial(value) {
   return formatted;
 }
 
-function readRow(inputs) {
+function readRow(inputs, serialInputs = {}) {
+  const serialInput = serialInputs.serialInput ?? null;
+  const modelInput = serialInputs.modelInput ?? null;
   return {
     year: sanitizeYear(inputs.yearEl?.value ?? ''),
     category: sanitizeCategory(inputs.categoryEl?.value ?? ''),
     gla: sanitizeGla(inputs.glaEl?.value ?? ''),
     serial: sanitizeSerial(inputs.serialEl?.value ?? ''),
     office: sanitizeOffice(inputs.officeEl?.value ?? ''),
+    serial_no: serialInput && serialInput.disabled ? '' : sanitizeSerialNo(serialInput?.value ?? ''),
+    model_no: modelInput && modelInput.disabled ? '' : sanitizeModelNo(modelInput?.value ?? ''),
   };
 }
 
-function applyRowValues(inputs, values) {
+function applyRowValues(inputs, values, serialInputs = {}) {
   if (inputs.yearEl) inputs.yearEl.value = values.year ?? '';
   if (inputs.categoryEl) inputs.categoryEl.value = values.category ?? '';
   if (inputs.glaEl) inputs.glaEl.value = values.gla ?? '';
   if (inputs.serialEl) inputs.serialEl.value = values.serial ?? '';
   if (inputs.officeEl) inputs.officeEl.value = values.office ?? '';
+  if (serialInputs.serialInput) serialInputs.serialInput.value = values.serial_no ?? '';
+  if (serialInputs.modelInput) serialInputs.modelInput.value = values.model_no ?? '';
 }
 
 function inputsForRow(row) {
@@ -141,7 +149,9 @@ function valuesEqual(a, b) {
     a.category === b.category &&
     a.gla === b.gla &&
     a.serial === b.serial &&
-    a.office === b.office;
+    a.office === b.office &&
+    a.serial_no === b.serial_no &&
+    a.model_no === b.model_no;
 }
 
 function buildErrorSummary(fields) {
@@ -152,6 +162,8 @@ function buildErrorSummary(fields) {
     gla: 'GLA',
     serial: 'Serial',
     office: 'Office',
+    serial_no: 'Serial No.',
+    model_no: 'Model No.',
   };
   const names = Array.from(fields).map((f) => labels[f] || f);
   if (names.length === 1) return `${names[0]} field is incorrect`;
@@ -163,6 +175,17 @@ class ItemInstancesManager {
     this.form = form;
     this.container = form.querySelector('#edit_instances_container');
     if (!this.container) return;
+
+    this.serialContainer = form.querySelector('[data-edit-serial-container]');
+    this.serialRows = new Map();
+    this.serialTrigger = form.querySelector('[data-serial-model-trigger]');
+    this.serialPanel = form.querySelector('[data-edit-serial-panel]');
+    this.serialMessage = form.querySelector('[data-edit-serial-message]');
+    this.serialSectionLocked = true;
+    this.serialSectionReason = '';
+
+    this.toggleInputs = Array.from(form.querySelectorAll('[data-instance-toggle]'));
+    this.activeOptions = new Set();
 
     const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || window.CSRF_TOKEN || '';
     this.api = {
@@ -197,33 +220,326 @@ class ItemInstancesManager {
     };
 
     this.rows = [];
+    this.registerSerialRows();
     this.registerExistingRows();
     this.bindEvents();
+    this.bindSerialEvents();
+    if (this.serialTrigger) {
+      this.serialTrigger.addEventListener('click', (event) => this.handleSerialTrigger(event));
+    }
+    this.updateActiveOptions();
+    this.applyToggleState();
+    this.toggleInputs.forEach((input) => input.addEventListener('change', () => this.onToggleChange()));
     this.form.__instanceManager = this;
   }
 
   registerExistingRows() {
     this.container.querySelectorAll('.edit-instance-row').forEach((row) => {
       const inputs = inputsForRow(row);
-      const initial = readRow(inputs);
+      const instanceId = row.getAttribute('data-instance-id') || null;
+      const serialInputs = instanceId ? this.serialRows.get(instanceId) || null : null;
+      const initial = readRow(inputs, serialInputs || {});
       const state = {
-        id: row.getAttribute('data-instance-id') || null,
+        id: instanceId,
         row,
         inputs,
+        serialInputs: serialInputs || null,
         initial,
         current: { ...initial },
         removed: false,
         dirty: false,
       };
       row.__instanceState = state;
-      applyRowValues(inputs, initial);
+      if (serialInputs && serialInputs.row) {
+        serialInputs.row.__instanceState = state;
+      }
+      applyRowValues(inputs, initial, serialInputs || {});
       this.rows.push(state);
+      this.updateSerialDisplay(state);
     });
+    this.evaluateSerialSection();
+  }
+
+  registerSerialRows() {
+    if (!this.serialContainer) return;
+    this.serialRows.clear();
+    this.serialContainer.querySelectorAll('.edit-serial-row').forEach((row) => {
+      const instanceId = row.getAttribute('data-instance-id') || null;
+      if (!instanceId) return;
+      const serialInput = row.querySelector('[data-serial-model-input="serial_no"]');
+      const modelInput = row.querySelector('[data-serial-model-input="model_no"]');
+      this.serialRows.set(instanceId, {
+        row,
+        serialInput,
+        modelInput,
+      });
+    });
+  }
+
+  bindSerialEvents() {
+    if (!this.serialContainer) return;
+    this.serialContainer.addEventListener('input', (event) => this.onSerialInput(event));
+  }
+
+  handleSerialTrigger(event) {
+    if (!this.serialTrigger) return;
+    const expanded = this.serialTrigger.getAttribute('aria-expanded') === 'true';
+    if (this.serialSectionLocked && !expanded) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (this.serialSectionReason) {
+        showToast('error', this.serialSectionReason);
+      }
+    }
+  }
+
+  evaluateSerialSection() {
+    const active = this.getActiveOptions();
+    const hasOption = active.has('serial_no') || active.has('model_no');
+    const rowsComplete = this.rows.every((state) => {
+      if (state.removed) return true;
+      const current = state.current || {};
+      return Boolean(current.year && current.category && current.gla && current.serial && current.office);
+    });
+
+    if (!rowsComplete) {
+      this.serialSectionLocked = true;
+      this.serialSectionReason = 'Complete property number rows before editing serial or model numbers.';
+    } else if (!hasOption) {
+      this.serialSectionLocked = true;
+      this.serialSectionReason = 'Enable the Serial and/or Model options in Item Information to edit these fields.';
+    } else {
+      this.serialSectionLocked = false;
+      this.serialSectionReason = '';
+    }
+
+    if (this.serialMessage) {
+      if (this.serialSectionLocked) {
+        this.serialMessage.textContent = this.serialSectionReason;
+      } else {
+        this.serialMessage.textContent = 'Update per-row Serial and Model numbers as needed.';
+      }
+    }
+
+    if (this.serialTrigger) {
+      if (this.serialSectionLocked) {
+        this.serialTrigger.setAttribute('aria-disabled', 'true');
+        this.serialTrigger.classList.add('opacity-60', 'cursor-not-allowed');
+        const expanded = this.serialTrigger.getAttribute('aria-expanded') === 'true';
+        if (expanded) {
+          window.setTimeout(() => {
+            if (this.serialTrigger && this.serialTrigger.getAttribute('aria-expanded') === 'true') {
+              this.serialTrigger.click();
+            }
+          }, 0);
+        }
+      } else {
+        this.serialTrigger.removeAttribute('aria-disabled');
+        this.serialTrigger.classList.remove('opacity-60', 'cursor-not-allowed');
+      }
+    }
+  }
+
+  onSerialInput(event) {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    const type = target.dataset.serialModelInput;
+    if (!type) return;
+    const row = target.closest('.edit-serial-row');
+    if (!row) return;
+    const instanceId = row.getAttribute('data-instance-id') || null;
+    if (!instanceId) return;
+    const state = this.rows.find((item) => item.id && String(item.id) === String(instanceId));
+    if (!state || state.removed) return;
+
+    if (type === 'serial_no') {
+      target.value = sanitizeSerialNo(target.value);
+    } else if (type === 'model_no') {
+      target.value = sanitizeModelNo(target.value);
+    }
+
+    state.serialInputs = this.serialRows.get(instanceId) || state.serialInputs || {};
+    state.current = readRow(state.inputs, state.serialInputs || {});
+    state.dirty = !valuesEqual(state.current, state.initial);
+    state.row.dataset.dirty = state.dirty ? '1' : '';
+    this.validateSerialForState(state);
+    this.evaluateSerialSection();
+  }
+
+  validateSerialForState(state) {
+    const errors = new Set();
+    const active = this.getActiveOptions();
+    const serialEnabled = active.has('serial_no');
+    const modelEnabled = active.has('model_no');
+    const serialInputs = state.serialInputs || {};
+
+    const serialInput = serialInputs.serialInput || null;
+    if (serialInput) {
+      const value = sanitizeSerialNo(serialInput.value || '');
+      if (serialInput.value !== value) serialInput.value = value;
+      if (serialEnabled && !serialInput.disabled) {
+        if (!value) {
+          setInvalid(serialInput, 'empty');
+          errors.add('serial_no');
+        } else if (!/^[A-Z0-9]{1,4}$/.test(value)) {
+          clearInvalid(serialInput, 'empty');
+          setInvalid(serialInput, 'format');
+          errors.add('serial_no');
+        } else {
+          clearInvalid(serialInput, 'empty');
+          clearInvalid(serialInput, 'format');
+        }
+      } else {
+        clearInvalid(serialInput, 'empty');
+        clearInvalid(serialInput, 'format');
+      }
+    }
+
+    const modelInput = serialInputs.modelInput || null;
+    if (modelInput) {
+      const value = sanitizeModelNo(modelInput.value || '');
+      if (modelInput.value !== value) modelInput.value = value;
+      if (modelEnabled && !modelInput.disabled) {
+        if (!value) {
+          setInvalid(modelInput, 'empty');
+          errors.add('model_no');
+        } else if (!/^[A-Z0-9]{1,15}$/.test(value)) {
+          clearInvalid(modelInput, 'empty');
+          setInvalid(modelInput, 'format');
+          errors.add('model_no');
+        } else {
+          clearInvalid(modelInput, 'empty');
+          clearInvalid(modelInput, 'format');
+        }
+      } else {
+        clearInvalid(modelInput, 'empty');
+        clearInvalid(modelInput, 'format');
+      }
+    }
+
+    return errors;
+  }
+
+  validateSerialRows() {
+    const aggregate = new Set();
+    this.rows.forEach((state) => {
+      if (state.removed) return;
+      const errors = this.validateSerialForState(state);
+      errors.forEach((field) => aggregate.add(field));
+    });
+    return aggregate;
+  }
+
+  focusSerialInvalid() {
+    if (!this.serialContainer) return;
+    const target = this.serialContainer.querySelector('input[data-invalid="1"]');
+    if (target instanceof HTMLInputElement) {
+      try {
+        target.focus({ preventScroll: true });
+      } catch (_) {
+        target.focus();
+      }
+    }
+  }
+
+  updateSerialDisplay(state) {
+    if (!state || !state.serialInputs || !state.serialInputs.row) return;
+    const display = state.serialInputs.row.querySelector('[data-serial-model-pn]');
+    if (!display) return;
+    const current = state.current || {};
+    const segment = (value, fallback) => {
+      if (!value) return fallback;
+      const trimmed = String(value).trim();
+      return trimmed === '' ? fallback : trimmed.toUpperCase();
+    };
+    const text = [
+      segment(current.year, '----'),
+      segment(current.category, '----'),
+      segment(current.gla, '----'),
+      segment(current.serial, '-----'),
+      segment(current.office, '----'),
+    ].join('-');
+    display.textContent = text;
   }
 
   bindEvents() {
     this.container.addEventListener('input', (event) => this.onInput(event));
     this.container.addEventListener('click', (event) => this.onRemove(event));
+  }
+
+  updateActiveOptions() {
+    if (!Array.isArray(this.toggleInputs)) {
+      this.activeOptions = new Set();
+      return;
+    }
+    this.activeOptions = new Set(
+      this.toggleInputs
+        .filter((input) => input instanceof HTMLInputElement && input.checked)
+        .map((input) => input.dataset.instanceToggle || input.dataset.rowToggle)
+        .filter(Boolean)
+    );
+  }
+
+  getActiveOptions() {
+    if (!(this.activeOptions instanceof Set)) {
+      this.updateActiveOptions();
+    }
+    return this.activeOptions;
+  }
+
+  onToggleChange() {
+    this.updateActiveOptions();
+    this.applyToggleState();
+  }
+
+  applyToggleState() {
+    const active = this.getActiveOptions();
+    const serialEnabled = active.has('serial_no');
+    const modelEnabled = active.has('model_no');
+
+    this.serialRows.forEach((inputs) => {
+      const { serialInput, modelInput } = inputs;
+      if (serialInput) {
+        serialInput.disabled = !serialEnabled;
+        const wrap = serialInput.closest('.flex-1');
+        if (wrap instanceof HTMLElement) {
+          wrap.classList.toggle('opacity-50', !serialEnabled);
+        }
+        if (!serialEnabled) {
+          clearInvalid(serialInput, 'empty');
+          clearInvalid(serialInput, 'format');
+        }
+      }
+      if (modelInput) {
+        modelInput.disabled = !modelEnabled;
+        const wrap = modelInput.closest('.flex-1');
+        if (wrap instanceof HTMLElement) {
+          wrap.classList.toggle('opacity-50', !modelEnabled);
+        }
+        if (!modelEnabled) {
+          clearInvalid(modelInput, 'empty');
+          clearInvalid(modelInput, 'format');
+        }
+      }
+    });
+
+    this.rows.forEach((state) => {
+      state.serialInputs = state.id ? this.serialRows.get(state.id) || state.serialInputs : state.serialInputs;
+      if (state.removed) {
+        this.updateSerialDisplay(state);
+        return;
+      }
+      state.current = readRow(state.inputs, state.serialInputs || {});
+      state.dirty = !valuesEqual(state.current, state.initial);
+      state.row.dataset.dirty = state.dirty ? '1' : '';
+      this.validateRow(state);
+      this.validateSerialForState(state);
+      this.updateSerialDisplay(state);
+    });
+
+    this.validateSerialRows();
+    this.evaluateSerialSection();
+    this.markDuplicateSerials();
   }
 
   onInput(event) {
@@ -255,15 +571,25 @@ class ItemInstancesManager {
       case 'category':
         target.value = sanitizeCategory(target.value);
         break;
+      case 'serial_no':
+        target.value = sanitizeSerialNo(target.value);
+        break;
+      case 'model_no':
+        target.value = sanitizeModelNo(target.value);
+        break;
       default:
         break;
     }
 
-    state.current = readRow(state.inputs);
-   state.dirty = !valuesEqual(state.current, state.initial);
-   row.dataset.dirty = state.dirty ? '1' : '';
-   this.validateRow(state);
+    state.serialInputs = state.id ? this.serialRows.get(state.id) || state.serialInputs : state.serialInputs;
+    state.current = readRow(state.inputs, state.serialInputs || {});
+    state.dirty = !valuesEqual(state.current, state.initial);
+    row.dataset.dirty = state.dirty ? '1' : '';
+    this.validateRow(state);
+    this.validateSerialForState(state);
+    this.updateSerialDisplay(state);
     this.markDuplicateSerials();
+    this.evaluateSerialSection();
   }
 
   onRemove(event) {
@@ -286,6 +612,9 @@ class ItemInstancesManager {
       state.inputs.glaEl?.setAttribute('disabled', 'disabled');
       state.inputs.serialEl?.setAttribute('disabled', 'disabled');
       state.inputs.officeEl?.setAttribute('disabled', 'disabled');
+      if (state.serialInputs?.serialInput) state.serialInputs.serialInput.setAttribute('disabled', 'disabled');
+      if (state.serialInputs?.modelInput) state.serialInputs.modelInput.setAttribute('disabled', 'disabled');
+      if (state.serialInputs?.row) state.serialInputs.row.classList.add('opacity-50');
       btn.dataset.icon = btn.innerHTML;
       btn.innerHTML = '<i class="fas fa-rotate-left"></i>';
     } else {
@@ -297,11 +626,15 @@ class ItemInstancesManager {
       state.inputs.glaEl?.removeAttribute('disabled');
       state.inputs.serialEl?.removeAttribute('disabled');
       state.inputs.officeEl?.removeAttribute('disabled');
+      if (state.serialInputs?.serialInput) state.serialInputs.serialInput.removeAttribute('disabled');
+      if (state.serialInputs?.modelInput) state.serialInputs.modelInput.removeAttribute('disabled');
+      if (state.serialInputs?.row) state.serialInputs.row.classList.remove('opacity-50');
       if (btn.dataset.icon) {
         btn.innerHTML = btn.dataset.icon;
         delete btn.dataset.icon;
       }
     }
+    this.evaluateSerialSection();
     this.markDuplicateSerials();
   }
 
@@ -310,6 +643,8 @@ class ItemInstancesManager {
     if (input.classList.contains('instance-part-category')) return 'category';
     if (input.classList.contains('instance-part-gla')) return 'gla';
     if (input.classList.contains('instance-part-serial')) return 'serial';
+    if (input.classList.contains('instance-part-serial-no')) return 'serial_no';
+    if (input.classList.contains('instance-part-model-no')) return 'model_no';
     if (input.classList.contains('instance-part-office')) return 'office';
     return null;
   }
@@ -330,18 +665,37 @@ class ItemInstancesManager {
           clearInvalid(input, 'duplicate');
         }
       });
-      applyRowValues(state.inputs, state.initial);
+      if (state.serialInputs?.serialInput) {
+        state.serialInputs.serialInput.removeAttribute('disabled');
+        clearInvalid(state.serialInputs.serialInput, 'empty');
+        clearInvalid(state.serialInputs.serialInput, 'format');
+      }
+      if (state.serialInputs?.modelInput) {
+        state.serialInputs.modelInput.removeAttribute('disabled');
+        clearInvalid(state.serialInputs.modelInput, 'empty');
+        clearInvalid(state.serialInputs.modelInput, 'format');
+      }
+      if (state.serialInputs?.row) {
+        state.serialInputs.row.classList.remove('opacity-50');
+      }
+      applyRowValues(state.inputs, state.initial, state.serialInputs || {});
+      this.updateSerialDisplay(state);
     });
+    this.applyToggleState();
     this.markDuplicateSerials();
   }
 
   async applyChanges() {
     const errors = new Set();
+    const activeOptions = this.getActiveOptions();
     this.rows.forEach((state) => {
       if (state.removed) return;
       const validation = this.validateRow(state);
       validation.forEach((field) => errors.add(field));
     });
+
+    const serialErrors = this.validateSerialRows();
+    serialErrors.forEach((field) => errors.add(field));
 
     const hasDuplicates = this.markDuplicateSerials();
     if (hasDuplicates) {
@@ -351,7 +705,13 @@ class ItemInstancesManager {
     if (errors.size) {
       const summary = buildErrorSummary(errors);
       if (summary) showToast('error', summary);
-      this.focusFirstInvalid();
+      const propertyFields = new Set(['year', 'category', 'gla', 'serial', 'office']);
+      const hasPropertyError = Array.from(errors).some((field) => propertyFields.has(field));
+      if (hasPropertyError) {
+        this.focusFirstInvalid();
+      } else {
+        this.focusSerialInvalid();
+      }
       return { ok: false, message: summary, fields: errors };
     }
 
@@ -367,6 +727,12 @@ class ItemInstancesManager {
         serial: state.current.serial || undefined,
         office: state.current.office || undefined,
       };
+      if (state.serialInputs?.serialInput && !state.serialInputs.serialInput.disabled && activeOptions.has('serial_no')) {
+        payload.serial_no = state.current.serial_no || null;
+      }
+      if (state.serialInputs?.modelInput && !state.serialInputs.modelInput.disabled && activeOptions.has('model_no')) {
+        payload.model_no = state.current.model_no || null;
+      }
       const result = await this.api.patch(state.id, payload);
       if (!result.ok) {
         const message = (result.json && (result.json.message || (result.json.errors && Object.values(result.json.errors).flat().join(' ')))) || 'Failed to update instance.';

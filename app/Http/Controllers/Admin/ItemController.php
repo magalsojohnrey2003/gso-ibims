@@ -7,6 +7,8 @@ use App\Models\Item;
 use App\Models\ItemInstance;
 use App\Services\ItemInstanceEventLogger;
 use App\Services\PropertyNumberService;
+use App\Services\StickerPdfService;
+use Carbon\Carbon;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
@@ -27,6 +29,8 @@ class ItemController extends Controller
         'category_id',
         'serial',
         'serial_int',
+        'serial_no',
+        'model_no',
         'office_code',
         'gla',
         'status',
@@ -354,6 +358,8 @@ public function store(Request $request, PropertyNumberService $numbers)
         'start_serial' => 'nullable|alpha_num|min:1|max:5',
         'description' => 'nullable|string|max:1000',
         'photo' => 'nullable|image|max:2048',
+        'include_serial_no' => 'nullable|boolean',
+        'include_model_no' => 'nullable|boolean',
         // support per-row components (array)
         'property_numbers_components' => 'nullable|array',
         'property_numbers_components.*.year' => 'nullable|digits:4',
@@ -361,6 +367,8 @@ public function store(Request $request, PropertyNumberService $numbers)
         'property_numbers_components.*.gla' => 'nullable|digits_between:1,4',
         'property_numbers_components.*.serial' => ['nullable', 'regex:/^(?=.*\d)[A-Za-z0-9]{1,5}$/i'],
         'property_numbers_components.*.office' => 'nullable|string|max:4',
+        'property_numbers_components.*.serial_no' => ['nullable', 'string', 'max:4', 'regex:/^[A-Za-z0-9]*$/'],
+        'property_numbers_components.*.model_no' => ['nullable', 'string', 'max:15', 'regex:/^[A-Za-z0-9]*$/'],
     ]);
 
     $categoryId = (string) ($data['category'] ?? '');
@@ -368,6 +376,8 @@ public function store(Request $request, PropertyNumberService $numbers)
 
     // If per-row components exist, prefer them
     $perRow = $request->input('property_numbers_components', null);
+    $requireSerialMeta = $request->boolean('include_serial_no');
+    $requireModelMeta = $request->boolean('include_model_no');
 
     $serialSeed = (string) ($data['start_serial'] ?? '');
     // If generate bulk inputs are present and sensible (numeric serial only)
@@ -399,6 +409,10 @@ public function store(Request $request, PropertyNumberService $numbers)
                 $gla = isset($row['gla']) ? trim((string) $row['gla']) : null;
                 $serial = isset($row['serial']) ? trim((string) $row['serial']) : null;
                 $office = isset($row['office']) ? trim((string) $row['office']) : null;
+                $serialMeta = isset($row['serial_no']) ? strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) $row['serial_no'])) : '';
+                $serialMeta = $serialMeta !== '' ? substr($serialMeta, 0, 4) : '';
+                $modelMeta = isset($row['model_no']) ? strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) $row['model_no'])) : '';
+                $modelMeta = $modelMeta !== '' ? substr($modelMeta, 0, 15) : '';
 
                 // Basic server-side sanity check (rows are expected to be complete per requirements)
                 if (empty($year) || empty($cat) || empty($gla) || empty($serial) || empty($office)) {
@@ -422,6 +436,22 @@ public function store(Request $request, PropertyNumberService $numbers)
                     return redirect()->back()->withInput()->with('error', $message);
                 }
 
+                if ($requireSerialMeta && $serialMeta === '') {
+                    $message = 'Serial No. is required for each property number row when enabled.';
+                    if ($request->wantsJson() || $request->isXmlHttpRequest()) {
+                        return response()->json(['message' => $message], 422);
+                    }
+                    return redirect()->back()->withInput()->with('error', $message);
+                }
+
+                if ($requireModelMeta && $modelMeta === '') {
+                    $message = 'Model No. is required for each property number row when enabled.';
+                    if ($request->wantsJson() || $request->isXmlHttpRequest()) {
+                        return response()->json(['message' => $message], 422);
+                    }
+                    return redirect()->back()->withInput()->with('error', $message);
+                }
+
                 $formattedSerial = $this->formatSerialForStorage($serialNorm);
 
                 $payload = [
@@ -436,7 +466,12 @@ public function store(Request $request, PropertyNumberService $numbers)
                 // Attempt to assemble canonical PN (this may throw if components invalid)
                 $pn = $numbers->assemble($payload);
                 $propertyNumbersToCheck[] = $pn;
-                $rowsToCreate[] = ['payload' => $payload, 'pn' => $pn];
+                $rowsToCreate[] = [
+                    'payload' => $payload,
+                    'pn' => $pn,
+                    'serial_no' => $serialMeta !== '' ? $serialMeta : null,
+                    'model_no' => $modelMeta !== '' ? $modelMeta : null,
+                ];
             }
 
             // Check for duplicate serials within submitted rows (after gathering payloads)
@@ -452,6 +487,13 @@ public function store(Request $request, PropertyNumberService $numbers)
                 return redirect()->back()->withInput()->with('error', 'Duplicate serial numbers detected in the input rows: ' . implode(', ', $duplicates));
             }
         } elseif ($hasBulkInputs) {
+            if ($requireSerialMeta || $requireModelMeta) {
+                $message = 'Manual property rows are required when Serial No. or Model No. fields are enabled.';
+                if ($request->wantsJson() || $request->isXmlHttpRequest()) {
+                    return response()->json(['message' => $message], 422);
+                }
+                return redirect()->back()->withInput()->with('error', $message);
+            }
             // Existing bulk flow: compute expected property numbers
             for ($i = 0; $i < $quantity; $i++) {
                 $serialInt = $serialStart + $i;
@@ -559,6 +601,8 @@ public function store(Request $request, PropertyNumberService $numbers)
                         'serial' => (string) $payload['serial'],
                         'serial_int' => ctype_digit($payload['serial']) ? (int) ltrim($payload['serial'], '0') : null,
                         'office_code' => $payload['office'] ?? null,
+                        'serial_no' => $r['serial_no'] ?? null,
+                        'model_no' => $r['model_no'] ?? null,
                         'status' => 'available',
                         'notes' => $data['description'] ?? null,
                     ]);
@@ -611,8 +655,13 @@ public function store(Request $request, PropertyNumberService $numbers)
         DB::commit();
 
         if ($request->wantsJson()) {
+            $jsonMessage = count($created) > 1 ? 'Items added successfully!' : 'Item added successfully!';
+            if (! empty($skipped)) {
+                $jsonMessage .= ' Some serials were skipped.';
+            }
+
             return response()->json([
-                'message' => (count($created) > 1) ? 'Items created.' : (count($created) === 1 ? 'Item created.' : 'Item created.'),
+                'message' => $jsonMessage,
                 'item_id' => $item->id,
                 'created_count' => count($created),
                 'created_pns' => $created,
@@ -628,11 +677,9 @@ public function store(Request $request, PropertyNumberService $numbers)
         }
 
         if (! empty($skipped)) {
-            $message = (count($created) > 1)
-                ? 'Items created. Some serials skipped.'
-                : (count($created) === 1 ? 'Item created. Some serials skipped.' : 'Item created. Some serials skipped.');
+            $message = (count($created) > 1 ? 'Items added successfully!' : 'Item added successfully!') . ' Some serials were skipped.';
         } else {
-            $message = (count($created) > 1) ? 'Items created.' : (count($created) === 1 ? 'Item created.' : 'Item created.');
+            $message = count($created) > 1 ? 'Items added successfully!' : 'Item added successfully!';
         }
 
         return redirect()->route('items.index')->with('success', $message);
@@ -697,7 +744,7 @@ public function update(Request $request, Item $item)
         if ($request->wantsJson()) {
             $photoUrl = $item->photo ? asset('storage/' . ltrim($item->photo, '/')) : null;
             return response()->json([
-                'message' => 'Item updated.',
+                'message' => 'Item updated successfully!',
                 'item_id' => $item->id,
                 'id' => $item->id,
                 'name' => $item->name,
@@ -709,7 +756,7 @@ public function update(Request $request, Item $item)
             ]);
         }
 
-        return redirect()->route('items.index')->with('success', 'Item updated.');
+        return redirect()->route('items.index')->with('success', 'Item updated successfully!');
     } catch (\Throwable $e) {
         DB::rollBack();
 
@@ -765,6 +812,8 @@ public function update(Request $request, Item $item)
                     'serial' => $serial,
                     'serial_int' => $serialInt,
                     'office_code' => $payload['office'] ?? null,
+                    'serial_no' => null,
+                    'model_no' => null,
                     'status' => 'available',
                     'notes' => $notes,
                 ]);
@@ -827,6 +876,102 @@ public function update(Request $request, Item $item)
         }
 
         return $changes;
+    }
+
+    public function printStickers(
+        Request $request,
+        Item $item,
+        PropertyNumberService $numbers,
+        StickerPdfService $stickerPdf
+    ) {
+        $quantity = max(1, (int) ($item->instances()->count() ?: $item->quantity ?: 1));
+
+        $instances = $item->instances()
+            ->orderBy('property_number')
+            ->take($quantity)
+            ->get();
+
+        if ($instances->isEmpty()) {
+            if ($request->wantsJson()) {
+                return response()->json(['message' => 'No property numbers available to print.'], 422);
+            }
+
+            return redirect()->back()->with('error', 'No property numbers available to print.');
+        }
+
+        $personAccountable = trim((string) $request->input('person_accountable', ''));
+        $signatureData = (string) $request->input('signature_data', '');
+
+        $acquisitionDate = '';
+        if (!empty($item->acquisition_date)) {
+            try {
+                $acquisitionDate = Carbon::parse($item->acquisition_date)->format('m/d/Y');
+            } catch (\Throwable $e) {
+                $acquisitionDate = (string) $item->acquisition_date;
+            }
+        }
+
+        $printDate = '';
+        if (!empty($item->updated_at)) {
+            try {
+                $printDate = Carbon::parse($item->updated_at)->format('m/d/Y');
+            } catch (\Throwable $e) {
+                $printDate = (string) $item->updated_at;
+            }
+        }
+
+        $itemName = trim((string) ($item->name ?? ''));
+        $itemDescription = trim(strip_tags((string) ($item->description ?? '')));
+
+        $stickers = $instances->map(function (ItemInstance $instance) use ($numbers, $itemName, $itemDescription, $personAccountable, $signatureData, $acquisitionDate, $printDate) {
+            $parsed = [];
+
+            try {
+                $parsed = $numbers->parse((string) ($instance->property_number ?? ''));
+            } catch (\Throwable $e) {
+                $parsed = [];
+            }
+
+            return [
+                'print_yp' => $parsed['year'] ?? '',
+                'print_ppe' => $parsed['category'] ?? ($parsed['category_code'] ?? ''),
+                'print_gla' => $parsed['gla'] ?? '',
+                'print_serial' => $parsed['serial'] ?? '',
+                'print_office' => $parsed['office'] ?? '',
+                'print_item' => $itemName,
+                'print_description' => $itemDescription,
+                'print_mn' => (string) ($instance->model_no ?? ''),
+                'print_sn' => (string) ($instance->serial_no ?? ''),
+                'print_ad' => $acquisitionDate,
+                'print_pa' => $personAccountable,
+                'print_signature' => $signatureData,
+                'print_date' => $printDate,
+            ];
+        })->values();
+
+        $filename = 'stickers-' . $item->id . '-' . now()->format('YmdHis') . '.pdf';
+
+        try {
+            $result = $stickerPdf->render($stickers->all(), $filename);
+        } catch (\Throwable $e) {
+            $message = 'Failed to generate sticker PDF: ' . $e->getMessage();
+
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'message' => 'Failed to generate sticker PDF.',
+                    'error' => $e->getMessage(),
+                ], 500);
+            }
+
+            return redirect()->back()->with('error', $message);
+        }
+
+        $disposition = $request->boolean('download') ? 'attachment' : 'inline';
+
+        return response($result['content'], 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => $disposition . '; filename="' . $result['filename'] . '"',
+        ]);
     }
 
     public function destroy($id)

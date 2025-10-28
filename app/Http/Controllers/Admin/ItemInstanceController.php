@@ -25,6 +25,8 @@ class ItemInstanceController extends Controller
             'gla' => 'sometimes|digits_between:1,4',
             'serial' => ['sometimes', 'regex:/^(?=.*\d)[A-Za-z0-9]{1,5}$/'],
             'office' => 'sometimes|digits:4',
+            'serial_no' => ['sometimes', 'nullable', 'string', 'max:4', 'regex:/^[A-Za-z0-9]*$/'],
+            'model_no' => ['sometimes', 'nullable', 'string', 'max:15', 'regex:/^[A-Za-z0-9]*$/'],
         ]);
 
         // Accept a full property_number, or components
@@ -64,6 +66,14 @@ class ItemInstanceController extends Controller
             $instance->serial = $parsed['serial'];
             $instance->serial_int = $parsed['serial_int'] ?? null;
             $instance->office_code = $parsed['office'];
+            if (array_key_exists('serial_no', $data)) {
+                $value = $data['serial_no'];
+                $instance->serial_no = $value !== null ? substr(strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $value)), 0, 4) : null;
+            }
+            if (array_key_exists('model_no', $data)) {
+                $value = $data['model_no'];
+                $instance->model_no = $value !== null ? substr(strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $value)), 0, 15) : null;
+            }
             $instance->save();
 
             $this->logger->log($instance, 'updated', ['property_number' => $instance->property_number], $request->user());

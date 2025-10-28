@@ -154,8 +154,8 @@ html.dark .gov-hover:hover::before {
    Additional custom styles for modal, FilePond, and general tweaks
    ----------------------------------------------------------------------- */
 
-/* Step 3 collapsible body animation */
-[data-step3-body] {
+/* Accordion panel animation */
+[data-accordion-panel] {
   transition: max-height 300ms ease, opacity 200ms ease;
 }
 /* Soft purple background for modal header */

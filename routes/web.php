@@ -61,6 +61,7 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
         // Item Management
         Route::get('items/search', [ItemController::class, 'search'])->name('admin.items.search');
         Route::get('items/check-serial', [ItemController::class, 'checkSerial'])->name('admin.items.check-serial');
+        Route::match(['get', 'post'], 'items/{item}/stickers', [ItemController::class, 'printStickers'])->name('admin.items.stickers');
         Route::resource('items', ItemController::class);
 
         Route::post('items/validate-pns', [ItemController::class, 'validatePropertyNumbers'])
@@ -160,8 +161,6 @@ Route::middleware(['auth', 'role:user', 'nocache'])
     });
 
 require __DIR__.'/auth.php';
-
-
 
 
 

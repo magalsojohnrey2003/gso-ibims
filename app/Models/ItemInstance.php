@@ -22,6 +22,8 @@ class ItemInstance extends Model
         'category_id',
         'serial',
         'serial_int',
+        'serial_no',
+        'model_no',
         'office_code',
         'status',
         'notes',

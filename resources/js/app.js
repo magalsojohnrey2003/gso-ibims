@@ -14,6 +14,7 @@ import './property-number';
 import './items-add-modal';
 import './item-instances-manager';
 import './items-edit-modal';
+import './items-print';
 import '../css/admin-dashboard.css';
 import './user-dashboard';
 import './reports';
@@ -59,112 +60,226 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// Robust Step 3 toggle: binds to all [data-step3-header] / [data-step3-body] pairs
+// Generic accordion groups (used by item modals)
 document.addEventListener('DOMContentLoaded', () => {
-  const headers = Array.from(document.querySelectorAll('[data-step3-header]'));
+  const groups = Array.from(document.querySelectorAll('[data-accordion-group]'));
+  if (!groups.length) return;
 
-  if (!headers.length) return;
-
-  const isFocusable = (el) => !!el && (el.tabIndex >= 0 || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(el.tagName));
-
-  const findBodyForHeader = (header) => {
-    // 1) If header has aria-controls -> use that id
-    const ctrl = header.getAttribute('aria-controls');
+  const findPanel = (trigger) => {
+    const ctrl = trigger.getAttribute('data-accordion-target');
     if (ctrl) {
       const byId = document.getElementById(ctrl);
       if (byId) return byId;
     }
-    // 2) If header and body are inside the same wrapper, look for nearest sibling with data-step3-body
-    //    (walk up to a reasonable parent and query inside)
-    let parent = header.parentElement;
-    for (let i = 0; i < 4 && parent; i++, parent = parent.parentElement) {
-      const found = parent.querySelector('[data-step3-body]');
-      if (found) return found;
-    }
-    // 3) fallback: nextElementSibling
-    let next = header.nextElementSibling;
-    while (next) {
-      if (next.matches && next.matches('[data-step3-body]')) return next;
-      next = next.nextElementSibling;
+    const direct = trigger.nextElementSibling;
+    if (direct && direct.matches?.('[data-accordion-panel]')) return direct;
+    const parent = trigger.parentElement;
+    if (parent) {
+      const candidate = parent.querySelector('[data-accordion-panel]');
+      if (candidate) return candidate;
     }
     return null;
   };
 
-  headers.forEach((header) => {
-    // avoid double-binding
-    if (header.__step3Bound) return;
-    header.__step3Bound = true;
+  const focusFirst = (panel) => {
+    const focusable = panel?.querySelector?.('input:not([type="hidden"]), textarea, select, button, [tabindex]:not([tabindex="-1"])');
+    if (!focusable) return;
+    try { focusable.focus({ preventScroll: true }); } catch (_) { focusable.focus(); }
+  };
 
-    const body = findBodyForHeader(header);
-    const caret = header.querySelector('[data-step3-caret]');
+  groups.forEach((group) => {
+    const triggers = Array.from(group.querySelectorAll('[data-accordion-trigger]'));
+    if (!triggers.length) return;
 
-    const openBody = () => {
-      if (!body) return;
-      header.setAttribute('aria-expanded', 'true');
-      // set maxHeight so CSS transition animates
-      body.style.maxHeight = body.scrollHeight + 'px';
-      body.style.opacity = '1';
-      if (caret) caret.style.transform = 'rotate(180deg)';
-      // focus first focusable element inside the body
-      const focusable = body.querySelector('input:not([type="hidden"]), textarea, select, button, [tabindex]:not([tabindex="-1"])');
-      if (focusable) {
-        try { focusable.focus({ preventScroll: true }); } catch (_) { focusable.focus(); }
-      }
-    };
+    const items = triggers.map((trigger) => {
+      if (trigger.__accordionBound) return null;
+      const panel = findPanel(trigger);
+      if (!panel) return null;
+      const caret = trigger.querySelector('[data-accordion-caret]');
+      panel.style.overflow = 'hidden';
+      panel.style.transition = panel.style.transition || 'max-height 300ms ease, opacity 200ms ease';
+      return { trigger, panel, caret };
+    }).filter(Boolean);
 
-    const closeBody = () => {
-      if (!body) return;
-      header.setAttribute('aria-expanded', 'false');
-      body.style.maxHeight = '0';
-      body.style.opacity = '0';
-      if (caret) caret.style.transform = '';
-    };
+    if (!items.length) return;
 
-    // initialize collapsed if aria-expanded isn't true already
-    const initialExpanded = header.getAttribute('aria-expanded') === 'true';
-    if (body) {
-      // ensure transition styles exist (non-destructive)
-      body.style.overflow = 'hidden';
-      body.style.transition = body.style.transition || 'max-height 300ms ease, opacity 200ms ease';
-      if (initialExpanded) {
-        // open with measured height
-        body.style.maxHeight = body.scrollHeight + 'px';
-        body.style.opacity = '1';
-        if (caret) caret.style.transform = 'rotate(180deg)';
+    const closeItem = (item, { silent = false } = {}) => {
+      const { trigger, panel, caret } = item;
+      trigger.setAttribute('aria-expanded', 'false');
+      const currentHeight = panel.scrollHeight;
+      if (currentHeight > 0) {
+        panel.style.maxHeight = `${currentHeight}px`;
+        requestAnimationFrame(() => {
+          panel.style.maxHeight = '0';
+        });
       } else {
-        closeBody();
+        panel.style.maxHeight = '0';
       }
-    }
-
-    // click handler
-    header.addEventListener('click', (ev) => {
-      ev.preventDefault();
-      const expanded = header.getAttribute('aria-expanded') === 'true';
-      if (expanded) closeBody();
-      else openBody();
-    });
-
-    // keyboard handler (Enter / Space)
-    header.addEventListener('keydown', (ev) => {
-      if (ev.key === ' ' || ev.key === 'Enter') {
-        ev.preventDefault();
-        header.click();
+      panel.style.opacity = '0';
+      panel.dataset.accordionExpanded = 'false';
+      panel.removeAttribute('data-accordion-open');
+      if (panel.__accordionHeightHandler) {
+        panel.removeEventListener('transitionend', panel.__accordionHeightHandler);
+        panel.__accordionHeightHandler = null;
       }
-      // allow arrow keys to move focus between headers (optional nicety)
-      if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
-        ev.preventDefault();
-        const idx = headers.indexOf(header);
-        if (idx >= 0) {
-          const nextIdx = ev.key === 'ArrowDown' ? Math.min(headers.length - 1, idx + 1) : Math.max(0, idx - 1);
-          const nextHeader = headers[nextIdx];
-          if (nextHeader) nextHeader.focus();
+      if (caret) caret.style.transform = '';
+      if (!silent) {
+        panel.dispatchEvent(new CustomEvent('accordion:closed', { bubbles: true }));
+      }
+    };
+
+    const openItem = (item, { focus = true, silent = false } = {}) => {
+      const { trigger, panel, caret } = item;
+      trigger.setAttribute('aria-expanded', 'true');
+      panel.dataset.accordionExpanded = 'true';
+      panel.removeAttribute('data-accordion-open');
+      const targetHeight = panel.scrollHeight;
+      panel.style.maxHeight = targetHeight > 0 ? `${targetHeight}px` : '240px';
+      panel.style.opacity = '1';
+      if (caret) caret.style.transform = 'rotate(180deg)';
+      if (panel.__accordionHeightHandler) {
+        panel.removeEventListener('transitionend', panel.__accordionHeightHandler);
+        panel.__accordionHeightHandler = null;
+      }
+      panel.__accordionHeightHandler = (event) => {
+        if (event.propertyName === 'max-height' && panel.dataset.accordionExpanded === 'true') {
+          panel.style.maxHeight = 'none';
+          if (panel.__accordionHeightHandler) {
+            panel.removeEventListener('transitionend', panel.__accordionHeightHandler);
+            panel.__accordionHeightHandler = null;
+          }
         }
+      };
+      panel.addEventListener('transitionend', panel.__accordionHeightHandler);
+      if (focus) focusFirst(panel);
+      if (!silent) {
+        panel.dispatchEvent(new CustomEvent('accordion:opened', { bubbles: true }));
       }
+    };
+
+    items.forEach((item, index) => {
+      const { trigger, panel } = item;
+      trigger.__accordionBound = true;
+
+      const defaultOpen = panel.hasAttribute('data-accordion-open') || trigger.getAttribute('aria-expanded') === 'true';
+      if (defaultOpen) {
+        openItem(item, { focus: false, silent: true });
+      } else {
+        closeItem(item, { silent: true });
+      }
+
+      trigger.addEventListener('click', (event) => {
+        event.preventDefault();
+        const expanded = trigger.getAttribute('aria-expanded') === 'true';
+        if (expanded) {
+          closeItem(item);
+        } else {
+          items.forEach((other) => {
+            if (other !== item) closeItem(other, { silent: true });
+          });
+          openItem(item);
+        }
+      });
+
+      trigger.addEventListener('keydown', (event) => {
+        if (event.key === ' ' || event.key === 'Enter') {
+          event.preventDefault();
+          trigger.click();
+          return;
+        }
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+          event.preventDefault();
+          const direction = event.key === 'ArrowDown' ? 1 : -1;
+          const nextIndex = (index + direction + items.length) % items.length;
+          items[nextIndex].trigger.focus();
+        }
+      });
     });
+
+    const initiallyOpen = items.filter((item) => item.panel.dataset.accordionExpanded === 'true');
+    if (initiallyOpen.length > 1) {
+      initiallyOpen.slice(1).forEach((item) => closeItem(item, { silent: true }));
+    }
   });
 });
 
+document.addEventListener('DOMContentLoaded', () => {
+  const fields = Array.from(document.querySelectorAll('[data-currency-format="php"]'));
+  if (!fields.length) return;
 
+  const formatter = new Intl.NumberFormat('en-PH', {
+    style: 'currency',
+    currency: 'PHP',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
 
+  const parseValue = (value) => {
+    const normalized = String(value ?? '').replace(/\D/g, '');
+    if (normalized === '') return '';
+    const number = parseInt(normalized, 10);
+    return Number.isFinite(number) ? number : '';
+  };
 
+  const bindCurrencyField = (input) => {
+    if (!(input instanceof HTMLInputElement) || input.dataset.currencyBound === '1') return;
+    input.dataset.currencyBound = '1';
 
+    const applyFormatted = () => {
+      const raw = parseValue(input.dataset.currencyRaw ?? input.value);
+      if (raw === '') {
+        input.value = '';
+        input.dataset.currencyRaw = '';
+        return;
+      }
+      input.dataset.currencyRaw = String(raw);
+      input.value = formatter.format(raw);
+    };
+
+    const handleInput = () => {
+      const raw = parseValue(input.value);
+      if (raw === '') {
+        input.value = '';
+        input.dataset.currencyRaw = '';
+        return;
+      }
+      input.dataset.currencyRaw = String(raw);
+      input.value = formatter.format(raw);
+      requestAnimationFrame(() => {
+        try {
+          const len = input.value.length;
+          input.setSelectionRange(len, len);
+        } catch (_) {
+          /* caret positioning may fail on some inputs */
+        }
+      });
+    };
+
+    input.addEventListener('focus', () => {
+      if (input.value) {
+        requestAnimationFrame(() => {
+          try { input.select(); } catch (_) { /* no-op */ }
+        });
+      }
+    });
+
+    input.addEventListener('blur', () => applyFormatted());
+    input.addEventListener('input', handleInput);
+
+    const form = input.form;
+    if (form) {
+      form.addEventListener('submit', () => {
+        const raw = parseValue(input.value);
+        input.value = raw === '' ? '' : String(raw);
+      });
+      form.addEventListener('reset', () => {
+        delete input.dataset.currencyRaw;
+        setTimeout(() => applyFormatted(), 0);
+      });
+    }
+
+    applyFormatted();
+  };
+
+  fields.forEach(bindCurrencyField);
+});
