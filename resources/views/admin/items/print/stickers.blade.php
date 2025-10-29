@@ -92,7 +92,7 @@
                         <span id="print_office_{{ $index }}">{{ $sticker['office'] ?: '----' }}</span>
                     </div>
                 </div>
-                <div class="meta">
+                <div class="meta"> 
                     <div id="print_mn_{{ $index }}"><strong>Model No.:</strong> {{ $sticker['model_no'] ?: '—' }}</div>
                     <div id="print_sn_{{ $index }}"><strong>Serial No.:</strong> {{ $sticker['serial_no'] ?: '—' }}</div>
                 </div>

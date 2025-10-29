@@ -10,29 +10,24 @@
                 : '',
         ];
     })->values()->toArray();
-
     $bootstrapOffices = collect($offices ?? [])->map(function ($o) {
         return [
             'code' => isset($o['code']) ? preg_replace('/\D+/', '', (string) $o['code']) : '',
             'name' => $o['name'] ?? '',
         ];
     })->values()->toArray();
-
     $bootstrapCategoryCodes = [];
-
     foreach ($categoryCodeMap ?? [] as $name => $codeValue) {
         $digits = preg_replace('/\D+/', '', (string) $codeValue);
         if ($name && $digits !== '') {
             $bootstrapCategoryCodes[$name] = str_pad(substr($digits, 0, 4), 4, '0', STR_PAD_LEFT);
         }
     }
-
     foreach ($categories ?? [] as $category) {
         $digits = isset($category['category_code']) ? preg_replace('/\D+/', '', (string) $category['category_code']) : '';
         if ($digits === '') {
             continue;
         }
-
         $code = str_pad(substr($digits, 0, 4), 4, '0', STR_PAD_LEFT);
         if (! empty($category['name'])) {
             $bootstrapCategoryCodes[$category['name']] = $code;
@@ -42,7 +37,6 @@
         }
     }
 @endphp
-
 <x-app-layout>
     <x-title level="h2"
                 size="2xl"
@@ -51,7 +45,6 @@
                 variant="s"
                 iconStyle="plain"
                 iconColor="gov-accent"> Items Management </x-title>
-
     <div
         class="hidden"
         data-items-bootstrap
@@ -59,21 +52,17 @@
         data-items-offices='@json($bootstrapOffices)'
         data-items-category-codes='@json($bootstrapCategoryCodes)'>
     </div>
-
   <div class="py-6">
       <div class="sm:px-6 lg:px-8 space-y-10">
           @if(session('success'))
               <x-alert type="success" :message="session('success')" />
           @endif
-
           @if(session('error'))
               <x-alert type="error" :message="session('error')" />
           @endif
-
           @if($errors->any())
               <x-alert type="error" :message="$errors->first()" />
           @endif
-
           <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
               <form method="GET" action="{{ route('items.index') }}" class="flex items-center gap-2">
                   <input type="text"
@@ -81,7 +70,6 @@
                          value="{{ request('search') }}"
                          placeholder="Search by name or category..."
                          class="border rounded-lg px-3 py-2 text-sm w-64 focus:ring focus:ring-blue-200" />
-
                   <x-button
                       variant="secondary"
                       iconName="magnifying-glass"
@@ -90,9 +78,7 @@
                       Search
                   </x-button>
               </form>
-
           </div>
-
           <div class="overflow-x-auto rounded-2xl shadow-lg">
               <table class="w-full text-sm text-center text-gray-600 shadow-sm border rounded-lg overflow-hidden">
                   <thead class="bg-purple-600 text-white text-xs uppercase font-semibold text-center">
@@ -125,7 +111,6 @@
                                               ? Storage::disk('public')->url($item->photo)
                                               : asset($item->photo);
                                       @endphp
-
                                       <div class="flex justify-center">
                                           <img src="{{ $photoUrl }}" data-item-photo-img class="h-12 w-12 object-cover rounded-lg shadow-sm">
                                       </div>
@@ -133,7 +118,6 @@
                                       <x-status-badge type="gray" text="No photo" />
                                   @endif
                               </td>
-
                               <td class="px-6 py-4 font-semibold text-gray-900" data-item-name>{{ $item->name }}</td>
                               <td class="px-6 py-4" data-item-category>{{ $displayCategory }}</td>
                               <td class="px-6 py-4" data-item-total>{{ $item->total_qty }}</td>
@@ -142,7 +126,6 @@
                                       {{ $item->available_qty }}
                                   </span>
                               </td>
-
                               <td class="px-6 py-4">
                                   <div class="flex items-center justify-center gap-3">
                                       <x-button
@@ -154,7 +137,6 @@
                                           x-on:click.prevent="$dispatch('open-modal', 'edit-item-{{ $item->id }}')">
                                           Edit
                                       </x-button>
-
                                       <x-button
                                           variant="secondary"
                                           size="sm"
@@ -164,7 +146,6 @@
                                           x-on:click.prevent="$dispatch('open-modal', 'view-item-{{ $item->id }}')">
                                           View
                                       </x-button>
-
                                       <x-button
                                           variant="secondary"
                                           size="sm"
@@ -181,7 +162,6 @@
                                           :disabled="$item->instances->isEmpty()">
                                           Print
                                       </x-button>
-
                                       <x-button
                                           variant="danger"
                                           size="sm"
@@ -194,19 +174,17 @@
                                   </div>
                               </td>
                           </tr>
-
                           @push('item-modals')
                               <x-modal name="edit-item-{{ $item->id }}" maxWidth="2xl">
-                                  <div class="w-full bg-white shadow-lg overflow-hidden">
-                                      <div class="bg-purple-600 text-white px-6 py-5">
+                                  <div class="w-full bg-white shadow-lg overflow-hidden flex flex-col max-h-[85vh]">
+                                      <div class="bg-purple-600 text-white px-6 py-5 sticky top-0 z-20">
                                           <h3 class="text-2xl font-bold flex items-center">
                                               <i class="fas fa-pencil-alt mr-2"></i>
                                               EDIT ITEM
                                           </h3>
                                           <p class="text-purple-100 mt-2 text-sm leading-relaxed">Modify the Details of the Selected Inventory Item.</p>
                                       </div>
-
-                                      <div class="p-5">
+                                      <div class="flex-1 overflow-y-auto relative p-5">
                                           @include('admin.items.edit', [
                                               'item' => $item,
                                               'categories' => $categories,
@@ -215,10 +193,9 @@
                                       </div>
                                   </div>
                               </x-modal>
-
                               <x-modal name="view-item-{{ $item->id }}" maxWidth="3xl">
-                                  <div class="w-full bg-white shadow-xl overflow-hidden">
-                                      <div class="bg-indigo-600 text-white px-6 py-5">
+                                  <div class="w-full bg-white shadow-xl overflow-hidden flex flex-col max-h-[85vh]">
+                                      <div class="bg-indigo-600 text-white px-6 py-5 sticky top-0 z-20">
                                           <h3 class="text-2xl font-bold flex items-center">
                                               <i class="fas fa-eye mr-2"></i>
                                               ITEM OVERVIEW
@@ -227,17 +204,24 @@
                                               Review the latest information for <strong>{{ $item->name }}</strong>.
                                           </p>
                                       </div>
-
-                                      <div class="p-6">
+                                      <div class="flex-1 overflow-y-auto p-6">
                                           @include('admin.items.view', [
                                               'item' => $item,
                                               'displayCategory' => $displayCategory,
                                               'categoryMap' => $categoryMap,
                                           ])
                                       </div>
+                                      <div class="px-6 py-4 border-t bg-white sticky bottom-0 z-20 flex justify-end">
+                                          <x-button
+                                              variant="secondary"
+                                              iconName="x-mark"
+                                              type="button"
+                                              x-on:click="$dispatch('close-modal', 'view-item-{{ $item->id }}')">
+                                              Close
+                                          </x-button>
+                                      </div>
                                   </div>
                               </x-modal>
-
                               <x-modal name="confirm-delete-{{ $item->id }}">
                                   <div class="p-6">
                                       <h2 class="text-lg font-bold text-red-600">
@@ -277,9 +261,8 @@
   </div>
   
   <x-modal name="create-item" maxWidth="2xl">
-      <div class="w-full shadow-lg overflow-hidden">
-
-      <div class="bg-purple-600 text-white px-6 py-5">
+      <div class="w-full shadow-lg overflow-hidden flex flex-col max-h-[85vh] bg-white">
+      <div class="bg-purple-600 text-white px-6 py-5 sticky top-0 z-20">
           <h3 class="text-2xl font-bold flex items-center">
               <i class="fas fa-plus mr-2"></i>
               Add New Item
@@ -288,15 +271,12 @@
               Please provide the necessary details below to Add new Item.
           </p>
       </div>
-
-          <div class="p-5">
+          <div class="flex-1 overflow-y-auto relative p-5">
               @include('admin.items.create', ['categories' => $categories, 'categoryCodeMap' => $categoryCodeMap])
             
           </div>
-          
       </div>
   </x-modal>
-
 <!-- Floating Action Menu -->
 <div x-data="{ open: false }" class="fixed bottom-8 right-8 z-50">
     <button
@@ -305,11 +285,9 @@
         type="button"
         class="relative rounded-full w-14 h-14 flex items-center justify-center shadow-lg focus:outline-none transition-all duration-300 transform"
         :class="open ? 'bg-red-600 hover:bg-red-700 scale-105' : 'bg-purple-600 hover:bg-purple-700 hover:scale-110'">
-
         <span aria-hidden="true"
             class="absolute inset-0 rounded-full opacity-0 transition-opacity duration-300"
             :class="open ? 'opacity-20 bg-black/10' : ''"></span>
-
         <svg xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -319,17 +297,14 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M12 4v16m8-8H4" />
         </svg>
-
         <span class="sr-only">Open actions</span>
     </button>
-
     <!-- Action cards -->
     <div
         x-show="open"
         x-transition.origin.bottom.right
         class="absolute bottom-20 right-0 flex flex-col gap-3 items-end"
         @click.outside="open = false">
-
         <!-- Add New Item -->
         <button
             x-on:click="$dispatch('open-modal', 'create-item'); open = false"
@@ -344,7 +319,6 @@
                 <div class="text-xs text-blue-500">Generate Property Numbers by Quantity</div>
             </div>
         </button>
-
         <!-- Manage Categories -->
         <button
             x-on:click="$dispatch('open-modal', 'manage-category'); open = false"
@@ -359,7 +333,6 @@
                 <div class="text-xs text-green-500">Manage categories and PPE mapping</div>
             </div>
         </button>
-
         <!-- Manage Offices -->
         <button
             x-on:click="$dispatch('open-modal', 'manage-office'); open = false"
@@ -376,23 +349,18 @@
         </button>
 </div>
 </div>
-
 @stack('item-modals')
-
 @include('admin.items.modals.category')
 @include('admin.items.modals.office')
-
 <x-modal name="print-stickers" maxWidth="lg">
     <div class="p-6 space-y-6" data-print-modal>
         <div>
             <h3 class="text-xl font-semibold text-gray-900">Print Stickers</h3>
             <p class="text-sm text-gray-500" data-print-summary></p>
         </div>
-
         <form class="space-y-5" data-print-form>
             <input type="hidden" data-print-route-input>
             <input type="hidden" data-print-quantity-input>
-
             <div class="space-y-2">
                 <x-input-label for="print-person-accountable" value="Person Accountable" />
                 <x-text-input
@@ -404,7 +372,6 @@
                 </x-text-input>
                 <p class="text-xs text-gray-500">Optional: include who will receive the assets.</p>
             </div>
-
             <div class="space-y-2">
                 <div class="flex items-center justify-between">
                     <span class="text-sm font-medium text-gray-700">Signature</span>
@@ -415,7 +382,6 @@
                 </div>
                 <p class="text-xs text-gray-500">Sign using your mouse, trackpad, or finger. Leave blank if a handwritten signature will be applied later.</p>
             </div>
-
             <div class="flex justify-end gap-3">
                 <x-button
                     type="button"
@@ -424,7 +390,6 @@
                     iconName="x-mark">
                     Cancel
                 </x-button>
-
                 <x-button
                     type="submit"
                     iconName="printer"
@@ -435,7 +400,5 @@
         </form>
     </div>
 </x-modal>
-
 </x-app-layout>
-
 @vite(['resources/js/app.js'])

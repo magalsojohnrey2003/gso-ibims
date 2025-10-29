@@ -94,21 +94,16 @@
 
     <section class="space-y-4">
         <div class="flex items-center justify-between">
-            <h4 class="text-lg font-semibold text-gray-900">Property Numbers</h4>
+            <h4 class="text-lg font-semibold text-gray-900">Item Record Table</h4>
             <span class="text-xs text-gray-500">Showing {{ $item->instances->count() }} record{{ $item->instances->count() === 1 ? '' : 's' }}</span>
         </div>
 
         <div class="overflow-hidden rounded-xl border border-gray-200">
             <div class="max-h-72 overflow-auto">
                 <table class="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead class="bg-gray-50 text-xs uppercase text-gray-500">
+                    <thead class="bg-gray-50 text-xs uppercase text-gray-500 sticky top-0 z-10">
                         <tr>
-                            <th class="px-4 py-3 text-left font-semibold">Property Number</th>
-                            <th class="px-4 py-3 text-left font-semibold">Year</th>
-                            <th class="px-4 py-3 text-left font-semibold">Category Code</th>
-                            <th class="px-4 py-3 text-left font-semibold">GLA</th>
-                            <th class="px-4 py-3 text-left font-semibold">Serial</th>
-                            <th class="px-4 py-3 text-left font-semibold">Office</th>
+                            <th class="px-4 py-3 text-left font-semibold sticky left-0 bg-gray-50">Property Numbers</th>
                             <th class="px-4 py-3 text-left font-semibold">Serial No.</th>
                             <th class="px-4 py-3 text-left font-semibold">Model No.</th>
                             <th class="px-4 py-3 text-left font-semibold">Status</th>
@@ -117,12 +112,7 @@
                     <tbody class="divide-y divide-gray-100 bg-white">
                         @forelse($item->instances as $instance)
                             <tr class="hover:bg-indigo-50/40">
-                                <td class="px-4 py-3 font-semibold text-gray-900">{{ $instance->property_number }}</td>
-                                <td class="px-4 py-3 text-gray-700">{{ $instance->year_procured ?? '—' }}</td>
-                                <td class="px-4 py-3 text-gray-700">{{ $instance->category_code ?? '—' }}</td>
-                                <td class="px-4 py-3 text-gray-700">{{ $instance->gla ?? '—' }}</td>
-                                <td class="px-4 py-3 text-gray-700">{{ $instance->serial ?? '—' }}</td>
-                                <td class="px-4 py-3 text-gray-700">{{ $instance->office_code ?? '—' }}</td>
+                                <td class="px-4 py-3 font-semibold text-gray-900 sticky left-0 bg-white">{{ $instance->property_number }}</td>
                                 <td class="px-4 py-3 text-gray-700">{{ $instance->serial_no ?? '—' }}</td>
                                 <td class="px-4 py-3 text-gray-700">{{ $instance->model_no ?? '—' }}</td>
                                 <td class="px-4 py-3">
@@ -133,8 +123,8 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="9" class="px-4 py-6 text-center text-sm text-gray-500">
-                                    No property numbers are currently linked to this item.
+                                <td colspan="4" class="px-4 py-6 text-center text-sm text-gray-500">
+                                    No Property Numberss are currently linked to this item.
                                 </td>
                             </tr>
                         @endforelse

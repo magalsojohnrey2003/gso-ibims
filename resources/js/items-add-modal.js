@@ -1095,8 +1095,8 @@ class SerialModelRowsManager {
         const value = (serialInput.value || '').trim().toUpperCase();
         serialInput.value = value;
         if (!value) {
-          this.markInvalid(serialInput, 'empty');
-          errors.add('serial_no');
+          this.clearInvalid(serialInput, 'empty');
+          this.clearInvalid(serialInput, 'format');
         } else if (!serialRegex.test(value)) {
           this.clearInvalid(serialInput, 'empty');
           this.markInvalid(serialInput, 'format');
@@ -1112,8 +1112,8 @@ class SerialModelRowsManager {
         const value = (modelInput.value || '').trim().toUpperCase();
         modelInput.value = value;
         if (!value) {
-          this.markInvalid(modelInput, 'empty');
-          errors.add('model_no');
+          this.clearInvalid(modelInput, 'empty');
+          this.clearInvalid(modelInput, 'format');
         } else if (!modelRegex.test(value)) {
           this.clearInvalid(modelInput, 'empty');
           this.markInvalid(modelInput, 'format');
@@ -1875,6 +1875,11 @@ function initAddItemsForm(form) {
   attachCategoryListeners(form);
 
   attachOfficeValidation(form);
+
+  const resetMessages = () => {
+    hideMessage(elements.error);
+    hideMessage(elements.feedback);
+  };
 
   const updateState = () => {
     const base = collectBase(form);

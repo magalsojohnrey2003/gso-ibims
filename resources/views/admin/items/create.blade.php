@@ -1,5 +1,5 @@
 <!-- resources/views/admin/items/create.blade.php -->
-<form action="{{ route('items.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6" data-property-form data-add-items-form data-accordion-group="create-item">
+<form id="create-item-form" action="{{ route('items.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6" data-property-form data-add-items-form data-accordion-group="create-item">
 @csrf
 
 <div data-add-feedback class="hidden rounded-md border border-transparent bg-green-50 px-4 py-3 text-sm text-green-700"></div>
@@ -208,11 +208,14 @@
                             <div class="text-gray-500 select-none">-</div>
 
                             <input type="text" class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-white" placeholder="Office" data-row-field="office" data-row-name="office" maxlength="4" inputmode="numeric" />
+                            <button 
+                                type="button" 
+                                class="text-red-600 text-sm px-2 py-1 rounded-md hover:bg-red-50" 
+                                data-row-remove>
+                                <i class="fas fa-trash"></i>
+                            </button>
                             <div class="flex-1"></div>
-                            <button type="button" class="text-red-600 text-sm px-2 py-1 rounded-md hover:bg-red-50" data-row-remove>Remove</button>
-                        </div>
-
-                
+                        </div>     
                     </div>
                 </div>
             </template>
@@ -338,7 +341,7 @@
     </div>
 </div>
 
-<div class="mt-4 border-t pt-4 flex justify-end gap-3">
+<div class="mt-4 border-t pt-4 flex justify-end gap-3 sticky bottom-0 bg-white z-20">
     <x-button
         variant="secondary"
         iconName="x-mark"
@@ -357,3 +360,4 @@
     </x-button>
 </div>
 </form>
+

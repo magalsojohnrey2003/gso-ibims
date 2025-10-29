@@ -34,6 +34,7 @@
 @endphp
 
 <form
+    id="edit-item-form-{{ $item->id }}"
     method="POST"
     action="{{ route('items.update', $item->id) }}"
     enctype="multipart/form-data"
@@ -282,11 +283,9 @@
             </div>
         </div>
     </div>
-</div>
-    </div>
 
     <!-- Actions -->
-    <div class="mt-6 border-t pt-6 flex justify-end gap-3 px-2 sm:px-0">
+    <div class="mt-4 border-t pt-4 flex justify-end gap-3 sticky bottom-0 bg-white z-20">
         <x-button
             variant="secondary"
             iconName="x-mark"
