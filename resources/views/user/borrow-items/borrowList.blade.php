@@ -183,7 +183,7 @@
                             iconBg="gov-accent" 
                             iconColor="white"
                             class="text-center mx-auto">
-                            Checkout Dates
+                            Available Dates
                         </x-title>
 
                         <div class="flex items-start justify-between mb-3">

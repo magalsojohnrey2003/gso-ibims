@@ -277,6 +277,7 @@
           </div>
       </div>
   </x-modal>
+  
 <!-- Floating Action Menu -->
 <div x-data="{ open: false }" class="fixed bottom-8 right-8 z-50">
     <button
