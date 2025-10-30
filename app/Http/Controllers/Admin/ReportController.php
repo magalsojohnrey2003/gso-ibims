@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Item;
 use App\Models\BorrowRequest;
 use App\Models\BorrowRequestItem;
-use App\Models\ReturnRequest;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -257,32 +256,37 @@ class ReportController extends Controller
              * Columns: Borrower Name | Item Name | Condition | Status | Quantity | Return Date
              */
             case 'returned_items':
-                $rows = \DB::table('return_items as ri')
-                    ->join('return_requests as rr', 'ri.return_request_id', '=', 'rr.id')
-                    ->leftJoin('borrow_requests as br', 'ri.borrow_request_id', '=', 'br.id')
-                    ->leftJoin('users as u', 'rr.user_id', '=', 'u.id')
-                    ->leftJoin('items as i', 'ri.item_id', '=', 'i.id')
-                    ->whereBetween('rr.created_at', [$start->toDateString(), $end->toDateString()])
-                    ->select(
-                        \DB::raw("CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,'')) as borrower_name"),
-                        'i.name as item_name',
-                        'ri.condition as condition',
-                        'rr.status as status',
-                        'ri.quantity as quantity',
-                        'rr.created_at as return_date'
+                $rows = \DB::table('borrow_item_instances as bii')
+                    ->join('borrow_requests as br', 'bii.borrow_request_id', '=', 'br.id')
+                    ->leftJoin('users as u', 'br.user_id', '=', 'u.id')
+                    ->leftJoin('items as i', 'bii.item_id', '=', 'i.id')
+                    ->leftJoin('item_instances as inst', 'bii.item_instance_id', '=', 'inst.id')
+                    ->whereNotNull('bii.return_condition')
+                    ->where('bii.return_condition', '<>', 'pending')
+                    ->whereBetween(
+                        \DB::raw("DATE(COALESCE(bii.condition_updated_at, bii.returned_at, bii.updated_at))"),
+                        [$start->toDateString(), $end->toDateString()]
                     )
-                    ->orderBy('rr.created_at', 'desc')
+                    ->select(
+                        \DB::raw("TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) as borrower_name"),
+                        'i.name as item_name',
+                        'inst.property_number as property_number',
+                        'bii.return_condition as condition',
+                        'br.delivery_status as delivery_status',
+                        'bii.returned_at as returned_at'
+                    )
+                    ->orderByDesc(\DB::raw("COALESCE(bii.condition_updated_at, bii.returned_at, bii.updated_at)"))
                     ->get()
                     ->map(fn($r) => [
                         $r->borrower_name,
                         $r->item_name,
+                        $r->property_number ?? '-',
                         ucfirst(str_replace('_',' ',$r->condition ?? '')),
-                        ucfirst($r->status ?? ''),
-                        (int)$r->quantity,
-                        $r->return_date ? (string)$r->return_date : null,
+                        ucfirst(str_replace('_',' ',$r->delivery_status ?? '')),
+                        $r->returned_at ? (string)$r->returned_at : null,
                     ])->toArray();
 
-                $columns = ['Borrower Name','Item Name','Condition','Status','Quantity','Return Date'];
+                $columns = ['Borrower Name','Item Name','Property Number','Condition','Delivery Status','Returned At'];
                 return compact('columns','rows');
 
             /**
@@ -318,42 +322,47 @@ class ReportController extends Controller
              * 4) Borrower Condition Summary
              * Columns: Borrower Name | Good | Damage | Total Items Borrowed
              *
-             * Counts conditions from return_items.condition - 'good' vs others mapped to damage.
+             * Counts conditions from borrow_item_instances.return_condition - 'good' vs others mapped to damage.
              */
             case 'borrower_condition_summary':
-                $sub = \DB::table('return_items as ri')
-                    ->join('return_requests as rr', 'ri.return_request_id', '=', 'rr.id')
-                    ->join('users as u', 'rr.user_id', '=', 'u.id')
-                    ->select(
-                        'rr.user_id',
-                        \DB::raw("CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,'')) as borrower_name"),
-                        'ri.condition',
-                        \DB::raw('SUM(ri.quantity) as qty')
+                $conditions = \DB::table('borrow_item_instances as bii')
+                    ->join('borrow_requests as br', 'bii.borrow_request_id', '=', 'br.id')
+                    ->join('users as u', 'br.user_id', '=', 'u.id')
+                    ->whereNotNull('bii.return_condition')
+                    ->where('bii.return_condition', '<>', 'pending')
+                    ->whereBetween(
+                        \DB::raw("DATE(COALESCE(bii.condition_updated_at, bii.returned_at, bii.updated_at))"),
+                        [$start->toDateString(), $end->toDateString()]
                     )
-                    ->whereBetween('rr.created_at', [$start->toDateString(), $end->toDateString()])
-                    ->groupBy('rr.user_id', 'borrower_name', 'ri.condition');
-
-                $rowsRaw = \DB::table(\DB::raw("({$sub->toSql()}) as t"))
-                    ->mergeBindings($sub)
-                    ->select('borrower_name', 'condition', 'qty')
+                    ->select(
+                        'br.user_id',
+                        \DB::raw("TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) as borrower_name"),
+                        'bii.return_condition as condition',
+                        \DB::raw('COUNT(*) as qty')
+                    )
+                    ->groupBy('br.user_id', 'borrower_name', 'bii.return_condition')
                     ->get()
                     ->groupBy('borrower_name');
 
-                $out = [];
-                foreach ($rowsRaw as $borrower => $group) {
-                    $good = 0; $damage = 0; $total = 0;
-                    foreach ($group as $r) {
-                        $c = strtolower($r->condition ?? 'good');
-                        $q = (int)$r->qty;
-                        $total += $q;
-                        if ($c === 'good') $good += $q;
-                        else $damage += $q;
+                $rows = $conditions->map(function ($group, $borrower) {
+                    $good = 0;
+                    $damage = 0;
+                    $total = 0;
+
+                    foreach ($group as $row) {
+                        $count = (int) $row->qty;
+                        $total += $count;
+                        if (strtolower($row->condition ?? 'good') === 'good') {
+                            $good += $count;
+                        } else {
+                            $damage += $count;
+                        }
                     }
-                    $out[] = [$borrower, $good, $damage, $total];
-                }
+
+                    return [$borrower, $good, $damage, $total];
+                })->values()->toArray();
 
                 $columns = ['Borrower Name','Good','Damage','Total Items Borrowed'];
-                $rows = $out;
                 return compact('columns','rows');
 
             /**
@@ -432,7 +441,7 @@ class ReportController extends Controller
             /**
              * 8) Damage Reports
              * Columns: Borrower Name | Item Name | Property Number | Damage Type | Reported Date
-             * Uses item_damage_reports if present; otherwise falls back to return_items with damaged conditions
+             * Uses item_damage_reports if present; otherwise falls back to borrow_item_instances with damaged or missing conditions
              */
             case 'damage_reports':
                 // Prefer ItemDamageReport model if available
@@ -449,29 +458,32 @@ class ReportController extends Controller
                         return [$borrower, $itemName, $prop, ucfirst(str_replace('_',' ',$type)), $rep->created_at?->toDateString()];
                     })->toArray();
                 } else {
-                    // Fallback: use return_items where condition indicates damage
-                    $rows = \DB::table('return_items as ri')
-                        ->join('return_requests as rr', 'ri.return_request_id', '=', 'rr.id')
-                        ->leftJoin('items as i', 'ri.item_id', '=', 'i.id')
-                        ->leftJoin('item_instances as ii', 'ri.item_instance_id', '=', 'ii.id')
-                        ->leftJoin('users as u', 'rr.user_id', '=', 'u.id')
-                        ->whereBetween('rr.created_at', [$start->toDateString(), $end->toDateString()])
-                        ->whereIn('ri.condition', ['major_damage','minor_damage','damaged','missing'])
+                    // Fallback: use borrow item instances marked as damaged/missing
+                    $rows = \DB::table('borrow_item_instances as bii')
+                        ->join('borrow_requests as br', 'bii.borrow_request_id', '=', 'br.id')
+                        ->leftJoin('users as u', 'br.user_id', '=', 'u.id')
+                        ->leftJoin('items as i', 'bii.item_id', '=', 'i.id')
+                        ->leftJoin('item_instances as ii', 'bii.item_instance_id', '=', 'ii.id')
+                        ->whereIn('bii.return_condition', ['damage', 'minor_damage', 'missing'])
+                        ->whereBetween(
+                            \DB::raw("DATE(COALESCE(bii.condition_updated_at, bii.returned_at, bii.updated_at))"),
+                            [$start->toDateString(), $end->toDateString()]
+                        )
                         ->select(
-                            \DB::raw("CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,'')) as borrower_name"),
+                            \DB::raw("TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) as borrower_name"),
                             'i.name as item_name',
                             'ii.property_number as property_number',
-                            'ri.condition as damage_type',
-                            'rr.created_at as reported_date'
+                            'bii.return_condition as damage_type',
+                            \DB::raw("COALESCE(bii.condition_updated_at, bii.returned_at, bii.updated_at) as reported_date")
                         )
-                        ->orderBy('rr.created_at', 'desc')
+                        ->orderByDesc(\DB::raw("COALESCE(bii.condition_updated_at, bii.returned_at, bii.updated_at)"))
                         ->get()
                         ->map(fn($r) => [
                             $r->borrower_name,
                             $r->item_name,
                             $r->property_number,
                             ucfirst(str_replace('_',' ',$r->damage_type)),
-                            (string)$r->reported_date
+                            $r->reported_date ? (string)$r->reported_date : null,
                         ])->toArray();
                 }
 

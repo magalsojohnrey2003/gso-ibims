@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class BorrowRequest extends Model
 {
-    protected $fillable = ['user_id', 'borrow_date', 'return_date', 'manpower_count','location', 'status', 
+    protected $fillable = ['user_id', 'borrow_date', 'return_date', 'manpower_count','location', 'letter_path', 'status', 
         'delivery_status',
         'dispatched_at',
         'delivered_at',
@@ -22,11 +22,6 @@ class BorrowRequest extends Model
     public function items()
     {
         return $this->hasMany(BorrowRequestItem::class);
-    }
-
-    public function returnRequests()
-    {
-        return $this->hasMany(ReturnRequest::class);
     }
 
     public function borrowedInstances()

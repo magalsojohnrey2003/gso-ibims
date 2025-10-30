@@ -154,6 +154,7 @@ class BorrowRequestController extends Controller
                             'item_instance_id'  => $inst->id,
                             'checked_out_at'    => now(),
                             'expected_return_at'=> $borrowRequest->return_date,
+                            'return_condition'  => 'pending',
                         ]);
                     }
 
@@ -291,6 +292,7 @@ class BorrowRequestController extends Controller
                     'item_instance_id'  => $inst->id,
                     'checked_out_at'    => now(),
                     'expected_return_at'=> $borrowRequest->return_date,
+                    'return_condition'  => 'pending',
                 ]);
             }
 

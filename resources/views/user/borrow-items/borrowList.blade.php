@@ -1,322 +1,445 @@
 {{-- resources/views/user/borrow-items/borrowList.blade.php --}}
+@php
+    $municipalities = config('locations.municipalities', []);
+    $oldLocation = old('location', optional($borrowRequest ?? null)->location ?? '');
+    $locationPieces = array_values(array_filter(array_map('trim', explode(',', $oldLocation))));
+    $oldMunicipalityLabel = $locationPieces[0] ?? null;
+    $oldBarangay = $locationPieces[1] ?? null;
+    $oldPurok = $locationPieces[2] ?? null;
+    $oldMunicipalityKey = collect($municipalities)
+        ->filter(fn ($definition) => ($definition['label'] ?? null) === $oldMunicipalityLabel)
+        ->keys()
+        ->first();
+@endphp
+
 <x-app-layout>
-     <x-title 
+    <x-title
         level="h2"
         size="2xl"
         weight="bold"
         icon="shopping-cart"
         variant="s"
         iconStyle="circle"
-        iconBg="gov-accent" 
+        iconBg="gov-accent"
         iconColor="white">
         Borrow List
     </x-title>
 
-            <div class="p-6 max-w-7xl mx-auto">
-                {{-- Alerts --}}
-                @if(session('success'))
-                    <x-alert type="success" :message="session('success')" />
-                @endif
-                @if(session('error'))
-                    <x-alert type="error" :message="session('error')" />
-                @endif
-                @if($errors->any())
-                    <x-alert type="error" />
-                @endif
+    <div class="p-6 max-w-7xl mx-auto space-y-6">
+        @if(session('success'))
+            <x-alert type="success" :message="session('success')" />
+        @endif
+        @if(session('error'))
+            <x-alert type="error" :message="session('error')" />
+        @endif
+        @if($errors->any())
+            <x-alert type="error" :message="$errors->first()" />
+        @endif
 
-                <div class="flex items-start gap-6">
-                    {{-- Left column: Borrow List --}}
-                <aside class="w-full lg:w-1/3">
-                <div class="space-y-6">
-                    <!-- Item List Card (larger padding, softer corners, stronger shadow) -->
-                    <div class="bg-white p-6 rounded-2xl shadow-lg">
-                        <div class="flex items-center justify-between mb-4">
-                            <x-title 
-                                level="h3"
-                                size="lg"
-                                weight="semibold"
-                                icon="list-bullet"
-                                variant="s"
-                                iconStyle="circle"
-                                iconBg="gov-accent"
-                                iconColor="white"
-                                class="flex items-center gap-3">
-                                Item List
-                                <span class="inline-flex items-center justify-center bg-purple-100 text-purple-800 text-sm font-medium px-2 py-1 rounded">
-                                    {{ count($borrowList) }}
-                                </span>
-                            </x-title>
+        <form id="borrowListForm"
+              action="{{ route('borrowList.submit') }}"
+              method="POST"
+              enctype="multipart/form-data"
+              class="space-y-8">
+            @csrf
+
+            <div class="bg-white p-5 rounded-2xl shadow-md">
+                <ol id="borrowWizardIndicator" class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <li data-step-index="1" class="flex items-center gap-3 rounded-xl border border-purple-200 bg-purple-50 px-4 py-3 text-sm font-medium text-purple-700">
+                        <span class="flex h-8 w-8 items-center justify-center rounded-full bg-purple-600 text-white">1</span>
+                        <div>
+                            <p class="text-xs uppercase tracking-wide text-purple-500">Step 1</p>
+                            <p>Items &amp; Allocation</p>
                         </div>
+                    </li>
+                    <li data-step-index="2" class="flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-600">
+                        <span class="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-gray-700">2</span>
+                        <div>
+                            <p class="text-xs uppercase tracking-wide text-gray-400">Step 2</p>
+                            <p>Schedule</p>
+                        </div>
+                    </li>
+                    <li data-step-index="3" class="flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-600">
+                        <span class="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-gray-700">3</span>
+                        <div>
+                            <p class="text-xs uppercase tracking-wide text-gray-400">Step 3</p>
+                            <p>Letter &amp; Review</p>
+                        </div>
+                    </li>
+                </ol>
+            </div>
 
-                        <div id="borrowListItems" class="space-y-3 overflow-auto max-h-[40vh]">
-                            @forelse($borrowList as $item)
-                                <div class="flex items-center justify-between border-b pb-2">
-                                    <div class="flex items-center space-x-3">
-                                        <img
-                                            src="{{ $item['photo'] ? asset($item['photo']) : asset($defaultPhotos[$item['category']] ?? 'images/no-image.png') }}"
-                                            class="h-12 w-12 object-cover rounded"
-                                            alt="{{ $item['name'] }}">
-                                        <div>
-                                            <p class="font-medium">{{ $item['name'] }}</p>
-                                            <p class="text-sm text-gray-600">Quantity: {{ $item['qty'] }}</p>
+            <div id="borrowWizardSteps" class="space-y-8">
+                {{-- Step 1 --}}
+                <section data-step="1" class="wizard-step space-y-6">
+                    <div class="grid gap-6 lg:grid-cols-2">
+                        <div class="space-y-6">
+                            <div class="bg-white p-6 rounded-2xl shadow-lg">
+                                <div class="flex items-center justify-between mb-4">
+                                    <x-title
+                                        level="h3"
+                                        size="lg"
+                                        weight="semibold"
+                                        icon="list-bullet"
+                                        variant="s"
+                                        iconStyle="circle"
+                                        iconBg="gov-accent"
+                                        iconColor="white"
+                                        class="flex items-center gap-3">
+                                        Item List
+                                        <span class="inline-flex items-center justify-center bg-purple-100 text-purple-800 text-sm font-medium px-2 py-1 rounded">
+                                            {{ count($borrowList) }}
+                                        </span>
+                                    </x-title>
+                                </div>
+
+                                <div id="borrowListItems" class="space-y-3 max-h-[40vh] overflow-auto">
+                                    @forelse($borrowList as $item)
+                                        <div class="flex items-center justify-between border-b pb-2" data-item-entry data-item-name="{{ $item['name'] }}" data-item-quantity="{{ $item['qty'] }}">
+                                            <div class="flex items-center space-x-3">
+                                                <img
+                                                    src="{{ $item['photo'] ? asset($item['photo']) : asset($defaultPhotos[$item['category']] ?? 'images/no-image.png') }}"
+                                                    class="h-12 w-12 object-cover rounded"
+                                                    alt="{{ $item['name'] }}">
+                                                <div>
+                                                    <p class="font-medium text-gray-800">{{ $item['name'] }}</p>
+                                                    <p class="text-sm text-gray-600">Quantity: {{ $item['qty'] }}</p>
+                                                </div>
+                                            </div>
+
+                                            <button type="submit"
+                                                    class="inline-flex items-center justify-center rounded-full bg-red-100 px-3 py-2 text-sm text-red-700 hover:bg-red-200 transition"
+                                                    form="remove-item-{{ $item['id'] }}">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
                                         </div>
-                                    </div>
-
-                                    <form action="{{ route('borrowList.remove', $item['id']) }}" method="POST">
-                                        @csrf
-                                        @method('DELETE')
-                                        <x-danger-button>
-                                            <i class="fas fa-trash"></i>
-                                        </x-danger-button>
-                                    </form>
+                                    @empty
+                                        <p class="text-gray-500 text-sm text-center py-6">No items selected.</p>
+                                    @endforelse
                                 </div>
-                            @empty
-                                <p class="text-gray-500">No items selected.</p>
-                            @endforelse
-                        </div>
-                    </div>
-
-                    <!-- Logistics & Roles Card (separate small box under Item List) -->
-                    <div class="bg-white p-6 rounded-2xl shadow-md border border-gray-100">
-                        <div class="flex items-center justify-between mb-4">
-                            <x-title 
-                                level="h3"
-                                size="lg"
-                                weight="semibold"
-                                icon="user-plus"
-                                variant="s"
-                                iconStyle="circle"
-                                iconBg="gov-accent"
-                                iconColor="white"
-                                class="flex items-center gap-3 text-center mx-auto">
-                                Resource Allocation
-                            </x-title>
+                            </div>
                         </div>
 
-                        <!-- Number of Manpower -->
-                        <div class="mb-5">
-                            <x-input-label for="manpower_count" value="Number of Manpower (Optional)" />
-                            <x-text-input class="border border-gray-600"  id="manpower_count" type="number" name="manpower_count" min="0" class="w-full mt-1"
-                                        value="{{ old('manpower_count', '') }}" style="border: 1px solid black; background-color: white; color: black;"/>
-                            <x-input-error :messages="$errors->get('manpower_count')" class="mt-1" />
-                            <p id="manpower_hint" class="text-xs text-gray-400 mt-2">Add manpower if you need personnel to handle items.</p>
-                        </div>
-
-                        <!-- Delivery Location -->
-                        <div class="mb-5">
-                            <x-input-label for="location" value="Location" />
-                            <x-text-input id="location" type="text" name="location" class="w-full mt-1"
-                                    value="{{ old('location', optional($borrowRequest ?? null)->location ?? '') }}" 
-                                    placeholder="Enter delivery address or location" style="border: 1px solid black; background-color: white; color: black;"/>
-                            <x-input-error :messages="$errors->get('location')" class="mt-1" />
-                        </div>
-
-                        <!-- Assign Roles -->
-                        <div id="manpowerRolesWrapper" class="mb-1 hidden">
-                            <div class="flex items-center justify-between mb-3">
-                                <div class="text-sm text-gray-700 font-medium">Assign Roles</div>
-                                <button type="button" id="addRoleBtn" class="inline-flex items-center px-4 py-2 rounded-lg bg-purple-600 text-white text-sm hover:bg-purple-700">
-                                    <i class="fas fa-plus mr-2"></i> Add Role
-                                </button>
+                        <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 space-y-5">
+                            <div class="flex items-center justify-between">
+                                <x-title
+                                    level="h3"
+                                    size="lg"
+                                    weight="semibold"
+                                    icon="user-plus"
+                                    variant="s"
+                                    iconStyle="circle"
+                                    iconBg="gov-accent"
+                                    iconColor="white">
+                                    Resource Allocation
+                                </x-title>
                             </div>
 
-                            <div id="manpowerRolesContainer" class="space-y-3 max-h-44 overflow-auto border rounded p-3 bg-white pr-4">
-                                <!-- JS will populate role rows here. -->
+                            <div>
+                                <x-input-label for="manpower_count" value="Number of Manpower (Optional)" />
+                                <x-text-input
+                                    id="manpower_count"
+                                    name="manpower_count"
+                                    type="number"
+                                    min="1"
+                                    max="99"
+                                    value="{{ old('manpower_count') }}"
+                                    class="w-full mt-1 border border-gray-600"
+                                />
+                                <p class="text-xs text-gray-400 mt-2">Add manpower if you need personnel to handle items.</p>
                             </div>
 
-                            <div id="manpowerRolesWarning" class="text-sm text-red-600 mt-2 hidden"></div>
-                            <div class="text-sm text-gray-500 mt-3">Total selected manpower: <span id="manpowerRolesTotal">0</span> / <span id="manpowerRequestedDisplay">0</span></div>
-                        </div>
-
-                        <!-- Keep role row template unchanged inside aside -->
-                        <template id="manpowerRoleRowTemplate">
-                            <div class="grid grid-cols-12 gap-3 items-center border-b pb-3 pt-2 role-row">
-                                <!-- Role (wider) -->
-                                <div class="col-span-6">
-                                    <label class="text-xs text-gray-600">Role</label>
-                                    <select class="w-full border rounded px-2 py-1 role-select">
-                                        <option value="">— Select role —</option>
-                                        <option value="Setup">Setup</option>
-                                        <option value="Operator">Operator</option>
-                                        <option value="Driver">Driver</option>
-                                        <option value="Other">Other</option>
+                            <div class="space-y-4">
+                                <div>
+                                    <x-input-label for="location_municipality" value="Municipality" />
+                                    <select id="location_municipality"
+                                            class="w-full mt-1 border border-gray-600 rounded-md px-3 py-2 bg-white text-gray-800"
+                                            data-initial="{{ $oldMunicipalityKey ?? '' }}">
+                                        <option value="" disabled selected>Select municipality</option>
+                                        @foreach($municipalities as $key => $definition)
+                                            <option value="{{ $key }}"
+                                                    data-label="{{ $definition['label'] ?? $key }}"
+                                                    @selected(($oldMunicipalityKey ?? '') === $key)>
+                                                {{ $definition['label'] ?? $key }}
+                                            </option>
+                                        @endforeach
                                     </select>
-                                    <input class="hidden w-full mt-2 border rounded px-2 py-1 role-other-input" placeholder="Specify other role" />
                                 </div>
 
-                                <!-- Quantity (smaller) -->
-                                <div class="col-span-4">
-                                    <label class="text-xs text-gray-600">Quantity</label>
-                                    <input type="number" min="0" class="w-full border rounded px-2 py-1 role-qty-input text-center" value="0" />
+                                <div>
+                                    <x-input-label for="location_barangay" value="Barangay" />
+                                    <select id="location_barangay"
+                                            class="w-full mt-1 border border-gray-600 rounded-md px-3 py-2 bg-white text-gray-800"
+                                            data-initial="{{ $oldBarangay ?? '' }}"
+                                            disabled>
+                                        <option value="">Select barangay</option>
+                                    </select>
                                 </div>
 
-                                <!-- Notes (bigger) -->
-                                <!-- <div class="col-span-2">
-                                    <label class="text-xs text-gray-600">Notes</label>
-                                    <input type="text" class="w-full border rounded px-2 py-1 role-notes-input" placeholder="Notes (optional)" />
-                                </div> -->
+                                <div>
+                                    <x-input-label for="location_purok" value="Purok / Zone / Sitio" />
+                                    <select id="location_purok"
+                                            class="w-full mt-1 border border-gray-600 rounded-md px-3 py-2 bg-white text-gray-800"
+                                            data-initial="{{ $oldPurok ?? '' }}"
+                                            disabled>
+                                        <option value="">Select purok / zone / sitio</option>
+                                    </select>
+                                </div>
 
-                                <!-- Remove button (aligned right) -->
-                                <div class="col-span-2 flex items-end= justify-end">
-                                    <button type="button" class="remove-role-btn inline-flex items-center px-2 py-1 rounded bg-red-100 text-red-700 text-xs">
-                                        <i class="fas fa-trash"></i>
+                                <div id="locationDisplayWrapper" class="{{ $oldLocation ? '' : 'hidden' }}">
+                                    <x-input-label for="location_display" value="Selected Address" />
+                                    <x-text-input
+                                        id="location_display"
+                                        type="text"
+                                        class="w-full mt-1 border border-gray-600 bg-gray-100 text-gray-800"
+                                        readonly
+                                        value="{{ $oldLocation }}"
+                                    />
+                                </div>
+
+                                <input type="hidden" id="location" name="location" value="{{ $oldLocation }}">
+                                <x-input-error :messages="$errors->get('location')" class="mt-1" />
+                            </div>
+
+                            <div id="manpowerRolesWrapper" class="space-y-4 hidden">
+                                <div class="flex items-center justify-between">
+                                    <div class="text-sm text-gray-700 font-medium">Assign Roles</div>
+                                    <button type="button"
+                                            id="addRoleBtn"
+                                            class="inline-flex items-center px-4 py-2 rounded-lg bg-purple-600 text-white text-sm hover:bg-purple-700">
+                                        <i class="fas fa-plus mr-2"></i> Add Role
                                     </button>
                                 </div>
+
+                                <div id="manpowerRolesContainer" class="space-y-3 max-h-44 overflow-auto border rounded p-3 bg-white pr-4"></div>
+
+                                <div id="manpowerRolesWarning" class="text-sm text-red-600 hidden"></div>
+                                <div class="text-sm text-gray-500">
+                                    Total selected manpower:
+                                    <span id="manpowerRolesTotal">0</span>
+                                    /
+                                    <span id="manpowerRequestedDisplay">0</span>
+                                </div>
                             </div>
-                        </template>
 
+                            <template id="manpowerRoleRowTemplate">
+                                <div class="grid grid-cols-12 gap-3 items-center border-b pb-3 pt-2 role-row">
+                                    <div class="col-span-6">
+                                        <label class="text-xs text-gray-600">Role</label>
+                                        <select class="w-full border rounded px-2 py-1 role-select">
+                                            <option value="">— Select role —</option>
+                                            <option value="Setup">Setup</option>
+                                            <option value="Operator">Operator</option>
+                                            <option value="Driver">Driver</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                        <input class="hidden w-full mt-2 border rounded px-2 py-1 role-other-input" placeholder="Specify other role" />
+                                    </div>
+                                    <div class="col-span-4">
+                                        <label class="text-xs text-gray-600">Quantity</label>
+                                        <input type="number" min="0" class="w-full border rounded px-2 py-1 role-qty-input text-center" value="0" />
+                                    </div>
+                                    <div class="col-span-2 flex items-end justify-end">
+                                        <button type="button" class="remove-role-btn inline-flex items-center px-2 py-1 rounded bg-red-100 text-red-700 text-xs">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
                     </div>
-                </div>
-            </aside>
 
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <a href="{{ route('borrow.items') }}"
+                           class="inline-flex items-center justify-center rounded-full bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 transition">
+                            <i class="fas fa-arrow-left mr-2"></i> Back
+                        </a>
+                        <x-button type="button" id="step1NextBtn" class="inline-flex items-center gap-2" iconName="arrow-right">
+                            Next
+                        </x-button>
+                    </div>
+                </section>
 
-                {{-- Right column: Calendar & form --}}
-                <main class="w-full lg:flex-1">
-                    <div class="bg-white p-6 rounded-lg shadow-lg flex flex-col h-full">
-                        <x-title  
-                            level="h2"
-                            size="2xl"
-                            weight="bold"
-                            icon="calendar-date-range"
-                            variant="s"
-                            iconStyle="circle"
-                            iconBg="gov-accent" 
-                            iconColor="white"
-                            class="text-center mx-auto">
-                            Available Dates
-                        </x-title>
-
-                        <div class="flex items-start justify-between mb-3">
+                {{-- Step 2 --}}
+                <section data-step="2" class="wizard-step hidden space-y-6">
+                    <div class="bg-white p-6 rounded-2xl shadow-lg space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                             <div>
                                 <p class="text-sm text-gray-700">
                                     <span class="font-medium">Borrow Date:</span>
-                                    <input id="borrow_date_display" type="text" readonly
-                                        value="{{ old('borrow_date') ? \Carbon\Carbon::parse(old('borrow_date'))->format('F j, Y') : '' }}"
-                                        placeholder="—"
-                                        class="inline-block ml-2 border-0 bg-transparent text-sm" />
+                                    <span id="borrow_date_display" class="ml-2 text-gray-900">—</span>
                                 </p>
                                 <p class="text-sm text-gray-700 mt-1">
                                     <span class="font-medium">Return Date:</span>
-                                    <input id="return_date_display" type="text" readonly
-                                        value="{{ old('return_date') ? \Carbon\Carbon::parse(old('return_date'))->format('F j, Y') : '' }}"
-                                        placeholder="—"
-                                        class="inline-block ml-2 border-0 bg-transparent text-sm" />
+                                    <span id="return_date_display" class="ml-2 text-gray-900">—</span>
                                 </p>
                             </div>
-
-                            {{-- Clear button (top-right) --}}
-                            <div class="ml-4">
-                                <x-danger-button type="button" onclick="clearBorrowSelection()">
-                                    Clear
-                                </x-danger-button>
-                            </div>
+                            <x-danger-button type="button" onclick="clearBorrowSelection()">
+                                Clear Selection
+                            </x-danger-button>
                         </div>
 
-                        <form id="borrowListForm" action="{{ route('borrowList.submit') }}" method="POST" class="flex-1 flex flex-col justify-between">
-                        @csrf
-
-                        {{-- Hidden inputs MUST be inside the form so they are POSTed --}}
                         <input id="borrow_date" name="borrow_date" type="hidden" value="{{ old('borrow_date', '') }}" />
                         <input id="return_date" name="return_date" type="hidden" value="{{ old('return_date', '') }}" />
 
-                        {{-- Calendar card area --}}
-                        <div class="border rounded p-4 bg-white flex-1">
-                            {{-- Month header: title centered, prev/next controls inside the card --}}
-                            <!-- Add this small instruction under the month title or near the top of the calendar card -->
-
-                            <div class="flex items-center justify-between mb-3 relative">
-                                <!-- arrows are absolutely positioned inside this relative container -->
-                                <x-secondary-button type="button" onclick="changeBorrowMonth(-1)" class="text-lg" style="position:absolute; left:12px; top:50%; transform:translateY(-50%);">
-                                    &lt;
+                        <div class="border rounded-2xl p-4 bg-white shadow-sm">
+                            <div class="flex items-center justify-between mb-4">
+                                <x-secondary-button type="button" onclick="changeBorrowMonth(-1)" class="flex items-center gap-1 text-sm">
+                                    <i class="fas fa-arrow-left"></i> Previous
                                 </x-secondary-button>
-
-                                <div class="w-full text-center">
-                                    <!-- add horizontal padding so title sits nicely between arrows -->
-                                    <span id="borrowCalendarMonth" class="text-lg font-semibold" style="padding:0 48px; display:inline-block;">
-                                        <!-- JS will fill -->
-                                    </span>
-                                </div>
-
-                                <x-secondary-button type="button" onclick="changeBorrowMonth(1)" class="text-lg" style="position:absolute; right:12px; top:50%; transform:translateY(-50%);">
-                                    &gt;
+                                <span id="borrowCalendarMonth" class="text-lg font-semibold text-gray-800">—</span>
+                                <x-secondary-button type="button" onclick="changeBorrowMonth(1)" class="flex items-center gap-1 text-sm">
+                                    Next <i class="fas fa-arrow-right"></i>
                                 </x-secondary-button>
                             </div>
 
-                            {{-- Weekday header (kept from original) --}}
-                            <div class="grid grid-cols-7 text-center text-xs font-semibold text-gray-600 mb-2">
+                            <div class="grid grid-cols-7 text-center text-xs font-semibold text-gray-500 mb-2">
                                 <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
                             </div>
 
-                            {{-- The calendar grid (your JS will populate this) --}}
-                            <div id="borrowAvailabilityCalendar" class="rounded p-2 min-h-[260px]">
-                                {{-- JS will render month day cells here --}}
-                            </div>
-
-                            {{-- legend (removed "Today" per request) --}}
-                            <div class="flex flex-wrap items-center gap-4 mt-4 text-sm">
-                                <span class="flex items-center"><span class="w-4 h-4 bg-green-200 border mr-1 rounded"></span>Available</span>
-                                <span class="flex items-center"><span class="w-4 h-4 bg-red-500 border mr-1 rounded"></span>Blocked</span>
-                                <span class="flex items-center"><span class="w-4 h-4 bg-blue-500 border mr-1 rounded"></span>Selected (3-day)</span>
-                            </div>
+                            <div id="borrowAvailabilityCalendar" class="grid grid-cols-7 gap-2 text-sm min-h-[260px]"></div>
                         </div>
 
-                      {{-- Floating action buttons (icon-only) --}}
-                        <div id="borrowFloatingActions" class="fixed right-6 bottom-6 z-50 flex flex-col gap-3 items-center">
-                            <!-- Back (anchor) -->
-                            <a href="{{ route('borrow.items') }}"
-                            title="Back"
-                            aria-label="Back"
-                            class="w-14 h-14 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center shadow-md border">
-                                <i class="fas fa-arrow-left"></i>
-                            </a>
+                        <div class="flex flex-wrap items-center gap-4 text-sm">
+                            <span class="flex items-center gap-2">
+                                <span class="h-4 w-4 rounded border border-green-500 bg-green-100"></span> Available
+                            </span>
+                            <span class="flex items-center gap-2">
+                                <span class="h-4 w-4 rounded border border-red-500 bg-red-200"></span> Booked
+                            </span>
+                            <span class="flex items-center gap-2">
+                                <span class="h-4 w-4 rounded border border-blue-500 bg-blue-100"></span> Borrow Date
+                            </span>
+                            <span class="flex items-center gap-2">
+                                <span class="h-4 w-4 rounded border border-orange-500 bg-orange-100"></span> Return Date
+                            </span>
+                            <span class="flex items-center gap-2">
+                                <span class="h-4 w-4 rounded border border-gray-400 bg-gray-100"></span> Selected Range
+                            </span>
+                        </div>
+                    </div>
 
-                            <!-- Submit (button triggers the main form) -->
-                            <button id="floatingSubmitBtn"
-                                    type="button"
-                                    title="Submit Borrow Request"
-                                    aria-label="Submit Borrow Request"
-                                    class="w-14 h-14 rounded-full bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center shadow-md">
-                                <i class="fas fa-paper-plane"></i>
-                            </button>
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <x-secondary-button type="button" id="step2BackBtn" class="inline-flex items-center gap-2">
+                            <i class="fas fa-arrow-left"></i> Back
+                        </x-secondary-button>
+                        <x-button type="button" id="step2NextBtn" class="inline-flex items-center gap-2" iconName="arrow-right">
+                            Next
+                        </x-button>
+                    </div>
+                </section>
+
+                {{-- Step 3 --}}
+                <section data-step="3" class="wizard-step hidden space-y-6">
+                    <div class="grid gap-6 lg:grid-cols-2">
+                        <div class="bg-white p-6 rounded-2xl shadow-lg space-y-4">
+                            <x-input-label for="support_letter" value="Photo Upload for Letter" />
+                            <x-text-input id="support_letter"
+                                          type="file"
+                                          name="support_letter"
+                                          accept="image/*,.pdf"
+                                          class="w-full mt-2 border border-gray-600"
+                                          required />
+                            <p class="text-xs text-gray-500">Accepted formats: JPG, PNG, WEBP, or PDF. Max 5MB.</p>
+                            <x-input-error :messages="$errors->get('support_letter')" class="mt-1" />
+                            <p id="letterFileName" class="text-sm text-gray-600 hidden"></p>
                         </div>
 
-                    </form>
-                </div>
-            </main>
-        </div>
-        
-        
+                        <div class="bg-white p-6 rounded-2xl shadow-lg space-y-4">
+                            <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                                <i class="fas fa-clipboard-list text-purple-600"></i> Borrow Summary
+                            </h3>
+
+                            <div class="space-y-3 text-sm text-gray-700">
+                                <p><span class="font-medium">Borrow Period:</span> <span id="summaryBorrowDates">—</span></p>
+                                <p><span class="font-medium">Selected Address:</span> <span id="summaryAddress">—</span></p>
+                                <p><span class="font-medium">Manpower Requested:</span> <span id="summaryManpower">—</span></p>
+                            </div>
+
+                            <div>
+                                <h4 class="font-semibold text-gray-800 mb-2">Items</h4>
+                                <ul id="summaryItemsList" class="list-disc pl-5 text-sm text-gray-700 space-y-1"></ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <x-secondary-button type="button" id="step3BackBtn" class="inline-flex items-center gap-2">
+                            <i class="fas fa-arrow-left"></i> Back
+                        </x-secondary-button>
+                        <x-button type="button" id="openConfirmModalBtn" class="inline-flex items-center gap-2" iconName="paper-airplane">
+                            Submit Borrow Request
+                        </x-button>
+                    </div>
+                </section>
+            </div>
+        </form>
+
+        @foreach($borrowList as $item)
+            <form id="remove-item-{{ $item['id'] }}" action="{{ route('borrowList.remove', $item['id']) }}" method="POST" class="hidden">
+                @csrf
+                @method('DELETE')
+            </form>
+        @endforeach
     </div>
-    
+
+    <x-modal name="borrowConfirmModal" maxWidth="3xl">
+        <div class="p-6 space-y-6">
+            <div class="flex items-center justify-between border-b border-gray-200 pb-3">
+                <h3 class="text-xl font-semibold text-gray-800 flex items-center gap-3">
+                    <i class="fas fa-file-circle-check text-purple-600"></i>
+                    <span>Confirm Borrow Request</span>
+                </h3>
+                <button
+                    type="button"
+                    class="text-gray-400 hover:text-gray-600 transition"
+                    @click="$dispatch('close-modal', 'borrowConfirmModal')">
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+            </div>
+
+            <div class="space-y-5 text-sm text-gray-700">
+                <div>
+                    <h4 class="font-semibold text-gray-800 mb-2">Borrow Period</h4>
+                    <div class="grid sm:grid-cols-2 gap-2">
+                        <p><span class="font-medium">Borrow Date:</span> <span id="modalBorrowDate">—</span></p>
+                        <p><span class="font-medium">Return Date:</span> <span id="modalReturnDate">—</span></p>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="font-semibold text-gray-800 mb-2">Items</h4>
+                    <ul id="modalItemsList" class="list-disc pl-5 space-y-1"></ul>
+                </div>
+
+                <div>
+                    <h4 class="font-semibold text-gray-800 mb-2">Selected Address</h4>
+                    <p id="modalAddress" class="text-gray-700">—</p>
+                </div>
+
+                <div>
+                    <h4 class="font-semibold text-gray-800 mb-2">Uploaded Letter</h4>
+                    <p id="modalLetterName" class="text-gray-700">—</p>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                <x-button type="button" variant="secondary" class="px-4 py-2 text-sm" @click="$dispatch('close-modal', 'borrowConfirmModal')">
+                    Cancel
+                </x-button>
+                <x-button type="button" id="confirmBorrowRequestBtn" variant="primary" class="px-4 py-2 text-sm">
+                    Confirm
+                </x-button>
+            </div>
+        </div>
+    </x-modal>
+
     <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const submitBtn = document.getElementById('floatingSubmitBtn');
-        const form = document.getElementById('borrowListForm');
-
-        if (!submitBtn || !form) return;
-
-        submitBtn.addEventListener('click', function (ev) {
-            ev.preventDefault();
-            // Basic client-side validation check: ensure borrow list not empty (optional)
-            // You can remove this check if server-side validation is enough.
-            const borrowItems = document.querySelectorAll('#borrowListItems > div');
-            // If you want to enforce non-empty, uncomment below:
-            // if (!borrowItems.length) { alert('Your Borrow List is empty.'); return; }
-
-            // disable button briefly to avoid double-submit
-            submitBtn.disabled = true;
-            submitBtn.classList.add('opacity-70', 'cursor-not-allowed');
-
-            // submit the main form
-            form.submit();
-
-            // re-enable after a short time (in case submission fails)
-            setTimeout(() => {
-                submitBtn.disabled = false;
-                submitBtn.classList.remove('opacity-70', 'cursor-not-allowed');
-            }, 3000);
-        });
-    });
+        window.LOCATION_ENDPOINTS = {
+            barangays: "{{ route('user.locations.barangays') }}",
+            puroks: "{{ route('user.locations.puroks') }}"
+        };
     </script>
 
+    @vite(['resources/js/app.js'])
 </x-app-layout>

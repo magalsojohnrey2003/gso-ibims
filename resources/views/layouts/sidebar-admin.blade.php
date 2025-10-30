@@ -48,16 +48,16 @@
                 </a>
             </li>
 
-            {{-- Return Requests --}}
+            {{-- Return Items --}}
             <li role="none">
-                <a href="{{ route('return.requests') }}"
-                   title="Return Requests"
+                <a href="{{ route('admin.return-items.index') }}"
+                   title="Return Items"
                    role="menuitem"
-                   @if(request()->routeIs('return.requests')) aria-current="page" @endif
+                   @if(request()->routeIs('admin.return-items.*')) aria-current="page" @endif
                    class="flex items-center px-4 py-3 rounded-md gov-hover transition-colors duration-150 group focus:outline-none focus:ring-2 focus:ring-offset-1
-                          {{ request()->routeIs('return.requests') ? 'gov-active' : '' }}">
+                          {{ request()->routeIs('admin.return-items.*') ? 'gov-active' : '' }}">
                     <i class="fas fa-undo mr-3 sidebar-icon" aria-hidden="true"></i>
-                    <span class="sidebar-text">Return Requests</span>
+                    <span class="sidebar-text">Return Items</span>
                 </a>
             </li>
 

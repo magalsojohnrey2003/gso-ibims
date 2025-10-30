@@ -143,12 +143,6 @@
         <x-button variant="secondary" iconName="printer" class="px-2 py-1 text-xs" data-action="print">Print</x-button>
     </template>
 
-    <template id="btn-return-template">
-        <x-button variant="primary" class="px-2 py-1 text-xs" data-action="return">
-            <i class="fa-solid fa-rotate-left mr-1"></i> Return
-        </x-button>
-    </template>
-
     <!-- Alert templates -->
     <template id="alert-success-template">
         <div><x-alert type="success"><span data-alert-message></span></x-alert></div>
@@ -179,7 +173,6 @@
     <script>
         // IMPORTANT: these must match the route names in your web.php
         window.LIST_ROUTE = "{{ route('user.borrowed.items.list') }}";    // GET JSON list
-        window.RETURN_PAGE_ROUTE = "{{ route('return.items') }}";        // Return Items page (GET) — used for redirect
         window.CSRF_TOKEN = "{{ csrf_token() }}";
 
         // Helper to pull badge HTML from the hidden templates

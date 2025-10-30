@@ -48,18 +48,6 @@
                 </a>
             </li>
 
-            {{-- Return Items --}}
-            <li role="none">
-                <a href="{{ route('return.items') }}"
-                   title="Return Items"
-                   role="menuitem"
-                   @if(request()->routeIs('return.items')) aria-current="page" @endif
-                   class="flex items-center px-4 py-3 rounded-md gov-hover transition-colors duration-150 group focus:outline-none focus:ring-2 focus:ring-offset-1
-                          {{ request()->routeIs('return.items') ? 'gov-active' : '' }}">
-                    <i class="fas fa-undo mr-3 sidebar-icon" aria-hidden="true"></i>
-                    <span class="sidebar-text">Return Items</span>
-                </a>
-            </li>
         </ul>
     </nav>
 </aside>

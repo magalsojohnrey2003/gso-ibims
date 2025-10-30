@@ -6,7 +6,15 @@ class BorrowItemInstance extends Model
 {
     protected $fillable = [
         'borrow_request_id','item_id','item_instance_id',
-        'checked_out_at','expected_return_at','returned_at'
+        'checked_out_at','expected_return_at','returned_at',
+        'return_condition','condition_updated_at'
+    ];
+
+    protected $casts = [
+        'checked_out_at' => 'datetime',
+        'expected_return_at' => 'datetime',
+        'returned_at' => 'datetime',
+        'condition_updated_at' => 'datetime',
     ];
 
     public function borrowRequest()

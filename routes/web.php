@@ -3,11 +3,11 @@
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Admin\ItemController;
 use App\Http\Controllers\Admin\BorrowRequestController;
-use App\Http\Controllers\Admin\ReturnRequestController;
+use App\Http\Controllers\Admin\ReturnItemsController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\User\BorrowItemsController;
 use App\Http\Controllers\User\MyBorrowedItemsController;
-use App\Http\Controllers\User\ReturnItemsController;
+use App\Http\Controllers\User\LocationController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\User\DashboardController as UserDashboardController;
@@ -90,11 +90,11 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
         Route::post('borrow-requests/{borrowRequest}/dispatch', [BorrowRequestController::class, 'dispatch'])
             ->name('admin.borrow.requests.dispatch');
 
-        // Return Requests
-        Route::get('return-requests', [ReturnRequestController::class, 'index'])->name('return.requests');
-        Route::get('return-requests/list', [ReturnRequestController::class, 'list'])->name('return.requests.list');
-        Route::post('return-requests/{returnRequest}/process', [ReturnRequestController::class, 'process'])->name('return.requests.process');
-        Route::get('return-requests/{returnRequest}', [ReturnRequestController::class, 'show'])->name('return.requests.show');
+        // Return Items
+        Route::get('return-items', [ReturnItemsController::class, 'index'])->name('admin.return-items.index');
+        Route::get('return-items/list', [ReturnItemsController::class, 'list'])->name('admin.return-items.list');
+        Route::get('return-items/{borrowRequest}', [ReturnItemsController::class, 'show'])->name('admin.return-items.show');
+        Route::patch('return-items/instances/{borrowItemInstance}', [ReturnItemsController::class, 'updateInstance'])->name('admin.return-items.instances.update');
 
         // Reports
         Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
@@ -130,6 +130,9 @@ Route::middleware(['auth', 'role:user', 'nocache'])
 
         // Availability
         Route::get('availability/{item}', [BorrowItemsController::class, 'availability'])->name('borrowList.availability');
+        // Location lookup
+        Route::get('locations/barangays', [LocationController::class, 'barangays'])->name('user.locations.barangays');
+        Route::get('locations/puroks', [LocationController::class, 'puroks'])->name('user.locations.puroks');
 
         // My Borrowed Items
         Route::get('my-borrowed-items', [MyBorrowedItemsController::class, 'index'])->name('my.borrowed.items');
@@ -148,22 +151,9 @@ Route::middleware(['auth', 'role:user', 'nocache'])
         Route::post('my-borrowed-items/{borrowRequest}/report-not-received', [MyBorrowedItemsController::class, 'reportNotReceived'])
             ->name('user.borrowed.items.report_not_received');
 
-        // Return Items
-        Route::get('items/search-property', [ReturnItemsController::class, 'searchByProperty'])->name('user.items.search-property');
-        Route::post('items/damage-reports', [ItemDamageReportController::class, 'store'])->name('user.items.damage-reports.store');
-        Route::get('return-items', [ReturnItemsController::class, 'index'])->name('return.items');
-        Route::get('return-items/list', [ReturnItemsController::class, 'list'])->name('user.return.items.list');
-
-        Route::patch('return-items/{returnRequest}', [ReturnItemsController::class, 'update'])->name('user.return.items.update');
-
-        // Batch request
-        Route::post('return-items/request', [ReturnItemsController::class, 'requestReturn'])->name('user.return.items.request');
     });
 
 require __DIR__.'/auth.php';
-
-
-
 
 
 

@@ -1,6 +1,5 @@
 // resources/js/my-borrowed-items.js
 const LIST_ROUTE = window.LIST_ROUTE || '/user/my-borrowed-items/list';
-const RETURN_PAGE_ROUTE = window.RETURN_PAGE_ROUTE || '/user/return-items';
 const CSRF_TOKEN = window.CSRF_TOKEN || document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
 let ITEMS_CACHE = [];
@@ -131,11 +130,8 @@ function createButtonFromTemplate(templateId, id) {
     } else if (action === 'return') {
         btn.addEventListener('click', (ev) => {
             ev.preventDefault();
-            const pageRoute = (typeof window.RETURN_PAGE_ROUTE === 'string' && window.RETURN_PAGE_ROUTE.length)
-                ? window.RETURN_PAGE_ROUTE
-                : RETURN_PAGE_ROUTE;
-            const sep = pageRoute.includes('?') ? '&' : '?';
-            window.location.href = `${pageRoute}${sep}from_request=${encodeURIComponent(id)}`;
+            // Fallback handle in case return action templates linger
+            showError('Return processing is handled by the administrator. Please contact support if needed.');
         });
     } else if (action === 'print') {
         btn.addEventListener('click', (ev) => {

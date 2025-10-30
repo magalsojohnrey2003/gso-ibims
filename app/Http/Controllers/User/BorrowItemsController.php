@@ -14,6 +14,7 @@ use App\Notifications\RequestNotification;
 use Illuminate\Support\Facades\Notification;
 use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf; 
+use Illuminate\Support\Facades\Storage;
 
 class BorrowItemsController extends Controller
 {
@@ -130,11 +131,14 @@ class BorrowItemsController extends Controller
         }
 
         $validated = $request->validate([
-            'borrow_date'    => 'required|date|after_or_equal:today',
-            'return_date'    => 'required|date|after_or_equal:borrow_date',
-            'manpower_count' => 'nullable|integer|min:1|max:100',
-            'location'       => 'nullable|string|max:255',
-
+            'borrow_date'     => 'required|date|after_or_equal:today',
+            'return_date'     => 'required|date|after_or_equal:borrow_date',
+            'manpower_count'  => 'nullable|integer|min:1|max:100',
+            'location'        => 'required|string|max:255',
+            'support_letter'  => 'required|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
+        ], [
+            'support_letter.required' => 'Please upload your signed letter before proceeding.',
+            'support_letter.mimes'    => 'The letter must be an image or PDF file.',
         ]);
 
         [$borrowDate, $returnDate] = [$validated['borrow_date'], $validated['return_date']];
@@ -160,12 +164,18 @@ class BorrowItemsController extends Controller
             }
         }
 
+        $letterPath = null;
+        if ($request->hasFile('support_letter')) {
+            $letterPath = $request->file('support_letter')->store('borrow-letters', 'public');
+        }
+
         $borrowRequest = BorrowRequest::create([
             'user_id'        => Auth::id(),
             'borrow_date'    => $borrowDate,
             'return_date'    => $returnDate,
-            'manpower_count' => $request->input('manpower_count'),
-            'location'       => $request->input('location'),
+            'manpower_count' => $validated['manpower_count'] ?? null,
+            'location'       => $validated['location'],
+            'letter_path'    => $letterPath,
             'status'         => 'pending',
         ]);
 

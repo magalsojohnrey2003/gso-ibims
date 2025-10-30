@@ -44,11 +44,6 @@ class ItemInstance extends Model
         return $this->hasMany(BorrowItemInstance::class, 'item_instance_id');
     }
 
-    public function returnRecords(): HasMany
-    {
-        return $this->hasMany(ReturnItem::class, 'item_instance_id');
-    }
-
     public function events(): HasMany
     {
         return $this->hasMany(ItemInstanceEvent::class);
