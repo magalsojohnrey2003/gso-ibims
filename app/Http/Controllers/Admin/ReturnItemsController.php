@@ -34,6 +34,7 @@ class ReturnItemsController extends Controller
                     'condition_label' => $this->formatConditionLabel($conditionKey),
                     'borrow_date' => $request->borrow_date?->toDateString(),
                     'return_date' => $request->return_date?->toDateString(),
+                    'return_timestamp' => $request->delivered_at?->toDateTimeString(),
                 ];
             });
 
@@ -53,14 +54,23 @@ class ReturnItemsController extends Controller
                 ?? $instance->instance?->serial
                 ?? ($instance->item?->name ?? 'Untracked Item');
 
+            $condition = $instance->return_condition ?? 'pending';
+
             return [
                 'id' => $instance->id,
                 'property_label' => $label,
-                'item_name' => $instance->item?->name ?? 'Unknown',
-                'condition' => $instance->return_condition ?? 'pending',
+                'item_name' => $instance->item?->name ?? 'Unknown Item',
+                'condition' => $condition,
+                'condition_label' => $this->formatConditionLabel($condition),
                 'returned_at' => $instance->returned_at?->toDateTimeString(),
             ];
-        });
+        })->values();
+
+        $itemOptions = $items
+            ->groupBy('item_name')
+            ->map(fn ($group, $name) => ['name' => $name, 'count' => $group->count()])
+            ->values()
+            ->all();
 
         return response()->json([
             'id' => $borrowRequest->id,
@@ -71,9 +81,77 @@ class ReturnItemsController extends Controller
             'delivery_status' => $borrowRequest->delivery_status ?? 'pending',
             'borrow_date' => $borrowRequest->borrow_date?->toDateString(),
             'return_date' => $borrowRequest->return_date?->toDateString(),
+            'return_timestamp' => $borrowRequest->delivered_at?->toDateTimeString(),
             'items' => $items,
+            'item_options' => $itemOptions,
+            'default_item' => $itemOptions[0]['name'] ?? null,
             'condition_summary' => $this->formatConditionLabel($this->summarizeCondition($borrowRequest)),
         ]);
+    }
+
+    public function collect(BorrowRequest $borrowRequest)
+    {
+        if ($borrowRequest->delivery_status !== 'dispatched') {
+            return response()->json(['message' => 'Only dispatched requests can be marked as collected.'], 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            $borrowRequest->load([
+                'borrowedInstances.instance',
+                'borrowedInstances.item',
+            ]);
+
+            foreach ($borrowRequest->borrowedInstances as $instance) {
+                if (! $instance->returned_at) {
+                    $instance->returned_at = now();
+                }
+
+                $instance->condition_updated_at = now();
+                $instance->return_condition = $instance->return_condition ?? 'pending';
+                $instance->save();
+
+                if ($instance->instance) {
+                    $instance->instance->status = 'returned';
+                    $instance->instance->save();
+                }
+            }
+
+            $borrowRequest->status = 'returned';
+            $borrowRequest->delivery_status = 'returned';
+            if (! $borrowRequest->delivered_at) {
+                $borrowRequest->delivered_at = now();
+            }
+            $borrowRequest->save();
+
+            DB::commit();
+
+            $instancesPayload = $borrowRequest->borrowedInstances->map(function (BorrowItemInstance $instance) {
+                return [
+                    'borrow_item_instance_id' => $instance->id,
+                    'item_instance_id' => $instance->item_instance_id,
+                    'item_id' => $instance->item_id,
+                    'status' => $instance->instance?->status,
+                    'condition' => $instance->return_condition,
+                ];
+            })->values();
+
+            return response()->json([
+                'message' => 'Successfully returned.',
+                'status' => $borrowRequest->status,
+                'delivery_status' => $borrowRequest->delivery_status,
+                'borrow_request_id' => $borrowRequest->id,
+                'return_timestamp' => $borrowRequest->delivered_at?->toDateTimeString(),
+                'condition_summary' => $this->formatConditionLabel($this->summarizeCondition($borrowRequest)),
+                'instances' => $instancesPayload,
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Failed to mark as collected.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 
     public function updateInstance(Request $request, BorrowItemInstance $borrowItemInstance)
@@ -107,13 +185,16 @@ class ReturnItemsController extends Controller
                 'message' => 'Condition updated successfully.',
                 'condition' => $borrowItemInstance->return_condition,
                 'condition_label' => $this->formatConditionLabel($borrowItemInstance->return_condition),
+                'inventory_status' => $borrowItemInstance->instance?->status,
+                'item_instance_id' => $borrowItemInstance->item_instance_id,
+                'item_id' => $borrowItemInstance->item_id,
+                'available_qty' => optional($borrowItemInstance->item)->available_qty,
                 'borrow_summary' => $borrowRequest
                     ? $this->formatConditionLabel($this->summarizeCondition($borrowRequest))
                     : null,
             ]);
         } catch (\Throwable $e) {
             DB::rollBack();
-
             return response()->json([
                 'message' => 'Failed to update condition.',
                 'error' => $e->getMessage(),
@@ -176,9 +257,7 @@ class ReturnItemsController extends Controller
             return 'pending';
         }
 
-        $conditions = $instances->pluck('return_condition')->map(function ($value) {
-            return $value ?: 'pending';
-        });
+        $conditions = $instances->pluck('return_condition')->map(fn ($value) => $value ?: 'pending');
 
         if ($conditions->contains('missing')) {
             return 'missing';
@@ -192,7 +271,7 @@ class ReturnItemsController extends Controller
             return 'minor_damage';
         }
 
-        if ($conditions->every(fn ($c) => $c === 'good')) {
+        if ($conditions->every(fn ($condition) => $condition === 'good')) {
             return 'good';
         }
 
@@ -217,7 +296,7 @@ class ReturnItemsController extends Controller
             'minor_damage' => 'damaged',
             'damage' => 'damaged',
             'missing' => 'missing',
-            default => 'borrowed',
+            default => 'returned',
         };
     }
 

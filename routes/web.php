@@ -94,6 +94,7 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
         Route::get('return-items', [ReturnItemsController::class, 'index'])->name('admin.return-items.index');
         Route::get('return-items/list', [ReturnItemsController::class, 'list'])->name('admin.return-items.list');
         Route::get('return-items/{borrowRequest}', [ReturnItemsController::class, 'show'])->name('admin.return-items.show');
+        Route::post('return-items/{borrowRequest}/collect', [ReturnItemsController::class, 'collect'])->name('admin.return-items.collect');
         Route::patch('return-items/instances/{borrowItemInstance}', [ReturnItemsController::class, 'updateInstance'])->name('admin.return-items.instances.update');
 
         // Reports
@@ -154,7 +155,6 @@ Route::middleware(['auth', 'role:user', 'nocache'])
     });
 
 require __DIR__.'/auth.php';
-
 
 
 

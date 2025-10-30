@@ -15,6 +15,7 @@ import './items-add-modal';
 import './item-instances-manager';
 import './items-edit-modal';
 import './items-print';
+import './items-overview-sync';
 import '../css/admin-dashboard.css';
 import './user-dashboard';
 import './reports';

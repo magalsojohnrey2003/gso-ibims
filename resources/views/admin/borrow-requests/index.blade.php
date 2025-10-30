@@ -179,48 +179,78 @@
 
 <!-- Assign Manpower + Quantity Adjustment Modal -->
 <x-modal name="assignManpowerModal" maxWidth="2xl">
-    <div class="p-6">
-        <div class="flex items-center justify-between mb-4">
-            <div>
-                <h3 class="text-lg font-semibold">Assign Manpower & Adjust Quantities</h3>
-                <p class="text-sm text-gray-500 mt-1">Assign manpower per item and optionally adjust item quantities. Decreasing quantities is allowed here. Use <span class="font-medium">Not in physical inventory</span> when the item is missing or damaged.</p>
+    <div class="p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-start justify-between gap-4">
+            <div class="space-y-1">
+                <h3 class="text-xl font-semibold text-gray-900">Assign Manpower & Adjust Quantities</h3>
+                <p class="text-sm text-gray-500">Review the requested resources, adjust where needed, and capture a quick reason whenever reductions are applied.</p>
             </div>
-            <button type="button" class="text-gray-400 hover:text-gray-600" @click="$dispatch('close-modal','assignManpowerModal')">
-                <i class="fas fa-times"></i>
+            <button type="button" class="text-gray-400 hover:text-gray-600 transition" @click="$dispatch('close-modal','assignManpowerModal')">
+                <i class="fas fa-times text-lg"></i>
             </button>
         </div>
 
-        <form id="assignManpowerForm" class="space-y-4" onsubmit="return false;">
+        <form id="assignManpowerForm" class="space-y-5" onsubmit="return false;">
             <input type="hidden" id="assignManpowerRequestId" />
 
-            <div class="text-sm text-gray-700 mb-2">
-                Requested manpower (total): <span id="assignRequestedTotal" class="font-medium">—</span>
-                <span id="assignManpowerHint" class="ml-3 text-xs text-gray-400">Tip: Reduce item Qty to mark less units requested (cannot increase).</span>
+            <div class="grid gap-4 md:grid-cols-[2fr,3fr]">
+                <div class="space-y-2">
+                    <label class="text-xs font-semibold tracking-wide text-gray-600 uppercase">Delivery Location</label>
+                    <div id="assignManpowerLocation" class="text-sm text-gray-800 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">--</div>
+                </div>
+                <div class="space-y-2">
+                    <label class="text-xs font-semibold tracking-wide text-gray-600 uppercase">Uploaded Letter</label>
+                    <div id="assignLetterPreviewWrapper" class="flex items-center justify-center border border-dashed border-gray-300 rounded-lg bg-white p-3 min-h-[140px]">
+                        <img id="assignLetterPreview" src="" alt="Uploaded letter" class="max-h-40 object-contain rounded shadow hidden" />
+                        <span id="assignLetterFallback" class="text-sm text-gray-500">No letter uploaded</span>
+                    </div>
+                </div>
             </div>
 
-            <div id="assignManpowerItemsContainer" class="space-y-3 max-h-72 overflow-auto border rounded p-3 bg-white">
-                <!-- JS will populate rows -->
+            <div class="grid gap-3 md:grid-cols-[1fr,1fr]">
+                <div class="space-y-1">
+                    <label for="assignManpowerInput" class="text-sm font-medium text-gray-700 flex items-center justify-between">
+                        <span>Manpower Needed</span>
+                        <span class="text-xs text-gray-500">Requested: <span id="assignRequestedTotal">--</span></span>
+                    </label>
+                    <input
+                        id="assignManpowerInput"
+                        type="number"
+                        min="0"
+                        class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500"
+                    />
+                </div>
+                <div id="assignManpowerReasonWrapper" class="space-y-1 hidden">
+                    <label for="assignManpowerReason" class="text-sm font-medium text-gray-700">Reason for manpower reduction</label>
+                    <select
+                        id="assignManpowerReason"
+                        class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500">
+                        <option value="">Select reason</option>
+                        <option value="Task completion">Task completion</option>
+                        <option value="Overestimated need">Overestimated need</option>
+                        <option value="Schedule conflict">Schedule conflict</option>
+                    </select>
+                </div>
             </div>
 
-            <div class="flex items-center gap-3 text-sm">
-                <input type="checkbox" id="assignForceOverride" />
-                <label for="assignForceOverride">Allow assignments to exceed requested total</label>
+            <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                    <h4 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Borrowed Items</h4>
+                    <span class="text-xs text-gray-400">Adjust quantities only if necessary.</span>
+                </div>
+                <div id="assignManpowerItemsContainer" class="space-y-3 max-h-72 overflow-auto border border-gray-200 rounded-lg bg-white p-3">
+                    <!-- JS will populate rows -->
+                </div>
             </div>
-
-            <div id="assignManpowerWarning" class="text-sm text-red-600 hidden"></div>
 
             <div class="flex justify-end gap-3">
-                <x-button variant="secondary" @click="$dispatch('close-modal','assignManpowerModal')">Cancel</x-button>
-                <x-button id="assignManpowerConfirmBtn" variant="success">Save & Approve</x-button>
+                <x-button type="button" variant="secondary" @click="$dispatch('close-modal','assignManpowerModal')">Cancel</x-button>
+                <x-button id="assignManpowerConfirmBtn" variant="success">Save &amp; Approve</x-button>
             </div>
         </form>
     </div>
 </x-modal>
-
     {{-- Button templates (used by JS to create action buttons per-row) --}}
-    <template id="btn-view-details-template">
-        <x-button variant="secondary" iconName="eye" class="px-2 py-1 text-xs" data-action="view">Details</x-button>
-    </template>
     <template id="btn-view-template">
         <x-button variant="secondary" iconName="eye" class="px-2 py-1 text-xs" data-action="view">View</x-button>
     </template>
@@ -265,3 +295,7 @@
     @vite(['resources/js/app.js'])
 
 </x-app-layout>
+
+
+
+

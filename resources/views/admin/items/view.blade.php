@@ -111,13 +111,28 @@
                     </thead>
                     <tbody class="divide-y divide-gray-100 bg-white">
                         @forelse($item->instances as $instance)
-                            <tr class="hover:bg-indigo-50/40">
+                            <tr class="hover:bg-indigo-50/40" data-item-instance-id="{{ $instance->id }}">
                                 <td class="px-4 py-3 font-semibold text-gray-900 sticky left-0 bg-white">{{ $instance->property_number }}</td>
                                 <td class="px-4 py-3 text-gray-700">{{ $instance->serial_no ?? '—' }}</td>
                                 <td class="px-4 py-3 text-gray-700">{{ $instance->model_no ?? '—' }}</td>
                                 <td class="px-4 py-3">
-                                    <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold {{ $instance->status === 'available' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700' }}">
-                                        {{ ucfirst($instance->status ?? 'unknown') }}
+                                    @php
+                                        $status = strtolower($instance->status ?? 'unknown');
+                                        $statusClasses = [
+                                            'available' => 'bg-green-100 text-green-700',
+                                            'borrowed' => 'bg-indigo-100 text-indigo-700',
+                                            'returned' => 'bg-emerald-100 text-emerald-700',
+                                            'missing' => 'bg-red-100 text-red-700',
+                                            'damaged' => 'bg-amber-100 text-amber-700',
+                                            'minor_damage' => 'bg-yellow-100 text-yellow-700',
+                                            'pending' => 'bg-gray-200 text-gray-700',
+                                        ];
+                                        $badgeClass = $statusClasses[$status] ?? 'bg-gray-200 text-gray-700';
+                                        $badgeBase = 'inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold';
+                                        $statusLabel = ucwords(str_replace('_', ' ', $status));
+                                    @endphp
+                                    <span class="{{ $badgeBase }} {{ $badgeClass }}" data-instance-status data-badge-base="{{ $badgeBase }}">
+                                        {{ $statusLabel }}
                                     </span>
                                 </td>
                             </tr>

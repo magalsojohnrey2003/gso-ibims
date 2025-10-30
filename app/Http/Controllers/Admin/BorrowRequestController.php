@@ -1,11 +1,11 @@
 <?php
-
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\BorrowRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use App\Events\BorrowRequestStatusUpdated;
 use App\Notifications\RequestNotification;
 use App\Models\BorrowItemInstance;
@@ -22,7 +22,39 @@ class BorrowRequestController extends Controller
     {
         $requests = BorrowRequest::with(['user', 'items.item'])
             ->latest()
-            ->get();
+            ->get()
+            ->map(function (BorrowRequest $request) {
+                return [
+                    'id' => $request->id,
+                    'borrow_date' => $request->borrow_date,
+                    'return_date' => $request->return_date,
+                    'status' => $request->status,
+                    'delivery_status' => $request->delivery_status,
+                    'manpower_count' => $request->manpower_count,
+                    'manpower_adjustment_reason' => $request->manpower_adjustment_reason,
+                    'location' => $request->location,
+                    'letter_path' => $request->letter_path,
+                    'letter_url' => $this->makeLetterUrl($request->letter_path),
+                    'user' => $request->user ? [
+                        'id' => $request->user->id,
+                        'first_name' => $request->user->first_name,
+                        'last_name' => $request->user->last_name,
+                    ] : null,
+                    'items' => $request->items->map(function (BorrowRequestItem $item) {
+                        return [
+                            'id' => $item->id,
+                            'borrow_request_item_id' => $item->id,
+                            'item_id' => $item->item_id,
+                            'quantity' => $item->quantity,
+                            'quantity_reason' => $item->manpower_notes,
+                            'item' => $item->item ? [
+                                'id' => $item->item->id,
+                                'name' => $item->item->name,
+                            ] : null,
+                        ];
+                    })->values(),
+                ];
+            });
 
         return response()->json($requests);
     }
@@ -47,68 +79,58 @@ class BorrowRequestController extends Controller
         try {
             $borrowRequest->load('items.item');
 
-            $assignmentWarning = null;
-          
             if ($new === 'validated') {
-            $assignments = $request->input('manpower_assignments', []);
-            $totalAssigned = 0;
+                $assignments = $request->input('manpower_assignments', []);
 
-            if ($assignments && is_array($assignments)) {
-                foreach ($assignments as $a) {
-                    $briId = isset($a['borrow_request_item_id']) ? (int) $a['borrow_request_item_id'] : null;
-                    $assignedMana = isset($a['assigned_manpower']) ? (int) $a['assigned_manpower'] : 0;
-                    $role = isset($a['manpower_role']) ? substr($a['manpower_role'], 0, 100) : null;
-                    $notes = isset($a['manpower_notes']) ? substr($a['manpower_notes'], 0, 2000) : null;
+                if ($assignments && is_array($assignments)) {
+                    foreach ($assignments as $assignment) {
+                        $briId = isset($assignment['borrow_request_item_id']) ? (int) $assignment['borrow_request_item_id'] : null;
 
-                    $bri = BorrowRequestItem::where('id', $briId)
-                        ->where('borrow_request_id', $borrowRequest->id)
-                        ->first();
+                        if (! $briId) {
+                            DB::rollBack();
+                            return response()->json(['message' => 'Invalid manpower assignment row.'], 422);
+                        }
 
-                    if (! $bri) {
-                        DB::rollBack();
-                        return response()->json(['message' => 'Invalid manpower assignment row.'], 422);
+                        $bri = BorrowRequestItem::where('id', $briId)
+                            ->where('borrow_request_id', $borrowRequest->id)
+                            ->first();
+
+                        if (! $bri) {
+                            DB::rollBack();
+                            return response()->json(['message' => 'Invalid manpower assignment row.'], 422);
+                        }
+
+                        $origQty = (int) $bri->quantity;
+                        $newQty = isset($assignment['quantity']) ? (int) $assignment['quantity'] : $origQty;
+
+                        if ($newQty < 0) {
+                            DB::rollBack();
+                            return response()->json(['message' => 'Invalid quantity provided.'], 422);
+                        }
+
+                        if ($newQty > $origQty) {
+                            $newQty = $origQty;
+                        }
+
+                        $bri->quantity = $newQty;
+                        $bri->assigned_manpower = null;
+                        $bri->manpower_role = null;
+                        $bri->manpower_notes = isset($assignment['quantity_reason']) && $assignment['quantity_reason'] !== ''
+                            ? substr($assignment['quantity_reason'], 0, 255)
+                            : null;
+                        $bri->assigned_by = \Illuminate\Support\Facades\Auth::id();
+                        $bri->assigned_at = now();
+                        $bri->save();
                     }
+                }
 
-                    // Preserve original quantity; admin may only reduce.
-                    $origQty = (int) $bri->quantity;
-                    $newQty = isset($a['quantity']) ? (int) $a['quantity'] : $origQty;
-
-                    if ($newQty < 0) {
-                        DB::rollBack();
-                        return response()->json(['message' => 'Invalid quantity provided.'], 422);
-                    }
-
-                    // Disallow increases at validation stage — only allow same or reduced quantities.
-                    if ($newQty > $origQty) {
-                        // ignore increase and add a small warning to be returned later
-                        $assignmentWarning = ($assignmentWarning ?? '') . " Requested quantity for item #{$bri->item_id} cannot be increased at validation stage. ";
-                        $newQty = $origQty;
-                    }
-
-                    // Mark not in physical inventory if requested -> append to notes so users/admins see it.
-                    $notInInventory = !empty($a['not_in_inventory']);
-
-                    if ($notInInventory) {
-                        $notes = trim(($notes ?: '') . ' [NOT IN INVENTORY]');
-                    }
-
-                    $bri->quantity = $newQty;
-                    $bri->assigned_manpower = $assignedMana;
-                    $bri->manpower_role = $role;
-                    $bri->manpower_notes = $notes;
-                    $bri->assigned_by = \Illuminate\Support\Facades\Auth::id();
-                    $bri->assigned_at = now();
-                    $bri->save();
-
-                    $totalAssigned += $assignedMana;
+                if ($request->filled('manpower_total')) {
+                    $borrowRequest->manpower_count = max(0, (int) $request->input('manpower_total'));
+                    $borrowRequest->manpower_adjustment_reason = $request->input('manpower_reason')
+                        ? substr($request->input('manpower_reason'), 0, 255)
+                        : null;
                 }
             }
-
-            $requested = (int) $borrowRequest->manpower_count;
-            if ($totalAssigned > $requested) {
-                $assignmentWarning = ($assignmentWarning ?? '') . " Total assigned manpower ({$totalAssigned}) exceeds requested ({$requested}).";
-            }
-        }
 
 
             if ($old !== 'approved' && $new === 'approved') {
@@ -231,7 +253,6 @@ class BorrowRequestController extends Controller
                         'borrow_date' => $borrowRequest->borrow_date,
                         'return_date' => $borrowRequest->return_date,
                         'reason' => $request->input('rejection_reason') ?? null,
-                        'assignment_warning' => $assignmentWarning ?? null,
                     ];
 
                     $user->notify(new RequestNotification($payload));
@@ -243,7 +264,6 @@ class BorrowRequestController extends Controller
                 'message' => 'Status updated successfully',
                 'status'  => $borrowRequest->status
             ];
-            if ($assignmentWarning) $response['assignment_warning'] = $assignmentWarning;
 
             return response()->json($response);
         } catch (\Throwable $e) {
@@ -349,5 +369,22 @@ class BorrowRequestController extends Controller
             DB::rollBack();
             return response()->json(['message' => 'Failed to dispatch.', 'error' => $e->getMessage()], 500);
         }
+    }
+
+    private function makeLetterUrl(?string $path): ?string
+    {
+        if (! $path) {
+            return null;
+        }
+
+        if (Storage::disk('public')->exists($path)) {
+            return Storage::disk('public')->url($path);
+        }
+
+        if (filter_var($path, FILTER_VALIDATE_URL)) {
+            return $path;
+        }
+
+        return null;
     }
 }
