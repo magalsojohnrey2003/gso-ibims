@@ -10,6 +10,50 @@
         ->filter(fn ($definition) => ($definition['label'] ?? null) === $oldMunicipalityLabel)
         ->keys()
         ->first();
+
+    $usageOptions = [];
+    for ($hour = 6; $hour <= 21; $hour++) {
+        foreach ([0, 30] as $minute) {
+            if ($hour === 21 && $minute === 30) {
+                continue;
+            }
+            $value = sprintf('%02d:%02d', $hour, $minute);
+            $usageOptions[$value] = \Illuminate\Support\Carbon::createFromTime($hour, $minute)->format('g:i A');
+        }
+    }
+
+    $usageKeys = array_keys($usageOptions);
+    $defaultUsageRange = old('time_of_usage', optional($borrowRequest ?? null)->time_of_usage ?? '08:00-17:00');
+    [$usageStart, $usageEnd] = array_pad(explode('-', $defaultUsageRange), 2, null);
+    $firstUsageKey = $usageKeys[0] ?? '08:00';
+    $lastUsageKey = $usageKeys[count($usageKeys) - 1] ?? '17:00';
+
+    if (! in_array($usageStart, $usageKeys, true)) {
+        $usageStart = $firstUsageKey;
+    }
+    if (! in_array($usageEnd, $usageKeys, true)) {
+        $usageEnd = $lastUsageKey;
+    }
+
+    $startIndex = array_search($usageStart, $usageKeys, true) ?: 0;
+    $endIndex = array_search($usageEnd, $usageKeys, true);
+    if ($endIndex === false || $endIndex <= $startIndex) {
+        $endIndex = min($startIndex + 2, count($usageKeys) - 1);
+        $usageEnd = $usageKeys[$endIndex];
+    }
+
+    $defaultUsageRange = "{$usageStart}-{$usageEnd}";
+    $usageCurrentLabel = "{$usageOptions[$usageStart]} - {$usageOptions[$usageEnd]}";
+
+    $oldBorrowDateValue = old('borrow_date', optional($borrowRequest ?? null)->borrow_date ?? null);
+    $oldReturnDateValue = old('return_date', optional($borrowRequest ?? null)->return_date ?? null);
+
+    $usageBorrowDisplayDefault = $oldBorrowDateValue
+        ? \Illuminate\Support\Carbon::parse($oldBorrowDateValue)->format('F j, Y')
+        : 'Select on calendar';
+    $usageReturnDisplayDefault = $oldReturnDateValue
+        ? \Illuminate\Support\Carbon::parse($oldReturnDateValue)->format('F j, Y')
+        : 'Select on calendar';
 @endphp
 
 <x-app-layout>
