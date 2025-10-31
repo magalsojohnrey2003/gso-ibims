@@ -12,27 +12,26 @@
         ->first();
 
     $usageOptions = [];
-    for ($hour = 6; $hour <= 21; $hour++) {
+    // Build 30-minute intervals from 06:00 to 22:00 inclusive
+    for ($hour = 6; $hour <= 22; $hour++) {
         foreach ([0, 30] as $minute) {
-            if ($hour === 21 && $minute === 30) {
-                continue;
-            }
             $value = sprintf('%02d:%02d', $hour, $minute);
             $usageOptions[$value] = \Illuminate\Support\Carbon::createFromTime($hour, $minute)->format('g:i A');
         }
     }
 
     $usageKeys = array_keys($usageOptions);
-    $defaultUsageRange = old('time_of_usage', optional($borrowRequest ?? null)->time_of_usage ?? '08:00-17:00');
+    // Default to 09:00-17:00 as requested
+    $defaultUsageRange = old('time_of_usage', optional($borrowRequest ?? null)->time_of_usage ?? '09:00-17:00');
     [$usageStart, $usageEnd] = array_pad(explode('-', $defaultUsageRange), 2, null);
-    $firstUsageKey = $usageKeys[0] ?? '08:00';
-    $lastUsageKey = $usageKeys[count($usageKeys) - 1] ?? '17:00';
+    $firstUsageKey = $usageKeys[0] ?? '06:00';
+    $lastUsageKey = $usageKeys[count($usageKeys) - 1] ?? '22:00';
 
     if (! in_array($usageStart, $usageKeys, true)) {
-        $usageStart = $firstUsageKey;
+        $usageStart = '09:00';
     }
     if (! in_array($usageEnd, $usageKeys, true)) {
-        $usageEnd = $lastUsageKey;
+        $usageEnd = '17:00';
     }
 
     $startIndex = array_search($usageStart, $usageKeys, true) ?: 0;
@@ -216,7 +215,7 @@
 
                                 <div class="space-y-4">
                                     <div>
-                                        <x-input-label for="purpose_office" value="Purpose and Request Office/Agency" />
+                                        <x-input-label for="purpose_office" value="Request Office/Agency" />
                                         <x-text-input
                                             id="purpose_office"
                                             name="purpose_office"
@@ -340,72 +339,132 @@
 
                 {{-- Step 2 --}}
                 <section data-step="2" class="wizard-step hidden space-y-6">
-                    <div class="bg-white p-6 rounded-2xl shadow-lg space-y-4">
-                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                            <div>
-                                <p class="text-sm text-gray-700">
-                                    <span class="font-medium">Borrow Date:</span>
-                                    <span id="borrow_date_display" class="ml-2 text-gray-900">—</span>
-                                </p>
-                                <p class="text-sm text-gray-700 mt-1">
-                                    <span class="font-medium">Return Date:</span>
-                                    <span id="return_date_display" class="ml-2 text-gray-900">—</span>
-                                </p>
-                            </div>
-                            <x-danger-button type="button" onclick="clearBorrowSelection()">
-                                Clear Selection
-                            </x-danger-button>
-                        </div>
-
-                        <input id="borrow_date" name="borrow_date" type="hidden" value="{{ old('borrow_date', '') }}" />
-                        <input id="return_date" name="return_date" type="hidden" value="{{ old('return_date', '') }}" />
-
-                        <div class="border rounded-2xl p-4 bg-white shadow-sm">
-                            <div class="flex items-center justify-between mb-4">
-                                <x-secondary-button type="button" onclick="changeBorrowMonth(-1)" class="flex items-center gap-1 text-sm">
-                                    <i class="fas fa-arrow-left"></i> Previous
-                                </x-secondary-button>
-                                <span id="borrowCalendarMonth" class="text-lg font-semibold text-gray-800">—</span>
-                                <x-secondary-button type="button" onclick="changeBorrowMonth(1)" class="flex items-center gap-1 text-sm">
-                                    Next <i class="fas fa-arrow-right"></i>
-                                </x-secondary-button>
-                            </div>
-
-                            <div class="grid grid-cols-7 gap-2 text-center text-sm font-medium text-gray-600 mb-2">
-                                <span>Sun</span>
-                                <span>Mon</span>
-                                <span>Tue</span>
-                                <span>Wed</span>
-                                <span>Thu</span>
-                                <span>Fri</span>
-                                <span>Sat</span>
-                            </div>
-
-                            <div id="borrowAvailabilityCalendar" class="grid grid-cols-7 gap-2 text-sm min-h-[240px]"></div>
-                        </div>
-
-                        <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                            <h4 class="text-sm font-semibold text-gray-700 mb-3">Legend</h4>
-                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm text-gray-600">
-                                <div class="flex items-center gap-2">
-                                    <span class="h-3 w-3 rounded-full bg-green-400 border border-green-500"></span> Available
+                    <div class="max-w-7xl mx-auto p-4 lg:p-6">
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div class="lg:col-span-2 rounded-2xl shadow-sm border border-gray-200 bg-white p-4 lg:p-6">
+                                <div class="grid grid-cols-3 items-center mb-4">
+                                    <div class="text-left">
+                                        <x-secondary-button type="button" onclick="changeBorrowMonth(-1)" class="flex items-center gap-1 text-sm">
+                                            <i class="fas fa-arrow-left"></i> Previous
+                                        </x-secondary-button>
+                                    </div>
+                                    <div class="text-center">
+                                        <span id="borrowCalendarMonth" class="text-lg font-semibold text-gray-800">—</span>
+                                    </div>
+                                    <div class="text-right">
+                                        <x-secondary-button type="button" onclick="changeBorrowMonth(1)" class="flex items-center gap-1 text-sm">
+                                            Next <i class="fas fa-arrow-right"></i>
+                                        </x-secondary-button>
+                                    </div>
                                 </div>
-                                <div class="flex items-center gap-2">
-                                    <span class="h-3 w-3 rounded-full bg-red-400 border border-red-500"></span> Booked
+
+                                <div class="grid grid-cols-7 gap-2 text-center text-xs sm:text-sm font-medium text-gray-600 mb-2">
+                                    <span>Sun</span>
+                                    <span>Mon</span>
+                                    <span>Tue</span>
+                                    <span>Wed</span>
+                                    <span>Thu</span>
+                                    <span>Fri</span>
+                                    <span>Sat</span>
                                 </div>
-                                <div class="flex items-center gap-2">
-                                    <span class="h-3 w-3 rounded-full bg-gray-300 border border-gray-400"></span> Past Date
+
+                                <div id="borrowAvailabilityCalendar" class="grid grid-cols-7 gap-2 text-sm min-h-[252px]"></div>
+
+                                <div class="mt-5 bg-gray-50 rounded-xl p-4 border border-gray-200">
+                                    <h4 class="text-sm font-semibold text-gray-700 mb-3">Legend</h4>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-sm text-gray-700">
+                                        <div class="flex items-center gap-2">
+                                            <span class="h-3 w-3 rounded bg-white border border-gray-200"></span>
+                                            Available
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="h-3 w-3 rounded bg-blue-100 ring-2 ring-blue-400"></span>
+                                            Borrow Date
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="h-3 w-3 rounded bg-amber-100 ring-2 ring-amber-400"></span>
+                                            Return Date
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="h-3 w-3 rounded bg-gray-100 border border-gray-200"></span>
+                                            Selected Range
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="h-3 w-3 rounded bg-red-100 border border-red-300"></span>
+                                            Booked
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                            <x-secondary-button type="button" id="step2BackBtn" class="inline-flex items-center gap-2">
-                                <i class="fas fa-arrow-left"></i> Previous
-                            </x-secondary-button>
-                            <x-button type="button" id="step2NextBtn" class="inline-flex items-center gap-2" iconName="arrow-right">
-                                Next
-                            </x-button>
+                            <div class="lg:col-span-1 rounded-2xl shadow-sm border border-gray-200 bg-white p-4 lg:p-6">
+                                <h3 class="text-lg font-semibold text-gray-800 mb-4">Item Usage</h3>
+
+                                <div class="space-y-4">
+                                    <div>
+                                        <x-input-label for="borrow_date_display_input" value="Borrow Date" />
+                                        <x-text-input
+                                            id="borrow_date_display_input"
+                                            type="text"
+                                            class="mt-1 w-full border border-gray-300 bg-gray-50 text-gray-800"
+                                            readonly
+                                            value="{{ $usageBorrowDisplayDefault }}"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <x-input-label for="return_date_display_input" value="Return Date" />
+                                        <x-text-input
+                                            id="return_date_display_input"
+                                            type="text"
+                                            class="mt-1 w-full border border-gray-300 bg-gray-50 text-gray-800"
+                                            readonly
+                                            value="{{ $usageReturnDisplayDefault }}"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <x-input-label for="usage_start" value="Select Usage Hours" />
+                                        <div class="mt-1 grid grid-cols-2 gap-3">
+                                            <select id="usage_start" class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-800">
+                                                @foreach($usageOptions as $value => $label)
+                                                    <option value="{{ $value }}" @selected($value === $usageStart)>{{ $label }}</option>
+                                                @endforeach
+                                            </select>
+                                            <select id="usage_end" class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-800">
+                                                @foreach($usageOptions as $value => $label)
+                                                    <option value="{{ $value }}" @selected($value === $usageEnd)>{{ $label }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <input id="time_of_usage" name="time_of_usage" type="hidden" value="{{ $defaultUsageRange }}" />
+                                    </div>
+
+                                    <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                                        <p class="text-xs text-gray-500">Current Selection:</p>
+                                        <p id="usageCurrentDisplay" class="text-sm font-semibold text-gray-900 mt-0.5">Time of Usage: {{ $usageCurrentLabel }}</p>
+                                        <p id="currentSelectionDates" class="text-sm text-gray-700"></p>
+                                    </div>
+
+                                    <button type="button" class="text-sm text-red-600 hover:text-red-700" onclick="clearBorrowSelection()">Clear selection</button>
+
+                                    <input id="borrow_date" name="borrow_date" type="hidden" value="{{ old('borrow_date', '') }}" />
+                                    <input id="return_date" name="return_date" type="hidden" value="{{ old('return_date', '') }}" />
+                                    <p class="sr-only">
+                                        <span id="borrow_date_display">—</span>
+                                        <span id="return_date_display">—</span>
+                                    </p>
+                                </div>
+
+                                <div class="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                    <x-secondary-button type="button" id="step2BackBtn" class="inline-flex items-center gap-2">
+                                        <i class="fas fa-arrow-left"></i> Previous
+                                    </x-secondary-button>
+                                    <x-button type="button" id="step2NextBtn" class="inline-flex items-center gap-2" iconName="arrow-right">
+                                        Next
+                                    </x-button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -495,43 +554,50 @@
                 </button>
             </div>
 
-            <div class="space-y-5 text-sm text-gray-700">
-                <div>
-                    <h4 class="font-semibold text-gray-800 mb-2">Borrow Period</h4>
-                    <div class="grid sm:grid-cols-2 gap-2">
-                        <p><span class="font-medium">Borrow Date:</span> <span id="modalBorrowDate">—</span></p>
-                        <p><span class="font-medium">Return Date:</span> <span id="modalReturnDate">—</span></p>
+                    <div class="space-y-5 text-sm text-gray-700">
+                <div class="grid md:grid-cols-2 gap-5">
+                    <div class="space-y-4">
+                        <div>
+                            <h4 class="font-semibold text-gray-800 mb-2">Borrow Period</h4>
+                            <div class="grid sm:grid-cols-2 gap-2">
+                                <p><span class="font-medium">Borrow Date:</span> <span id="modalBorrowDate">—</span></p>
+                                <p><span class="font-medium">Return Date:</span> <span id="modalReturnDate">—</span></p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 class="font-semibold text-gray-800 mb-2">Time of Usage</h4>
+                            <p id="modalUsage" class="text-gray-700">--</p>
+                        </div>
+
+                        <div>
+                            <h4 class="font-semibold text-gray-800 mb-2">Request Office/Agency</h4>
+                            <p id="modalPurposeOffice" class="text-gray-700">--</p>
+                        </div>
+
+                        <div>
+                            <h4 class="font-semibold text-gray-800 mb-2">Purpose</h4>
+                            <p id="modalPurpose" class="text-gray-700">--</p>
+                        </div>
+
+                        <div>
+                            <h4 class="font-semibold text-gray-800 mb-2">Selected Address</h4>
+                            <p id="modalAddress" class="text-gray-700">—</p>
+                        </div>
                     </div>
-                </div>
 
-                <div>
-                    <h4 class="font-semibold text-gray-800 mb-2">Time of Usage</h4>
-                    <p id="modalUsage" class="text-gray-700">--</p>
-                </div>
-
-                <div>
-                    <h4 class="font-semibold text-gray-800 mb-2">Purpose &amp; Request Office/Agency</h4>
-                    <p id="modalPurposeOffice" class="text-gray-700">--</p>
-                </div>
-
-                <div>
-                    <h4 class="font-semibold text-gray-800 mb-2">Purpose</h4>
-                    <p id="modalPurpose" class="text-gray-700">--</p>
+                    <div class="space-y-3">
+                        <h4 class="font-semibold text-gray-800">Uploaded Letter</h4>
+                        <div id="modalLetterPreviewWrapper" class="rounded-lg border border-gray-200 bg-gray-50 p-3 flex items-center justify-center min-h-[160px]">
+                            <img id="modalLetterImage" alt="Uploaded letter preview" class="max-h-64 w-auto rounded-lg shadow hidden" />
+                            <p id="modalLetterName" class="text-gray-700">—</p>
+                        </div>
+                    </div>
                 </div>
 
                 <div>
                     <h4 class="font-semibold text-gray-800 mb-2">Items</h4>
                     <ul id="modalItemsList" class="list-disc pl-5 space-y-1"></ul>
-                </div>
-
-                <div>
-                    <h4 class="font-semibold text-gray-800 mb-2">Selected Address</h4>
-                    <p id="modalAddress" class="text-gray-700">—</p>
-                </div>
-
-                <div>
-                    <h4 class="font-semibold text-gray-800 mb-2">Uploaded Letter</h4>
-                    <p id="modalLetterName" class="text-gray-700">—</p>
                 </div>
             </div>
 

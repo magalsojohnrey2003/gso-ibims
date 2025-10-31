@@ -5,14 +5,15 @@ let borrowYear = new Date().getFullYear();
 let blockedBorrowDates = [];
 const MAX_BORROW_DAYS = 3; // inclusive max days
 
+// Use neutral for available, blue for borrow, amber for return, gray for range, red for booked
 const DAY_CLASS_BASE = 'relative flex h-12 items-center justify-center rounded-lg border text-sm font-medium transition select-none';
 const DAY_STATE_CLASSES = {
-    available: 'bg-green-100 border-green-500 text-green-900 hover:bg-green-200 hover:border-green-600 cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-300',
-    blocked: 'bg-red-200 border-red-500 text-red-700 cursor-not-allowed',
-    past: 'bg-gray-200 border-gray-300 text-gray-500 cursor-not-allowed',
-    borrow: 'bg-blue-100 border-blue-500 text-blue-900 shadow-sm cursor-pointer',
-    return: 'bg-orange-100 border-orange-500 text-orange-900 shadow-sm cursor-pointer',
-    range: 'bg-gray-100 border-gray-400 text-gray-800 cursor-pointer',
+    available: 'bg-white border-gray-200 text-gray-900 hover:bg-gray-50 cursor-pointer focus:outline-none focus:ring-1 focus:ring-gray-300',
+    blocked: 'bg-red-100 border-red-300 text-red-700 cursor-not-allowed opacity-60 line-through',
+    past: 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed',
+    borrow: 'bg-blue-100 border-blue-300 text-blue-900 ring-2 ring-blue-400 cursor-pointer',
+    return: 'bg-amber-100 border-amber-300 text-amber-900 ring-2 ring-amber-400 cursor-pointer',
+    range: 'bg-gray-100 border-gray-300 text-gray-900 cursor-pointer',
     inactive: 'bg-white border-transparent text-gray-300 cursor-not-allowed'
 };
 
@@ -119,6 +120,15 @@ window.clearBorrowSelection = function() {
     if (borrowDisplay) borrowDisplay.textContent = '--';
     if (returnDisplay) returnDisplay.textContent = '--';
 
+    // Update read-only inputs on the Item Usage card
+    const borrowInput = document.getElementById('borrow_date_display_input');
+    const returnInput = document.getElementById('return_date_display_input');
+    if (borrowInput) borrowInput.value = 'Select on calendar';
+    if (returnInput) returnInput.value = 'Select on calendar';
+
+    const datesLine = document.getElementById('currentSelectionDates');
+    if (datesLine) datesLine.textContent = '';
+
     window.dispatchEvent(new CustomEvent('borrow:dates-updated', {
         detail: { borrow: null, return: null }
     }));
@@ -180,7 +190,7 @@ function renderBorrowCalendar(month, year) {
         const blank = document.createElement('div');
         blank.className = 'h-12';
         container.appendChild(blank);
-    }
+        }
 
     for (let day = 1; day <= monthEnd.getDate(); day++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -253,6 +263,11 @@ window.handleCalendarClick = function(dateStr, el) {
         if (returnHidden) returnHidden.value = returnPick || '';
         if (borrowDisplay) borrowDisplay.textContent = borrowPick ? formatLong(borrowPick) : '—';
         if (returnDisplay) returnDisplay.textContent = returnPick ? formatLong(returnPick) : '—';
+
+        const borrowInput = document.getElementById('borrow_date_display_input');
+        const returnInput = document.getElementById('return_date_display_input');
+        if (borrowInput) borrowInput.value = borrowPick ? formatLong(borrowPick) : 'Select on calendar';
+        if (returnInput) returnInput.value = returnPick ? formatLong(returnPick) : 'Select on calendar';
     };
 
     if (!borrowPick) {
@@ -381,6 +396,29 @@ function highlightBorrowRange(start, end, options = { jumpToMonth: true }) {
     } else {
         if (returnHidden) returnHidden.value = '';
         if (returnDisplay) returnDisplay.textContent = '—';
+    }
+
+    // Update Item Usage read-only inputs
+    const borrowInput = document.getElementById('borrow_date_display_input');
+    const returnInput = document.getElementById('return_date_display_input');
+    if (borrowInput) borrowInput.value = borrowPick ? formatLong(borrowPick) : 'Select on calendar';
+    if (returnInput) returnInput.value = returnPick ? formatLong(returnPick) : 'Select on calendar';
+
+    // Update Current Selection dates line
+    const datesLine = document.getElementById('currentSelectionDates');
+    if (datesLine) {
+        if (borrowPick && returnPick) {
+            const b = parseYMD(borrowPick);
+            const r = parseYMD(returnPick);
+            const fmt = (d) => d.toLocaleString('default', { month: 'short', day: 'numeric', year: 'numeric' });
+            datesLine.textContent = `Dates: ${fmt(b)} – ${fmt(r)}`;
+        } else if (borrowPick && !returnPick) {
+            const b = parseYMD(borrowPick);
+            const fmt = (d) => d.toLocaleString('default', { month: 'short', day: 'numeric', year: 'numeric' });
+            datesLine.textContent = `Dates: ${fmt(b)}`;
+        } else {
+            datesLine.textContent = '';
+        }
     }
 
     window.dispatchEvent(new CustomEvent('borrow:dates-updated', {
@@ -572,29 +610,6 @@ document.addEventListener("DOMContentLoaded", function() {
         if (bDate) { borrowMonth = bDate.getMonth(); borrowYear = bDate.getFullYear(); }
     }
 
-    // Live search (client-side filtering)
-    const searchInput = document.getElementById('search');
-    let itemCards = document.querySelectorAll('.borrow-item-card');
-    if (searchInput) {
-        searchInput.addEventListener('input', function(e) {
-            const q = e.target.value.trim().toLowerCase();
-            if (q === '') {
-                itemCards.forEach(card => card.classList.remove('hidden'));
-                return;
-            }
-            itemCards.forEach(card => {
-                const name = (card.dataset.name || '').toLowerCase();
-                const category = (card.dataset.category || '').toLowerCase();
-                const fullText = (card.innerText || '').toLowerCase();
-                if (name.includes(q) || category.includes(q) || fullText.includes(q)) {
-                    card.classList.remove('hidden');
-                } else {
-                    card.classList.add('hidden');
-                }
-            });
-        });
-    }
-
     // Auto-load availability for first item or render plain calendar
     const availabilityContainer = document.getElementById('borrowAvailabilityCalendar');
     if (availabilityContainer) {
@@ -606,6 +621,7 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     }
 
+    // Initialize Item Usage read-only inputs and dates line
     const usageBorrowDisplay = document.getElementById('usageBorrowDisplay');
     const usageReturnDisplay = document.getElementById('usageReturnDisplay');
     if (usageBorrowDisplay) {
@@ -613,5 +629,55 @@ document.addEventListener("DOMContentLoaded", function() {
     }
     if (usageReturnDisplay) {
         usageReturnDisplay.textContent = returnPick ? formatLong(returnPick) : 'Select on calendar';
+    }
+    const borrowInput = document.getElementById('borrow_date_display_input');
+    const returnInput = document.getElementById('return_date_display_input');
+    if (borrowInput) borrowInput.value = borrowPick ? formatLong(borrowPick) : 'Select on calendar';
+    if (returnInput) returnInput.value = returnPick ? formatLong(returnPick) : 'Select on calendar';
+
+    const datesLine = document.getElementById('currentSelectionDates');
+    if (datesLine) {
+        if (borrowPick && returnPick) {
+            const b = parseYMD(borrowPick);
+            const r = parseYMD(returnPick);
+            const fmt = (d) => d.toLocaleString('default', { month: 'short', day: 'numeric', year: 'numeric' });
+            datesLine.textContent = `Dates: ${fmt(b)} – ${fmt(r)}`;
+        } else if (borrowPick && !returnPick) {
+            const b = parseYMD(borrowPick);
+            const fmt = (d) => d.toLocaleString('default', { month: 'short', day: 'numeric', year: 'numeric' });
+            datesLine.textContent = `Dates: ${fmt(b)}`;
+        } else {
+            datesLine.textContent = '';
+        }
+    }
+
+    // Letter preview in confirm modal
+    const letterInput = document.getElementById('support_letter');
+    const previewImg = document.getElementById('modalLetterImage');
+    const previewName = document.getElementById('modalLetterName');
+    const updateLetterPreview = () => {
+        if (!letterInput || !letterInput.files || letterInput.files.length === 0) {
+            if (previewImg) { previewImg.src = ''; previewImg.classList.add('hidden'); }
+            if (previewName) { previewName.textContent = '—'; previewName.classList.remove('hidden'); }
+            return;
+        }
+        const file = letterInput.files[0];
+        if (file && file.type && file.type.startsWith('image/')) {
+            const url = URL.createObjectURL(file);
+            if (previewImg) {
+                previewImg.src = url;
+                previewImg.classList.remove('hidden');
+            }
+            if (previewName) {
+                previewName.textContent = '';
+                previewName.classList.add('hidden');
+            }
+        } else {
+            if (previewImg) { previewImg.src = ''; previewImg.classList.add('hidden'); }
+            if (previewName) { previewName.textContent = file ? file.name : '—'; previewName.classList.remove('hidden'); }
+        }
+    };
+    if (letterInput) {
+        letterInput.addEventListener('change', updateLetterPreview);
     }
 });
