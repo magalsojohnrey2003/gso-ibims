@@ -111,11 +111,12 @@ class ReturnItemsController extends Controller
                 $instance->return_condition = $instance->return_condition ?? 'pending';
                 $instance->save();
 
-                if ($instance->instance) {
-                    $instance->instance->status = 'returned';
-                    $instance->instance->save();
-                }
+            if ($instance->instance) {
+                // Keep the instance marked as borrowed until its condition is evaluated.
+                $instance->instance->status = 'borrowed';
+                $instance->instance->save();
             }
+        }
 
             $borrowRequest->status = 'returned';
             $borrowRequest->delivery_status = 'returned';
@@ -296,7 +297,7 @@ class ReturnItemsController extends Controller
             'minor_damage' => 'damaged',
             'damage' => 'damaged',
             'missing' => 'missing',
-            default => 'returned',
+            default => 'borrowed',
         };
     }
 
