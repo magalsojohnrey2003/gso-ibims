@@ -8,7 +8,7 @@ const MAX_BORROW_DAYS = 3; // inclusive max days
 // Use neutral for available, blue for borrow, amber for return, gray for range, red for booked
 const DAY_CLASS_BASE = 'relative flex h-12 items-center justify-center rounded-lg border text-sm font-medium transition select-none';
 const DAY_STATE_CLASSES = {
-    available: 'bg-white border-gray-200 text-gray-900 hover:bg-gray-50 cursor-pointer focus:outline-none focus:ring-1 focus:ring-gray-300',
+    available: 'bg-green-100 border-green-300 text-green-900 hover:bg-green-50 cursor-pointer focus:outline-none focus:ring-1 focus:ring-green-300',
     blocked: 'bg-red-100 border-red-300 text-red-700 cursor-not-allowed opacity-60 line-through',
     past: 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed',
     borrow: 'bg-blue-100 border-blue-300 text-blue-900 ring-2 ring-blue-400 cursor-pointer',

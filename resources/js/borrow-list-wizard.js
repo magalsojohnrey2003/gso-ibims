@@ -63,6 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentStep = 0;
     let locationValid = !!(locationHidden?.value);
+    const hasAtLeastOneItem = () => document.querySelectorAll('#borrowListItems [data-item-entry]').length > 0;
     let currentUsageLabel = formatUsageLabel(
         usageStartSelect?.value || null,
         usageEndSelect?.value || null,
@@ -108,9 +109,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const updateStep1NextState = () => {
         if (!step1NextBtn) return;
-        step1NextBtn.disabled = !locationValid;
-        step1NextBtn.classList.toggle('opacity-60', !locationValid);
-        step1NextBtn.classList.toggle('cursor-not-allowed', !locationValid);
+        const canProceed = locationValid && hasAtLeastOneItem();
+        step1NextBtn.disabled = !canProceed;
+        step1NextBtn.classList.toggle('opacity-60', !canProceed);
+        step1NextBtn.classList.toggle('cursor-not-allowed', !canProceed);
     };
 
     const updateSummary = () => {
@@ -221,7 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (step1NextBtn) {
         step1NextBtn.addEventListener('click', () => {
-            if (!locationValid) return;
+            if (!locationValid || !hasAtLeastOneItem()) return;
             goToStep(1);
         });
     }
@@ -296,7 +298,10 @@ document.addEventListener('DOMContentLoaded', () => {
         updateSummary();
     });
 
-    window.addEventListener('borrow:item-quantity-changed', () => updateSummary());
+    window.addEventListener('borrow:item-quantity-changed', () => {
+        updateSummary();
+        updateStep1NextState();
+    });
 
     window.addEventListener('borrow:usage-updated', (event) => {
         currentUsageLabel = event.detail?.label || formatUsageLabel(

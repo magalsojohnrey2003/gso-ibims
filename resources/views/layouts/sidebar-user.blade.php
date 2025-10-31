@@ -10,6 +10,7 @@
         <ul class="space-y-2" role="none">
 
             {{-- Home --}}
+            @unless(request()->routeIs('borrowList.*'))
             <li role="none">
                 <a href="{{ route('user.dashboard') }}"
                    title="Home"
@@ -21,21 +22,23 @@
                     <span class="sidebar-text">Home</span>
                 </a>
             </li>
+            @endunless
 
-            {{-- Borrow Items --}}
+            {{-- Borrow Items / Borrow List --}}
             <li role="none">
-                <a href="{{ route('borrow.items') }}"
-                   title="Borrow Items"
+                <a href="{{ request()->routeIs('borrowList.*') ? route('borrowList.index') : route('borrow.items') }}"
+                   title="{{ request()->routeIs('borrowList.*') ? 'Borrow List' : 'Borrow Items' }}"
                    role="menuitem"
-                   @if(request()->routeIs('borrow.items')) aria-current="page" @endif
+                   @if(request()->routeIs('borrow.items') || request()->routeIs('borrowList.*')) aria-current="page" @endif
                    class="flex items-center px-4 py-3 rounded-md gov-hover transition-colors duration-150 group focus:outline-none focus:ring-2 focus:ring-offset-1
-                          {{ request()->routeIs('borrow.items') ? 'gov-active' : '' }}">
+                          {{ (request()->routeIs('borrow.items') || request()->routeIs('borrowList.*')) ? 'gov-active' : '' }}">
                     <i class="fas fa-cart-plus mr-3 sidebar-icon" aria-hidden="true"></i>
-                    <span class="sidebar-text">Borrow Items</span>
+                    <span class="sidebar-text">{{ request()->routeIs('borrowList.*') ? 'Borrow List' : 'Borrow Items' }}</span>
                 </a>
             </li>
 
             {{-- My Borrowed Items --}}
+            @unless(request()->routeIs('borrowList.*'))
             <li role="none">
                 <a href="{{ route('my.borrowed.items') }}"
                    title="My Borrowed Items"
@@ -47,6 +50,7 @@
                     <span class="sidebar-text">My Borrowed Items</span>
                 </a>
             </li>
+            @endunless
 
         </ul>
     </nav>

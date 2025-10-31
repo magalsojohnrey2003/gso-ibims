@@ -123,12 +123,8 @@
                                         level="h3"
                                         size="lg"
                                         weight="semibold"
-                                        icon="list-bullet"
-                                        variant="s"
-                                        iconStyle="circle"
-                                        iconBg="gov-accent"
-                                        iconColor="white"
                                         class="flex items-center gap-3">
+                                        <i class="fas fa-list text-purple-600"></i>
                                         Item List
                                         <span class="inline-flex items-center justify-center bg-purple-100 text-purple-800 text-sm font-medium px-2 py-1 rounded">
                                             {{ count($borrowList) }}
@@ -204,11 +200,8 @@
                                         level="h3"
                                         size="lg"
                                         weight="semibold"
-                                        icon="building-office"
-                                        variant="s"
-                                        iconStyle="circle"
-                                        iconBg="gov-accent"
-                                        iconColor="white">
+                                        class="flex items-center gap-3">
+                                        <i class="fas fa-clipboard-list text-purple-600"></i>
                                         Request Details
                                     </x-title>
                                 </div>
@@ -222,7 +215,7 @@
                                             type="text"
                                             maxlength="255"
                                             value="{{ old('purpose_office', optional($borrowRequest ?? null)->purpose_office ?? '') }}"
-                                            class="mt-1 w-full border border-gray-600"
+                                            class="mt-1 w-full rounded-lg border border-gray-400 px-3 py-2 text-sm text-gray-800 bg-white focus:border-purple-500 focus:ring-purple-500"
                                             placeholder="eg. Engineering Office – Maintenance Team" />
                                         <x-input-error :messages="$errors->get('purpose_office')" class="mt-1" />
                                     </div>
@@ -239,6 +232,20 @@
                                         <x-input-error :messages="$errors->get('purpose')" class="mt-1" />
                                         <p class="mt-1 text-xs text-gray-500">Provide enough context for approvers to understand the request.</p>
                                     </div>
+
+                                    <div>
+                                        <x-input-label for="manpower_count" value="Number of Manpower (Optional)" />
+                                        <x-text-input
+                                            id="manpower_count"
+                                            name="manpower_count"
+                                            type="number"
+                                            min="1"
+                                            max="99"
+                                            value="{{ old('manpower_count') }}"
+                                            class="mt-1 w-full rounded-lg border border-gray-400 px-3 py-2 text-sm text-gray-800 bg-white focus:border-purple-500 focus:ring-purple-500"
+                                        />
+                                        <p class="mt-2 text-xs text-gray-500">Add manpower if you need personnel to handle items.</p>
+                                    </div>
                                 </div>
                             </div>
 
@@ -248,27 +255,10 @@
                                         level="h3"
                                         size="lg"
                                         weight="semibold"
-                                        icon="user-plus"
-                                        variant="s"
-                                        iconStyle="circle"
-                                        iconBg="gov-accent"
-                                        iconColor="white">
-                                        Resource Allocation
+                                        class="flex items-center gap-3">
+                                        <i class="fas fa-map-marker-alt text-purple-600"></i>
+                                        Location Details
                                     </x-title>
-                                </div>
-
-                                <div>
-                                    <x-input-label for="manpower_count" value="Number of Manpower (Optional)" />
-                                    <x-text-input
-                                        id="manpower_count"
-                                        name="manpower_count"
-                                        type="number"
-                                        min="1"
-                                        max="99"
-                                        value="{{ old('manpower_count') }}"
-                                        class="mt-1 w-full border border-gray-600"
-                                    />
-                                    <p class="mt-2 text-xs text-gray-500">Add manpower if you need personnel to handle items.</p>
                                 </div>
 
                                 <div class="space-y-4">
@@ -368,7 +358,7 @@
                                     <h4 class="text-sm font-semibold text-gray-700 mb-3">Legend</h4>
                                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-sm text-gray-700">
                                         <div class="flex items-center gap-2">
-                                            <span class="h-3 w-3 rounded bg-white border border-gray-200"></span>
+                                            <span class="h-3 w-3 rounded bg-green-100 border border-green-300"></span>
                                             Available
                                         </div>
                                         <div class="flex items-center gap-2">
@@ -392,7 +382,7 @@
                             </div>
 
                             <div class="lg:col-span-1 rounded-2xl shadow-sm border border-gray-200 bg-white p-4 lg:p-6">
-                                <h3 class="text-lg font-semibold text-gray-800 mb-4">Item Usage</h3>
+                                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2"><i class="fas fa-clock text-purple-600"></i> Item Usage</h3>
 
                                 <div class="space-y-4">
                                     <div>
