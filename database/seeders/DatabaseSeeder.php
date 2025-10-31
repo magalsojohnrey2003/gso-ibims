@@ -41,7 +41,7 @@ class DatabaseSeeder extends Seeder
             'password' => Hash::make('Magalso#2003'), 
         ]);
 
-                User::factory()->create([
+        User::factory()->create([
             'role' => 'user',
             'first_name' => 'TestUser3',
             'middle_name' => null,
@@ -59,7 +59,7 @@ class DatabaseSeeder extends Seeder
             'password' => Hash::make('Magalso#2003'), 
         ]);
 
-                User::factory()->create([
+        User::factory()->create([
             'role' => 'user',
             'first_name' => 'TestUser5',
             'middle_name' => null,
@@ -77,7 +77,7 @@ class DatabaseSeeder extends Seeder
             'password' => Hash::make('Magalso#2003'), 
         ]);
 
-                User::factory()->create([
+        User::factory()->create([
             'role' => 'user',
             'first_name' => 'TestUser7',
             'middle_name' => null,
@@ -95,7 +95,7 @@ class DatabaseSeeder extends Seeder
             'password' => Hash::make('Magalso#2003'), 
         ]);
 
-                User::factory()->create([
+        User::factory()->create([
             'role' => 'user',
             'first_name' => 'TestUser9',
             'middle_name' => null,
