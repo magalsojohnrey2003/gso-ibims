@@ -10,7 +10,6 @@
         <ul class="space-y-2" role="none">
 
             {{-- Home --}}
-            @unless(request()->routeIs('borrowList.*'))
             <li role="none">
                 <a href="{{ route('user.dashboard') }}"
                    title="Home"
@@ -22,7 +21,6 @@
                     <span class="sidebar-text">Home</span>
                 </a>
             </li>
-            @endunless
 
             {{-- Borrow Items / Borrow List --}}
             <li role="none">

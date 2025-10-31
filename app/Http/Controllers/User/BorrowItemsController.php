@@ -13,7 +13,7 @@ use App\Events\BorrowRequestSubmitted;
 use App\Notifications\RequestNotification;
 use Illuminate\Support\Facades\Notification;
 use App\Models\User;
-use Barryvdh\DomPDF\Facade\Pdf; 
+use App\Services\BorrowRequestFormPdf; 
 use Illuminate\Support\Facades\Storage;
 
 class BorrowItemsController extends Controller
@@ -170,7 +170,7 @@ class BorrowItemsController extends Controller
 
             $alreadyReserved = BorrowRequestItem::where('item_id', $item->id)
                 ->whereHas('request', function ($q) use ($borrowDate, $returnDate) {
-                    $q->whereIn('status', ['pending', 'approved'])
+                    $q->whereIn('status', ['pending', 'validated', 'approved', 'qr_verified', 'return_pending'])
                       ->where('borrow_date', '<=', $returnDate)
                       ->where('return_date', '>=', $borrowDate);
                 })
@@ -276,10 +276,10 @@ class BorrowItemsController extends Controller
                 ], 422);
             }
 
-            // Sum quantities of overlapping pending/approved requests for that item
-            $alreadyReserved = BorrowRequestItem::where('item_id', $item->id)
+        // Sum quantities of overlapping pending/approved requests for that item
+        $alreadyReserved = BorrowRequestItem::where('item_id', $item->id)
                 ->whereHas('request', function ($q) use ($borrowDate, $returnDate) {
-                    $q->whereIn('status', ['pending', 'approved'])
+                    $q->whereIn('status', ['pending', 'validated', 'approved', 'qr_verified', 'return_pending'])
                     ->where('borrow_date', '<=', $returnDate)
                     ->where('return_date', '>=', $borrowDate);
                 })
@@ -301,7 +301,7 @@ class BorrowItemsController extends Controller
         // No date range requested: fallback to previous behavior (return unavailable dates)
         $requests = BorrowRequestItem::where('item_id', $item->id)
             ->whereHas('request', function ($q) {
-                $q->whereIn('status', ['pending', 'approved']);
+                $q->whereIn('status', ['pending', 'validated', 'approved', 'qr_verified', 'return_pending']);
             })
             ->with('request')
             ->get();
@@ -402,7 +402,7 @@ class BorrowItemsController extends Controller
      * Render a PDF (dompdf) of the borrow request (printable pickup slip).
      * - Accessible to request owner and admins.
      */
-    public function print(BorrowRequest $borrowRequest)
+    public function print(BorrowRequest $borrowRequest, BorrowRequestFormPdf $borrowRequestFormPdf)
     {
         $user = Auth::user();
         // allow admin or owner
@@ -410,12 +410,12 @@ class BorrowItemsController extends Controller
             abort(403);
         }
 
-        $borrowRequest->load(['user', 'items.item', 'borrowedInstances.instance', 'borrowedInstances.item']);
+        $result = $borrowRequestFormPdf->render($borrowRequest);
 
-        $pdf = Pdf::loadView('pdf.borrow-request', ['borrowRequest' => $borrowRequest])
-            ->setPaper('a4', 'portrait');
-
-        // inline so browser opens the PDF
-        return $pdf->stream("borrow-request-{$borrowRequest->id}.pdf");
+        return response($result['content'], 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . $result['filename'] . '"',
+            'Content-Length' => strlen($result['content']),
+        ]);
     }
 }

@@ -13,6 +13,7 @@
         'accepted' => 'bg-green-200 text-green-900 ring-green-300',
         'rejected' => 'bg-red-200 text-red-900 ring-red-300',
         'pending'  => 'bg-yellow-200 text-yellow-900 ring-yellow-300',
+        'qr'       => 'bg-teal-100 text-teal-800 ring-teal-200',
     ];
 
     // Determine which style to use

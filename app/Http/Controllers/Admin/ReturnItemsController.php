@@ -63,6 +63,8 @@ class ReturnItemsController extends Controller
                 'condition' => $condition,
                 'condition_label' => $this->formatConditionLabel($condition),
                 'returned_at' => $instance->returned_at?->toDateTimeString(),
+                'inventory_status' => $instance->instance?->status ?? 'unknown',
+                'inventory_status_label' => $this->formatInventoryStatus($instance->instance?->status),
             ];
         })->values();
 
@@ -103,20 +105,19 @@ class ReturnItemsController extends Controller
             ]);
 
             foreach ($borrowRequest->borrowedInstances as $instance) {
+                $previousCondition = $instance->return_condition ?? 'pending';
+
                 if (! $instance->returned_at) {
                     $instance->returned_at = now();
                 }
 
                 $instance->condition_updated_at = now();
-                $instance->return_condition = $instance->return_condition ?? 'pending';
+                $instance->return_condition = 'good';
                 $instance->save();
 
-            if ($instance->instance) {
-                // Keep the instance marked as borrowed until its condition is evaluated.
-                $instance->instance->status = 'borrowed';
-                $instance->instance->save();
+                $instance->loadMissing(['item', 'instance']);
+                $this->syncInventoryForConditionChange($instance, $previousCondition, 'good');
             }
-        }
 
             $borrowRequest->status = 'returned';
             $borrowRequest->delivery_status = 'returned';
@@ -125,17 +126,21 @@ class ReturnItemsController extends Controller
             }
             $borrowRequest->save();
 
+            $borrowRequest->load('borrowedInstances.instance', 'borrowedInstances.item');
+
             DB::commit();
 
-            $instancesPayload = $borrowRequest->borrowedInstances->map(function (BorrowItemInstance $instance) {
-                return [
-                    'borrow_item_instance_id' => $instance->id,
-                    'item_instance_id' => $instance->item_instance_id,
-                    'item_id' => $instance->item_id,
-                    'status' => $instance->instance?->status,
-                    'condition' => $instance->return_condition,
-                ];
-            })->values();
+        $instancesPayload = $borrowRequest->borrowedInstances->map(function (BorrowItemInstance $instance) {
+            return [
+                'borrow_item_instance_id' => $instance->id,
+                'item_instance_id' => $instance->item_instance_id,
+                'item_id' => $instance->item_id,
+                'status' => $instance->instance?->status,
+                'inventory_status_label' => $this->formatInventoryStatus($instance->instance?->status),
+                'condition' => $instance->return_condition ?? 'pending',
+                'condition_label' => $this->formatConditionLabel($instance->return_condition ?? 'pending'),
+            ];
+        })->values();
 
             return response()->json([
                 'message' => 'Successfully returned.',
@@ -187,6 +192,7 @@ class ReturnItemsController extends Controller
                 'condition' => $borrowItemInstance->return_condition,
                 'condition_label' => $this->formatConditionLabel($borrowItemInstance->return_condition),
                 'inventory_status' => $borrowItemInstance->instance?->status,
+                'inventory_status_label' => $this->formatInventoryStatus($borrowItemInstance->instance?->status),
                 'item_instance_id' => $borrowItemInstance->item_instance_id,
                 'item_id' => $borrowItemInstance->item_id,
                 'available_qty' => optional($borrowItemInstance->item)->available_qty,
@@ -287,6 +293,19 @@ class ReturnItemsController extends Controller
             'damage' => 'Damage',
             'minor_damage' => 'Minor Damage',
             default => 'Pending',
+        };
+    }
+
+    private function formatInventoryStatus(?string $status): string
+    {
+        return match (strtolower($status ?? '')) {
+            'available' => 'Available',
+            'borrowed' => 'Borrowed',
+            'damaged' => 'Damaged',
+            'under_repair' => 'Under Repair',
+            'retired' => 'Retired',
+            'missing' => 'Missing',
+            default => 'Unknown',
         };
     }
 

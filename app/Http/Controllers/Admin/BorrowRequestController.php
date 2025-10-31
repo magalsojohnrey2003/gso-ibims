@@ -62,7 +62,7 @@ class BorrowRequestController extends Controller
     public function updateStatus(Request $request, BorrowRequest $borrowRequest)
     {
         $request->validate([
-            'status' => 'required|in:pending,validated,approved,rejected,returned,return_pending'
+            'status' => 'required|in:pending,validated,approved,rejected,returned,return_pending,qr_verified'
         ]);
 
         $old = $borrowRequest->status;
@@ -273,6 +273,39 @@ class BorrowRequestController extends Controller
                 'error'   => $e->getMessage(),
             ], 500);
         }
+    }
+
+    public function scan(Request $request, BorrowRequest $borrowRequest)
+    {
+        $oldStatus = $borrowRequest->status ?? 'pending';
+        $wasUpdated = false;
+
+        if ($borrowRequest->status !== 'qr_verified') {
+            $borrowRequest->status = 'qr_verified';
+            $borrowRequest->save();
+
+            event(new BorrowRequestStatusUpdated($borrowRequest->fresh(), $oldStatus, $borrowRequest->status));
+            $borrowRequest->refresh();
+            $wasUpdated = true;
+        }
+
+        $message = $wasUpdated
+            ? 'Borrow request marked as QR verified.'
+            : 'Borrow request was already marked as QR verified.';
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => $message,
+                'status' => $borrowRequest->status,
+                'updated' => $wasUpdated,
+            ]);
+        }
+
+        return view('admin.borrow-requests.scan-result', [
+            'borrowRequest' => $borrowRequest,
+            'updated' => $wasUpdated,
+            'message' => $message,
+        ]);
     }
 
     protected function allocateInstancesForBorrowRequest(BorrowRequest $borrowRequest)

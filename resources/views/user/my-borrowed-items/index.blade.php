@@ -164,6 +164,7 @@
         <template data-status="return_pending"><x-status-badge type="info" text="Return Pending" /></template>
         <template data-status="returned"><x-status-badge type="success" text="Returned" /></template>
         <template data-status="rejected"><x-status-badge type="rejected" text="Rejected" /></template>
+        <template data-status="qr_verified"><x-status-badge type="qr" text="QR Verified" /></template>
         <template data-status="default"><x-status-badge type="gray" text="—" /></template>
         <template data-status="validated"><x-status-badge type="info" text="Validated" /></template>
 

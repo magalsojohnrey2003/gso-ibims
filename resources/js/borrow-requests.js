@@ -164,6 +164,9 @@ function buildStatusBadge(status, deliveryStatus) {
     if (statusKey === 'returned') {
         return { label: 'Returned', classes: 'bg-emerald-100 text-emerald-700' };
     }
+    if (statusKey === 'qr_verified') {
+        return { label: 'QR Verified', classes: 'bg-teal-100 text-teal-700' };
+    }
     if (statusKey === 'pending') {
         return { label: 'Pending', classes: 'bg-yellow-100 text-yellow-700' };
     }

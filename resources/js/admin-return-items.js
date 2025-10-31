@@ -37,6 +37,58 @@ function renderConditionBadge(condition, label) {
     return fragment;
 }
 
+function formatInventoryStatusLabel(status) {
+    switch (String(status || '').toLowerCase()) {
+        case 'available':
+            return 'Available';
+        case 'borrowed':
+            return 'Borrowed';
+        case 'damaged':
+            return 'Damaged';
+        case 'under_repair':
+            return 'Under Repair';
+        case 'retired':
+            return 'Retired';
+        case 'missing':
+            return 'Missing';
+        default:
+            return 'Unknown';
+    }
+}
+
+function renderInventoryStatusBadge(status, label) {
+    const span = document.createElement('span');
+    const base = 'inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full';
+    const key = String(status || '').toLowerCase();
+    let classes = ' bg-gray-100 text-gray-700';
+
+    switch (key) {
+        case 'available':
+            classes = ' bg-green-100 text-green-700';
+            break;
+        case 'borrowed':
+            classes = ' bg-indigo-100 text-indigo-700';
+            break;
+        case 'damaged':
+        case 'missing':
+            classes = ' bg-red-100 text-red-700';
+            break;
+        case 'under_repair':
+            classes = ' bg-yellow-100 text-yellow-700';
+            break;
+        case 'retired':
+            classes = ' bg-gray-200 text-gray-800';
+            break;
+        default:
+            classes = ' bg-gray-100 text-gray-700';
+            break;
+    }
+
+    span.className = `${base}${classes}`;
+    span.textContent = label || formatInventoryStatusLabel(status);
+    return span;
+}
+
 function formatDeliveryStatus(status) {
     if (!status) return 'Pending';
     switch (String(status).toLowerCase()) {
@@ -235,7 +287,10 @@ function populateManageModal(data) {
     };
 
     MANAGE_BORROW_ID = data.id ?? data.borrow_request_id ?? null;
-    MANAGE_ITEMS = Array.isArray(data.items) ? data.items : [];
+    MANAGE_ITEMS = (Array.isArray(data.items) ? data.items : []).map((item) => ({
+        ...item,
+        inventory_status_label: item.inventory_status_label || formatInventoryStatusLabel(item.inventory_status),
+    }));
     MANAGE_FILTER = data.default_item || '';
 
     setText('manage-borrow-id', data.borrow_request_id ?? data.id ?? '--');
@@ -294,7 +349,7 @@ function renderManageRows() {
     if (!rows.length) {
         const tr = document.createElement('tr');
         const td = document.createElement('td');
-        td.colSpan = 3;
+        td.colSpan = 4;
         td.className = 'px-4 py-4 text-center text-gray-500';
         td.textContent = 'No property numbers for this selection.';
         tr.appendChild(td);
@@ -311,6 +366,11 @@ function renderManageRows() {
         tdLabel.className = 'px-4 py-3 text-left font-medium text-gray-800';
         tdLabel.textContent = item.property_label || 'Untracked Item';
         tr.appendChild(tdLabel);
+
+        const tdStatus = document.createElement('td');
+        tdStatus.className = 'px-4 py-3 text-left';
+        tdStatus.appendChild(renderInventoryStatusBadge(item.inventory_status, item.inventory_status_label));
+        tr.appendChild(tdStatus);
 
         const tdSelect = document.createElement('td');
         tdSelect.className = 'px-4 py-3';
@@ -372,6 +432,7 @@ async function updateInstance(instanceId, condition, button) {
                     condition,
                     condition_label: data.condition_label || item.condition_label,
                     inventory_status: data.inventory_status || item.inventory_status,
+                    inventory_status_label: data.inventory_status_label || formatInventoryStatusLabel(data.inventory_status || item.inventory_status),
                 };
             }
             return item;

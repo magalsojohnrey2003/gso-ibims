@@ -188,13 +188,14 @@
                             <thead class="bg-gray-100 text-xs uppercase text-gray-600 sticky top-0 z-10">
                                 <tr>
                                     <th class="px-4 py-2 text-left">Property Number</th>
+                                    <th class="px-4 py-2 text-left">Status</th>
                                     <th class="px-4 py-2 text-left">Condition</th>
                                     <th class="px-4 py-2 text-left">Action</th>
                                 </tr>
                             </thead>
                             <tbody id="manage-items-tbody" class="divide-y bg-white">
                                 <tr>
-                                    <td colspan="3" class="px-4 py-4 text-center text-gray-500">Loading...</td>
+                                    <td colspan="4" class="px-4 py-4 text-center text-gray-500">Loading...</td>
                                 </tr>
                             </tbody>
                         </table>

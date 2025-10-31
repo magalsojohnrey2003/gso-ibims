@@ -86,6 +86,9 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
         Route::get('borrow-requests', [BorrowRequestController::class, 'index'])->name('borrow.requests');
         Route::get('borrow-requests/list', [BorrowRequestController::class, 'list'])->name('admin.borrow.requests.list');
         Route::post('borrow-requests/{borrowRequest}/update-status', [BorrowRequestController::class, 'updateStatus'])->name('admin.borrow.requests.update-status');
+        Route::get('borrow-requests/{borrowRequest}/scan', [BorrowRequestController::class, 'scan'])
+            ->middleware('signed')
+            ->name('admin.borrow.requests.scan');
         // Dispatch action
         Route::post('borrow-requests/{borrowRequest}/dispatch', [BorrowRequestController::class, 'dispatch'])
             ->name('admin.borrow.requests.dispatch');
@@ -155,6 +158,5 @@ Route::middleware(['auth', 'role:user', 'nocache'])
     });
 
 require __DIR__.'/auth.php';
-
 
 

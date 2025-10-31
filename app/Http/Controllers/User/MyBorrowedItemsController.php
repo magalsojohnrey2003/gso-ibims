@@ -7,7 +7,7 @@ use App\Models\BorrowRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Services\BorrowRequestFormPdf;
 
 class MyBorrowedItemsController extends Controller
 {
@@ -16,17 +16,19 @@ class MyBorrowedItemsController extends Controller
         return view('user.my-borrowed-items.index');
     }
 
-    public function print(BorrowRequest $borrowRequest)
+    public function print(BorrowRequest $borrowRequest, BorrowRequestFormPdf $borrowRequestFormPdf)
     {
-        $borrowRequest->load(['user', 'items.item', 'borrowedInstances.instance', 'borrowedInstances.item']);
+        if ($borrowRequest->user_id !== Auth::id()) {
+            abort(403);
+        }
 
-        $pdf = Pdf::loadView('pdf.borrow-request', [
-            'borrowRequest' => $borrowRequest,
-            'forPdf' => true, 
-        ])->setPaper('a4', 'portrait');
-        
+        $result = $borrowRequestFormPdf->render($borrowRequest);
 
-        return $pdf->stream("borrow-request-{$borrowRequest->id}.pdf");
+        return response($result['content'], 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . $result['filename'] . '"',
+            'Content-Length' => strlen($result['content']),
+        ]);
     }
 
     public function list(Request $request)
@@ -176,4 +178,3 @@ if (! function_exists('SchemaHasTable')) {
     }
     
 }
-
