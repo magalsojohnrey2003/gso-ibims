@@ -95,157 +95,191 @@
 
                                 <div id="borrowListItems" class="space-y-3 max-h-[40vh] overflow-auto">
                                     @forelse($borrowList as $item)
-                                        <div class="flex items-center justify-between border-b pb-2" data-item-entry data-item-name="{{ $item['name'] }}" data-item-quantity="{{ $item['qty'] }}">
-                                            <div class="flex items-center space-x-3">
+                                        @php
+                                            $currentQty = (int) old("items.{$item['id']}.quantity", $item['qty']);
+                                        @endphp
+                                        <div
+                                            class="flex flex-col gap-4 rounded-xl border border-gray-200 p-4 sm:flex-row sm:items-center sm:justify-between"
+                                            data-item-entry
+                                            data-item-id="{{ $item['id'] }}"
+                                            data-item-name="{{ $item['name'] }}"
+                                            data-item-total="{{ $item['total_qty'] }}"
+                                            data-item-quantity="{{ $currentQty }}">
+                                            <div class="flex items-center gap-3">
                                                 <img
                                                     src="{{ $item['photo'] ? asset($item['photo']) : asset($defaultPhotos[$item['category']] ?? 'images/no-image.png') }}"
-                                                    class="h-12 w-12 object-cover rounded"
+                                                    class="h-14 w-14 rounded object-cover"
                                                     alt="{{ $item['name'] }}">
-                                                <div>
-                                                    <p class="font-medium text-gray-800">{{ $item['name'] }}</p>
-                                                    <p class="text-sm text-gray-600">Quantity: {{ $item['qty'] }}</p>
+                                                <div class="space-y-1">
+                                                    <p class="font-semibold text-gray-800">{{ $item['name'] }}</p>
+                                                    <p class="text-sm text-gray-500">Available: {{ $item['total_qty'] }} total</p>
                                                 </div>
                                             </div>
 
-                                            <button type="submit"
-                                                    class="inline-flex items-center justify-center rounded-full bg-red-100 px-3 py-2 text-sm text-red-700 hover:bg-red-200 transition"
+                                            <div class="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:gap-4">
+                                                <div class="flex items-center gap-2">
+                                                    <label for="item-qty-{{ $item['id'] }}" class="text-sm font-medium text-gray-700">Qty</label>
+                                                    <input
+                                                        id="item-qty-{{ $item['id'] }}"
+                                                        name="items[{{ $item['id'] }}][quantity]"
+                                                        type="number"
+                                                        inputmode="numeric"
+                                                        min="1"
+                                                        max="{{ $item['total_qty'] }}"
+                                                        value="{{ $currentQty }}"
+                                                        data-item-max="{{ $item['total_qty'] }}"
+                                                        class="borrow-quantity-input w-20 rounded-lg border border-gray-300 px-3 py-1 text-center text-sm font-semibold text-gray-800 focus:border-purple-500 focus:ring-purple-500" />
+                                                </div>
+
+                                                <button
+                                                    type="submit"
+                                                    class="inline-flex items-center justify-center rounded-full bg-red-100 px-3 py-2 text-sm text-red-700 transition hover:bg-red-200"
                                                     form="remove-item-{{ $item['id'] }}">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
                                         </div>
                                     @empty
-                                        <p class="text-gray-500 text-sm text-center py-6">No items selected.</p>
+                                        <p class="py-6 text-center text-sm text-gray-500">No items selected.</p>
                                     @endforelse
                                 </div>
+
+                                @if(count($borrowList) === 0)
+                                    <div class="mt-4 flex justify-center">
+                                        <a href="{{ route('borrow.items') }}" class="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-purple-700">
+                                            <i class="fas fa-plus-circle"></i> Add Items
+                                        </a>
+                                    </div>
+                                @endif
                             </div>
                         </div>
 
-                        <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 space-y-5">
-                            <div class="flex items-center justify-between">
-                                <x-title
-                                    level="h3"
-                                    size="lg"
-                                    weight="semibold"
-                                    icon="user-plus"
-                                    variant="s"
-                                    iconStyle="circle"
-                                    iconBg="gov-accent"
-                                    iconColor="white">
-                                    Resource Allocation
-                                </x-title>
-                            </div>
-
-                            <div>
-                                <x-input-label for="manpower_count" value="Number of Manpower (Optional)" />
-                                <x-text-input
-                                    id="manpower_count"
-                                    name="manpower_count"
-                                    type="number"
-                                    min="1"
-                                    max="99"
-                                    value="{{ old('manpower_count') }}"
-                                    class="w-full mt-1 border border-gray-600"
-                                />
-                                <p class="text-xs text-gray-400 mt-2">Add manpower if you need personnel to handle items.</p>
-                            </div>
-
-                            <div class="space-y-4">
-                                <div>
-                                    <x-input-label for="location_municipality" value="Municipality" />
-                                    <select id="location_municipality"
-                                            class="w-full mt-1 border border-gray-600 rounded-md px-3 py-2 bg-white text-gray-800"
-                                            data-initial="{{ $oldMunicipalityKey ?? '' }}">
-                                        <option value="" disabled selected>Select municipality</option>
-                                        @foreach($municipalities as $key => $definition)
-                                            <option value="{{ $key }}"
-                                                    data-label="{{ $definition['label'] ?? $key }}"
-                                                    @selected(($oldMunicipalityKey ?? '') === $key)>
-                                                {{ $definition['label'] ?? $key }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <x-input-label for="location_barangay" value="Barangay" />
-                                    <select id="location_barangay"
-                                            class="w-full mt-1 border border-gray-600 rounded-md px-3 py-2 bg-white text-gray-800"
-                                            data-initial="{{ $oldBarangay ?? '' }}"
-                                            disabled>
-                                        <option value="">Select barangay</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <x-input-label for="location_purok" value="Purok / Zone / Sitio" />
-                                    <select id="location_purok"
-                                            class="w-full mt-1 border border-gray-600 rounded-md px-3 py-2 bg-white text-gray-800"
-                                            data-initial="{{ $oldPurok ?? '' }}"
-                                            disabled>
-                                        <option value="">Select purok / zone / sitio</option>
-                                    </select>
-                                </div>
-
-                                <div id="locationDisplayWrapper" class="{{ $oldLocation ? '' : 'hidden' }}">
-                                    <x-input-label for="location_display" value="Selected Address" />
-                                    <x-text-input
-                                        id="location_display"
-                                        type="text"
-                                        class="w-full mt-1 border border-gray-600 bg-gray-100 text-gray-800"
-                                        readonly
-                                        value="{{ $oldLocation }}"
-                                    />
-                                </div>
-
-                                <input type="hidden" id="location" name="location" value="{{ $oldLocation }}">
-                                <x-input-error :messages="$errors->get('location')" class="mt-1" />
-                            </div>
-
-                            <div id="manpowerRolesWrapper" class="space-y-4 hidden">
+                        <div class="space-y-6">
+                            <div class="bg-white p-6 rounded-2xl shadow-lg space-y-5">
                                 <div class="flex items-center justify-between">
-                                    <div class="text-sm text-gray-700 font-medium">Assign Roles</div>
-                                    <button type="button"
-                                            id="addRoleBtn"
-                                            class="inline-flex items-center px-4 py-2 rounded-lg bg-purple-600 text-white text-sm hover:bg-purple-700">
-                                        <i class="fas fa-plus mr-2"></i> Add Role
-                                    </button>
+                                    <x-title
+                                        level="h3"
+                                        size="lg"
+                                        weight="semibold"
+                                        icon="building-office"
+                                        variant="s"
+                                        iconStyle="circle"
+                                        iconBg="gov-accent"
+                                        iconColor="white">
+                                        Request Details
+                                    </x-title>
                                 </div>
 
-                                <div id="manpowerRolesContainer" class="space-y-3 max-h-44 overflow-auto border rounded p-3 bg-white pr-4"></div>
+                                <div class="space-y-4">
+                                    <div>
+                                        <x-input-label for="purpose_office" value="Purpose and Request Office/Agency" />
+                                        <x-text-input
+                                            id="purpose_office"
+                                            name="purpose_office"
+                                            type="text"
+                                            maxlength="255"
+                                            value="{{ old('purpose_office', optional($borrowRequest ?? null)->purpose_office ?? '') }}"
+                                            class="mt-1 w-full border border-gray-600"
+                                            placeholder="eg. Engineering Office – Maintenance Team" />
+                                        <x-input-error :messages="$errors->get('purpose_office')" class="mt-1" />
+                                    </div>
 
-                                <div id="manpowerRolesWarning" class="text-sm text-red-600 hidden"></div>
-                                <div class="text-sm text-gray-500">
-                                    Total selected manpower:
-                                    <span id="manpowerRolesTotal">0</span>
-                                    /
-                                    <span id="manpowerRequestedDisplay">0</span>
+                                    <div>
+                                        <x-input-label for="purpose" value="Purpose" />
+                                        <textarea
+                                            id="purpose"
+                                            name="purpose"
+                                            rows="4"
+                                            maxlength="500"
+                                            class="mt-1 w-full rounded-lg border border-gray-600 px-3 py-2 text-sm text-gray-800 focus:border-purple-500 focus:ring-purple-500"
+                                            placeholder="Briefly describe how the items will be used">{{ old('purpose', optional($borrowRequest ?? null)->purpose ?? '') }}</textarea>
+                                        <x-input-error :messages="$errors->get('purpose')" class="mt-1" />
+                                        <p class="mt-1 text-xs text-gray-500">Provide enough context for approvers to understand the request.</p>
+                                    </div>
                                 </div>
                             </div>
 
-                            <template id="manpowerRoleRowTemplate">
-                                <div class="grid grid-cols-12 gap-3 items-center border-b pb-3 pt-2 role-row">
-                                    <div class="col-span-6">
-                                        <label class="text-xs text-gray-600">Role</label>
-                                        <select class="w-full border rounded px-2 py-1 role-select">
-                                            <option value="">— Select role —</option>
-                                            <option value="Setup">Setup</option>
-                                            <option value="Operator">Operator</option>
-                                            <option value="Driver">Driver</option>
-                                            <option value="Other">Other</option>
-                                        </select>
-                                        <input class="hidden w-full mt-2 border rounded px-2 py-1 role-other-input" placeholder="Specify other role" />
-                                    </div>
-                                    <div class="col-span-4">
-                                        <label class="text-xs text-gray-600">Quantity</label>
-                                        <input type="number" min="0" class="w-full border rounded px-2 py-1 role-qty-input text-center" value="0" />
-                                    </div>
-                                    <div class="col-span-2 flex items-end justify-end">
-                                        <button type="button" class="remove-role-btn inline-flex items-center px-2 py-1 rounded bg-red-100 text-red-700 text-xs">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </div>
+                            <div class="bg-white p-6 rounded-2xl shadow-lg space-y-5">
+                                <div class="flex items-center justify-between">
+                                    <x-title
+                                        level="h3"
+                                        size="lg"
+                                        weight="semibold"
+                                        icon="user-plus"
+                                        variant="s"
+                                        iconStyle="circle"
+                                        iconBg="gov-accent"
+                                        iconColor="white">
+                                        Resource Allocation
+                                    </x-title>
                                 </div>
-                            </template>
+
+                                <div>
+                                    <x-input-label for="manpower_count" value="Number of Manpower (Optional)" />
+                                    <x-text-input
+                                        id="manpower_count"
+                                        name="manpower_count"
+                                        type="number"
+                                        min="1"
+                                        max="99"
+                                        value="{{ old('manpower_count') }}"
+                                        class="mt-1 w-full border border-gray-600"
+                                    />
+                                    <p class="mt-2 text-xs text-gray-500">Add manpower if you need personnel to handle items.</p>
+                                </div>
+
+                                <div class="space-y-4">
+                                    <div>
+                                        <x-input-label for="location_municipality" value="Municipality" />
+                                        <select id="location_municipality"
+                                                class="mt-1 w-full rounded-md border border-gray-600 bg-white px-3 py-2 text-gray-800"
+                                                data-initial="{{ $oldMunicipalityKey ?? '' }}">
+                                            <option value="" disabled selected>Select municipality</option>
+                                            @foreach($municipalities as $key => $definition)
+                                                <option value="{{ $key }}"
+                                                        data-label="{{ $definition['label'] ?? $key }}"
+                                                        @selected(($oldMunicipalityKey ?? '') === $key)>
+                                                    {{ $definition['label'] ?? $key }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <x-input-label for="location_barangay" value="Barangay" />
+                                        <select id="location_barangay"
+                                                class="mt-1 w-full rounded-md border border-gray-600 bg-white px-3 py-2 text-gray-800"
+                                                data-initial="{{ $oldBarangay ?? '' }}"
+                                                disabled>
+                                            <option value="">Select barangay</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <x-input-label for="location_purok" value="Purok / Zone / Sitio" />
+                                        <select id="location_purok"
+                                                class="mt-1 w-full rounded-md border border-gray-600 bg-white px-3 py-2 text-gray-800"
+                                                data-initial="{{ $oldPurok ?? '' }}"
+                                                disabled>
+                                            <option value="">Select purok / zone / sitio</option>
+                                        </select>
+                                    </div>
+
+                                    <div id="locationDisplayWrapper" class="{{ $oldLocation ? '' : 'hidden' }}">
+                                        <x-input-label for="location_display" value="Selected Address" />
+                                        <x-text-input
+                                            id="location_display"
+                                            type="text"
+                                            class="mt-1 w-full border border-gray-600 bg-gray-100 text-gray-800"
+                                            readonly
+                                            value="{{ $oldLocation }}"
+                                        />
+                                    </div>
+
+                                    <input type="hidden" id="location" name="location" value="{{ $oldLocation }}">
+                                    <x-input-error :messages="$errors->get('location')" class="mt-1" />
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -293,56 +327,72 @@
                                 </x-secondary-button>
                             </div>
 
-                            <div class="grid grid-cols-7 text-center text-xs font-semibold text-gray-500 mb-2">
-                                <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                            <div class="grid grid-cols-7 gap-2 text-center text-sm font-medium text-gray-600 mb-2">
+                                <span>Sun</span>
+                                <span>Mon</span>
+                                <span>Tue</span>
+                                <span>Wed</span>
+                                <span>Thu</span>
+                                <span>Fri</span>
+                                <span>Sat</span>
                             </div>
 
-                            <div id="borrowAvailabilityCalendar" class="grid grid-cols-7 gap-2 text-sm min-h-[260px]"></div>
+                            <div id="borrowAvailabilityCalendar" class="grid grid-cols-7 gap-2 text-sm min-h-[240px]"></div>
                         </div>
 
-                        <div class="flex flex-wrap items-center gap-4 text-sm">
-                            <span class="flex items-center gap-2">
-                                <span class="h-4 w-4 rounded border border-green-500 bg-green-100"></span> Available
-                            </span>
-                            <span class="flex items-center gap-2">
-                                <span class="h-4 w-4 rounded border border-red-500 bg-red-200"></span> Booked
-                            </span>
-                            <span class="flex items-center gap-2">
-                                <span class="h-4 w-4 rounded border border-blue-500 bg-blue-100"></span> Borrow Date
-                            </span>
-                            <span class="flex items-center gap-2">
-                                <span class="h-4 w-4 rounded border border-orange-500 bg-orange-100"></span> Return Date
-                            </span>
-                            <span class="flex items-center gap-2">
-                                <span class="h-4 w-4 rounded border border-gray-400 bg-gray-100"></span> Selected Range
-                            </span>
+                        <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                            <h4 class="text-sm font-semibold text-gray-700 mb-3">Legend</h4>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm text-gray-600">
+                                <div class="flex items-center gap-2">
+                                    <span class="h-3 w-3 rounded-full bg-green-400 border border-green-500"></span> Available
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="h-3 w-3 rounded-full bg-red-400 border border-red-500"></span> Booked
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="h-3 w-3 rounded-full bg-gray-300 border border-gray-400"></span> Past Date
+                                </div>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                        <x-secondary-button type="button" id="step2BackBtn" class="inline-flex items-center gap-2">
-                            <i class="fas fa-arrow-left"></i> Back
-                        </x-secondary-button>
-                        <x-button type="button" id="step2NextBtn" class="inline-flex items-center gap-2" iconName="arrow-right">
-                            Next
-                        </x-button>
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <x-secondary-button type="button" id="step2BackBtn" class="inline-flex items-center gap-2">
+                                <i class="fas fa-arrow-left"></i> Previous
+                            </x-secondary-button>
+                            <x-button type="button" id="step2NextBtn" class="inline-flex items-center gap-2" iconName="arrow-right">
+                                Next
+                            </x-button>
+                        </div>
                     </div>
                 </section>
 
                 {{-- Step 3 --}}
                 <section data-step="3" class="wizard-step hidden space-y-6">
                     <div class="grid gap-6 lg:grid-cols-2">
-                        <div class="bg-white p-6 rounded-2xl shadow-lg space-y-4">
-                            <x-input-label for="support_letter" value="Photo Upload for Letter" />
-                            <x-text-input id="support_letter"
-                                          type="file"
-                                          name="support_letter"
-                                          accept="image/*,.pdf"
-                                          class="w-full mt-2 border border-gray-600"
-                                          required />
-                            <p class="text-xs text-gray-500">Accepted formats: JPG, PNG, WEBP, or PDF. Max 5MB.</p>
-                            <x-input-error :messages="$errors->get('support_letter')" class="mt-1" />
-                            <p id="letterFileName" class="text-sm text-gray-600 hidden"></p>
+                        <div class="space-y-6">
+                            <div class="bg-white p-6 rounded-2xl shadow-lg space-y-4">
+                                <div class="flex items-center gap-3">
+                                    <i class="fas fa-file-upload text-purple-600 text-xl"></i>
+                                    <div>
+                                        <h3 class="text-lg font-semibold text-gray-800">Upload Signed Support Letter</h3>
+                                        <p class="text-sm text-gray-600">Please upload the scanned copy of your signed letter for transparency.</p>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <x-input-label for="support_letter" value="Signed Letter" />
+                                    <input
+                                        id="support_letter"
+                                        name="support_letter"
+                                        type="file"
+                                        accept=".jpg,.jpeg,.png,.webp,.pdf"
+                                        required
+                                        class="mt-1 block w-full cursor-pointer rounded-lg border border-dashed border-gray-400 bg-gray-50 px-4 py-3 text-sm text-gray-700 focus:border-purple-500 focus:ring-purple-500" />
+                                    <p class="text-xs text-gray-500">Accepted formats: JPG, PNG, WEBP, or PDF. Max 5MB.</p>
+                                    <x-input-error :messages="$errors->get('support_letter')" class="mt-1" />
+                                    <p id="letterFileName" class="text-sm text-gray-600 hidden"></p>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="bg-white p-6 rounded-2xl shadow-lg space-y-4">
@@ -351,9 +401,12 @@
                             </h3>
 
                             <div class="space-y-3 text-sm text-gray-700">
-                                <p><span class="font-medium">Borrow Period:</span> <span id="summaryBorrowDates">—</span></p>
-                                <p><span class="font-medium">Selected Address:</span> <span id="summaryAddress">—</span></p>
-                                <p><span class="font-medium">Manpower Requested:</span> <span id="summaryManpower">—</span></p>
+                                <p><span class="font-medium">Borrow Period:</span> <span id="summaryBorrowDates">&mdash;</span></p>
+                                <p><span class="font-medium">Time of Usage:</span> <span id="summaryUsage">--</span></p>
+                                <p><span class="font-medium">Selected Address:</span> <span id="summaryAddress">&mdash;</span></p>
+                                <p><span class="font-medium">Purpose &amp; Office:</span> <span id="summaryPurposeOffice">--</span></p>
+                                <p><span class="font-medium">Purpose:</span> <span id="summaryPurpose">--</span></p>
+                                <p><span class="font-medium">Manpower Requested:</span> <span id="summaryManpower">&mdash;</span></p>
                             </div>
 
                             <div>
@@ -405,6 +458,21 @@
                         <p><span class="font-medium">Borrow Date:</span> <span id="modalBorrowDate">—</span></p>
                         <p><span class="font-medium">Return Date:</span> <span id="modalReturnDate">—</span></p>
                     </div>
+                </div>
+
+                <div>
+                    <h4 class="font-semibold text-gray-800 mb-2">Time of Usage</h4>
+                    <p id="modalUsage" class="text-gray-700">--</p>
+                </div>
+
+                <div>
+                    <h4 class="font-semibold text-gray-800 mb-2">Purpose &amp; Request Office/Agency</h4>
+                    <p id="modalPurposeOffice" class="text-gray-700">--</p>
+                </div>
+
+                <div>
+                    <h4 class="font-semibold text-gray-800 mb-2">Purpose</h4>
+                    <p id="modalPurpose" class="text-gray-700">--</p>
                 </div>
 
                 <div>

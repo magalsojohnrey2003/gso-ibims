@@ -130,11 +130,31 @@ class BorrowItemsController extends Controller
             return back()->withErrors(['borrowList' => 'Your Borrow List is empty.']);
         }
 
+        $postedItems = $request->input('items', []);
+        foreach ($borrowList as $itemId => &$listItem) {
+            if (!isset($postedItems[$itemId]['quantity'])) {
+                continue;
+            }
+            $maxAllowed = max(1, (int) ($listItem['total_qty'] ?? 1));
+            $requestedQty = (int) $postedItems[$itemId]['quantity'];
+            if ($requestedQty < 1) {
+                $requestedQty = 1;
+            }
+            if ($requestedQty > $maxAllowed) {
+                $requestedQty = $maxAllowed;
+            }
+            $listItem['qty'] = $requestedQty;
+        }
+        unset($listItem);
+        Session::put('borrowList', $borrowList);
+
         $validated = $request->validate([
             'borrow_date'     => 'required|date|after_or_equal:today',
             'return_date'     => 'required|date|after_or_equal:borrow_date',
             'manpower_count'  => 'nullable|integer|min:1|max:100',
             'location'        => 'required|string|max:255',
+            'purpose_office'  => 'required|string|max:255',
+            'purpose'         => 'required|string|max:500',
             'support_letter'  => 'required|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
         ], [
             'support_letter.required' => 'Please upload your signed letter before proceeding.',
@@ -174,6 +194,8 @@ class BorrowItemsController extends Controller
             'borrow_date'    => $borrowDate,
             'return_date'    => $returnDate,
             'manpower_count' => $validated['manpower_count'] ?? null,
+            'purpose_office' => $validated['purpose_office'],
+            'purpose'        => $validated['purpose'],
             'location'       => $validated['location'],
             'letter_path'    => $letterPath,
             'status'         => 'pending',
