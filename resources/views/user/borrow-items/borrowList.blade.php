@@ -342,20 +342,14 @@
                     <div class="max-w-7xl mx-auto p-4 lg:p-6">
                         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             <div class="lg:col-span-2 rounded-2xl shadow-sm border border-gray-200 bg-white p-4 lg:p-6">
-                                <div class="grid grid-cols-3 items-center mb-4">
-                                    <div class="text-left">
-                                        <x-secondary-button type="button" onclick="changeBorrowMonth(-1)" class="flex items-center gap-1 text-sm">
-                                            <i class="fas fa-arrow-left"></i> Previous
-                                        </x-secondary-button>
-                                    </div>
-                                    <div class="text-center">
-                                        <span id="borrowCalendarMonth" class="text-lg font-semibold text-gray-800">—</span>
-                                    </div>
-                                    <div class="text-right">
-                                        <x-secondary-button type="button" onclick="changeBorrowMonth(1)" class="flex items-center gap-1 text-sm">
-                                            Next <i class="fas fa-arrow-right"></i>
-                                        </x-secondary-button>
-                                    </div>
+                                <div class="flex items-center justify-center gap-3 mb-4">
+                                    <x-secondary-button type="button" onclick="changeBorrowMonth(-1)" class="flex items-center gap-1 text-sm">
+                                        <i class="fas fa-arrow-left"></i>
+                                    </x-secondary-button>
+                                    <span id="borrowCalendarMonth" class="text-lg font-semibold text-gray-800">—</span>
+                                    <x-secondary-button type="button" onclick="changeBorrowMonth(1)" class="flex items-center gap-1 text-sm">
+                                        <i class="fas fa-arrow-right"></i>
+                                    </x-secondary-button>
                                 </div>
 
                                 <div class="grid grid-cols-7 gap-2 text-center text-xs sm:text-sm font-medium text-gray-600 mb-2">
