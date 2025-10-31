@@ -556,7 +556,7 @@ input[type="submit"][disabled]:hover {
 /* Mobile / stacked behavior */
 @media (max-width: 720px) {
   .wrapper.larger-form {
-    width: 100%;
+    width: 100;
     padding: 14px 16px;
     border-radius: 12px;
     /* allow page scrolling on small screens (so mobile users can scroll through the single-column forms) */
