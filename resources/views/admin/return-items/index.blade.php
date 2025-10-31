@@ -103,7 +103,7 @@
     </template>
 
     <!-- Manage Modal -->
-    <x-modal name="manageReturnItemsModal" maxWidth="4xl">
+    <x-modal name="manageReturnItemsModal" maxWidth="3xl">
         <div class="flex flex-col max-h-[90vh] bg-white">
             <div class="px-6 pt-6 pb-4 border-b border-gray-200 sticky top-0 bg-white z-10">
                 <div class="flex items-start justify-between gap-3">
