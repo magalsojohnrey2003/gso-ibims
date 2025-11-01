@@ -50,6 +50,8 @@ class BorrowRequestController extends Controller
                             'item' => $item->item ? [
                                 'id' => $item->item->id,
                                 'name' => $item->item->name,
+                                'available_qty' => $item->item->available_qty ?? 0,
+                                'total_qty' => $item->item->total_qty ?? 0,
                             ] : null,
                         ];
                     })->values(),
@@ -364,10 +366,40 @@ class BorrowRequestController extends Controller
             return response()->json(['message' => 'Already dispatched.'], 200);
         }
 
+        // Validate delivery reason if provided
+        $data = $request->validate([
+            'delivery_reason_type' => 'nullable|in:missing,damaged,others',
+            'delivery_reason_subject' => 'nullable|string|max:255|required_if:delivery_reason_type,others',
+            'delivery_reason_explanation' => 'nullable|string|required_if:delivery_reason_type,others',
+        ]);
+
         DB::beginTransaction();
         try {
             // ensure we have items loaded
             $borrowRequest->load('items.item');
+
+            // Validate that available quantity is at least 98% of total quantity for all items
+            foreach ($borrowRequest->items as $requestItem) {
+                $item = $requestItem->item;
+                if (!$item) {
+                    continue;
+                }
+
+                $totalQty = (int) ($item->total_qty ?? 0);
+                $availableQty = (int) ($item->available_qty ?? 0);
+
+                // If total quantity is 0, skip check for this item
+                if ($totalQty === 0) {
+                    continue;
+                }
+
+                // Check if available quantity is below 98% threshold
+                $percentage = ($totalQty > 0) ? (($availableQty / $totalQty) * 100) : 0;
+                if ($percentage < 98 || $availableQty === 0) {
+                    DB::rollBack();
+                    return response()->json(['message' => 'Failed to dispatch.'], 422);
+                }
+            }
 
             // allocate item instances if status is not already approved (i.e. not allocated)
             if ($borrowRequest->status !== 'approved') {
@@ -378,6 +410,22 @@ class BorrowRequestController extends Controller
             $borrowRequest->status = 'approved';
             $borrowRequest->delivery_status = 'dispatched';
             $borrowRequest->dispatched_at = now();
+            
+            // Store delivery reason
+            if (!empty($data['delivery_reason_type'])) {
+                $borrowRequest->delivery_reason_type = $data['delivery_reason_type'];
+                
+                // If "others" is selected, store subject and explanation as JSON
+                if ($data['delivery_reason_type'] === 'others') {
+                    $borrowRequest->delivery_reason_details = json_encode([
+                        'subject' => $data['delivery_reason_subject'] ?? '',
+                        'explanation' => $data['delivery_reason_explanation'] ?? '',
+                    ]);
+                } else {
+                    $borrowRequest->delivery_reason_details = null;
+                }
+            }
+            
             $borrowRequest->save();
 
             // notify user

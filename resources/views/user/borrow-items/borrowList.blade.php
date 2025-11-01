@@ -336,7 +336,7 @@
                                     <x-secondary-button type="button" onclick="changeBorrowMonth(-1)" class="flex items-center gap-1 text-sm">
                                         <i class="fas fa-arrow-left"></i>
                                     </x-secondary-button>
-                                    <span id="borrowCalendarMonth" class="text-lg font-semibold text-gray-800">—</span>
+                                    <span id="borrowCalendarMonth" class="text-lg font-semibold text-gray-800">-</span>
                                     <x-secondary-button type="button" onclick="changeBorrowMonth(1)" class="flex items-center gap-1 text-sm">
                                         <i class="fas fa-arrow-right"></i>
                                     </x-secondary-button>
@@ -435,8 +435,8 @@
                                     <input id="borrow_date" name="borrow_date" type="hidden" value="{{ old('borrow_date', '') }}" />
                                     <input id="return_date" name="return_date" type="hidden" value="{{ old('return_date', '') }}" />
                                     <p class="sr-only">
-                                        <span id="borrow_date_display">—</span>
-                                        <span id="return_date_display">—</span>
+                                        <span id="borrow_date_display">-</span>
+                                        <span id="return_date_display">-</span>
                                     </p>
                                 </div>
 
@@ -544,8 +544,8 @@
                         <div>
                             <h4 class="font-semibold text-gray-800 mb-2">Borrow Period</h4>
                             <div class="grid sm:grid-cols-2 gap-2">
-                                <p><span class="font-medium">Borrow Date:</span> <span id="modalBorrowDate">—</span></p>
-                                <p><span class="font-medium">Return Date:</span> <span id="modalReturnDate">—</span></p>
+                                <p><span class="font-medium">Borrow Date:</span> <span id="modalBorrowDate">-</span></p>
+                                <p><span class="font-medium">Return Date:</span> <span id="modalReturnDate">-</span></p>
                             </div>
                         </div>
 
@@ -566,7 +566,7 @@
 
                         <div>
                             <h4 class="font-semibold text-gray-800 mb-2">Selected Address</h4>
-                            <p id="modalAddress" class="text-gray-700">—</p>
+                            <p id="modalAddress" class="text-gray-700">-</p>
                         </div>
                     </div>
 
@@ -574,7 +574,7 @@
                         <h4 class="font-semibold text-gray-800">Uploaded Letter</h4>
                         <div id="modalLetterPreviewWrapper" class="rounded-lg border border-gray-200 bg-gray-50 p-3 flex items-center justify-center min-h-[160px]">
                             <img id="modalLetterImage" alt="Uploaded letter preview" class="max-h-64 w-auto rounded-lg shadow hidden" />
-                            <p id="modalLetterName" class="text-gray-700">—</p>
+                            <p id="modalLetterName" class="text-gray-700">-</p>
                         </div>
                     </div>
                 </div>

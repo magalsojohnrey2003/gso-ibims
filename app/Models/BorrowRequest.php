@@ -6,12 +6,26 @@ use Illuminate\Database\Eloquent\Model;
 
 class BorrowRequest extends Model
 {
-    protected $fillable = ['user_id', 'borrow_date', 'return_date', 'manpower_count','manpower_adjustment_reason','location', 'letter_path', 'status', 
+    protected $fillable = [
+        'user_id',
+        'borrow_date',
+        'return_date',
+        'time_of_usage',
+        'purpose_office',
+        'purpose',
+        'manpower_count',
+        'manpower_adjustment_reason',
+        'location',
+        'letter_path',
+        'status',
         'delivery_status',
         'dispatched_at',
         'delivered_at',
         'delivery_reported_at',
-        'delivery_report_reason',];
+        'delivery_report_reason',
+        'delivery_reason_type',
+        'delivery_reason_details',
+    ];
         
 
     public function user()

@@ -199,6 +199,8 @@ class ReturnItemsController extends Controller
                 'borrow_summary' => $borrowRequest
                     ? $this->formatConditionLabel($this->summarizeCondition($borrowRequest))
                     : null,
+                'latest_status' => $borrowRequest?->status,
+                'latest_delivery_status' => $borrowRequest?->delivery_status,
             ]);
         } catch (\Throwable $e) {
             DB::rollBack();

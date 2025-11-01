@@ -115,6 +115,30 @@
                     <p class="text-red-600 font-semibold">⚠️ Rejection Reason</p>
                     <p id="mbi-rejection-reason" class="bg-red-50 text-red-800 p-2 rounded"></p>
                 </div>
+
+                <div class="col-span-2 hidden" id="mbi-delivery-reason-block">
+                    <div class="bg-indigo-50 border border-indigo-100 rounded-lg p-3">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="flex-1">
+                                <div class="font-semibold text-indigo-800 mb-2 flex items-center gap-2">
+                                    <i class="fas fa-info-circle"></i>
+                                    <span>Delivery Reason</span>
+                                </div>
+                                <div id="mbi-delivery-reason-content" class="text-sm text-indigo-700">
+                                    <!-- Content will be populated by JavaScript -->
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                id="mbi-delivery-reason-toggle"
+                                class="text-indigo-600 hover:text-indigo-800 text-xs font-medium flex items-center gap-1"
+                            >
+                                <span id="mbi-delivery-reason-toggle-text">Show more</span>
+                                <i class="fas fa-chevron-down" id="mbi-delivery-reason-toggle-icon"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Footer -->

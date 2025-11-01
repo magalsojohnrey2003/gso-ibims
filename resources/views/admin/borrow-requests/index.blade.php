@@ -175,6 +175,83 @@
             </x-button>
         </div>
     </div>
+    </x-modal>
+
+<!-- Deliver Items Modal -->
+<x-modal name="deliverItemsModal" maxWidth="md">
+    <div class="p-6 space-y-4">
+        <!-- Header -->
+        <div class="flex items-center justify-between border-b border-gray-200 pb-3">
+            <div class="flex items-center gap-3">
+                <i class="fas fa-truck text-indigo-600 text-2xl"></i>
+                <h3 class="text-lg font-semibold text-gray-900">Deliver Items</h3>
+            </div>
+            <button
+                type="button"
+                class="text-gray-400 hover:text-gray-600 transition"
+                @click="$dispatch('close-modal', 'deliverItemsModal')"
+            >
+                <i class="fas fa-times text-lg"></i>
+            </button>
+        </div>
+
+        <!-- Item Information -->
+        <div id="deliverItemsInfo" class="space-y-3">
+            <!-- Items will be populated by JavaScript -->
+        </div>
+
+        <!-- Reason Selection -->
+        <div class="space-y-3 border-t border-gray-200 pt-4">
+            <label class="text-sm font-medium text-gray-700">Reason for Delivery</label>
+            <div class="space-y-2">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="deliveryReason" value="missing" class="text-indigo-600 focus:ring-indigo-500" />
+                    <span class="text-sm text-gray-700">Missing</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="deliveryReason" value="damaged" class="text-indigo-600 focus:ring-indigo-500" />
+                    <span class="text-sm text-gray-700">Damaged</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="deliveryReason" value="others" class="text-indigo-600 focus:ring-indigo-500" />
+                    <span class="text-sm text-gray-700">Others</span>
+                </label>
+            </div>
+
+            <!-- Others Reason Fields (hidden by default) -->
+            <div id="deliverItemsOthersFields" class="hidden space-y-3 pt-2 border-t border-gray-100">
+                <div>
+                    <label for="deliveryReasonSubject" class="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+                    <input
+                        type="text"
+                        id="deliveryReasonSubject"
+                        class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        placeholder="Enter subject..."
+                        maxlength="255"
+                    />
+                </div>
+                <div>
+                    <label for="deliveryReasonExplanation" class="block text-sm font-medium text-gray-700 mb-1">Explanation</label>
+                    <textarea
+                        id="deliveryReasonExplanation"
+                        rows="4"
+                        class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        placeholder="Enter explanation..."
+                    ></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="flex justify-end gap-3 pt-4 border-t border-gray-100">
+            <x-button variant="secondary" class="px-4 py-2 text-sm" @click="$dispatch('close-modal', 'deliverItemsModal')">
+                Cancel
+            </x-button>
+            <x-button id="deliverItemsConfirmBtn" variant="success" class="px-4 py-2 text-sm">
+                Confirm
+            </x-button>
+        </div>
+    </div>
 </x-modal>
 
 <!-- Assign Manpower + Quantity Adjustment Modal -->

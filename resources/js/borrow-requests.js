@@ -120,7 +120,7 @@ function createButtonFromTemplate(templateId, id) {
     } else if (action === 'reject') {
         btn.addEventListener('click', (ev) => { ev.stopPropagation(); openConfirmModal(id, 'rejected'); });
     } else if (['dispatch', 'deliver', 'deliver_items'].includes(action)) {
-        btn.addEventListener('click', (ev) => { ev.stopPropagation(); openConfirmModal(id, 'delivered'); });
+        btn.addEventListener('click', (ev) => { ev.stopPropagation(); openDeliverItemsModal(id); });
     } else {
         console.warn('Unknown button action in template', templateId, 'action=', action);
     }
@@ -481,6 +481,125 @@ function openConfirmModal(id, status) {
     window.dispatchEvent(new CustomEvent('open-modal', { detail: 'confirmActionModal' }));
 }
 
+async function openDeliverItemsModal(id) {
+    const req = BORROW_CACHE.find((r) => r.id === id);
+    if (!req) {
+        showError('Request not found.');
+        return;
+    }
+
+    // Validate that available quantity is at least 98% of total quantity for all items
+    let needsReasonModal = false;
+    if (req.items && req.items.length > 0) {
+        for (const item of req.items) {
+            const itemData = item.item;
+            if (!itemData) continue;
+
+            const totalQty = Number(itemData.total_qty ?? 0);
+            const availableQty = Number(itemData.available_qty ?? 0);
+
+            // If total quantity is 0 or unavailable, skip check for this item
+            if (totalQty === 0) continue;
+
+            // Check if available quantity is below 98% threshold
+            const percentage = (availableQty / totalQty) * 100;
+            if (percentage < 98 || availableQty === 0) {
+                showError('Failed to dispatch.');
+                return;
+            }
+
+            // If available quantity is less than total, some items are missing/damaged - need reason modal
+            if (availableQty < totalQty) {
+                needsReasonModal = true;
+            }
+        }
+    } else {
+        showError('Failed to dispatch.');
+        return;
+    }
+
+    // If all items are in good condition (available == total, 100%), show simple confirmation modal
+    if (!needsReasonModal) {
+        openConfirmModal(id, 'delivered');
+        return;
+    }
+
+    const infoContainer = document.getElementById('deliverItemsInfo');
+    const confirmBtn = document.getElementById('deliverItemsConfirmBtn');
+    const othersFields = document.getElementById('deliverItemsOthersFields');
+    const subjectInput = document.getElementById('deliveryReasonSubject');
+    const explanationInput = document.getElementById('deliveryReasonExplanation');
+
+    if (!infoContainer || !confirmBtn) return;
+
+    // Populate item information
+    infoContainer.innerHTML = '';
+    if (req.items && req.items.length > 0) {
+        req.items.forEach((item) => {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'bg-gray-50 rounded-lg p-3 border border-gray-200';
+            
+            // Get available quantity from item data
+            const availableQty = item.item?.available_qty ?? '—';
+            const totalQty = item.item?.total_qty ?? '—';
+
+            itemDiv.innerHTML = `
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <div class="font-medium text-gray-900">${escapeHtml(item.item?.name || 'Unknown Item')}</div>
+                        <div class="text-xs text-gray-500 mt-1">
+                            Available Quantity: <span class="font-semibold">${escapeHtml(String(availableQty))}</span>
+                            ${totalQty !== '—' ? ` / ${escapeHtml(String(totalQty))} total` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+            infoContainer.appendChild(itemDiv);
+        });
+    } else {
+        infoContainer.innerHTML = '<div class="text-gray-500 text-sm">No items found.</div>';
+    }
+
+    // Reset form
+    const reasonRadios = document.querySelectorAll('input[name="deliveryReason"]');
+    reasonRadios.forEach(radio => {
+        radio.checked = false;
+    });
+    if (subjectInput) subjectInput.value = '';
+    if (explanationInput) explanationInput.value = '';
+    if (othersFields) othersFields.classList.add('hidden');
+
+    // Store request ID for confirmation
+    confirmBtn.dataset.requestId = id;
+
+    // Show modal
+    window.dispatchEvent(new CustomEvent('open-modal', { detail: 'deliverItemsModal' }));
+}
+
+// Handle reason radio button changes
+(function bindDeliverItemsReasonChange() {
+    document.addEventListener('DOMContentLoaded', () => {
+        const reasonRadios = document.querySelectorAll('input[name="deliveryReason"]');
+        const othersFields = document.getElementById('deliverItemsOthersFields');
+        
+        reasonRadios.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if (othersFields) {
+                    if (e.target.value === 'others') {
+                        othersFields.classList.remove('hidden');
+                    } else {
+                        othersFields.classList.add('hidden');
+                        const subjectInput = document.getElementById('deliveryReasonSubject');
+                        const explanationInput = document.getElementById('deliveryReasonExplanation');
+                        if (subjectInput) subjectInput.value = '';
+                        if (explanationInput) explanationInput.value = '';
+                    }
+                }
+            });
+        });
+    });
+})();
+
 async function updateRequest(id, status, options = {}) {
     const {
         assignments = null,
@@ -616,6 +735,7 @@ async function updateRequest(id, status, options = {}) {
 
             confirmBtn.disabled = true;
             try {
+                // Handle 'delivered' status differently - call dispatch endpoint without reason
                 if (status === 'delivered') {
                     const res = await fetch(`/admin/borrow-requests/${encodeURIComponent(id)}/dispatch`, {
                         method: 'POST',
@@ -632,14 +752,85 @@ async function updateRequest(id, status, options = {}) {
                     }
                     showSuccess(payload?.message || 'Items marked as delivered successfully.');
                     await loadBorrowRequests();
+                    window.dispatchEvent(new CustomEvent('close-modal', { detail: 'confirmActionModal' }));
                 } else {
                     await updateRequest(Number(id), status, { button: confirmBtn });
+                    window.dispatchEvent(new CustomEvent('close-modal', { detail: 'confirmActionModal' }));
                 }
-
-                window.dispatchEvent(new CustomEvent('close-modal', { detail: 'confirmActionModal' }));
             } catch (error) {
                 console.error('Confirm action failed', error);
                 showError(error?.message || 'Failed to perform action.');
+            } finally {
+                confirmBtn.disabled = false;
+            }
+        });
+    });
+})();
+
+(function bindDeliverItemsConfirm() {
+    document.addEventListener('DOMContentLoaded', () => {
+        const confirmBtn = document.getElementById('deliverItemsConfirmBtn');
+        if (!confirmBtn) return;
+
+        confirmBtn.addEventListener('click', async () => {
+            const id = confirmBtn.dataset.requestId;
+            if (!id) {
+                showError('Invalid request ID.');
+                return;
+            }
+
+            // Get selected reason
+            const selectedReason = document.querySelector('input[name="deliveryReason"]:checked');
+            const reasonType = selectedReason?.value || null;
+            
+            if (!reasonType) {
+                showError('Please select a reason for delivery.');
+                return;
+            }
+
+            // Get subject and explanation if "others" is selected
+            let subject = null;
+            let explanation = null;
+            if (reasonType === 'others') {
+                subject = document.getElementById('deliveryReasonSubject')?.value?.trim() || '';
+                explanation = document.getElementById('deliveryReasonExplanation')?.value?.trim() || '';
+                
+                if (!subject || !explanation) {
+                    showError('Please provide both subject and explanation when selecting "Others".');
+                    return;
+                }
+            }
+
+            confirmBtn.disabled = true;
+            try {
+                const body = {
+                    delivery_reason_type: reasonType,
+                };
+                
+                if (reasonType === 'others') {
+                    body.delivery_reason_subject = subject;
+                    body.delivery_reason_explanation = explanation;
+                }
+
+                    const res = await fetch(`/admin/borrow-requests/${encodeURIComponent(id)}/dispatch`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': CSRF_TOKEN,
+                            'Content-Type': 'application/json',
+                            Accept: 'application/json',
+                        },
+                    body: JSON.stringify(body),
+                    });
+                    const payload = await res.json().catch(() => null);
+                    if (!res.ok) {
+                        throw new Error(payload?.message || `Failed to mark as delivered (status ${res.status})`);
+                    }
+                    showSuccess(payload?.message || 'Items marked as delivered successfully.');
+                    await loadBorrowRequests();
+                window.dispatchEvent(new CustomEvent('close-modal', { detail: 'deliverItemsModal' }));
+            } catch (error) {
+                console.error('Deliver items failed', error);
+                showError(error?.message || 'Failed to deliver items.');
             } finally {
                 confirmBtn.disabled = false;
             }

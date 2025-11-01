@@ -13,6 +13,10 @@ let MANAGE_ITEMS = [];
 let MANAGE_BORROW_ID = null;
 let MANAGE_FILTER = '';
 let PENDING_COLLECT_ID = null;
+let MANAGE_SORT_CONDITION = '';
+let SELECTION_ENABLED = false;
+let SELECTED_INSTANCES = new Set();
+let CHECKBOXES_VISIBLE = false;
 
 function cloneTemplate(id, fallbackText) {
     const tpl = document.getElementById(id);
@@ -286,6 +290,25 @@ function populateManageModal(data) {
         if (el) el.textContent = value ?? '--';
     };
 
+    // Reset selection state
+    SELECTED_INSTANCES.clear();
+    SELECTION_ENABLED = false;
+    MANAGE_SORT_CONDITION = '';
+    CHECKBOXES_VISIBLE = false;
+    
+    // Reset UI controls
+    const enableSelectionCheckbox = document.getElementById('manage-enable-selection');
+    const selectAllCheckbox = document.getElementById('manage-select-all');
+    const selectAllHeader = document.getElementById('manage-select-all-header');
+    const bulkConditionSelect = document.getElementById('manage-bulk-condition');
+    const sortConditionSelect = document.getElementById('manage-sort-condition');
+    
+    if (enableSelectionCheckbox) enableSelectionCheckbox.checked = false;
+    if (selectAllCheckbox) selectAllCheckbox.checked = false;
+    if (selectAllHeader) selectAllHeader.checked = false;
+    if (bulkConditionSelect) bulkConditionSelect.value = '';
+    if (sortConditionSelect) sortConditionSelect.value = '';
+
     MANAGE_BORROW_ID = data.id ?? data.borrow_request_id ?? null;
     MANAGE_ITEMS = (Array.isArray(data.items) ? data.items : []).map((item) => ({
         ...item,
@@ -344,12 +367,26 @@ function renderManageRows() {
     if (!tbody) return;
 
     tbody.innerHTML = '';
-    const rows = MANAGE_ITEMS.filter((item) => !MANAGE_FILTER || item.item_name === MANAGE_FILTER);
+    let rows = MANAGE_ITEMS.filter((item) => !MANAGE_FILTER || item.item_name === MANAGE_FILTER);
+
+    // Apply sorting by condition
+    if (MANAGE_SORT_CONDITION) {
+        rows = rows.filter((item) => {
+            const condition = (item.condition || 'pending').toLowerCase();
+            return condition === MANAGE_SORT_CONDITION.toLowerCase();
+        });
+    }
+
+    // Show/hide checkbox column
+    const checkboxHeader = document.getElementById('manage-checkbox-header');
+    if (checkboxHeader) {
+        checkboxHeader.style.display = CHECKBOXES_VISIBLE ? '' : 'none';
+    }
 
     if (!rows.length) {
         const tr = document.createElement('tr');
         const td = document.createElement('td');
-        td.colSpan = 4;
+        td.colSpan = CHECKBOXES_VISIBLE ? 4 : 3;
         td.className = 'px-4 py-4 text-center text-gray-500';
         td.textContent = 'No property numbers for this selection.';
         tr.appendChild(td);
@@ -359,98 +396,171 @@ function renderManageRows() {
 
     rows.forEach((item) => {
         const tr = document.createElement('tr');
-        tr.className = 'divide-x';
+        tr.className = 'divide-x transition-colors';
+        if (SELECTION_ENABLED) {
+            tr.classList.add('cursor-pointer');
+        }
         tr.dataset.instanceId = item.id;
+        tr.dataset.condition = item.condition || 'pending';
 
-        const tdLabel = document.createElement('td');
-        tdLabel.className = 'px-4 py-3 text-left font-medium text-gray-800';
-        tdLabel.textContent = item.property_label || 'Untracked Item';
-        tr.appendChild(tdLabel);
+        // Checkbox cell (only shown when CHECKBOXES_VISIBLE is true)
+        if (CHECKBOXES_VISIBLE) {
+            const tdCheckbox = document.createElement('td');
+            tdCheckbox.className = 'px-4 py-3 text-center';
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'manage-row-checkbox w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500';
+            checkbox.dataset.instanceId = item.id;
+            checkbox.checked = SELECTED_INSTANCES.has(item.id);
+            checkbox.disabled = !SELECTION_ENABLED && !CHECKBOXES_VISIBLE;
+            checkbox.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    SELECTED_INSTANCES.add(item.id);
+                } else {
+                    SELECTED_INSTANCES.delete(item.id);
+                }
+                updateRowHighlight(tr, e.target.checked);
+                updateSelectAllState();
+                updateBulkUpdateButton();
+            });
+            tdCheckbox.appendChild(checkbox);
+            tr.appendChild(tdCheckbox);
+        }
 
-        const tdStatus = document.createElement('td');
-        tdStatus.className = 'px-4 py-3 text-left';
-        tdStatus.appendChild(renderInventoryStatusBadge(item.inventory_status, item.inventory_status_label));
-        tr.appendChild(tdStatus);
+        // Apply purple highlight if selected
+        if (SELECTED_INSTANCES.has(item.id)) {
+            tr.classList.add('bg-purple-200');
+        }
 
-        const tdSelect = document.createElement('td');
-        tdSelect.className = 'px-4 py-3';
-        const select = document.createElement('select');
-        select.className = 'w-full border border-gray-300 rounded-md text-sm px-2 py-1 focus:outline-none focus:ring-2 focus:ring-purple-300';
-        [
-            { value: 'good', label: 'Good' },
-            { value: 'minor_damage', label: 'Minor Damage' },
-            { value: 'damage', label: 'Damage' },
-            { value: 'missing', label: 'Missing' },
-        ].forEach((opt) => {
-            const option = document.createElement('option');
-            option.value = opt.value;
-            option.textContent = opt.label;
-            select.appendChild(option);
-        });
-        select.value = item.condition && item.condition !== 'pending' ? item.condition : 'good';
-        tdSelect.appendChild(select);
-        tr.appendChild(tdSelect);
+        // Add click handler for individual row selection (only when selection mode is enabled)
+        if (SELECTION_ENABLED) {
+            tr.addEventListener('click', (e) => {
+                // Don't trigger if clicking on checkbox, select, or button elements
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'BUTTON' || e.target.closest('select') || e.target.closest('button') || e.target.closest('input[type="checkbox"]')) {
+                    return;
+                }
+                
+                const instanceId = item.id;
+                const isSelected = SELECTED_INSTANCES.has(instanceId);
+                
+                if (isSelected) {
+                    SELECTED_INSTANCES.delete(instanceId);
+                    updateRowHighlight(tr, false);
+                    // Update checkbox if visible
+                    const checkbox = tr.querySelector('.manage-row-checkbox');
+                    if (checkbox) checkbox.checked = false;
+                } else {
+                    SELECTED_INSTANCES.add(instanceId);
+                    updateRowHighlight(tr, true);
+                    // Update checkbox if visible
+                    const checkbox = tr.querySelector('.manage-row-checkbox');
+                    if (checkbox) checkbox.checked = true;
+                }
+                
+                updateSelectAllState();
+                updateBulkUpdateButton();
+            });
+        }
 
-        const tdAction = document.createElement('td');
-        tdAction.className = 'px-4 py-3';
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'inline-flex items-center px-3 py-1 text-xs font-semibold rounded-md bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300';
-        button.textContent = 'Update';
-        button.addEventListener('click', () => updateInstance(item.id, select.value, button));
-        tdAction.appendChild(button);
-        tr.appendChild(tdAction);
+        const tdPropertyNumber = document.createElement('td');
+        tdPropertyNumber.className = 'px-4 py-3 text-left font-medium text-gray-800';
+        tdPropertyNumber.textContent = item.property_label || 'Untracked Item';
+        tr.appendChild(tdPropertyNumber);
+
+        const tdItemName = document.createElement('td');
+        tdItemName.className = 'px-4 py-3 text-left text-gray-700';
+        tdItemName.textContent = item.item_name || 'Unknown';
+        tr.appendChild(tdItemName);
+
+        const tdCondition = document.createElement('td');
+        tdCondition.className = 'px-4 py-3 text-left';
+        tdCondition.appendChild(renderConditionBadge(item.condition, item.condition_label));
+        tr.appendChild(tdCondition);
 
         tbody.appendChild(tr);
     });
+
+    updateSelectAllState();
+    updateBulkUpdateButton();
 }
 
-async function updateInstance(instanceId, condition, button) {
-    if (!instanceId) return;
-    button.disabled = true;
-    try {
-        const res = await fetch(`${UPDATE_INSTANCE_BASE}/${encodeURIComponent(instanceId)}`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': CSRF_TOKEN,
-            },
-            body: JSON.stringify({ condition }),
-        });
-        if (!res.ok) {
-            const payload = await res.json().catch(() => null);
-            throw new Error(payload?.message || `HTTP ${res.status}`);
-        }
-        const data = await res.json().catch(() => ({}));
-        showAlert('success', data.message || 'Condition updated.');
+function updateRowHighlight(tr, isSelected) {
+    if (isSelected) {
+        tr.classList.add('bg-purple-200');
+        tr.classList.remove('bg-purple-100');
+    } else {
+        tr.classList.remove('bg-purple-200', 'bg-purple-100');
+    }
+}
 
-        MANAGE_ITEMS = MANAGE_ITEMS.map((item) => {
-            if (item.id === instanceId) {
-                return {
-                    ...item,
-                    condition,
-                    condition_label: data.condition_label || item.condition_label,
-                    inventory_status: data.inventory_status || item.inventory_status,
-                    inventory_status_label: data.inventory_status_label || formatInventoryStatusLabel(data.inventory_status || item.inventory_status),
-                };
+function updateSelectAllState() {
+    const selectAllCheckbox = document.getElementById('manage-select-all');
+    const selectAllHeader = document.getElementById('manage-select-all-header');
+    const rows = document.querySelectorAll('#manage-items-tbody tr[data-instance-id]');
+    
+    if (rows.length === 0) {
+        if (selectAllCheckbox) selectAllCheckbox.checked = false;
+        if (selectAllHeader) selectAllHeader.checked = false;
+        return;
+    }
+
+    const selectedCount = Array.from(rows).filter(tr => SELECTED_INSTANCES.has(tr.dataset.instanceId)).length;
+    const allChecked = selectedCount === rows.length && rows.length > 0;
+    
+    if (selectAllCheckbox) selectAllCheckbox.checked = allChecked;
+    if (selectAllHeader) selectAllHeader.checked = allChecked;
+}
+
+function updateBulkUpdateButton() {
+    const bulkUpdateBtn = document.getElementById('manage-bulk-update-btn');
+    const bulkConditionSelect = document.getElementById('manage-bulk-condition');
+    
+    if (bulkUpdateBtn && bulkConditionSelect) {
+        const hasSelection = SELECTED_INSTANCES.size > 0;
+        const hasCondition = bulkConditionSelect.value !== '';
+        bulkUpdateBtn.disabled = !hasSelection || !hasCondition;
+    }
+}
+
+function applyBorrowSummaryUpdate(payload) {
+    if (!payload || !MANAGE_BORROW_ID) return;
+
+    const summaryLabel = payload.borrow_summary || null;
+    const latestStatus = payload.latest_status || null;
+    const latestDeliveryStatus = payload.latest_delivery_status || null;
+
+    let mutated = false;
+
+    RETURN_ROWS = RETURN_ROWS.map((row) => {
+        const borrowId = row.borrow_request_id ?? row.id;
+        if (borrowId === MANAGE_BORROW_ID) {
+            const next = { ...row };
+            if (summaryLabel) {
+                const normalized = summaryLabel
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, '_')
+                    .replace(/_+/g, '_')
+                    .replace(/^_|_$/g, '');
+
+                next.condition_label = summaryLabel;
+                next.condition = normalized || next.condition || 'pending';
+                mutated = true;
             }
-            return item;
-        });
-        renderManageRows();
-        await loadReturnItems(false);
-        window.dispatchEvent(new CustomEvent('return-items:condition-updated', {
-            detail: {
-                instanceId,
-                condition,
-                response: data,
-            },
-        }));
-    } catch (error) {
-        console.error('Failed to update instance condition', error);
-        showAlert('error', error.message || 'Failed to update condition.');
-    } finally {
-        button.disabled = false;
+            if (latestStatus) {
+                next.status = latestStatus;
+                mutated = true;
+            }
+            if (latestDeliveryStatus) {
+                next.delivery_status = latestDeliveryStatus;
+                mutated = true;
+            }
+            return next;
+        }
+        return row;
+    });
+
+    if (mutated) {
+        renderTable();
     }
 }
 
@@ -493,6 +603,106 @@ async function collectBorrowRequest(id, button) {
     }
 }
 
+async function bulkUpdateInstances() {
+    const bulkConditionSelect = document.getElementById('manage-bulk-condition');
+    const bulkUpdateBtn = document.getElementById('manage-bulk-update-btn');
+    
+    if (!bulkConditionSelect || !bulkUpdateBtn) return;
+    
+    const condition = bulkConditionSelect.value;
+    if (!condition || SELECTED_INSTANCES.size === 0) return;
+
+    bulkUpdateBtn.disabled = true;
+    const buttonText = bulkUpdateBtn.textContent;
+    bulkUpdateBtn.textContent = 'Updating...';
+
+    try {
+        const instanceIds = Array.from(SELECTED_INSTANCES);
+        const updateOptions = { showToast: false, renderRows: false, updateTable: false };
+        const results = await Promise.all(instanceIds.map((id) => updateInstance(id, condition, updateOptions)));
+        const finalResult = results.length ? results[results.length - 1] : null;
+        
+        showAlert('success', `Successfully updated ${instanceIds.length} item(s).`);
+        
+        // Clear selection
+        SELECTED_INSTANCES.clear();
+        bulkConditionSelect.value = '';
+        renderManageRows();
+        updateSelectAllState();
+        updateBulkUpdateButton();
+        if (finalResult) {
+            applyBorrowSummaryUpdate(finalResult);
+        }
+    } catch (error) {
+        console.error('Bulk update failed', error);
+        showAlert('error', 'Some items failed to update. Please try again.');
+    } finally {
+        bulkUpdateBtn.disabled = false;
+        bulkUpdateBtn.textContent = buttonText;
+    }
+}
+
+async function updateInstance(instanceId, condition, options = {}) {
+    const {
+        showToast = true,
+        renderRows = true,
+        updateTable = true,
+    } = options;
+
+    if (!instanceId) return;
+
+    try {
+        const res = await fetch(`${UPDATE_INSTANCE_BASE}/${encodeURIComponent(instanceId)}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': CSRF_TOKEN,
+            },
+            body: JSON.stringify({ condition }),
+        });
+        if (!res.ok) {
+            const payload = await res.json().catch(() => null);
+            throw new Error(payload?.message || `HTTP ${res.status}`);
+        }
+        const data = await res.json().catch(() => ({}));
+        if (showToast) {
+            showAlert('success', data.message || 'Condition updated.');
+        }
+
+        MANAGE_ITEMS = MANAGE_ITEMS.map((item) => {
+            if (item.id === instanceId) {
+                return {
+                    ...item,
+                    condition,
+                    condition_label: data.condition_label || item.condition_label,
+                    inventory_status: data.inventory_status || item.inventory_status,
+                    inventory_status_label: data.inventory_status_label || formatInventoryStatusLabel(data.inventory_status || item.inventory_status),
+                };
+            }
+            return item;
+        });
+        if (renderRows) {
+            renderManageRows();
+            updateSelectAllState();
+            updateBulkUpdateButton();
+        }
+        if (updateTable) {
+            applyBorrowSummaryUpdate(data);
+        }
+        window.dispatchEvent(new CustomEvent('return-items:condition-updated', {
+            detail: { instanceId, condition, response: data },
+        }));
+        return data;
+    } catch (error) {
+        console.error('Failed to update instance condition', error);
+        if (showToast) {
+            showAlert('error', error.message || 'Failed to update condition.');
+        }
+        throw error;
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     if (!document.getElementById('returnItemsTableBody')) return;
 
@@ -514,6 +724,117 @@ document.addEventListener('DOMContentLoaded', () => {
                 btn.disabled = false;
                 PENDING_COLLECT_ID = null;
             }
+        });
+    }
+
+    // Show/hide checkboxes function
+    const showCheckboxes = (show) => {
+        CHECKBOXES_VISIBLE = show;
+        renderManageRows();
+    };
+
+    // Select All checkbox (works independently)
+    const selectAllCheckbox = document.getElementById('manage-select-all');
+    const selectAllHeader = document.getElementById('manage-select-all-header');
+    
+    const handleSelectAll = (checked) => {
+        // Show checkboxes when Select All is clicked
+        if (checked && !CHECKBOXES_VISIBLE) {
+            showCheckboxes(true);
+        } else if (!checked) {
+            // Hide checkboxes if Select All is unchecked AND Select is also unchecked
+            const enableSelectionCheckbox = document.getElementById('manage-enable-selection');
+            const selectChecked = enableSelectionCheckbox && enableSelectionCheckbox.checked;
+            if (!selectChecked && CHECKBOXES_VISIBLE) {
+                showCheckboxes(false);
+            }
+        }
+        
+        const rows = document.querySelectorAll('#manage-items-tbody tr[data-instance-id]');
+        rows.forEach(tr => {
+            const instanceId = tr.dataset.instanceId;
+            if (checked) {
+                SELECTED_INSTANCES.add(instanceId);
+                updateRowHighlight(tr, true);
+                // Update checkbox if visible
+                const checkbox = tr.querySelector('.manage-row-checkbox');
+                if (checkbox) checkbox.checked = true;
+            } else {
+                SELECTED_INSTANCES.delete(instanceId);
+                updateRowHighlight(tr, false);
+                // Update checkbox if visible
+                const checkbox = tr.querySelector('.manage-row-checkbox');
+                if (checkbox) checkbox.checked = false;
+            }
+        });
+        updateSelectAllState();
+        updateBulkUpdateButton();
+    };
+
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', (e) => {
+            handleSelectAll(e.target.checked);
+        });
+    }
+
+    if (selectAllHeader) {
+        selectAllHeader.addEventListener('change', (e) => {
+            handleSelectAll(e.target.checked);
+        });
+    }
+
+    // Enable/Disable selection mode (for individual row clicks)
+    const enableSelectionCheckbox = document.getElementById('manage-enable-selection');
+    if (enableSelectionCheckbox) {
+        enableSelectionCheckbox.addEventListener('change', (e) => {
+            SELECTION_ENABLED = e.target.checked;
+            
+            // Show checkboxes when Select is enabled
+            if (SELECTION_ENABLED && !CHECKBOXES_VISIBLE) {
+                showCheckboxes(true);
+            }
+            
+            // Re-render rows to update click handlers and checkbox states
+            renderManageRows();
+            
+            // Hide checkboxes and clear selection when disabling (but keep checkboxes visible if Select All is checked)
+            if (!SELECTION_ENABLED) {
+                const selectAllCheckbox = document.getElementById('manage-select-all');
+                const selectAllChecked = selectAllCheckbox && selectAllCheckbox.checked;
+                
+                if (!selectAllChecked) {
+                    // Hide checkboxes if Select All is also unchecked
+                    if (CHECKBOXES_VISIBLE) {
+                        showCheckboxes(false);
+                    }
+                    SELECTED_INSTANCES.clear();
+                    const rows = document.querySelectorAll('#manage-items-tbody tr');
+                    rows.forEach(tr => updateRowHighlight(tr, false));
+                    updateSelectAllState();
+                    updateBulkUpdateButton();
+                }
+            }
+        });
+    }
+
+    // Bulk update button
+    const bulkUpdateBtn = document.getElementById('manage-bulk-update-btn');
+    if (bulkUpdateBtn) {
+        bulkUpdateBtn.addEventListener('click', bulkUpdateInstances);
+    }
+
+    // Bulk condition select change
+    const bulkConditionSelect = document.getElementById('manage-bulk-condition');
+    if (bulkConditionSelect) {
+        bulkConditionSelect.addEventListener('change', updateBulkUpdateButton);
+    }
+
+    // Sort by condition
+    const sortConditionSelect = document.getElementById('manage-sort-condition');
+    if (sortConditionSelect) {
+        sortConditionSelect.addEventListener('change', (e) => {
+            MANAGE_SORT_CONDITION = e.target.value;
+            renderManageRows();
         });
     }
 });

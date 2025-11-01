@@ -247,6 +247,112 @@ export function fillBorrowModal(data) {
         if (rejReason) rejReason.textContent = '';
     }
 
+    // delivery reason block
+    const deliveryReasonBlock = document.getElementById('mbi-delivery-reason-block');
+    const deliveryReasonContent = document.getElementById('mbi-delivery-reason-content');
+    const deliveryReasonToggle = document.getElementById('mbi-delivery-reason-toggle');
+    const deliveryReasonToggleText = document.getElementById('mbi-delivery-reason-toggle-text');
+    const deliveryReasonToggleIcon = document.getElementById('mbi-delivery-reason-toggle-icon');
+    
+    if (data.delivery_reason_type) {
+        if (deliveryReasonBlock) deliveryReasonBlock.classList.remove('hidden');
+        
+        let reasonHtml = '';
+        const reasonType = (data.delivery_reason_type || '').toLowerCase();
+        
+        if (reasonType === 'missing') {
+            reasonHtml = '<div class="font-medium">Missing</div>';
+        } else if (reasonType === 'damaged') {
+            reasonHtml = '<div class="font-medium">Damaged</div>';
+        } else if (reasonType === 'others' && data.delivery_reason_details) {
+            try {
+                const details = typeof data.delivery_reason_details === 'string' 
+                    ? JSON.parse(data.delivery_reason_details) 
+                    : data.delivery_reason_details;
+                
+                const subject = escapeHtml(details.subject || '');
+                const explanation = escapeHtml(details.explanation || '');
+                
+                reasonHtml = `
+                    <div class="space-y-2">
+                        <div>
+                            <div class="font-medium mb-1">Subject:</div>
+                            <div>${subject}</div>
+                        </div>
+                        <div>
+                            <div class="font-medium mb-1">Explanation:</div>
+                            <div id="mbi-delivery-reason-explanation" class="whitespace-pre-wrap">${explanation}</div>
+                        </div>
+                    </div>
+                `;
+                
+                // Check if explanation is long and needs expand/collapse
+                if (explanation.length > 150) {
+                    const explanationEl = document.getElementById('mbi-delivery-reason-explanation');
+                    if (explanationEl) {
+                        explanationEl.classList.add('line-clamp-3');
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to parse delivery reason details', e);
+                reasonHtml = '<div>Others (details unavailable)</div>';
+            }
+        } else {
+            reasonHtml = `<div class="font-medium">${escapeHtml(reasonType.charAt(0).toUpperCase() + reasonType.slice(1))}</div>`;
+        }
+        
+        if (deliveryReasonContent) {
+            deliveryReasonContent.innerHTML = reasonHtml;
+        }
+        
+        // Setup expand/collapse toggle
+        if (deliveryReasonToggle && deliveryReasonToggleText && deliveryReasonToggleIcon) {
+            const explanationEl = document.getElementById('mbi-delivery-reason-explanation');
+            const needsToggle = explanationEl && explanationEl.textContent && explanationEl.textContent.length > 150;
+            
+            if (needsToggle) {
+                deliveryReasonToggle.classList.remove('hidden');
+                
+                // Remove old click handler by replacing the button
+                const toggleParent = deliveryReasonToggle.parentNode;
+                const toggleClone = deliveryReasonToggle.cloneNode(true);
+                toggleParent.replaceChild(toggleClone, deliveryReasonToggle);
+                
+                // Get fresh references
+                const freshToggle = document.getElementById('mbi-delivery-reason-toggle');
+                const freshToggleText = document.getElementById('mbi-delivery-reason-toggle-text');
+                const freshToggleIcon = document.getElementById('mbi-delivery-reason-toggle-icon');
+                
+                if (freshToggle && freshToggleText && freshToggleIcon) {
+                    let isExpanded = false;
+                    freshToggle.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        isExpanded = !isExpanded;
+                        const el = document.getElementById('mbi-delivery-reason-explanation');
+                        if (el) {
+                            if (isExpanded) {
+                                el.classList.remove('line-clamp-3');
+                                freshToggleText.textContent = 'Show less';
+                                freshToggleIcon.classList.remove('fa-chevron-down');
+                                freshToggleIcon.classList.add('fa-chevron-up');
+                            } else {
+                                el.classList.add('line-clamp-3');
+                                freshToggleText.textContent = 'Show more';
+                                freshToggleIcon.classList.remove('fa-chevron-up');
+                                freshToggleIcon.classList.add('fa-chevron-down');
+                            }
+                        }
+                    });
+                }
+            } else {
+                deliveryReasonToggle.classList.add('hidden');
+            }
+        }
+    } else {
+        if (deliveryReasonBlock) deliveryReasonBlock.classList.add('hidden');
+        if (deliveryReasonContent) deliveryReasonContent.innerHTML = '';
+    }
+
     // Delivery buttons logic (confirm / report)
     const confirmBtn = document.getElementById('mbi-confirm-received-btn');
     const reportBtn = document.getElementById('mbi-report-not-received-btn');

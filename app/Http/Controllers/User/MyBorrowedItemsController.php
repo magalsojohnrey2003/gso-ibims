@@ -60,11 +60,16 @@ class MyBorrowedItemsController extends Controller
                     'id' => $borrowRequest->id,
                     'borrow_date' => $borrowRequest->borrow_date,
                     'return_date' => $borrowRequest->return_date,
+                    'time_of_usage' => $borrowRequest->time_of_usage,
                     'status' => $borrowRequest->status,
                     'manpower_count' => $borrowRequest->manpower_count,
                     'location' => $borrowRequest->location, 
+                    'purpose_office' => $borrowRequest->purpose_office,
+                    'purpose' => $borrowRequest->purpose,
                     'items' => $items,
                     'borrowed_instances' => $instances,
+                    'delivery_reason_type' => $borrowRequest->delivery_reason_type,
+                    'delivery_reason_details' => $borrowRequest->delivery_reason_details,
                 ];
             });
 
@@ -98,11 +103,16 @@ class MyBorrowedItemsController extends Controller
             'id' => $borrowRequest->id,
             'borrow_date' => $borrowRequest->borrow_date,
             'return_date' => $borrowRequest->return_date,
+            'time_of_usage' => $borrowRequest->time_of_usage,
             'status' => $borrowRequest->status,
             'manpower_count' => $borrowRequest->manpower_count,
             'location' => $borrowRequest->location,
+            'purpose_office' => $borrowRequest->purpose_office,
+            'purpose' => $borrowRequest->purpose,
             'items' => $items,
             'borrowed_instances' => $instances,
+            'delivery_reason_type' => $borrowRequest->delivery_reason_type,
+            'delivery_reason_details' => $borrowRequest->delivery_reason_details,
         ]);
     }
 

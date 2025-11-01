@@ -182,15 +182,53 @@
                     <select id="manage-item-filter" class="block w-full rounded-lg border-gray-300 text-sm focus:border-purple-500 focus:ring-purple-500"></select>
                 </div>
 
+                <!-- Bulk Selection and Sorting Controls -->
+                <div class="flex items-center justify-between gap-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                    <div class="flex items-center gap-4">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="manage-select-all" class="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500" />
+                            <span class="text-sm font-medium text-gray-700">Select All</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="manage-enable-selection" class="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500" />
+                            <span class="text-sm font-medium text-gray-700">Select</span>
+                        </label>
+                        <div class="flex items-center gap-2">
+                            <label for="manage-sort-condition" class="text-sm font-medium text-gray-700">Sort by Condition:</label>
+                            <select id="manage-sort-condition" class="rounded-lg border-gray-300 text-sm focus:border-purple-500 focus:ring-purple-500">
+                                <option value="">All</option>
+                                <option value="good">Good</option>
+                                <option value="minor_damage">Minor Damage</option>
+                                <option value="damage">Damage</option>
+                                <option value="missing">Missing</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <select id="manage-bulk-condition" class="rounded-lg border-gray-300 text-sm focus:border-purple-500 focus:ring-purple-500">
+                            <option value="">Select Condition</option>
+                            <option value="good">Good</option>
+                            <option value="minor_damage">Minor Damage</option>
+                            <option value="damage">Damage</option>
+                            <option value="missing">Missing</option>
+                        </select>
+                        <button id="manage-bulk-update-btn" type="button" disabled class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-md bg-purple-600 text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                            Update
+                        </button>
+                    </div>
+                </div>
+
                 <div class="border border-gray-200 rounded-lg">
                     <div class="max-h-64 overflow-y-auto">
                         <table class="w-full text-sm text-gray-700">
                             <thead class="bg-gray-100 text-xs uppercase text-gray-600 sticky top-0 z-10">
                                 <tr>
+                                    <th class="px-4 py-2 text-left w-12" id="manage-checkbox-header" style="display: none;">
+                                        <input type="checkbox" id="manage-select-all-header" class="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500" />
+                                    </th>
                                     <th class="px-4 py-2 text-left">Property Number</th>
-                                    <th class="px-4 py-2 text-left">Status</th>
+                                    <th class="px-4 py-2 text-left">Item Name</th>
                                     <th class="px-4 py-2 text-left">Condition</th>
-                                    <th class="px-4 py-2 text-left">Action</th>
                                 </tr>
                             </thead>
                             <tbody id="manage-items-tbody" class="divide-y bg-white">

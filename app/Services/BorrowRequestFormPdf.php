@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\BorrowRequest;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
@@ -31,10 +32,28 @@ class BorrowRequestFormPdf
      */
     private ?array $fieldLayout = null;
 
-    public function __construct(private ?string $templatePath = null)
+    private string $templatePath;
+
+    private string $originalTemplatePath;
+
+    private ?string $preparedTemplatePath = null;
+
+    private bool $repairAttempted = false;
+
+    public function __construct(?string $templatePath = null)
     {
-        if ($this->templatePath === null) {
-            $this->templatePath = public_path('pdf/borrow_requests_form.pdf');
+        $configuredTemplate = $templatePath ?? config('borrow-form.template', public_path('pdf/borrow_requests_form.pdf'));
+        $this->originalTemplatePath = $configuredTemplate;
+
+        $preparedPath = config('borrow-form.prepared_path');
+        if (is_string($preparedPath) && $preparedPath !== '') {
+            $this->preparedTemplatePath = $preparedPath;
+        }
+
+        if ($this->preparedTemplatePath && is_file($this->preparedTemplatePath)) {
+            $this->templatePath = $this->preparedTemplatePath;
+        } else {
+            $this->templatePath = $configuredTemplate;
         }
     }
 
@@ -50,14 +69,22 @@ class BorrowRequestFormPdf
         }
 
         if (! is_file($this->templatePath)) {
-            throw new RuntimeException("Borrow request form template not found at {$this->templatePath}.");
+            if ($this->templatePath !== $this->originalTemplatePath && is_file($this->originalTemplatePath)) {
+                $this->templatePath = $this->originalTemplatePath;
+            } else {
+                throw new RuntimeException("Borrow request form template not found at {$this->templatePath}.");
+            }
         }
 
         $borrowRequest->loadMissing(['user', 'items.item']);
 
         $layout = $this->getFieldLayout();
         if ($layout === []) {
-            throw new RuntimeException('No AcroForm fields were detected in the borrow request form template.');
+            throw new RuntimeException(
+                'No AcroForm fields were detected in the borrow request form template. ' .
+                'If you recently edited the PDF, ensure the form fields remain enabled or configure BORROW_FORM_QPDF_PATH ' .
+                'so the system can auto-prepare the template.'
+            );
         }
 
         $pdf = new Fpdi('P', 'pt');
@@ -77,7 +104,8 @@ class BorrowRequestFormPdf
 
         $this->writeText($pdf, $size, Arr::get($layout, 'form_roa'), $borrowRequest->purpose_office ?? '');
         $this->writeText($pdf, $size, Arr::get($layout, 'form_cn'), $borrowRequest->user?->phone ?? '');
-        $this->writeText($pdf, $size, Arr::get($layout, 'form_address'), $borrowRequest->user?->address ?? '');
+        $address = $borrowRequest->location ?? $borrowRequest->user?->address ?? '';
+        $this->writeText($pdf, $size, Arr::get($layout, 'form_address'), $address);
         $this->writeText($pdf, $size, Arr::get($layout, 'form_purpose'), $borrowRequest->purpose ?? '');
         $this->writeText($pdf, $size, Arr::get($layout, 'form_db'), $this->formatDate($borrowRequest->borrow_date));
         $this->writeText($pdf, $size, Arr::get($layout, 'form_dtr'), $this->formatUsageAndReturn($borrowRequest));
@@ -245,6 +273,7 @@ class BorrowRequestFormPdf
             'scale' => 6,
             'imageBase64' => false,
             'addQuietzone' => true,
+            'dataModeOverride' => 'byte',
         ]);
 
         $binary = (new QRCode($options))->render($payload);
@@ -273,18 +302,7 @@ class BorrowRequestFormPdf
 
     private function formatUsageAndReturn(BorrowRequest $borrowRequest): string
     {
-        $range = $this->formatUsageRange($borrowRequest->time_of_usage ?? '');
-        $returnDate = $this->formatDate($borrowRequest->return_date);
-
-        if ($range !== '' && $returnDate !== '') {
-            return "{$range} • Return: {$returnDate}";
-        }
-
-        if ($range !== '') {
-            return $range;
-        }
-
-        return $returnDate;
+        return $this->formatDate($borrowRequest->return_date);
     }
 
     private function formatUsageRange(?string $range): string
@@ -406,14 +424,33 @@ class BorrowRequestFormPdf
             return $this->fieldLayout;
         }
 
-        $this->fieldLayout = [];
+        $layout = $this->parseFieldLayout($this->templatePath);
+
+        if ($layout === [] && ! $this->repairAttempted) {
+            $this->repairAttempted = true;
+            if ($this->attemptAutoRepairTemplate()) {
+                $layout = $this->parseFieldLayout($this->templatePath);
+            }
+        }
+
+        $this->fieldLayout = $layout;
+
+        return $this->fieldLayout;
+    }
+
+    /**
+     * @return array<string, array{llx: float, lly: float, urx: float, ury: float}>
+     */
+    private function parseFieldLayout(string $path): array
+    {
+        $layout = [];
 
         try {
-            $parser = new PdfParser(StreamReader::createByFile($this->templatePath));
+            $parser = new PdfParser(StreamReader::createByFile($path));
             $catalog = PdfDictionary::ensure($parser->getCatalog());
 
             if (! isset($catalog->value['AcroForm'])) {
-                return $this->fieldLayout;
+                return $layout;
             }
 
             $acroForm = PdfDictionary::ensure(
@@ -421,7 +458,7 @@ class BorrowRequestFormPdf
             );
 
             if (! isset($acroForm->value['Fields'])) {
-                return $this->fieldLayout;
+                return $layout;
             }
 
             $fields = PdfArray::ensure(
@@ -429,16 +466,19 @@ class BorrowRequestFormPdf
             )->value;
 
             foreach ($fields as $fieldRef) {
-                $this->collectFieldLayout($parser, $fieldRef);
+                $this->collectFieldLayout($parser, $fieldRef, $layout);
             }
-        } catch (Throwable) {
-            // Leave layout empty so the caller can decide what to do.
+        } catch (Throwable $e) {
+            Log::warning('BorrowRequestFormPdf: unable to parse template fields', [
+                'template' => $path,
+                'message' => $e->getMessage(),
+            ]);
         }
 
-        return $this->fieldLayout;
+        return $layout;
     }
 
-    private function collectFieldLayout(PdfParser $parser, mixed $fieldObject, string $parentName = ''): void
+    private function collectFieldLayout(PdfParser $parser, mixed $fieldObject, array &$layout, string $parentName = ''): void
     {
         try {
             $field = PdfDictionary::ensure(PdfType::resolve($fieldObject, $parser));
@@ -460,7 +500,7 @@ class BorrowRequestFormPdf
         if (isset($values['Kids'])) {
             $kids = PdfArray::ensure(PdfType::resolve($values['Kids'], $parser))->value;
             foreach ($kids as $kid) {
-                $this->collectFieldLayout($parser, $kid, $name);
+                $this->collectFieldLayout($parser, $kid, $layout, $name);
             }
             return;
         }
@@ -480,7 +520,7 @@ class BorrowRequestFormPdf
             return;
         }
 
-        $current = $this->fieldLayout[$name] ?? null;
+        $current = $layout[$name] ?? null;
         if ($current !== null) {
             $currentArea = ($current['urx'] - $current['llx']) * ($current['ury'] - $current['lly']);
             $newArea = ($resolved['urx'] - $resolved['llx']) * ($resolved['ury'] - $resolved['lly']);
@@ -490,7 +530,7 @@ class BorrowRequestFormPdf
             }
         }
 
-        $this->fieldLayout[$name] = $resolved;
+        $layout[$name] = $resolved;
     }
 
     /**
@@ -527,6 +567,143 @@ class BorrowRequestFormPdf
             'lly' => (float) $resolved[1],
             'urx' => (float) $resolved[2],
             'ury' => (float) $resolved[3],
+        ];
+    }
+
+    private function attemptAutoRepairTemplate(): bool
+    {
+        $qpdf = $this->findQpdfBinary();
+        if (! $qpdf) {
+            return false;
+        }
+
+        if (! is_file($this->originalTemplatePath)) {
+            return false;
+        }
+
+        $needsPreparedCopy = $this->preparedTemplatePath !== null;
+        $target = $needsPreparedCopy
+            ? $this->preparedTemplatePath
+            : $this->originalTemplatePath . '.prepared.pdf';
+
+        if ($needsPreparedCopy) {
+            $directory = dirname($target);
+            if (! is_dir($directory)) {
+                @mkdir($directory, 0775, true);
+            }
+        }
+
+        if ($target === $this->originalTemplatePath) {
+            $target = $this->originalTemplatePath . '.prepared.pdf';
+        }
+
+        $result = $this->executeCommand([
+            $qpdf,
+            '--qdf',
+            '--object-streams=disable',
+            $this->originalTemplatePath,
+            $target,
+        ]);
+
+        if ($result['exit_code'] !== 0) {
+            Log::warning('BorrowRequestFormPdf: qpdf failed to prepare template', [
+                'exit_code' => $result['exit_code'],
+                'stderr' => $result['stderr'],
+            ]);
+
+            if (! $needsPreparedCopy && is_file($target)) {
+                @unlink($target);
+            }
+
+            return false;
+        }
+
+        if ($needsPreparedCopy) {
+            $this->templatePath = $this->preparedTemplatePath;
+        } else {
+            if (! @rename($target, $this->originalTemplatePath)) {
+                @copy($target, $this->originalTemplatePath);
+                @unlink($target);
+            }
+            $this->templatePath = $this->originalTemplatePath;
+        }
+
+        $this->fieldLayout = null;
+
+        Log::info('BorrowRequestFormPdf: prepared borrow form template using qpdf.', [
+            'template' => $this->templatePath,
+            'qpdf' => $qpdf,
+        ]);
+
+        return true;
+    }
+
+    private function findQpdfBinary(): ?string
+    {
+        $configured = config('borrow-form.qpdf_path');
+        if (is_string($configured) && $configured !== '' && is_file($configured)) {
+            return $configured;
+        }
+
+        $candidates = PHP_OS_FAMILY === 'Windows'
+            ? [['where', 'qpdf.exe'], ['where', 'qpdf']]
+            : [['which', 'qpdf']];
+
+        foreach ($candidates as $command) {
+            $result = $this->executeCommand($command);
+            if ($result['exit_code'] === 0 && $result['stdout'] !== '') {
+                $path = trim(strtok($result['stdout'], "\r\n"));
+                if ($path !== '' && is_file($path)) {
+                    return $path;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<int, string>|string $command
+     * @return array{exit_code:int, stdout:string, stderr:string}
+     */
+    private function executeCommand(array|string $command): array
+    {
+        if (is_array($command)) {
+            $command = implode(' ', array_map('escapeshellarg', $command));
+        }
+
+        $descriptorSpec = [
+            0 => ['pipe', 'r'],
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ];
+
+        $process = @proc_open($command, $descriptorSpec, $pipes, base_path());
+
+        if (! is_resource($process)) {
+            return ['exit_code' => 1, 'stdout' => '', 'stderr' => 'Unable to spawn process.'];
+        }
+
+        if (isset($pipes[0])) {
+            fclose($pipes[0]);
+        }
+
+        $stdout = isset($pipes[1]) ? stream_get_contents($pipes[1]) ?: '' : '';
+        $stderr = isset($pipes[2]) ? stream_get_contents($pipes[2]) ?: '' : '';
+
+        if (isset($pipes[1])) {
+            fclose($pipes[1]);
+        }
+        if (isset($pipes[2])) {
+            fclose($pipes[2]);
+        }
+
+        $exitCode = proc_close($process);
+
+        return [
+            'exit_code' => $exitCode,
+            'stdout' => trim($stdout),
+            'stderr' => trim($stderr),
         ];
     }
 
