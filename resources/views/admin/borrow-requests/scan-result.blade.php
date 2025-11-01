@@ -15,9 +15,18 @@
 
             <div class="space-y-2 text-sm text-gray-600">
                 @php
-                    $statusLabel = $borrowRequest->status === 'qr_verified'
-                        ? 'QR Verified'
-                        : ucwords(str_replace('_', ' ', $borrowRequest->status ?? 'pending'));
+                    $statusValue = $borrowRequest->status === 'qr_verified'
+                        ? 'approved'
+                        : ($borrowRequest->status ?? 'pending');
+                    $statusLabel = ucwords(str_replace('_', ' ', $statusValue));
+                    $badgeType = match ($statusValue) {
+                        'approved' => 'accepted',
+                        'validated' => 'info',
+                        'pending' => 'pending',
+                        'returned' => 'success',
+                        'rejected' => 'rejected',
+                        default => 'info',
+                    };
                 @endphp
                 <div>
                     <span class="font-semibold text-gray-800">Request ID:</span>
@@ -25,11 +34,19 @@
                 </div>
                 <div class="inline-flex items-center gap-2">
                     <span class="font-semibold text-gray-800">Current Status:</span>
-                    <x-status-badge type="{{ $borrowRequest->status === 'qr_verified' ? 'qr' : 'info' }}" :text="$statusLabel" />
+                    <x-status-badge :type="$badgeType" :text="$statusLabel" />
                 </div>
             </div>
 
-            <div class="pt-4">
+            @if($downloadUrl)
+                <div class="pt-2">
+                    <x-button as="a" href="{{ $downloadUrl }}" target="_blank" rel="noopener" variant="primary" iconName="arrow-down-tray" class="px-4 py-2 text-sm">
+                        Download Saved Form
+                    </x-button>
+                </div>
+            @endif
+
+            <div class="pt-4 flex justify-center">
                 <x-button as="a" href="{{ route('borrow.requests') }}" variant="secondary" iconName="arrow-left">
                     Back to Borrow Requests
                 </x-button>

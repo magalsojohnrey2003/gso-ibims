@@ -171,7 +171,7 @@ class BorrowItemsController extends Controller
 
             $alreadyReserved = BorrowRequestItem::where('item_id', $item->id)
                 ->whereHas('request', function ($q) use ($borrowDate, $returnDate) {
-                    $q->whereIn('status', ['pending', 'validated', 'approved', 'qr_verified', 'return_pending'])
+                    $q->whereIn('status', ['pending', 'validated', 'approved', 'return_pending'])
                       ->where('borrow_date', '<=', $returnDate)
                       ->where('return_date', '>=', $borrowDate);
                 })
@@ -284,7 +284,7 @@ class BorrowItemsController extends Controller
         // Sum quantities of overlapping pending/approved requests for that item
         $alreadyReserved = BorrowRequestItem::where('item_id', $item->id)
                 ->whereHas('request', function ($q) use ($borrowDate, $returnDate) {
-                    $q->whereIn('status', ['pending', 'validated', 'approved', 'qr_verified', 'return_pending'])
+                    $q->whereIn('status', ['pending', 'validated', 'approved', 'return_pending'])
                     ->where('borrow_date', '<=', $returnDate)
                     ->where('return_date', '>=', $borrowDate);
                 })
@@ -306,7 +306,7 @@ class BorrowItemsController extends Controller
         // No date range requested: fallback to previous behavior (return unavailable dates)
         $requests = BorrowRequestItem::where('item_id', $item->id)
             ->whereHas('request', function ($q) {
-                $q->whereIn('status', ['pending', 'validated', 'approved', 'qr_verified', 'return_pending']);
+                $q->whereIn('status', ['pending', 'validated', 'approved', 'return_pending']);
             })
             ->with('request')
             ->get();

@@ -176,7 +176,7 @@ function renderItems() {
 
         wrapper.appendChild(createButtonFromTemplate("btn-view-template", req.id));
 
-        if (req.status === "validated" || req.status === "approved" || req.status === "qr_verified") {
+        if (req.status === "validated" || req.status === "approved") {
             wrapper.appendChild(createButtonFromTemplate("btn-print-template", req.id));
         }
 

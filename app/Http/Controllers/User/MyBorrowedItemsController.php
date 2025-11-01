@@ -40,7 +40,8 @@ class MyBorrowedItemsController extends Controller
             ->latest()
             ->get()
             ->map(function ($borrowRequest) {
-                
+                $status = $borrowRequest->status === 'qr_verified' ? 'approved' : $borrowRequest->status;
+
                 $items = $borrowRequest->items->map(function ($reqItem) {
                     return [
                         'quantity' => $reqItem->quantity,
@@ -61,7 +62,7 @@ class MyBorrowedItemsController extends Controller
                     'borrow_date' => $borrowRequest->borrow_date,
                     'return_date' => $borrowRequest->return_date,
                     'time_of_usage' => $borrowRequest->time_of_usage,
-                    'status' => $borrowRequest->status,
+                    'status' => $status,
                     'manpower_count' => $borrowRequest->manpower_count,
                     'location' => $borrowRequest->location, 
                     'purpose_office' => $borrowRequest->purpose_office,
@@ -98,13 +99,14 @@ class MyBorrowedItemsController extends Controller
         })->values();
 
         $instances = $this->fetchBorrowedInstances($borrowRequest->id);
+        $status = $borrowRequest->status === 'qr_verified' ? 'approved' : $borrowRequest->status;
 
         return response()->json([
             'id' => $borrowRequest->id,
             'borrow_date' => $borrowRequest->borrow_date,
             'return_date' => $borrowRequest->return_date,
             'time_of_usage' => $borrowRequest->time_of_usage,
-            'status' => $borrowRequest->status,
+            'status' => $status,
             'manpower_count' => $borrowRequest->manpower_count,
             'location' => $borrowRequest->location,
             'purpose_office' => $borrowRequest->purpose_office,

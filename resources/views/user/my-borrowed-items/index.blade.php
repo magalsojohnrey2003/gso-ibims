@@ -188,7 +188,7 @@
         <template data-status="return_pending"><x-status-badge type="info" text="Return Pending" /></template>
         <template data-status="returned"><x-status-badge type="success" text="Returned" /></template>
         <template data-status="rejected"><x-status-badge type="rejected" text="Rejected" /></template>
-        <template data-status="qr_verified"><x-status-badge type="qr" text="QR Verified" /></template>
+        <template data-status="qr_verified"><x-status-badge type="accepted" text="Approved" /></template>
         <template data-status="default"><x-status-badge type="gray" text="—" /></template>
         <template data-status="validated"><x-status-badge type="info" text="Validated" /></template>
 
@@ -202,7 +202,8 @@
 
         // Helper to pull badge HTML from the hidden templates
         window.renderStatusBadge = function(status) {
-            const key = (status || '').toLowerCase();
+            const raw = (status || '').toLowerCase();
+            const key = raw === 'qr_verified' ? 'approved' : raw;
             const tpl = document.querySelector(`#statusBadgeTemplates template[data-status="${key}"]`)
                       || document.querySelector('#statusBadgeTemplates template[data-status="default"]');
             return tpl ? tpl.innerHTML : `<span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">${status || '—'}</span>`;

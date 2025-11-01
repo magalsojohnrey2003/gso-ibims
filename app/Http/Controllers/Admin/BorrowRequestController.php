@@ -10,6 +10,7 @@ use App\Events\BorrowRequestStatusUpdated;
 use App\Notifications\RequestNotification;
 use App\Models\BorrowItemInstance;
 use App\Models\BorrowRequestItem;
+use App\Services\BorrowRequestFormPdf;
 
 class BorrowRequestController extends Controller
 {
@@ -24,17 +25,21 @@ class BorrowRequestController extends Controller
             ->latest()
             ->get()
             ->map(function (BorrowRequest $request) {
+                $status = $request->status === 'qr_verified' ? 'approved' : $request->status;
                 return [
                     'id' => $request->id,
                     'borrow_date' => $request->borrow_date,
                     'return_date' => $request->return_date,
-                    'status' => $request->status,
+                    'status' => $status,
                     'delivery_status' => $request->delivery_status,
                     'manpower_count' => $request->manpower_count,
                     'manpower_adjustment_reason' => $request->manpower_adjustment_reason,
                     'location' => $request->location,
                     'letter_path' => $request->letter_path,
                     'letter_url' => $this->makeLetterUrl($request->letter_path),
+                    'qr_verified_form_path' => $request->qr_verified_form_path,
+                    'qr_verified_form_url' => $this->makeLetterUrl($request->qr_verified_form_path),
+                    'approved_form_url' => $this->makeLetterUrl($request->qr_verified_form_path),
                     'user' => $request->user ? [
                         'id' => $request->user->id,
                         'first_name' => $request->user->first_name,
@@ -68,7 +73,7 @@ class BorrowRequestController extends Controller
         ]);
 
         $old = $borrowRequest->status;
-        $new = $request->status;
+        $new = $request->status === 'qr_verified' ? 'approved' : $request->status;
 
         if ($old === $new) {
             return response()->json([
@@ -277,13 +282,13 @@ class BorrowRequestController extends Controller
         }
     }
 
-    public function scan(Request $request, BorrowRequest $borrowRequest)
+    public function scan(Request $request, BorrowRequest $borrowRequest, BorrowRequestFormPdf $formPdf)
     {
         $oldStatus = $borrowRequest->status ?? 'pending';
         $wasUpdated = false;
 
-        if ($borrowRequest->status !== 'qr_verified') {
-            $borrowRequest->status = 'qr_verified';
+        if ($borrowRequest->status !== 'approved') {
+            $borrowRequest->status = 'approved';
             $borrowRequest->save();
 
             event(new BorrowRequestStatusUpdated($borrowRequest->fresh(), $oldStatus, $borrowRequest->status));
@@ -292,14 +297,38 @@ class BorrowRequestController extends Controller
         }
 
         $message = $wasUpdated
-            ? 'Borrow request marked as QR verified.'
-            : 'Borrow request was already marked as QR verified.';
+            ? 'Borrow request marked as Approved via QR scan.'
+            : 'Borrow request was already marked as Approved.';
+
+        $downloadUrl = null;
+
+        try {
+            $result = $formPdf->render($borrowRequest);
+            $timestamp = now()->format('YmdHis');
+            $path = "qr-verified-forms/request-{$borrowRequest->id}/borrow-request-{$borrowRequest->id}-{$timestamp}.pdf";
+            $disk = Storage::disk('public');
+
+            if ($borrowRequest->qr_verified_form_path && $disk->exists($borrowRequest->qr_verified_form_path)) {
+                $disk->delete($borrowRequest->qr_verified_form_path);
+            }
+
+            $disk->put($path, $result['content']);
+
+            $borrowRequest->qr_verified_form_path = $path;
+            $borrowRequest->save();
+
+            $downloadUrl = $this->makeLetterUrl($path);
+        } catch (\Throwable $e) {
+            report($e);
+        }
 
         if ($request->expectsJson()) {
             return response()->json([
                 'message' => $message,
                 'status' => $borrowRequest->status,
                 'updated' => $wasUpdated,
+                'qr_verified_form_url' => $downloadUrl,
+                'approved_form_url' => $downloadUrl,
             ]);
         }
 
@@ -307,6 +336,7 @@ class BorrowRequestController extends Controller
             'borrowRequest' => $borrowRequest,
             'updated' => $wasUpdated,
             'message' => $message,
+            'downloadUrl' => $downloadUrl,
         ]);
     }
 
@@ -358,6 +388,11 @@ class BorrowRequestController extends Controller
 
     public function dispatch(Request $request, BorrowRequest $borrowRequest)
     {
+        if ($borrowRequest->status === 'qr_verified') {
+            $borrowRequest->status = 'approved';
+            $borrowRequest->save();
+        }
+
         if ($borrowRequest->status !== 'validated' && $borrowRequest->status !== 'approved') {
             return response()->json(['message' => 'Only validated or approved requests can be dispatched.'], 422);
         }

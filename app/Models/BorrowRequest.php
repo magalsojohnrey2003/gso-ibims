@@ -17,6 +17,7 @@ class BorrowRequest extends Model
         'manpower_adjustment_reason',
         'location',
         'letter_path',
+        'qr_verified_form_path',
         'status',
         'delivery_status',
         'dispatched_at',

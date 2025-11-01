@@ -155,7 +155,7 @@ function buildStatusBadge(status, deliveryStatus) {
     if (statusKey === 'validated') {
         return { label: 'Validated', classes: 'bg-blue-100 text-blue-700' };
     }
-    if (statusKey === 'approved') {
+    if (statusKey === 'approved' || statusKey === 'qr_verified') {
         return { label: 'Approved', classes: 'bg-indigo-100 text-indigo-700' };
     }
     if (statusKey === 'rejected') {
@@ -163,9 +163,6 @@ function buildStatusBadge(status, deliveryStatus) {
     }
     if (statusKey === 'returned') {
         return { label: 'Returned', classes: 'bg-emerald-100 text-emerald-700' };
-    }
-    if (statusKey === 'qr_verified') {
-        return { label: 'QR Verified', classes: 'bg-teal-100 text-teal-700' };
     }
     if (statusKey === 'pending') {
         return { label: 'Pending', classes: 'bg-yellow-100 text-yellow-700' };
@@ -204,13 +201,14 @@ function renderBorrowRequests() {
         const wrapper = document.createElement('div');
         wrapper.className = 'flex justify-center gap-2';
 
-        const statusKey = String(req.status || '').toLowerCase();
+        const statusKeyRaw = String(req.status || '').toLowerCase();
+        const statusKey = statusKeyRaw === 'qr_verified' ? 'approved' : statusKeyRaw;
         const deliveryKey = String(req.delivery_status || '').toLowerCase();
 
         if (statusKey === 'pending') {
             wrapper.appendChild(createButtonFromTemplate('btn-validate-template', req.id));
             wrapper.appendChild(createButtonFromTemplate('btn-reject-template', req.id));
-        } else if (statusKey === 'validated') {
+        } else if (['validated', 'approved'].includes(statusKey)) {
             wrapper.appendChild(createButtonFromTemplate('btn-deliver-template', req.id));
         } else if (deliveryKey === 'dispatched' || ['approved', 'returned', 'rejected'].includes(statusKey)) {
             wrapper.appendChild(createButtonFromTemplate('btn-view-template', req.id));
