@@ -340,6 +340,87 @@ class BorrowItemsController extends Controller
         return response()->json($unavailableDates);
     }
 
+    /**
+     * Get booked dates for all items in the borrow list
+     * Returns dates where any item in the list would be fully booked
+     * considering the requested quantities for each item.
+     */
+    public function borrowListAvailability(Request $request)
+    {
+        $borrowList = Session::get('borrowList', []);
+        
+        if (empty($borrowList)) {
+            return response()->json([]);
+        }
+
+        // Get all item IDs and their requested quantities
+        $itemIds = array_keys($borrowList);
+        $items = Item::whereIn('id', $itemIds)->get()->keyBy('id');
+        
+        // Get all active borrow requests for these items
+        $requests = BorrowRequestItem::whereIn('item_id', $itemIds)
+            ->whereHas('request', function ($q) {
+                $q->whereIn('status', ['pending', 'validated', 'approved', 'return_pending']);
+            })
+            ->with('request')
+            ->get();
+
+        // For each date, track how many items are booked per item
+        $dateItemCounts = []; // [date => [item_id => booked_qty]]
+        $bookedDates = []; // Dates where ANY item is fully booked
+
+        foreach ($requests as $reqItem) {
+            $borrow = optional($reqItem->request)->borrow_date;
+            $return = optional($reqItem->request)->return_date;
+            if (!$borrow || !$return) continue;
+
+            $period = new \DatePeriod(
+                new \DateTime($borrow),
+                new \DateInterval('P1D'),
+                (new \DateTime($return))->modify('+1 day')
+            );
+
+            foreach ($period as $date) {
+                $d = $date->format("Y-m-d");
+                if (!isset($dateItemCounts[$d])) {
+                    $dateItemCounts[$d] = [];
+                }
+                if (!isset($dateItemCounts[$d][$reqItem->item_id])) {
+                    $dateItemCounts[$d][$reqItem->item_id] = 0;
+                }
+                $dateItemCounts[$d][$reqItem->item_id] += $reqItem->quantity;
+            }
+        }
+
+        // Check each date: mark as booked if any item would be fully booked
+        // considering the requested quantities from the borrow list
+        foreach ($dateItemCounts as $date => $itemBookings) {
+            foreach ($borrowList as $itemId => $listItem) {
+                if (!isset($items[$itemId])) {
+                    continue;
+                }
+                
+                $item = $items[$itemId];
+                $requestedQty = (int) ($listItem['qty'] ?? 1);
+                $bookedQty = (int) ($itemBookings[$itemId] ?? 0);
+                
+                // If booked quantity >= total quantity, this item is fully booked on this date
+                if ($bookedQty >= $item->total_qty) {
+                    $bookedDates[$date] = true;
+                    break 2; // Break out of both loops - this date is booked
+                }
+                
+                // If booked quantity + requested quantity > total quantity, also mark as booked
+                if ($bookedQty + $requestedQty > $item->total_qty) {
+                    $bookedDates[$date] = true;
+                    break 2; // Break out of both loops - this date is booked
+                }
+            }
+        }
+
+        // Return array of booked dates (YYYY-MM-DD format)
+        return response()->json(array_keys($bookedDates));
+    }
 
     /**
      * User confirms they received the items.

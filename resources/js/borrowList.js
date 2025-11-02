@@ -139,22 +139,13 @@ window.changeBorrowMonth = function(step) {
     if (borrowMonth > 11) { borrowMonth = 0; borrowYear++; }
     if (borrowMonth < 0)  { borrowMonth = 11; borrowYear--; }
 
-    const itemId = getFirstItemIdFromList();
-    if (itemId) {
-        loadBorrowCalendar(itemId, borrowMonth, borrowYear);
-    } else {
-        renderBorrowCalendar(borrowMonth, borrowYear);
-    }
+    // Always load calendar with availability for all items
+    loadBorrowCalendar(null, borrowMonth, borrowYear);
 };
 
 function loadBorrowCalendar(itemId, month, year) {
-    if (!itemId) {
-        blockedBorrowDates = [];
-        renderBorrowCalendar(month, year);
-        return;
-    }
-
-    fetch(`/user/availability/${itemId}`)
+    // Load availability for all items in the borrow list
+    fetch('/user/borrow-list/availability')
         .then(res => {
             if (!res.ok) throw new Error('Network response not ok');
             return res.json();
@@ -341,14 +332,8 @@ function highlightBorrowRange(start, end, options = { jumpToMonth: true }) {
     if (options && options.jumpToMonth && endDate && (endDate.getMonth() !== borrowMonth || endDate.getFullYear() !== borrowYear)) {
         borrowMonth = endDate.getMonth();
         borrowYear = endDate.getFullYear();
-        const itemId = getFirstItemIdFromList();
-        if (itemId) {
-            loadBorrowCalendar(itemId, borrowMonth, borrowYear);
-            return;
-        } else {
-            renderBorrowCalendar(borrowMonth, borrowYear);
-            return;
-        }
+        loadBorrowCalendar(null, borrowMonth, borrowYear);
+        return;
     }
 
     const days = document.querySelectorAll('#borrowAvailabilityCalendar [data-date]');
@@ -610,15 +595,10 @@ document.addEventListener("DOMContentLoaded", function() {
         if (bDate) { borrowMonth = bDate.getMonth(); borrowYear = bDate.getFullYear(); }
     }
 
-    // Auto-load availability for first item or render plain calendar
+    // Auto-load availability for all items in borrow list
     const availabilityContainer = document.getElementById('borrowAvailabilityCalendar');
     if (availabilityContainer) {
-        const firstItemId = getFirstItemIdFromList();
-        if (firstItemId) {
-            loadBorrowCalendar(firstItemId, borrowMonth, borrowYear);
-        } else {
-            renderBorrowCalendar(borrowMonth, borrowYear);
-        }
+        loadBorrowCalendar(null, borrowMonth, borrowYear);
     }
 
     // Initialize Item Usage read-only inputs and dates line
@@ -679,5 +659,39 @@ document.addEventListener("DOMContentLoaded", function() {
     };
     if (letterInput) {
         letterInput.addEventListener('change', updateLetterPreview);
+    }
+
+    // Helper function to check if Step 2 (calendar) is visible
+    function isStep2Visible() {
+        const step2 = document.querySelector('[data-step="2"]');
+        return step2 && !step2.classList.contains('hidden');
+    }
+
+    // Refresh calendar when items or quantities change (only if Step 2 is visible)
+    window.addEventListener('borrow:item-quantity-changed', () => {
+        if (isStep2Visible()) {
+            // Reload availability when quantity changes
+            loadBorrowCalendar(null, borrowMonth, borrowYear);
+        }
+    });
+
+    // Observe changes to the borrow list container to refresh calendar (only if Step 2 is visible)
+    const borrowListContainer = document.getElementById('borrowListItems');
+    if (borrowListContainer) {
+        let refreshTimeout;
+        const observer = new MutationObserver(() => {
+            // Debounce to avoid too many API calls
+            clearTimeout(refreshTimeout);
+            refreshTimeout = setTimeout(() => {
+                if (isStep2Visible()) {
+                    // When items are added or removed, refresh calendar
+                    loadBorrowCalendar(null, borrowMonth, borrowYear);
+                }
+            }, 300);
+        });
+        observer.observe(borrowListContainer, {
+            childList: true,
+            subtree: true
+        });
     }
 });
