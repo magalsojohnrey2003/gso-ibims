@@ -281,12 +281,14 @@ class BorrowItemsController extends Controller
                 ], 422);
             }
 
-        // Sum quantities of overlapping pending/approved requests for that item
+        // Sum quantities of overlapping dispatched/delivered requests for that item
+        // Only dispatched/delivered requests are considered as actually using stock (per requirement)
         $alreadyReserved = BorrowRequestItem::where('item_id', $item->id)
                 ->whereHas('request', function ($q) use ($borrowDate, $returnDate) {
-                    $q->whereIn('status', ['pending', 'validated', 'approved', 'return_pending'])
-                    ->where('borrow_date', '<=', $returnDate)
-                    ->where('return_date', '>=', $borrowDate);
+                    $q->whereIn('delivery_status', ['dispatched', 'delivered'])
+                      ->whereIn('status', ['approved', 'return_pending', 'returned'])
+                      ->where('borrow_date', '<=', $returnDate)
+                      ->where('return_date', '>=', $borrowDate);
                 })
                 ->sum('quantity');
 
@@ -304,9 +306,11 @@ class BorrowItemsController extends Controller
         }
 
         // No date range requested: fallback to previous behavior (return unavailable dates)
+        // Only consider dispatched/delivered requests as actually using stock (per requirement)
         $requests = BorrowRequestItem::where('item_id', $item->id)
             ->whereHas('request', function ($q) {
-                $q->whereIn('status', ['pending', 'validated', 'approved', 'return_pending']);
+                $q->whereIn('delivery_status', ['dispatched', 'delivered'])
+                  ->whereIn('status', ['approved', 'return_pending', 'returned']);
             })
             ->with('request')
             ->get();
@@ -338,6 +342,105 @@ class BorrowItemsController extends Controller
         }
 
         return response()->json($unavailableDates);
+    }
+
+    /**
+     * Availability API for multiple items
+     * Returns dates that are booked (where any item has insufficient stock)
+     * 
+     * Expected query parameters:
+     * - items: JSON array of {item_id, quantity} objects
+     */
+    public function availabilityMultiple(Request $request)
+    {
+        $itemsJson = $request->query('items', '[]');
+        $items = json_decode($itemsJson, true);
+        
+        if (!is_array($items) || empty($items)) {
+            return response()->json([]);
+        }
+
+        // Get all item IDs and quantities
+        $itemMap = [];
+        foreach ($items as $itemData) {
+            $itemId = (int) ($itemData['item_id'] ?? 0);
+            $quantity = (int) ($itemData['quantity'] ?? 0);
+            if ($itemId > 0 && $quantity > 0) {
+                $itemMap[$itemId] = $quantity;
+            }
+        }
+
+        if (empty($itemMap)) {
+            return response()->json([]);
+        }
+
+        // Load items from database
+        $dbItems = Item::whereIn('id', array_keys($itemMap))->get()->keyBy('id');
+        
+        // Get all borrowed items for these items (only dispatched/delivered)
+        $requests = BorrowRequestItem::whereIn('item_id', array_keys($itemMap))
+            ->whereHas('request', function ($q) {
+                $q->whereIn('delivery_status', ['dispatched', 'delivered'])
+                  ->whereIn('status', ['approved', 'return_pending', 'returned']);
+            })
+            ->with('request')
+            ->get();
+
+        // Build date counts per item
+        $itemCounts = [];
+        foreach ($itemMap as $itemId => $requestedQty) {
+            $itemCounts[$itemId] = [];
+        }
+
+        foreach ($requests as $reqItem) {
+            $itemId = $reqItem->item_id;
+            if (!isset($itemCounts[$itemId])) continue;
+
+            $borrow = optional($reqItem->request)->borrow_date;
+            $return = optional($reqItem->request)->return_date;
+            if (! $borrow || ! $return) continue;
+
+            $period = new \DatePeriod(
+                new \DateTime($borrow),
+                new \DateInterval('P1D'),
+                (new \DateTime($return))->modify('+1 day')
+            );
+
+            foreach ($period as $date) {
+                $d = $date->format("Y-m-d");
+                if (! isset($itemCounts[$itemId][$d])) {
+                    $itemCounts[$itemId][$d] = 0;
+                }
+                $itemCounts[$itemId][$d] += $reqItem->quantity;
+            }
+        }
+
+        // Find dates where ANY item has insufficient stock
+        $bookedDates = [];
+        foreach ($itemCounts as $itemId => $counts) {
+            $item = $dbItems[$itemId] ?? null;
+            if (!$item) continue;
+
+            $totalQty = (int) $item->total_qty;
+            $requestedQty = $itemMap[$itemId];
+
+            foreach ($counts as $date => $borrowedQty) {
+                $remaining = max(0, $totalQty - $borrowedQty);
+                if ($remaining < $requestedQty) {
+                    if (!in_array($date, $bookedDates)) {
+                        $bookedDates[] = $date;
+                    }
+                }
+            }
+
+            // Also check if total stock is less than requested (item permanently unavailable)
+            if ($totalQty < $requestedQty) {
+                // This would require checking all dates, but for now we'll let the calendar handle it
+            }
+        }
+
+        sort($bookedDates);
+        return response()->json($bookedDates);
     }
 
 

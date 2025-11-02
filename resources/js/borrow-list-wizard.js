@@ -104,6 +104,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         setIndicatorState(index);
         updateSummary();
+        
+        // Reload calendar when entering Step 2 (Schedule)
+        if (index === 1 && typeof window.loadBorrowCalendar === 'function') {
+            // Use setTimeout to ensure the DOM is updated
+            setTimeout(() => {
+                const borrowMonth = window.borrowMonth || new Date().getMonth();
+                const borrowYear = window.borrowYear || new Date().getFullYear();
+                window.loadBorrowCalendar(null, borrowMonth, borrowYear);
+            }, 100);
+        }
+        
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 

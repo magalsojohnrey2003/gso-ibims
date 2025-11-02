@@ -134,6 +134,7 @@ Route::middleware(['auth', 'role:user', 'nocache'])
 
         // Availability
         Route::get('availability/{item}', [BorrowItemsController::class, 'availability'])->name('borrowList.availability');
+        Route::get('availability', [BorrowItemsController::class, 'availabilityMultiple'])->name('borrowList.availability.multiple');
         // Location lookup
         Route::get('locations/barangays', [LocationController::class, 'barangays'])->name('user.locations.barangays');
         Route::get('locations/puroks', [LocationController::class, 'puroks'])->name('user.locations.puroks');

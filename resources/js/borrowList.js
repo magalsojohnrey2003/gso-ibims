@@ -3,6 +3,10 @@ let selectedBorrowDates = []; // still used as computed highlighted date list
 let borrowMonth = new Date().getMonth();
 let borrowYear = new Date().getFullYear();
 let blockedBorrowDates = [];
+
+// Expose to window for external access
+window.borrowMonth = borrowMonth;
+window.borrowYear = borrowYear;
 const MAX_BORROW_DAYS = 3; // inclusive max days
 
 // Use neutral for available, blue for borrow, amber for return, gray for range, red for booked
@@ -138,23 +142,40 @@ window.changeBorrowMonth = function(step) {
     borrowMonth += step;
     if (borrowMonth > 11) { borrowMonth = 0; borrowYear++; }
     if (borrowMonth < 0)  { borrowMonth = 11; borrowYear--; }
+    
+    // Update window references
+    window.borrowMonth = borrowMonth;
+    window.borrowYear = borrowYear;
 
-    const itemId = getFirstItemIdFromList();
-    if (itemId) {
-        loadBorrowCalendar(itemId, borrowMonth, borrowYear);
-    } else {
-        renderBorrowCalendar(borrowMonth, borrowYear);
-    }
+    // Always use loadBorrowCalendar which now handles multiple items
+    window.loadBorrowCalendar(null, borrowMonth, borrowYear);
 };
 
-function loadBorrowCalendar(itemId, month, year) {
-    if (!itemId) {
+window.loadBorrowCalendar = function loadBorrowCalendar(itemId, month, year) {
+    // Collect all items from the borrow list with their quantities
+    const itemEntries = document.querySelectorAll('[data-item-entry]');
+    const items = [];
+    
+    itemEntries.forEach(entry => {
+        const itemId = entry.dataset.itemId;
+        const quantity = parseInt(entry.dataset.itemQuantity || entry.querySelector('.borrow-quantity-input')?.value || '0', 10);
+        if (itemId && quantity > 0) {
+            items.push({
+                item_id: parseInt(itemId, 10),
+                quantity: quantity
+            });
+        }
+    });
+
+    if (items.length === 0) {
         blockedBorrowDates = [];
         renderBorrowCalendar(month, year);
         return;
     }
 
-    fetch(`/user/availability/${itemId}`)
+    // Use the new multiple items availability endpoint
+    const itemsJson = encodeURIComponent(JSON.stringify(items));
+    fetch(`/user/availability?items=${itemsJson}`)
         .then(res => {
             if (!res.ok) throw new Error('Network response not ok');
             return res.json();
@@ -168,7 +189,7 @@ function loadBorrowCalendar(itemId, month, year) {
             renderBorrowCalendar(month, year);
             console.error('Failed to load availability', err);
         });
-}
+};
 
 function renderBorrowCalendar(month, year) {
     const today = new Date();
@@ -341,14 +362,12 @@ function highlightBorrowRange(start, end, options = { jumpToMonth: true }) {
     if (options && options.jumpToMonth && endDate && (endDate.getMonth() !== borrowMonth || endDate.getFullYear() !== borrowYear)) {
         borrowMonth = endDate.getMonth();
         borrowYear = endDate.getFullYear();
-        const itemId = getFirstItemIdFromList();
-        if (itemId) {
-            loadBorrowCalendar(itemId, borrowMonth, borrowYear);
-            return;
-        } else {
-            renderBorrowCalendar(borrowMonth, borrowYear);
-            return;
+        window.borrowMonth = borrowMonth;
+        window.borrowYear = borrowYear;
+        if (typeof window.loadBorrowCalendar === 'function') {
+            window.loadBorrowCalendar(null, borrowMonth, borrowYear);
         }
+        return;
     }
 
     const days = document.querySelectorAll('#borrowAvailabilityCalendar [data-date]');
@@ -458,6 +477,12 @@ function dispatchQuantityChange(container, quantity) {
     };
 
     window.dispatchEvent(new CustomEvent('borrow:item-quantity-changed', { detail }));
+    
+    // Reload calendar when quantity changes to update booked dates
+    const availabilityContainer = document.getElementById('borrowAvailabilityCalendar');
+    if (availabilityContainer && typeof window.loadBorrowCalendar === 'function') {
+        window.loadBorrowCalendar(null, borrowMonth, borrowYear);
+    }
 }
 
 function bindEditableItemQuantities() {
@@ -601,24 +626,29 @@ document.addEventListener("DOMContentLoaded", function() {
         if (borrowDisplay) borrowDisplay.textContent = formatLong(borrowHidden.value);
         if (returnDisplay) returnDisplay.textContent = formatLong(returnHidden.value);
         const endDate = parseYMD(returnHidden.value);
-        if (endDate) { borrowMonth = endDate.getMonth(); borrowYear = endDate.getFullYear(); }
+        if (endDate) { 
+            borrowMonth = endDate.getMonth(); 
+            borrowYear = endDate.getFullYear();
+            window.borrowMonth = borrowMonth;
+            window.borrowYear = borrowYear;
+        }
     } else if (borrowHidden && borrowHidden.value) {
         borrowPick = borrowHidden.value;
         const borrowDisplay = document.getElementById('borrow_date_display');
         if (borrowDisplay) borrowDisplay.textContent = formatLong(borrowHidden.value);
         const bDate = parseYMD(borrowHidden.value);
-        if (bDate) { borrowMonth = bDate.getMonth(); borrowYear = bDate.getFullYear(); }
+        if (bDate) { 
+            borrowMonth = bDate.getMonth(); 
+            borrowYear = bDate.getFullYear();
+            window.borrowMonth = borrowMonth;
+            window.borrowYear = borrowYear;
+        }
     }
 
-    // Auto-load availability for first item or render plain calendar
+    // Auto-load availability for all items in the list
     const availabilityContainer = document.getElementById('borrowAvailabilityCalendar');
-    if (availabilityContainer) {
-        const firstItemId = getFirstItemIdFromList();
-        if (firstItemId) {
-            loadBorrowCalendar(firstItemId, borrowMonth, borrowYear);
-        } else {
-            renderBorrowCalendar(borrowMonth, borrowYear);
-        }
+    if (availabilityContainer && typeof window.loadBorrowCalendar === 'function') {
+        window.loadBorrowCalendar(null, borrowMonth, borrowYear);
     }
 
     // Initialize Item Usage read-only inputs and dates line
