@@ -72,9 +72,17 @@
                 >
 
                     <!-- Item Image -->
-                    <img src="{{ $item->photo 
-                                ? asset('storage/'.$item->photo) 
-                                : asset($defaultPhotos[$item->category] ?? 'images/no-image.png') }}"
+                    @php
+                        $photoUrl = null;
+                        if ($item->photo) {
+                            $photoUrl = \Illuminate\Support\Facades\Storage::disk('public')->exists($item->photo)
+                                ? \Illuminate\Support\Facades\Storage::disk('public')->url($item->photo)
+                                : asset($item->photo);
+                        } else {
+                            $photoUrl = asset($defaultPhotos[$item->category] ?? 'images/no-image.png');
+                        }
+                    @endphp
+                    <img src="{{ $photoUrl }}"
                          alt="{{ $item->name }}" 
                          class="h-32 w-full object-cover rounded border-2 border-purple-500 mb-3">
 

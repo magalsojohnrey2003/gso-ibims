@@ -1094,10 +1094,8 @@ class SerialModelRowsManager {
       if (serialInput && !serialInput.disabled) {
         const value = (serialInput.value || '').trim().toUpperCase();
         serialInput.value = value;
-        if (!value) {
-          this.clearInvalid(serialInput, 'empty');
-          this.clearInvalid(serialInput, 'format');
-        } else if (!serialRegex.test(value)) {
+        // Allow empty values - only validate format if value is provided
+        if (value && !serialRegex.test(value)) {
           this.clearInvalid(serialInput, 'empty');
           this.markInvalid(serialInput, 'format');
           errors.add('serial_no');
@@ -1111,10 +1109,8 @@ class SerialModelRowsManager {
       if (modelInput && !modelInput.disabled) {
         const value = (modelInput.value || '').trim().toUpperCase();
         modelInput.value = value;
-        if (!value) {
-          this.clearInvalid(modelInput, 'empty');
-          this.clearInvalid(modelInput, 'format');
-        } else if (!modelRegex.test(value)) {
+        // Allow empty values - only validate format if value is provided
+        if (value && !modelRegex.test(value)) {
           this.clearInvalid(modelInput, 'empty');
           this.markInvalid(modelInput, 'format');
           errors.add('model_no');
@@ -1431,6 +1427,8 @@ function handleSuccess(form, elements, result) {
   form.reset();
   form.dispatchEvent(new Event('reset'));
   window.dispatchEvent(new CustomEvent('close-modal', { detail: 'create-item' }));
+  
+  // Reload page to show updated items with photos
   window.location.reload();
 }
 

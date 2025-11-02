@@ -174,12 +174,24 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        if (letterFileName && letterInput?.files?.length) {
-            letterFileName.textContent = letterInput.files[0].name;
-            letterFileName.classList.remove('hidden');
-        } else if (letterFileName) {
-            letterFileName.textContent = '';
-            letterFileName.classList.add('hidden');
+        if (letterFileName) {
+            const pondInstance = letterInput?.filepond;
+            if (pondInstance) {
+                const files = pondInstance.getFiles();
+                if (files && files.length > 0) {
+                    letterFileName.textContent = files[0].file.name;
+                    letterFileName.classList.remove('hidden');
+                } else {
+                    letterFileName.textContent = '';
+                    letterFileName.classList.add('hidden');
+                }
+            } else if (letterInput?.files?.length) {
+                letterFileName.textContent = letterInput.files[0].name;
+                letterFileName.classList.remove('hidden');
+            } else {
+                letterFileName.textContent = '';
+                letterFileName.classList.add('hidden');
+            }
         }
     };
 
@@ -224,10 +236,53 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (modalLetterName) {
-            if (letterInput?.files?.length) {
+            const pondInstance = letterInput?.filepond;
+            if (pondInstance) {
+                const files = pondInstance.getFiles();
+                if (files && files.length > 0) {
+                    const file = files[0].file;
+                    modalLetterName.textContent = file.name;
+                    // If it's an image, show preview
+                    if (file.type && file.type.startsWith('image/')) {
+                        const previewImg = document.getElementById('modalLetterImage');
+                        if (previewImg) {
+                            const fileUrl = URL.createObjectURL(file);
+                            previewImg.src = fileUrl;
+                            previewImg.classList.remove('hidden');
+                            modalLetterName.classList.add('hidden');
+                        }
+                    } else {
+                        modalLetterName.classList.remove('hidden');
+                        const previewImg = document.getElementById('modalLetterImage');
+                        if (previewImg) {
+                            previewImg.src = '';
+                            previewImg.classList.add('hidden');
+                        }
+                    }
+                } else {
+                    modalLetterName.textContent = 'No letter uploaded.';
+                    modalLetterName.classList.remove('hidden');
+                    const previewImg = document.getElementById('modalLetterImage');
+                    if (previewImg) {
+                        previewImg.src = '';
+                        previewImg.classList.add('hidden');
+                    }
+                }
+            } else if (letterInput?.files?.length) {
                 modalLetterName.textContent = letterInput.files[0].name;
+                const file = letterInput.files[0];
+                if (file.type && file.type.startsWith('image/')) {
+                    const previewImg = document.getElementById('modalLetterImage');
+                    if (previewImg) {
+                        const fileUrl = URL.createObjectURL(file);
+                        previewImg.src = fileUrl;
+                        previewImg.classList.remove('hidden');
+                        modalLetterName.classList.add('hidden');
+                    }
+                }
             } else {
                 modalLetterName.textContent = 'No letter uploaded.';
+                modalLetterName.classList.remove('hidden');
             }
         }
     };
@@ -257,8 +312,66 @@ document.addEventListener('DOMContentLoaded', () => {
         step3BackBtn.addEventListener('click', () => goToStep(1));
     }
 
+    // Handle FilePond file changes for letter input
+    const checkLetterFile = () => {
+        if (!letterInput) return false;
+        // Check if FilePond is initialized on this input
+        const pondInstance = letterInput.filepond;
+        if (pondInstance) {
+            // FilePond instance exists
+            const files = pondInstance.getFiles();
+            return files && files.length > 0;
+        }
+        // Fallback to regular file input
+        return letterInput.files && letterInput.files.length > 0;
+    };
+
     if (letterInput) {
-        letterInput.addEventListener('change', updateSummary);
+        // Wait for FilePond to initialize, then attach listener
+        setTimeout(() => {
+            const pondInstance = letterInput.filepond;
+            if (pondInstance) {
+                pondInstance.on('addfile', () => {
+                    updateSummary();
+                    // Update modal preview
+                    const files = pondInstance.getFiles();
+                    if (files && files.length > 0) {
+                        const file = files[0].file;
+                        if (modalLetterName) {
+                            modalLetterName.textContent = file.name;
+                        }
+                        // If it's an image, show preview
+                        if (file.type && file.type.startsWith('image/')) {
+                            const previewImg = document.getElementById('modalLetterImage');
+                            if (previewImg && pondInstance) {
+                                const fileObj = files[0];
+                                const fileUrl = URL.createObjectURL(file);
+                                previewImg.src = fileUrl;
+                                previewImg.classList.remove('hidden');
+                                if (modalLetterName) {
+                                    modalLetterName.classList.add('hidden');
+                                }
+                            }
+                        }
+                    }
+                });
+                pondInstance.on('removefile', () => {
+                    updateSummary();
+                    if (modalLetterName) {
+                        modalLetterName.textContent = 'No letter uploaded.';
+                        modalLetterName.classList.remove('hidden');
+                    }
+                    const previewImg = document.getElementById('modalLetterImage');
+                    if (previewImg) {
+                        previewImg.src = '';
+                        previewImg.classList.add('hidden');
+                    }
+                });
+            } else {
+                // Fallback to regular file input
+                letterInput.addEventListener('change', updateSummary);
+            }
+        }, 500);
     }
 
     if (openConfirmModalBtn) {
@@ -273,7 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 goToStep(0);
                 return;
             }
-            if (!letterInput?.files?.length) {
+            if (!checkLetterFile()) {
                 alert('Please upload your letter before submitting.');
                 return;
             }
@@ -332,10 +445,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (purposeInput) {
         purposeInput.addEventListener('input', updateSummary);
-    }
-
-    if (letterInput) {
-        letterInput.addEventListener('change', updateSummary);
     }
 
     updateStep1NextState();

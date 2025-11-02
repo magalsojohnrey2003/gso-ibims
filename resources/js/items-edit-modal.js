@@ -132,10 +132,39 @@ function wireEditForm(form) {
       showToast('success', message);
       showMessage(feedbackEl, message);
 
+      // Update the photo in the table if a new photo was uploaded
+      if (data.photo && data.item_id) {
+        const photoCell = document.querySelector(`[data-item-row="${data.item_id}"] [data-item-photo]`);
+        if (photoCell) {
+          const existingImg = photoCell.querySelector('[data-item-photo-img]');
+          if (existingImg) {
+            existingImg.src = data.photo;
+          } else {
+            // Create new image element if it doesn't exist
+            const newImg = document.createElement('img');
+            newImg.src = data.photo;
+            newImg.className = 'h-12 w-12 object-cover rounded-lg shadow-sm';
+            newImg.setAttribute('data-item-photo-img', '');
+            photoCell.innerHTML = '';
+            const wrapper = document.createElement('div');
+            wrapper.className = 'flex justify-center';
+            wrapper.appendChild(newImg);
+            photoCell.appendChild(wrapper);
+          }
+        }
+      }
+
       if (modalName) {
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent('close-modal', { detail: modalName }));
-        }, 200);
+          // Reload page to ensure all data is refreshed
+          window.location.reload();
+        }, 500);
+      } else {
+        // If no modal name, reload immediately
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
       }
     } catch (error) {
       console.error(error);

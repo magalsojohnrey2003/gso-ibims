@@ -88,9 +88,10 @@ class BorrowItemsController extends Controller
 
         $borrowList = Session::get('borrowList', []);
 
+        // Store the photo path (views will handle URL generation consistently)
         $photoPath = $item->photo
             ? $item->photo
-            : $this->defaultPhotos[$item->category] ?? 'images/no-image.png';
+            : ($this->defaultPhotos[$item->category] ?? 'images/no-image.png');
 
         if (isset($borrowList[$item->id])) {
             $newQty = min($borrowList[$item->id]['qty'] + $qty, $item->total_qty);
