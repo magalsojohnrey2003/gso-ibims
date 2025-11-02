@@ -5,6 +5,30 @@ let BORROW_CACHE = [];
 let currentPage = 1;
 const PER_PAGE = 5;
 
+function updateBorrowRequestInCache(id, updater) {
+    const targetId = Number(id);
+    let changed = false;
+
+    BORROW_CACHE = BORROW_CACHE.map((req) => {
+        if (Number(req.id) !== targetId) {
+            return req;
+        }
+
+        const next = { ...req };
+        try {
+            updater(next);
+        } catch (err) {
+            console.error('Failed to update borrow request cache', err);
+        }
+        changed = true;
+        return next;
+    });
+
+    if (changed) {
+        renderBorrowRequests();
+    }
+}
+
 function formatDate(value) {
     if (!value) return 'N/A';
     const date = new Date(value);
@@ -149,7 +173,7 @@ function buildStatusBadge(status, deliveryStatus) {
     const statusKey = String(status || '').toLowerCase();
     const deliveryKey = String(deliveryStatus || '').toLowerCase();
 
-    if (deliveryKey === 'dispatched') {
+    if (['dispatched', 'delivered'].includes(deliveryKey)) {
         return { label: 'Delivered', classes: 'bg-emerald-100 text-emerald-700' };
     }
     if (statusKey === 'validated') {
@@ -157,6 +181,9 @@ function buildStatusBadge(status, deliveryStatus) {
     }
     if (statusKey === 'approved' || statusKey === 'qr_verified') {
         return { label: 'Approved', classes: 'bg-indigo-100 text-indigo-700' };
+    }
+    if (statusKey === 'delivered') {
+        return { label: 'Delivered', classes: 'bg-emerald-100 text-emerald-700' };
     }
     if (statusKey === 'rejected') {
         return { label: 'Rejected', classes: 'bg-red-100 text-red-700' };
@@ -208,10 +235,10 @@ function renderBorrowRequests() {
         if (statusKey === 'pending') {
             wrapper.appendChild(createButtonFromTemplate('btn-validate-template', req.id));
             wrapper.appendChild(createButtonFromTemplate('btn-reject-template', req.id));
+        } else if (['dispatched', 'delivered'].includes(deliveryKey) || ['returned', 'rejected', 'delivered'].includes(statusKey)) {
+            wrapper.appendChild(createButtonFromTemplate('btn-view-template', req.id));
         } else if (['validated', 'approved'].includes(statusKey)) {
             wrapper.appendChild(createButtonFromTemplate('btn-deliver-template', req.id));
-        } else if (deliveryKey === 'dispatched' || ['approved', 'returned', 'rejected'].includes(statusKey)) {
-            wrapper.appendChild(createButtonFromTemplate('btn-view-template', req.id));
         } else {
             wrapper.appendChild(createButtonFromTemplate('btn-view-template', req.id));
         }
@@ -733,7 +760,6 @@ async function updateRequest(id, status, options = {}) {
 
             confirmBtn.disabled = true;
             try {
-                // Handle 'delivered' status differently - call dispatch endpoint without reason
                 if (status === 'delivered') {
                     const res = await fetch(`/admin/borrow-requests/${encodeURIComponent(id)}/dispatch`, {
                         method: 'POST',
@@ -748,7 +774,19 @@ async function updateRequest(id, status, options = {}) {
                     if (!res.ok) {
                         throw new Error(payload?.message || `Failed to mark as delivered (status ${res.status})`);
                     }
-                    showSuccess(payload?.message || 'Items marked as delivered successfully.');
+                    showSuccess('Dispatch Success');
+                    updateBorrowRequestInCache(id, (req) => {
+                        if (payload?.status) {
+                            req.status = payload.status;
+                        }
+                        req.delivery_status = payload?.delivery_status || 'dispatched';
+                        if (payload?.approved_form_url) {
+                            req.approved_form_url = payload.approved_form_url;
+                        }
+                        if (payload?.qr_verified_form_url) {
+                            req.qr_verified_form_url = payload.qr_verified_form_url;
+                        }
+                    });
                     await loadBorrowRequests();
                     window.dispatchEvent(new CustomEvent('close-modal', { detail: 'confirmActionModal' }));
                 } else {
@@ -817,13 +855,25 @@ async function updateRequest(id, status, options = {}) {
                             'Content-Type': 'application/json',
                             Accept: 'application/json',
                         },
-                    body: JSON.stringify(body),
+                        body: JSON.stringify(body),
                     });
                     const payload = await res.json().catch(() => null);
                     if (!res.ok) {
                         throw new Error(payload?.message || `Failed to mark as delivered (status ${res.status})`);
                     }
-                    showSuccess(payload?.message || 'Items marked as delivered successfully.');
+                    showSuccess('Dispatch Success');
+                    updateBorrowRequestInCache(id, (req) => {
+                        if (payload?.status) {
+                            req.status = payload.status;
+                        }
+                        req.delivery_status = payload?.delivery_status || 'dispatched';
+                        if (payload?.approved_form_url) {
+                            req.approved_form_url = payload.approved_form_url;
+                        }
+                        if (payload?.qr_verified_form_url) {
+                            req.qr_verified_form_url = payload.qr_verified_form_url;
+                        }
+                    });
                     await loadBorrowRequests();
                 window.dispatchEvent(new CustomEvent('close-modal', { detail: 'deliverItemsModal' }));
             } catch (error) {
