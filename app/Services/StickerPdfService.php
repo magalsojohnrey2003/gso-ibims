@@ -64,152 +64,34 @@ class StickerPdfService
         $templateId = $pdf->importPage(1);
         $size = $pdf->getTemplateSize($templateId);
 
-        // A4 portrait dimensions in points (72 DPI)
-        $a4Width = 595.28;
-        $a4Height = 841.89;
+        foreach ($stickers as $payload) {
+            $pdf->AddPage($size['orientation'], [$size['width'], $size['height']]);
+            $pdf->useTemplate($templateId, 0, 0, $size['width'], $size['height']);
 
-        // Spacing and border settings (in points)
-        $borderWidth = 2; // Small border around each sticker
-        $spacing = 10; // Small spacing between stickers
-        $pageMargin = 15; // Margin from page edges
-
-        // Calculate sticker dimensions with border and spacing
-        $stickerWidth = $size['width'] + ($borderWidth * 2);
-        $stickerHeight = $size['height'] + ($borderWidth * 2);
-
-        // Calculate how many stickers fit per row and column
-        $availableWidth = $a4Width - ($pageMargin * 2);
-        $availableHeight = $a4Height - ($pageMargin * 2);
-
-        // Calculate stickers per row (accounting for spacing)
-        $stickersPerRow = max(1, floor(($availableWidth + $spacing) / ($stickerWidth + $spacing)));
-        // Calculate stickers per column (accounting for spacing)
-        $stickersPerColumn = max(1, floor(($availableHeight + $spacing) / ($stickerHeight + $spacing)));
-
-        // Calculate actual sticker size to maximize space usage
-        $totalStickersPerPage = $stickersPerRow * $stickersPerColumn;
-        if ($totalStickersPerPage > 1) {
-            // Calculate optimal dimensions
-            $optimalWidth = ($availableWidth - ($spacing * ($stickersPerRow - 1))) / $stickersPerRow;
-            $optimalHeight = ($availableHeight - ($spacing * ($stickersPerColumn - 1))) / $stickersPerColumn;
-
-            // Maintain aspect ratio while maximizing space
-            $templateAspectRatio = $size['width'] / $size['height'];
-            $optimalAspectRatio = ($optimalWidth - ($borderWidth * 2)) / ($optimalHeight - ($borderWidth * 2));
-
-            if ($optimalAspectRatio > $templateAspectRatio) {
-                // Width is limiting factor
-                $scaledWidth = $optimalWidth - ($borderWidth * 2);
-                $scaledHeight = $scaledWidth / $templateAspectRatio;
-            } else {
-                // Height is limiting factor
-                $scaledHeight = $optimalHeight - ($borderWidth * 2);
-                $scaledWidth = $scaledHeight * $templateAspectRatio;
-            }
-
-            $scaleX = $scaledWidth / $size['width'];
-            $scaleY = $scaledHeight / $size['height'];
-        } else {
-            // Single sticker per page - use original size
-            $scaleX = 1.0;
-            $scaleY = 1.0;
-        }
-
-        $scaledStickerWidth = ($size['width'] * $scaleX) + ($borderWidth * 2);
-        $scaledStickerHeight = ($size['height'] * $scaleY) + ($borderWidth * 2);
-
-        // Recalculate stickers per row/column with scaled dimensions
-        $stickersPerRow = max(1, floor(($availableWidth + $spacing) / ($scaledStickerWidth + $spacing)));
-        $stickersPerColumn = max(1, floor(($availableHeight + $spacing) / ($scaledStickerHeight + $spacing)));
-        $totalStickersPerPage = $stickersPerRow * $stickersPerColumn;
-
-        $currentPage = null;
-        $stickersOnCurrentPage = 0;
-
-        foreach ($stickers as $index => $payload) {
-            // Start new page if needed
-            if ($currentPage === null || $stickersOnCurrentPage >= $totalStickersPerPage) {
-                $pdf->AddPage('P', [$a4Width, $a4Height]);
-                $currentPage = $index;
-                $stickersOnCurrentPage = 0;
-            }
-
-            // Calculate position for this sticker
-            $row = floor($stickersOnCurrentPage / $stickersPerRow);
-            $col = $stickersOnCurrentPage % $stickersPerRow;
-
-            // Calculate X position (center if only one sticker per row)
-            $xOffset = $pageMargin;
-            if ($stickersPerRow > 1) {
-                $totalRowWidth = ($scaledStickerWidth * $stickersPerRow) + ($spacing * ($stickersPerRow - 1));
-                $xOffset = $pageMargin + (($availableWidth - $totalRowWidth) / 2) + ($col * ($scaledStickerWidth + $spacing));
-            } else {
-                // Center single sticker horizontally
-                $xOffset = ($a4Width - $scaledStickerWidth) / 2;
-            }
-
-            // Calculate Y position
-            $yOffset = $pageMargin;
-            if ($stickersPerColumn > 1) {
-                $totalColHeight = ($scaledStickerHeight * $stickersPerColumn) + ($spacing * ($stickersPerColumn - 1));
-                $yOffset = $pageMargin + (($availableHeight - $totalColHeight) / 2) + ($row * ($scaledStickerHeight + $spacing));
-            } else {
-                // Center single sticker vertically
-                $yOffset = ($a4Height - $scaledStickerHeight) / 2;
-            }
-
-            // Draw border around sticker
-            $pdf->SetDrawColor(200, 200, 200); // Light gray border
-            $pdf->SetLineWidth($borderWidth);
-            $pdf->Rect($xOffset, $yOffset, $scaledStickerWidth, $scaledStickerHeight);
-
-            // Calculate template position (centered within border)
-            $templateX = $xOffset + $borderWidth;
-            $templateY = $yOffset + $borderWidth;
-            $templateWidth = $size['width'] * $scaleX;
-            $templateHeight = $size['height'] * $scaleY;
-
-            // Use template at scaled size
-            $pdf->useTemplate($templateId, $templateX, $templateY, $templateWidth, $templateHeight, false);
-
-            // Render fields with scaling applied
             foreach ($layout as $field => $rect) {
                 $value = Arr::get($payload, $field);
-                
-                // For signature field, check if it's a valid image data URL (not empty or just whitespace)
-                if ($field === 'print_signature') {
-                    if ($value === null || $value === '' || trim($value) === '' || !str_starts_with(trim($value), 'data:image')) {
-                        continue;
-                    }
-                } else {
-                    if ($value === null || $value === '' || trim($value) === '') {
-                        continue;
-                    }
-                }
-
-                // Apply scaling to field positions and dimensions
-                $scaledX = $templateX + ($rect['llx'] * $scaleX);
-                $scaledWidth = max(($rect['urx'] - $rect['llx']) * $scaleX, 4);
-                $scaledHeight = max(($rect['ury'] - $rect['lly']) * $scaleY, 10);
-
-                // Adjust Y coordinate (PDF coordinates are bottom-left, FPDF uses top-left)
-                // Convert from PDF bottom-left to FPDF top-left coordinate system
-                // The field's top edge (ury) in PDF coordinates becomes the position in FPDF coordinates
-                $adjustedY = $templateY + ($templateHeight - ($rect['ury'] * $scaleY));
-
-                if (is_string($value) && str_starts_with(trim($value), 'data:image')) {
-                    $this->renderImage($pdf, trim($value), $scaledX, $adjustedY, $scaledWidth, $scaledHeight);
+                if ($value === null || $value === '') {
                     continue;
                 }
 
-                $pdf->SetXY($scaledX, $adjustedY);
-                $pdf->SetFont('Helvetica', '', $this->resolveFontSize($scaledWidth, $scaledHeight, (string) $value));
-                $pdf->SetTextColor(0, 0, 0);
-                $lineHeight = max(min($scaledHeight, 14), 8);
-                $pdf->MultiCell($scaledWidth, $lineHeight, (string) $value, 0, 'L');
-            }
+                $width = max($rect['urx'] - $rect['llx'], 4);
+                $height = max($rect['ury'] - $rect['lly'], 10);
+                $x = $rect['llx'];
 
-            $stickersOnCurrentPage++;
+                // PDF coordinates are bottom-left, FPDF uses top-left origin.
+                $y = $size['height'] - $rect['ury'];
+
+                if (is_string($value) && str_starts_with($value, 'data:image')) {
+                    $this->renderImage($pdf, $value, $x, $y, $width, max($rect['ury'] - $rect['lly'], 4));
+                    continue;
+                }
+
+                $pdf->SetXY($x, $y);
+                $pdf->SetFont('Helvetica', '', $this->resolveFontSize($width, $height, (string) $value));
+                $pdf->SetTextColor(0, 0, 0);
+                $lineHeight = max(min($height, 14), 8);
+                $pdf->MultiCell($width, $lineHeight, (string) $value, 0, 'L');
+            }
         }
 
         $binary = $pdf->Output('S');
