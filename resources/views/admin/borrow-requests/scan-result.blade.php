@@ -6,7 +6,7 @@
                     <i class="fas {{ $updated ? 'fa-qrcode' : 'fa-info-circle' }} text-2xl"></i>
                 </div>
                 <h1 class="text-2xl font-bold text-gray-800">
-                    Request Form Verification {{ $updated ? 'Complete' : 'Already Verified' }}
+                    QR Verification {{ $updated ? 'Complete' : 'Already Verified' }}
                 </h1>
                 <p class="text-gray-600">
                     {{ $message }}

@@ -393,16 +393,12 @@ class BorrowRequestController extends Controller
             $borrowRequest->save();
         }
 
-        if (! in_array($borrowRequest->status, ['validated', 'approved', 'delivered'], true)) {
+        if ($borrowRequest->status !== 'validated' && $borrowRequest->status !== 'approved') {
             return response()->json(['message' => 'Only validated or approved requests can be dispatched.'], 422);
         }
 
-        if (in_array($borrowRequest->delivery_status, ['dispatched', 'delivered'], true)) {
-            return response()->json([
-                'message' => 'Already dispatched.',
-                'status' => $borrowRequest->status,
-                'delivery_status' => $borrowRequest->delivery_status,
-            ], 200);
+        if ($borrowRequest->delivery_status === 'dispatched') {
+            return response()->json(['message' => 'Already dispatched.'], 200);
         }
 
         // Validate delivery reason if provided
@@ -441,15 +437,14 @@ class BorrowRequestController extends Controller
             }
 
             // allocate item instances if status is not already approved (i.e. not allocated)
-            if (! in_array($borrowRequest->status, ['approved', 'delivered'], true)) {
+            if ($borrowRequest->status !== 'approved') {
                 $this->allocateInstancesForBorrowRequest($borrowRequest);
             }
 
-            // mark as delivered
-            $borrowRequest->status = 'delivered';
-            $borrowRequest->delivery_status = 'delivered';
-            $borrowRequest->dispatched_at = $borrowRequest->dispatched_at ?? now();
-            $borrowRequest->delivered_at = now();
+            // set approved status and delivery meta
+            $borrowRequest->status = 'approved';
+            $borrowRequest->delivery_status = 'dispatched';
+            $borrowRequest->dispatched_at = now();
             
             // Store delivery reason
             if (!empty($data['delivery_reason_type'])) {
@@ -485,12 +480,7 @@ class BorrowRequestController extends Controller
             }
 
             DB::commit();
-            return response()->json([
-                'message' => 'Dispatched successfully.',
-                'status' => $borrowRequest->status,
-                'delivery_status' => $borrowRequest->delivery_status,
-                'approved_form_url' => $this->makeLetterUrl($borrowRequest->qr_verified_form_path),
-            ]);
+            return response()->json(['message' => 'Dispatched successfully.']);
         } catch (\Throwable $e) {
             DB::rollBack();
             return response()->json(['message' => 'Failed to dispatch.', 'error' => $e->getMessage()], 500);
