@@ -145,18 +145,8 @@
                                             data-item-total="{{ $item['total_qty'] }}"
                                             data-item-quantity="{{ $currentQty }}">
                                             <div class="flex items-center gap-3">
-                                                @php
-                                                    $photoUrl = null;
-                                                    if (!empty($item['photo'])) {
-                                                        $photoUrl = \Illuminate\Support\Facades\Storage::disk('public')->exists($item['photo'])
-                                                            ? \Illuminate\Support\Facades\Storage::disk('public')->url($item['photo'])
-                                                            : asset($item['photo']);
-                                                    } else {
-                                                        $photoUrl = asset($defaultPhotos[$item['category']] ?? 'images/no-image.png');
-                                                    }
-                                                @endphp
                                                 <img
-                                                    src="{{ $photoUrl }}"
+                                                    src="{{ $item['photo'] ? asset('storage/'.$item['photo']) : asset($defaultPhotos[$item['category']] ?? 'images/no-image.png') }}"
                                                     class="h-14 w-14 rounded object-cover"
                                                     alt="{{ $item['name'] }}">
                                                 <div class="space-y-1">
@@ -484,10 +474,8 @@
                                         type="file"
                                         accept=".jpg,.jpeg,.png,.webp,.pdf"
                                         required
-                                        data-filepond="true"
-                                        data-preview-height="160"
-                                        data-thumb-width="200" />
-                                    <p class="text-xs text-gray-500 mt-1">Accepted formats: JPG, PNG, WEBP, or PDF. Max 5MB.</p>
+                                        class="mt-1 block w-full cursor-pointer rounded-lg border border-dashed border-gray-400 bg-gray-50 px-4 py-3 text-sm text-gray-700 focus:border-purple-500 focus:ring-purple-500" />
+                                    <p class="text-xs text-gray-500">Accepted formats: JPG, PNG, WEBP, or PDF. Max 5MB.</p>
                                     <x-input-error :messages="$errors->get('support_letter')" class="mt-1" />
                                     <p id="letterFileName" class="text-sm text-gray-600 hidden"></p>
                                 </div>

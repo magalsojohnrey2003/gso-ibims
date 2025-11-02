@@ -674,22 +674,18 @@ public function store(Request $request, PropertyNumberService $numbers)
                 $jsonMessage .= ' Some serials were skipped.';
             }
 
-            $photoUrl = $item->photo ? asset('storage/' . ltrim($item->photo, '/')) : null;
-
             return response()->json([
                 'message' => $jsonMessage,
                 'item_id' => $item->id,
                 'created_count' => count($created),
                 'created_pns' => $created,
                 'skipped_serials' => $skipped,
-                'photo' => $photoUrl,
                 'item' => [
                     'id' => $item->id,
                     'name' => $item->name,
                     'category' => $item->category,
                     'total_qty' => $item->total_qty,
                     'available_qty' => $item->available_qty,
-                    'photo' => $photoUrl,
                 ],
             ], $skipped ? 207 : 201);
         }
