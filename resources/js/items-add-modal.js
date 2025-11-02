@@ -1919,7 +1919,6 @@ function initAddItemsForm(form) {
     hideMessage(elements.error);
 
     const base = collectBase(form);
-<<<<<<< Updated upstream
     const hasRows = rowsManager.hasRows();
 
     const errorFields = new Set();
@@ -1963,17 +1962,6 @@ function initAddItemsForm(form) {
       } else if (!serialValidation.ok) {
         elements.serialManager?.focusFirstInvalid();
       }
-=======
-    // Serial/Model No. is optional - only validate required fields (year, category, office)
-    // Note: serial is optional but if provided must be valid
-    if (!base.ready && base.year && base.category_code && base.office) {
-      // If we have year, category, office but serial is missing/invalid, allow submission
-      // The server will handle validation
-    } else if (!base.year || !base.category_code || !base.office) {
-      const msg = 'Please complete: Year, Category, and Office Code before saving. Serial is optional.';
-      showToast('error', msg);
-      handleError(elements, new Error(msg));
->>>>>>> Stashed changes
       return;
     }
 

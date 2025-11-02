@@ -73,9 +73,7 @@
 
                     <!-- Item Image -->
                     <img src="{{ $item->photo 
-                                ? (\Illuminate\Support\Facades\Storage::disk('public')->exists($item->photo) 
-                                    ? \Illuminate\Support\Facades\Storage::disk('public')->url($item->photo)
-                                    : asset('storage/'.$item->photo)) 
+                                ? asset('storage/'.$item->photo) 
                                 : asset($defaultPhotos[$item->category] ?? 'images/no-image.png') }}"
                          alt="{{ $item->name }}" 
                          class="h-32 w-full object-cover rounded border-2 border-purple-500 mb-3">

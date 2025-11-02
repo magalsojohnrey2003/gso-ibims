@@ -85,7 +85,6 @@
                 <x-input-error :messages="$errors->get('name')" class="mt-2" />
             </div>
 
-<<<<<<< Updated upstream
             <div>
                 <x-input-label for="quantity-{{ $item->id }}" value="Quantity" />
                 <x-text-input
@@ -97,18 +96,6 @@
                     disabled
                 />
                 <p class="mt-1 text-xs text-gray-500">Quantity reflects the total property number rows linked to this item.</p>
-=======
-            <div class="flex-1 bg-indigo-50 rounded-lg px-4 py-3 flex items-center gap-3 flex-nowrap">
-              <input type="text" readonly class="w-20 text-center text-sm rounded-md border px-2 py-1 bg-gray-100 instance-part-year" value="{{ $inst->year_procured ?? '' }}" placeholder="Year" />
-              <div class="text-gray-500 select-none"> - </div>
-              <input type="text" readonly class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-gray-100 instance-part-category" value="{{ $inst->category_code ?? $inst->category_id ?? '' }}" placeholder="Category" />
-              <input type="text" class="w-20 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-serial" value="{{ $inst->serial ?? '' }}" placeholder="Serial" />
-              <div class="text-gray-500 select-none"> - </div>
-              <input type="text" readonly class="w-20 text-center text-sm rounded-md border px-2 py-1 bg-gray-100 instance-part-office" value="{{ $inst->office_code ?? '' }}" placeholder="Office" />
-              <div class="flex-none ml-2">
-                <button type="button" class="text-red-600 text-sm px-2 py-1 rounded-md hover:bg-red-50 instance-remove-btn">Remove</button>
-              </div>
->>>>>>> Stashed changes
             </div>
 
             <div>

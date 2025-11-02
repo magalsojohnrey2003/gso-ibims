@@ -515,117 +515,12 @@
             </div>
         </form>
 
-<<<<<<< Updated upstream
         @foreach($borrowList as $item)
             <form id="remove-item-{{ $item['id'] }}" action="{{ route('borrowList.remove', $item['id']) }}" method="POST" class="hidden">
                 @csrf
                 @method('DELETE')
             </form>
         @endforeach
-=======
-                        {{-- Hidden inputs MUST be inside the form so they are POSTed --}}
-                        <input id="borrow_date" name="borrow_date" type="hidden" value="{{ old('borrow_date', '') }}" />
-                        <input id="return_date" name="return_date" type="hidden" value="{{ old('return_date', '') }}" />
-
-                        {{-- Calendar card area --}}
-                        <div class="border rounded p-4 bg-white flex-1">
-                            {{-- Month header: title centered, prev/next controls inside the card --}}
-                            <!-- Add this small instruction under the month title or near the top of the calendar card -->
-
-                            <div class="flex items-center justify-between mb-3 relative">
-                                <!-- arrows are absolutely positioned inside this relative container -->
-                                <x-secondary-button type="button" onclick="changeBorrowMonth(-1)" class="text-lg" style="position:absolute; left:12px; top:50%; transform:translateY(-50%);">
-                                    &lt;
-                                </x-secondary-button>
-
-                                <div class="w-full text-center">
-                                    <!-- add horizontal padding so title sits nicely between arrows -->
-                                    <span id="borrowCalendarMonth" class="text-lg font-semibold" style="padding:0 48px; display:inline-block;">
-                                        <!-- JS will fill -->
-                                    </span>
-                                </div>
-
-                                <x-secondary-button type="button" onclick="changeBorrowMonth(1)" class="text-lg" style="position:absolute; right:12px; top:50%; transform:translateY(-50%);">
-                                    &gt;
-                                </x-secondary-button>
-                            </div>
-
-                            {{-- Weekday header (kept from original) --}}
-                            <div class="grid grid-cols-7 text-center text-xs font-semibold text-gray-600 mb-2">
-                                <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
-                            </div>
-
-                            {{-- The calendar grid (your JS will populate this) --}}
-                            <div id="borrowAvailabilityCalendar" class="rounded p-2 min-h-[260px]">
-                                {{-- JS will render month day cells here --}}
-                            </div>
-
-                            {{-- legend (removed "Today" per request) --}}
-                            <div class="flex flex-wrap items-center gap-4 mt-4 text-sm">
-                                <span class="flex items-center"><span class="w-4 h-4 bg-green-200 border mr-1 rounded"></span>Available</span>
-                                <span class="flex items-center"><span class="w-4 h-4 bg-red-500 border mr-1 rounded"></span>Blocked</span>
-                                <span class="flex items-center"><span class="w-4 h-4 bg-blue-500 border mr-1 rounded"></span>Selected (3-day)</span>
-                            </div>
-                        </div>
-
-                        <!-- Step 3: Upload Letter -->
-                        <div class="bg-gray-50 shadow-md hover:shadow-lg transition rounded-lg mt-4">
-                            <button
-                                type="button"
-                                data-step3-header
-                                aria-expanded="false"
-                                aria-controls="step3-letter-body"
-                                class="w-full text-left focus:outline-none">
-                                <div class="flex items-center justify-between p-4">
-                                    <div class="flex items-center space-x-3">
-                                        <div class="bg-purple-100 text-purple-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">3</div>
-                                        <h4 class="text-lg font-semibold text-gray-900">Upload Letter</h4>
-                                    </div>
-                                    <svg class="w-5 h-5 text-gray-500 transform transition-transform" data-step3-caret xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                                    </svg>
-                                </div>
-                            </button>
-
-                            <div id="step3-letter-body" data-step3-body class="p-4 max-h-0 overflow-hidden opacity-0">
-                                <div class="mb-3">
-                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Upload Letter</label>
-                                    <input id="letter" name="letter" type="file" accept="image/*,application/pdf"
-                                            data-filepond="true"
-                                            data-preview-height="120"
-                                            data-thumb-width="160" />
-                                    <x-input-error :messages="$errors->get('letter')" class="mt-2" />
-                                </div>
-                            </div>
-                        </div>
-
-                      {{-- Floating action buttons (icon-only) --}}
-                        <div id="borrowFloatingActions" class="fixed right-6 bottom-6 z-50 flex flex-col gap-3 items-center">
-                            <!-- Back (anchor) -->
-                            <a href="{{ route('borrow.items') }}"
-                            title="Back"
-                            aria-label="Back"
-                            class="w-14 h-14 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center shadow-md border">
-                                <i class="fas fa-arrow-left"></i>
-                            </a>
-
-                            <!-- Submit (button triggers the main form) -->
-                            <button id="floatingSubmitBtn"
-                                    type="button"
-                                    title="Submit Borrow Request"
-                                    aria-label="Submit Borrow Request"
-                                    class="w-14 h-14 rounded-full bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center shadow-md">
-                                <i class="fas fa-paper-plane"></i>
-                            </button>
-                        </div>
-
-                    </form>
-                </div>
-            </main>
-        </div>
-        
-        
->>>>>>> Stashed changes
     </div>
 
     <x-modal name="borrowConfirmModal" maxWidth="3xl">
