@@ -132,29 +132,6 @@ function wireEditForm(form) {
       showToast('success', message);
       showMessage(feedbackEl, message);
 
-      // Update table row if item photo was changed
-      if (data.photo && data.item_id) {
-        const row = document.querySelector(`[data-item-row="${data.item_id}"]`);
-        if (row) {
-          const photoCell = row.querySelector('[data-item-photo]');
-          const photoImg = row.querySelector('[data-item-photo-img]');
-          if (photoCell && photoImg) {
-            photoImg.src = data.photo;
-          } else if (photoCell && data.photo) {
-            // If no image exists, create one
-            photoCell.innerHTML = '';
-            const imgDiv = document.createElement('div');
-            imgDiv.className = 'flex justify-center';
-            const img = document.createElement('img');
-            img.src = data.photo;
-            img.className = 'h-12 w-12 object-cover rounded-lg shadow-sm';
-            img.setAttribute('data-item-photo-img', '');
-            imgDiv.appendChild(img);
-            photoCell.appendChild(imgDiv);
-          }
-        }
-      }
-
       if (modalName) {
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent('close-modal', { detail: modalName }));

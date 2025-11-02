@@ -474,12 +474,10 @@
                                         type="file"
                                         accept=".jpg,.jpeg,.png,.webp,.pdf"
                                         required
-                                        data-filepond="true"
-                                        data-preview-height="120"
-                                        data-thumb-width="160"
-                                        data-label-idle='<div style="text-align:left;padding:8px 12px"><div style="font-weight:600;color:#111827;font-size:14px">Click to upload Signed Letter</div><div style="font-size:12px;color:#6b7280;margin-top:3px">or <span style="font-weight:600">drag and drop</span> JPG/PNG/PDF, up to 5MB</div></div>' />
-                                    <p class="text-xs text-gray-500 mt-1">Accepted formats: JPG, PNG, WEBP, or PDF. Max 5MB.</p>
+                                        class="mt-1 block w-full cursor-pointer rounded-lg border border-dashed border-gray-400 bg-gray-50 px-4 py-3 text-sm text-gray-700 focus:border-purple-500 focus:ring-purple-500" />
+                                    <p class="text-xs text-gray-500">Accepted formats: JPG, PNG, WEBP, or PDF. Max 5MB.</p>
                                     <x-input-error :messages="$errors->get('support_letter')" class="mt-1" />
+                                    <p id="letterFileName" class="text-sm text-gray-600 hidden"></p>
                                 </div>
                             </div>
                         </div>

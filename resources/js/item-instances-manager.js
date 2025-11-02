@@ -387,8 +387,10 @@ class ItemInstancesManager {
       const value = sanitizeSerialNo(serialInput.value || '');
       if (serialInput.value !== value) serialInput.value = value;
       if (serialEnabled && !serialInput.disabled) {
-        // Allow empty values - only validate format if value is provided
-        if (value && !/^[A-Z0-9]{1,4}$/.test(value)) {
+        if (!value) {
+          setInvalid(serialInput, 'empty');
+          errors.add('serial_no');
+        } else if (!/^[A-Z0-9]{1,4}$/.test(value)) {
           clearInvalid(serialInput, 'empty');
           setInvalid(serialInput, 'format');
           errors.add('serial_no');
@@ -407,8 +409,10 @@ class ItemInstancesManager {
       const value = sanitizeModelNo(modelInput.value || '');
       if (modelInput.value !== value) modelInput.value = value;
       if (modelEnabled && !modelInput.disabled) {
-        // Allow empty values - only validate format if value is provided
-        if (value && !/^[A-Z0-9]{1,15}$/.test(value)) {
+        if (!value) {
+          setInvalid(modelInput, 'empty');
+          errors.add('model_no');
+        } else if (!/^[A-Z0-9]{1,15}$/.test(value)) {
           clearInvalid(modelInput, 'empty');
           setInvalid(modelInput, 'format');
           errors.add('model_no');
