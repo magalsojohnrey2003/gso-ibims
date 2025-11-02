@@ -64,33 +64,88 @@ class StickerPdfService
         $templateId = $pdf->importPage(1);
         $size = $pdf->getTemplateSize($templateId);
 
-        foreach ($stickers as $payload) {
-            $pdf->AddPage($size['orientation'], [$size['width'], $size['height']]);
-            $pdf->useTemplate($templateId, 0, 0, $size['width'], $size['height']);
-
-            foreach ($layout as $field => $rect) {
-                $value = Arr::get($payload, $field);
-                if ($value === null || $value === '') {
-                    continue;
+        // A4 dimensions in points (210mm x 297mm)
+        $a4Width = 595.28;
+        $a4Height = 841.89;
+        
+        // Spacing between stickers (in points)
+        $spacing = 10;
+        
+        // Calculate how many stickers fit per row and column
+        $stickerWidth = $size['width'];
+        $stickerHeight = $size['height'];
+        
+        $stickersPerRow = max(1, (int) floor(($a4Width + $spacing) / ($stickerWidth + $spacing)));
+        $stickersPerCol = max(1, (int) floor(($a4Height + $spacing) / ($stickerHeight + $spacing)));
+        $stickersPerPage = $stickersPerRow * $stickersPerCol;
+        
+        // Calculate starting position to center stickers on page
+        $totalWidth = ($stickersPerRow * $stickerWidth) + (($stickersPerRow - 1) * $spacing);
+        $totalHeight = ($stickersPerCol * $stickerHeight) + (($stickersPerCol - 1) * $spacing);
+        $startX = max(0, ($a4Width - $totalWidth) / 2);
+        $startY = max(0, ($a4Height - $totalHeight) / 2);
+        
+        $stickerIndex = 0;
+        $totalPages = (int) ceil(count($stickers) / $stickersPerPage);
+        
+        for ($page = 0; $page < $totalPages; $page++) {
+            // Add A4 page
+            $pdf->AddPage('P', [$a4Width, $a4Height]);
+            
+            $stickerOnPage = 0;
+            
+            while ($stickerOnPage < $stickersPerPage && $stickerIndex < count($stickers)) {
+                $row = (int) floor($stickerOnPage / $stickersPerRow);
+                $col = $stickerOnPage % $stickersPerRow;
+                
+                $x = $startX + ($col * ($stickerWidth + $spacing));
+                $y = $startY + ($row * ($stickerHeight + $spacing));
+                
+                $pdf->useTemplate($templateId, $x, $y, $stickerWidth, $stickerHeight);
+                
+                $payload = $stickers[$stickerIndex];
+                
+                foreach ($layout as $field => $rect) {
+                    $value = Arr::get($payload, $field);
+                    
+                    // Handle signature field specifically - check for data:image or trim whitespace
+                    if ($field === 'print_signature') {
+                        // Skip if null, empty, or just whitespace
+                        if ($value === null || $value === '' || (is_string($value) && trim($value) === '')) {
+                            continue;
+                        }
+                        // If it's not a data URL, skip it
+                        if (!is_string($value) || !str_starts_with($value, 'data:image')) {
+                            continue;
+                        }
+                    } else {
+                        // For other fields, skip if null or empty
+                        if ($value === null || $value === '') {
+                            continue;
+                        }
+                    }
+                    
+                    $width = max($rect['urx'] - $rect['llx'], 4);
+                    $height = max($rect['ury'] - $rect['lly'], 10);
+                    $fieldX = $x + $rect['llx'];
+                    
+                    // PDF coordinates are bottom-left, FPDF uses top-left origin.
+                    $fieldY = $y + ($stickerHeight - $rect['ury']);
+                    
+                    if (is_string($value) && str_starts_with($value, 'data:image')) {
+                        $this->renderImage($pdf, $value, $fieldX, $fieldY, $width, max($rect['ury'] - $rect['lly'], 4));
+                        continue;
+                    }
+                    
+                    $pdf->SetXY($fieldX, $fieldY);
+                    $pdf->SetFont('Helvetica', '', $this->resolveFontSize($width, $height, (string) $value));
+                    $pdf->SetTextColor(0, 0, 0);
+                    $lineHeight = max(min($height, 14), 8);
+                    $pdf->MultiCell($width, $lineHeight, (string) $value, 0, 'L');
                 }
-
-                $width = max($rect['urx'] - $rect['llx'], 4);
-                $height = max($rect['ury'] - $rect['lly'], 10);
-                $x = $rect['llx'];
-
-                // PDF coordinates are bottom-left, FPDF uses top-left origin.
-                $y = $size['height'] - $rect['ury'];
-
-                if (is_string($value) && str_starts_with($value, 'data:image')) {
-                    $this->renderImage($pdf, $value, $x, $y, $width, max($rect['ury'] - $rect['lly'], 4));
-                    continue;
-                }
-
-                $pdf->SetXY($x, $y);
-                $pdf->SetFont('Helvetica', '', $this->resolveFontSize($width, $height, (string) $value));
-                $pdf->SetTextColor(0, 0, 0);
-                $lineHeight = max(min($height, 14), 8);
-                $pdf->MultiCell($width, $lineHeight, (string) $value, 0, 'L');
+                
+                $stickerIndex++;
+                $stickerOnPage++;
             }
         }
 
