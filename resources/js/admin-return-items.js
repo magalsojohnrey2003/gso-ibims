@@ -144,7 +144,7 @@ async function loadReturnItems(resetPage = true) {
         renderTable();
     } catch (err) {
         console.error('Failed to load return items', err);
-        showAlert('error', 'Failed to load return items.');
+        showAlert('error', 'Failed to load return items. Please refresh the page.');
     }
 }
 
@@ -287,7 +287,7 @@ async function openManageModal(id) {
         window.dispatchEvent(new CustomEvent('open-modal', { detail: 'manageReturnItemsModal' }));
     } catch (error) {
         console.error('Failed to load return details', error);
-        showAlert('error', 'Failed to load return details.');
+        showAlert('error', 'Failed to load return details. Please try again.');
     }
 }
 
@@ -599,12 +599,12 @@ async function collectBorrowRequest(id, button) {
         }
 
         const data = await res.json().catch(() => ({}));
-        showAlert('success', data.message || 'Successfully returned.');
+        showAlert('success', data.message || 'Items marked as returned successfully.');
         await loadReturnItems(false);
         window.dispatchEvent(new CustomEvent('return-items:collected', { detail: { borrowRequestId: id, response: data } }));
     } catch (error) {
         console.error('Failed to mark as collected', error);
-        showAlert('error', error.message || 'Failed to mark as collected.');
+        showAlert('error', error.message || 'Failed to mark items as collected. Please try again.');
     } finally {
         if (button) button.disabled = false;
     }
@@ -629,7 +629,7 @@ async function bulkUpdateInstances() {
         const results = await Promise.all(instanceIds.map((id) => updateInstance(id, condition, updateOptions)));
         const finalResult = results.length ? results[results.length - 1] : null;
         
-        showAlert('success', `Successfully updated ${instanceIds.length} item(s).`);
+        showAlert('success', `Condition updated successfully for ${instanceIds.length} item(s).`);
         
         // Clear selection
         SELECTED_INSTANCES.clear();
@@ -642,7 +642,7 @@ async function bulkUpdateInstances() {
         }
     } catch (error) {
         console.error('Bulk update failed', error);
-        showAlert('error', 'Some items failed to update. Please try again.');
+        showAlert('error', 'Failed to update condition for some items. Please try again.');
     } finally {
         bulkUpdateBtn.disabled = false;
         bulkUpdateBtn.textContent = buttonText;
@@ -674,7 +674,7 @@ async function updateInstance(instanceId, condition, options = {}) {
         }
         const data = await res.json().catch(() => ({}));
         if (showToast) {
-            showAlert('success', data.message || 'Condition updated.');
+            showAlert('success', data.message || 'Item condition updated successfully.');
         }
 
         MANAGE_ITEMS = MANAGE_ITEMS.map((item) => {
@@ -704,7 +704,7 @@ async function updateInstance(instanceId, condition, options = {}) {
     } catch (error) {
         console.error('Failed to update instance condition', error);
         if (showToast) {
-            showAlert('error', error.message || 'Failed to update condition.');
+            showAlert('error', error.message || 'Failed to update item condition. Please try again.');
         }
         throw error;
     }

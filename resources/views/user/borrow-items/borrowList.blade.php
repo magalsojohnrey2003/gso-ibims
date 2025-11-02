@@ -146,7 +146,7 @@
                                             data-item-quantity="{{ $currentQty }}">
                                             <div class="flex items-center gap-3">
                                                 <img
-                                                    src="{{ $item['photo'] ? asset($item['photo']) : asset($defaultPhotos[$item['category']] ?? 'images/no-image.png') }}"
+                                                    src="{{ $item['photo'] ? asset('storage/'.$item['photo']) : asset($defaultPhotos[$item['category']] ?? 'images/no-image.png') }}"
                                                     class="h-14 w-14 rounded object-cover"
                                                     alt="{{ $item['name'] }}">
                                                 <div class="space-y-1">

@@ -94,7 +94,7 @@ export async function loadMyBorrowedItems() {
         renderItems();
     } catch (e) {
         console.error('loadMyBorrowedItems error', e);
-        showError("Failed to load borrowed items.");
+        showError("Failed to load borrowed items. Please refresh the page.");
     }
 }
 

@@ -1422,7 +1422,7 @@ async function submitForm(form) {
 function handleSuccess(form, elements, result) {
   const data = result?.data || {};
   const hasSkipped = Array.isArray(data.skipped_serials) && data.skipped_serials.length > 0;
-  const toastMessage = hasSkipped ? 'Items saved. Some serials are already in use.' : 'Items saved successfully.';
+  const toastMessage = hasSkipped ? 'Items added successfully. Some property numbers were skipped because they are already in use.' : 'Items added successfully.';
   showToast('success', toastMessage);
 
   hideMessage(elements.error);
@@ -1435,7 +1435,7 @@ function handleSuccess(form, elements, result) {
 }
 
 function handleError(elements, error) {
-  const fallback = 'Unable to save item. Please try again.';
+  const fallback = 'Failed to add items. Please check the form and try again.';
   const message = (error && typeof error.message === 'string' && error.message.trim()) ? error.message : fallback;
   showToast('error', message);
   hideMessage(elements.feedback);
@@ -1704,11 +1704,11 @@ function initCategoryOfficeManagement() {
     const rawCode = (newCategoryCodeInput?.value || '').trim();
     const code = rawCode.replace(/\D/g, '').slice(0, 4);
     if (!name) {
-      showToast('error', 'Enter category name');
+      showToast('error', 'Please enter a category name.');
       return;
     }
     if (code.length !== 4) {
-      showToast('error', 'Category code must be exactly 4 digits');
+      showToast('error', 'Category code must be exactly 4 digits.');
       return;
     }
     try {
@@ -1724,9 +1724,9 @@ function initCategoryOfficeManagement() {
       if (newCategoryInput) newCategoryInput.value = '';
       if (newCategoryCodeInput) newCategoryCodeInput.value = '';
       await fetchCategoriesFromServer();
-      showToast('success', 'Category saved');
+      showToast('success', 'Category added successfully.');
     } catch (error) {
-      showToast('error', error.message || 'Failed to save category');
+      showToast('error', error.message || 'Failed to add category. Please try again.');
     }
   });
 
@@ -1735,7 +1735,7 @@ function initCategoryOfficeManagement() {
     const code = rawCode.replace(/\D/g, '').slice(0, 4);
     const displayName = (newOfficeNameInput?.value || '').trim();
     if (code.length !== 4) {
-      showToast('error', 'Office code should be exactly 4 digits');
+      showToast('error', 'Office code must be exactly 4 digits.');
       return;
     }
     try {
@@ -1751,9 +1751,9 @@ function initCategoryOfficeManagement() {
       if (newOfficeCodeInput) newOfficeCodeInput.value = '';
       if (newOfficeNameInput) newOfficeNameInput.value = '';
       await fetchOfficesFromServer();
-      showToast('success', 'Office saved');
+      showToast('success', 'Office added successfully.');
     } catch (error) {
-      showToast('error', error.message || 'Failed to save office');
+      showToast('error', error.message || 'Failed to add office. Please try again.');
     }
   });
 
@@ -1771,8 +1771,9 @@ function initCategoryOfficeManagement() {
           headers: { 'X-CSRF-TOKEN': csrf, Accept: 'application/json' },
         });
         await fetchCategoriesFromServer();
+        showToast('success', 'Category deleted successfully.');
       } catch (error) {
-        showToast('error', error.message || 'Failed to delete category');
+        showToast('error', error.message || 'Failed to delete category. Please try again.');
       }
       return;
     }
@@ -1798,8 +1799,9 @@ function initCategoryOfficeManagement() {
           headers: { 'X-CSRF-TOKEN': csrf, Accept: 'application/json' },
         });
         await fetchOfficesFromServer();
+        showToast('success', 'Office deleted successfully.');
       } catch (error) {
-        showToast('error', error.message || 'Failed to delete office');
+        showToast('error', error.message || 'Failed to delete office. Please try again.');
       }
       return;
     }

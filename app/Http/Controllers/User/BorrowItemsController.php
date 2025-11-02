@@ -89,7 +89,7 @@ class BorrowItemsController extends Controller
         $borrowList = Session::get('borrowList', []);
 
         $photoPath = $item->photo
-            ? 'storage/' . $item->photo
+            ? $item->photo
             : $this->defaultPhotos[$item->category] ?? 'images/no-image.png';
 
         if (isset($borrowList[$item->id])) {

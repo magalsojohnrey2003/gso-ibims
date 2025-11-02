@@ -143,7 +143,7 @@ class ReturnItemsController extends Controller
         })->values();
 
             return response()->json([
-                'message' => 'Successfully returned.',
+                'message' => 'Items marked as returned successfully.',
                 'status' => $borrowRequest->status,
                 'delivery_status' => $borrowRequest->delivery_status,
                 'borrow_request_id' => $borrowRequest->id,

@@ -661,7 +661,18 @@ async function updateRequest(id, status, options = {}) {
             throw new Error(data?.message || `Update failed (status ${res.status})`);
         }
 
-        if (!silent) showSuccess(data?.message || 'Borrow request updated successfully.');
+        if (!silent) {
+            const statusMessages = {
+                'pending': 'Request status set to pending.',
+                'validated': 'Request validated successfully.',
+                'approved': 'Request approved successfully.',
+                'rejected': 'Request rejected.',
+                'returned': 'Request marked as returned.',
+                'return_pending': 'Request marked as return pending.',
+            };
+            const message = statusMessages[status] || data?.message || 'Borrow request status updated successfully.';
+            showSuccess(message);
+        }
         await loadBorrowRequests();
 
         try {
@@ -675,7 +686,7 @@ async function updateRequest(id, status, options = {}) {
         return data;
     } catch (error) {
         console.error('Failed to update request', error);
-        if (!silent) showError(error?.message || 'Failed to update request.');
+            if (!silent) showError(error?.message || 'Failed to update request status. Please try again.');
         throw error;
     } finally {
         if (button) button.disabled = false;
@@ -693,7 +704,7 @@ async function updateRequest(id, status, options = {}) {
             try {
                 const requestId = document.getElementById('assignManpowerRequestId')?.value;
                 if (!requestId) {
-                    showError('Missing request identifier.');
+                    showError('Request identifier is missing. Please refresh the page.');
                     return;
                 }
 
@@ -712,7 +723,7 @@ async function updateRequest(id, status, options = {}) {
                 const manpowerReduced = manpowerValue < requestedTotal;
                 const manpowerReason = manpowerReduced ? (manpowerReasonSelect?.value?.trim() || '') : null;
                 if (manpowerReduced && !manpowerReason) {
-                    showError('Please select a reason for reducing manpower.');
+                    showError('Please select a reason for reducing manpower quantity.');
                     return;
                 }
 
@@ -720,7 +731,7 @@ async function updateRequest(id, status, options = {}) {
                 for (const item of assignments) {
                     const requiresReason = Number.isFinite(item.original_quantity) && item.quantity < item.original_quantity;
                     if (requiresReason && !item.quantity_reason) {
-                        showError('Please select a reason for each reduced quantity.');
+                        showError('Please select a reason for each item with reduced quantity.');
                         return;
                     }
                 }
@@ -757,8 +768,8 @@ async function updateRequest(id, status, options = {}) {
         confirmBtn.addEventListener('click', async () => {
             const id = confirmBtn.dataset.requestId;
             const status = String(confirmBtn.dataset.status || '').toLowerCase();
-            if (!id || !status) {
-                showError('Invalid action.');
+                if (!id || !status) {
+                showError('Invalid request or action. Please try again.');
                 return;
             }
 
@@ -777,9 +788,9 @@ async function updateRequest(id, status, options = {}) {
                     });
                     const payload = await res.json().catch(() => null);
                     if (!res.ok) {
-                        throw new Error(payload?.message || `Failed to mark as delivered (status ${res.status})`);
+                        throw new Error(payload?.message || `Failed to dispatch items (status ${res.status})`);
                     }
-                    showSuccess(payload?.message || 'Items marked as delivered successfully.');
+                    showSuccess(payload?.message || 'Items dispatched and marked as delivered successfully.');
                     await loadBorrowRequests();
                     window.dispatchEvent(new CustomEvent('close-modal', { detail: 'confirmActionModal' }));
                 } else {
@@ -788,7 +799,7 @@ async function updateRequest(id, status, options = {}) {
                 }
             } catch (error) {
                 console.error('Confirm action failed', error);
-                showError(error?.message || 'Failed to perform action.');
+                showError(error?.message || 'Failed to perform action. Please try again.');
             } finally {
                 confirmBtn.disabled = false;
             }
@@ -803,8 +814,8 @@ async function updateRequest(id, status, options = {}) {
 
         confirmBtn.addEventListener('click', async () => {
             const id = confirmBtn.dataset.requestId;
-            if (!id) {
-                showError('Invalid request ID.');
+                if (!id) {
+                showError('Invalid request ID. Please refresh the page.');
                 return;
             }
 
@@ -812,8 +823,8 @@ async function updateRequest(id, status, options = {}) {
             const selectedReason = document.querySelector('input[name="deliveryReason"]:checked');
             const reasonType = selectedReason?.value || null;
             
-            if (!reasonType) {
-                showError('Please select a reason for delivery.');
+                if (!reasonType) {
+                showError('Please select a delivery reason before dispatching items.');
                 return;
             }
 
@@ -825,7 +836,7 @@ async function updateRequest(id, status, options = {}) {
                 explanation = document.getElementById('deliveryReasonExplanation')?.value?.trim() || '';
                 
                 if (!subject || !explanation) {
-                    showError('Please provide both subject and explanation when selecting "Others".');
+                    showError('Please provide both subject and explanation when selecting "Others" as the delivery reason.');
                     return;
                 }
             }
@@ -852,14 +863,14 @@ async function updateRequest(id, status, options = {}) {
                     });
                     const payload = await res.json().catch(() => null);
                     if (!res.ok) {
-                        throw new Error(payload?.message || `Failed to mark as delivered (status ${res.status})`);
+                        throw new Error(payload?.message || `Failed to dispatch items (status ${res.status})`);
                     }
-                    showSuccess(payload?.message || 'Items marked as delivered successfully.');
+                    showSuccess(payload?.message || 'Items dispatched and marked as delivered successfully.');
                     await loadBorrowRequests();
                 window.dispatchEvent(new CustomEvent('close-modal', { detail: 'deliverItemsModal' }));
             } catch (error) {
                 console.error('Deliver items failed', error);
-                showError(error?.message || 'Failed to deliver items.');
+                showError(error?.message || 'Failed to dispatch items. Please try again.');
             } finally {
                 confirmBtn.disabled = false;
             }

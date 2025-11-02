@@ -127,7 +127,7 @@ function wireEditForm(form) {
 
       const result = await submitForm(form);
       const data = result?.data || {};
-      const message = data.message || 'Item updated.';
+      const message = data.message || 'Item details updated successfully.';
 
       showToast('success', message);
       showMessage(feedbackEl, message);
@@ -139,7 +139,7 @@ function wireEditForm(form) {
       }
     } catch (error) {
       console.error(error);
-      const message = error?.message || 'Failed to update item.';
+      const message = error?.message || 'Failed to update item details. Please try again.';
       showMessage(errorEl, message);
       showToast('error', message);
     } finally {

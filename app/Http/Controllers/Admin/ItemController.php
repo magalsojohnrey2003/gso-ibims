@@ -706,7 +706,7 @@ public function store(Request $request, PropertyNumberService $numbers)
 
         if ($request->wantsJson() || $request->isXmlHttpRequest()) {
             $status = $e instanceof \RuntimeException ? 409 : 500;
-            return response()->json(['message' => $e->getMessage() ?: 'Failed to create item.'], $status);
+            return response()->json(['message' => $e->getMessage() ?: 'Failed to add items. Please try again.'], $status);
         }
         return redirect()->route('items.index')->with('error', 'Failed to create item: ' . $e->getMessage());
     }
@@ -776,7 +776,7 @@ public function update(Request $request, Item $item)
         if ($request->wantsJson()) {
             $photoUrl = $item->photo ? asset('storage/' . ltrim($item->photo, '/')) : null;
             return response()->json([
-                'message' => 'Item updated successfully!',
+                'message' => 'Item details updated successfully.',
                 'item_id' => $item->id,
                 'id' => $item->id,
                 'name' => $item->name,
@@ -788,7 +788,7 @@ public function update(Request $request, Item $item)
             ]);
         }
 
-        return redirect()->route('items.index')->with('success', 'Item updated successfully!');
+        return redirect()->route('items.index')->with('success', 'Item details updated successfully.');
     } catch (\Throwable $e) {
         DB::rollBack();
 
@@ -797,10 +797,10 @@ public function update(Request $request, Item $item)
         }
 
         if ($request->wantsJson()) {
-            return response()->json(['message' => $e->getMessage()], 500);
+            return response()->json(['message' => $e->getMessage() ?: 'Failed to update item details. Please try again.'], 500);
         }
 
-        return redirect()->back()->withInput()->with('error', 'Failed to update item: ' . $e->getMessage());
+        return redirect()->back()->withInput()->with('error', 'Failed to update item details. ' . ($e->getMessage() ?: 'Please try again.'));
     }
 }
 
@@ -1079,10 +1079,10 @@ public function update(Request $request, Item $item)
 
             DB::commit();
 
-            return redirect()->route('items.index')->with('success', 'Item deleted successfully.');
+            return redirect()->route('items.index')->with('success', 'Item deleted permanently.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->route('items.index')->with('error', 'Failed to delete item: ' . $e->getMessage());
+            return redirect()->route('items.index')->with('error', 'Failed to delete item. ' . $e->getMessage());
         }
     }
 

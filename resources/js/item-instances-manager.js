@@ -302,7 +302,7 @@ class ItemInstancesManager {
       event.preventDefault();
       event.stopImmediatePropagation();
       if (this.serialSectionReason) {
-        showToast('error', this.serialSectionReason);
+        showToast('error', this.serialSectionReason || 'Complete property number rows before editing serial or model numbers.');
       }
     }
   }
@@ -744,7 +744,7 @@ class ItemInstancesManager {
       }
       const result = await this.api.patch(state.id, payload);
       if (!result.ok) {
-        const message = (result.json && (result.json.message || (result.json.errors && Object.values(result.json.errors).flat().join(' ')))) || 'Failed to update instance.';
+        const message = (result.json && (result.json.message || (result.json.errors && Object.values(result.json.errors).flat().join(' ')))) || 'Failed to update item instance. Please try again.';
         showToast('error', message);
         return { ok: false, message };
       }
@@ -758,12 +758,13 @@ class ItemInstancesManager {
       if (!state.id) continue;
       const result = await this.api.destroy(state.id);
       if (!result.ok) {
-        const message = (result.json && (result.json.message || result.json.error)) || 'Failed to delete instance.';
+        const message = (result.json && (result.json.message || result.json.error)) || 'Failed to delete item instance. Please try again.';
         showToast('error', message);
         return { ok: false, message };
       }
       state.row.remove();
       this.rows = this.rows.filter((item) => item !== state);
+      showToast('success', 'Item instance deleted successfully.');
       window.dispatchEvent(new CustomEvent('instance:deleted', { detail: { instanceId: state.id } }));
     }
 

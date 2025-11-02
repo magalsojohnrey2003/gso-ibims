@@ -1,7 +1,8 @@
 ﻿const DEFAULT_DURATION = 4000;
 const ICONS = {
-    success: '\u2713',
-    error: '\u26A0',
+    success: '✅',
+    error: '❌',
+    warning: '⚠️',
     info: '\u2139',
 };
 
@@ -69,7 +70,7 @@ export default function showToast(type = 'info', message = '') {
     if (typeof document === 'undefined') {
         return;
     }
-    const safeType = ['success', 'error', 'info'].includes(type) ? type : 'info';
+    const safeType = ['success', 'error', 'warning', 'info'].includes(type) ? type : 'info';
     const trimmed = String(message || '').trim();
     const displayMessage = trimmed.length ? trimmed : 'Notification';
     createToastElement(safeType, displayMessage);

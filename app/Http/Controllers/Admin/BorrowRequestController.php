@@ -267,8 +267,17 @@ class BorrowRequestController extends Controller
             } catch (\Throwable $e) {
             }
 
+            $statusMessages = [
+                'pending' => 'Request status set to pending.',
+                'validated' => 'Request validated successfully.',
+                'approved' => 'Request approved successfully.',
+                'rejected' => 'Request rejected.',
+                'returned' => 'Request marked as returned.',
+                'return_pending' => 'Request marked as return pending.',
+            ];
+            
             $response = [
-                'message' => 'Status updated successfully',
+                'message' => $statusMessages[$new] ?? 'Status updated successfully.',
                 'status'  => $borrowRequest->status
             ];
 
@@ -276,7 +285,7 @@ class BorrowRequestController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
             return response()->json([
-                'message' => 'Failed to update status',
+                'message' => 'Failed to update request status. Please try again.',
                 'error'   => $e->getMessage(),
             ], 500);
         }
@@ -480,10 +489,10 @@ class BorrowRequestController extends Controller
             }
 
             DB::commit();
-            return response()->json(['message' => 'Dispatched successfully.']);
+            return response()->json(['message' => 'Items dispatched successfully.']);
         } catch (\Throwable $e) {
             DB::rollBack();
-            return response()->json(['message' => 'Failed to dispatch.', 'error' => $e->getMessage()], 500);
+            return response()->json(['message' => 'Failed to dispatch items. Please try again.', 'error' => $e->getMessage()], 500);
         }
     }
 
