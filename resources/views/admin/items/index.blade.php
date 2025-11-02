@@ -63,42 +63,35 @@
           @if($errors->any())
               <x-alert type="error" :message="$errors->first()" />
           @endif
-          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-4 rounded-xl shadow-md border border-purple-100">
-              <form method="GET" action="{{ route('items.index') }}" class="flex items-center gap-3 flex-1">
-                  <div class="relative flex-1 max-w-md">
-                      <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <svg class="h-5 w-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                          </svg>
-                      </div>
-                      <input type="text"
-                             name="search"
-                             value="{{ request('search') }}"
-                             placeholder="Search by name or category..."
-                             class="block w-full pl-10 pr-3 py-3 border border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 text-sm placeholder-gray-400" />
-                  </div>
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <form method="GET" action="{{ route('items.index') }}" class="flex items-center gap-2">
+                  <input type="text"
+                         name="search"
+                         value="{{ request('search') }}"
+                         placeholder="Search by name or category..."
+                         class="border rounded-lg px-3 py-2 text-sm w-64 focus:ring focus:ring-blue-200" />
                   <x-button
-                      variant="primary"
+                      variant="secondary"
                       iconName="magnifying-glass"
                       type="submit"
-                      class="text-sm px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-xl shadow-md hover:shadow-lg transition-all duration-200">
+                      class="text-sm px-3 py-2">
                       Search
                   </x-button>
               </form>
           </div>
-          <div class="overflow-x-auto rounded-2xl shadow-xl border border-purple-100 bg-white">
-              <table class="w-full text-sm text-center text-gray-700">
-                  <thead class="bg-gradient-to-r from-purple-600 to-purple-700 text-white text-xs uppercase font-bold tracking-wider">
+          <div class="overflow-x-auto rounded-2xl shadow-lg">
+              <table class="w-full text-sm text-center text-gray-600 shadow-sm border rounded-lg overflow-hidden">
+                  <thead class="bg-purple-600 text-white text-xs uppercase font-semibold text-center">
                       <tr>
-                          <th class="px-6 py-4 first:rounded-tl-2xl">Photo</th>
-                          <th class="px-6 py-4">Name</th>
-                          <th class="px-6 py-4">Category</th>
-                          <th class="px-6 py-4">Total Qty</th>
-                          <th class="px-6 py-4">Available</th>
-                          <th class="px-6 py-4 last:rounded-tr-2xl">Actions</th>
+                          <th class="px-6 py-3">Photo</th>
+                          <th class="px-6 py-3">Name</th>
+                          <th class="px-6 py-3">Category</th>
+                          <th class="px-6 py-3">Total Qty</th>
+                          <th class="px-6 py-3">Available</th>
+                          <th class="px-6 py-3">Actions</th>
                       </tr>
                   </thead>
-            <tbody class="bg-white divide-y divide-purple-50">
+            <tbody class="divide-y bg-white text-center">
                       @forelse ($items as $item)
                           @php
                               // Determine display name for category: if item->category is numeric id and map exists, use mapped name.
@@ -110,8 +103,8 @@
                                   $displayCategory = $displayCategory ?? '';
                               }
                           @endphp
-                          <tr class="hover:bg-purple-50 transition-all duration-200 border-b border-purple-50" data-item-row="{{ $item->id }}">
-                              <td class="px-6 py-5 text-center" data-item-photo>
+                          <tr class="hover:bg-gray-50" data-item-row="{{ $item->id }}">
+                              <td class="px-6 py-4 text-center" data-item-photo>
                                   @if($item->photo)
                                       @php
                                           $photoUrl = Storage::disk('public')->exists($item->photo)
@@ -119,40 +112,26 @@
                                               : asset($item->photo);
                                       @endphp
                                       <div class="flex justify-center">
-                                          <img src="{{ $photoUrl }}" data-item-photo-img class="h-16 w-16 object-cover rounded-xl shadow-md ring-2 ring-purple-100 hover:ring-purple-300 transition-all duration-200">
+                                          <img src="{{ $photoUrl }}" data-item-photo-img class="h-12 w-12 object-cover rounded-lg shadow-sm">
                                       </div>
                                   @else
-                                      <div class="flex justify-center">
-                                          <div class="h-16 w-16 rounded-xl bg-purple-100 flex items-center justify-center">
-                                              <svg class="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                              </svg>
-                                          </div>
-                                      </div>
+                                      <x-status-badge type="gray" text="No photo" />
                                   @endif
                               </td>
-                              <td class="px-6 py-5 font-bold text-gray-900 text-base" data-item-name>{{ $item->name }}</td>
-                              <td class="px-6 py-5" data-item-category>
-                                  <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-700 border border-purple-200">
-                                      {{ $displayCategory }}
-                                  </span>
-                              </td>
-                              <td class="px-6 py-5" data-item-total>
-                                  <span class="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 text-gray-700 font-bold text-sm">
-                                      {{ $item->total_qty }}
-                                  </span>
-                              </td>
-                              <td class="px-6 py-5" data-item-available>
-                                  <span class="inline-flex items-center justify-center px-4 py-2 rounded-lg font-bold text-sm {{ $item->available_qty > 0 ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-red-100 text-red-700 border border-red-200' }}">
+                              <td class="px-6 py-4 font-semibold text-gray-900" data-item-name>{{ $item->name }}</td>
+                              <td class="px-6 py-4" data-item-category>{{ $displayCategory }}</td>
+                              <td class="px-6 py-4" data-item-total>{{ $item->total_qty }}</td>
+                              <td class="px-6 py-4" data-item-available>
+                                  <span class="{{ $item->available_qty > 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold' }}">
                                       {{ $item->available_qty }}
                                   </span>
                               </td>
-                              <td class="px-6 py-5">
-                                  <div class="flex items-center justify-center gap-2">
+                              <td class="px-6 py-4">
+                                  <div class="flex items-center justify-center gap-3">
                                       <x-button
                                           variant="primary"
                                           size="sm"
-                                          class="h-11 w-11 !px-0 !py-0 rounded-xl shadow-md hover:shadow-lg hover:scale-110 transition-all duration-200 bg-purple-600 hover:bg-purple-700 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
+                                          class="h-10 w-10 !px-0 !py-0 rounded-full shadow-lg [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
                                           iconName="pencil-square"
                                           x-data
                                           x-on:click.prevent="$dispatch('open-modal', 'edit-item-{{ $item->id }}')">
@@ -161,7 +140,7 @@
                                       <x-button
                                           variant="secondary"
                                           size="sm"
-                                          class="h-11 w-11 !px-0 !py-0 rounded-xl shadow-md hover:shadow-lg hover:scale-110 transition-all duration-200 bg-indigo-600 hover:bg-indigo-700 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
+                                          class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
                                           iconName="eye"
                                           x-data
                                           x-on:click.prevent="$dispatch('open-modal', 'view-item-{{ $item->id }}')">
@@ -170,7 +149,7 @@
                                       <x-button
                                           variant="secondary"
                                           size="sm"
-                                          class="h-11 w-11 !px-0 !py-0 rounded-xl shadow-md hover:shadow-lg hover:scale-110 transition-all duration-200 bg-blue-600 hover:bg-blue-700 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
+                                          class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
                                           iconName="printer"
                                           type="button"
                                           data-print-stickers
@@ -186,7 +165,7 @@
                                       <x-button
                                           variant="danger"
                                           size="sm"
-                                          class="h-11 w-11 !px-0 !py-0 rounded-xl shadow-md hover:shadow-lg hover:scale-110 transition-all duration-200 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
+                                          class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
                                           iconName="trash"
                                           x-data
                                           x-on:click.prevent="$dispatch('open-modal', 'confirm-delete-{{ $item->id }}')">
@@ -270,18 +249,8 @@
                           @endpush
                       @empty
                           <tr>
-                              <td colspan="6" class="px-6 py-16 text-center">
-                                  <div class="flex flex-col items-center justify-center space-y-4">
-                                      <div class="w-20 h-20 rounded-full bg-purple-100 flex items-center justify-center">
-                                          <svg class="w-10 h-10 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                                          </svg>
-                                      </div>
-                                      <div>
-                                          <p class="text-lg font-semibold text-gray-700">No items found</p>
-                                          <p class="text-sm text-gray-500 mt-1">Try adjusting your search criteria</p>
-                                      </div>
-                                  </div>
+                              <td colspan="6" class="px-6 py-4 text-center text-gray-500">
+                                  <x-status-badge type="warning" text="No items found" />
                               </td>
                           </tr>
                       @endforelse
