@@ -208,9 +208,9 @@ function renderBorrowRequests() {
         if (statusKey === 'pending') {
             wrapper.appendChild(createButtonFromTemplate('btn-validate-template', req.id));
             wrapper.appendChild(createButtonFromTemplate('btn-reject-template', req.id));
-        } else if (['validated', 'approved'].includes(statusKey) && deliveryKey !== 'dispatched') {
+        } else if (['validated', 'approved'].includes(statusKey)) {
             wrapper.appendChild(createButtonFromTemplate('btn-deliver-template', req.id));
-        } else if (deliveryKey === 'dispatched' || ['returned', 'rejected'].includes(statusKey)) {
+        } else if (deliveryKey === 'dispatched' || ['approved', 'returned', 'rejected'].includes(statusKey)) {
             wrapper.appendChild(createButtonFromTemplate('btn-view-template', req.id));
         } else {
             wrapper.appendChild(createButtonFromTemplate('btn-view-template', req.id));
