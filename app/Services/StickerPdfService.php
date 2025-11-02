@@ -214,12 +214,12 @@ class StickerPdfService
         float $borderWidth
     ): array {
         $bestLayout = null;
-        $bestScore = -1;
+        $maxStickerArea = 0;
 
         // Try different grid configurations (rows x cols)
-        // Test up to 6 columns and 6 rows to maximize sticker count per page
-        $maxCols = 6;
-        $maxRows = 6;
+        // Test up to 5 columns and 5 rows
+        $maxCols = 5;
+        $maxRows = 5;
 
         for ($rows = 1; $rows <= $maxRows; $rows++) {
             for ($cols = 1; $cols <= $maxCols; $cols++) {
@@ -263,20 +263,10 @@ class StickerPdfService
 
                 // Calculate sticker area
                 $stickerArea = $finalWidth * $finalHeight;
-                $totalStickers = $rows * $cols;
-                
-                // Score based on: prioritize more stickers per page, then larger sticker size
-                // Use a weighted score that favors more stickers but still considers size
-                // Score = (sticker area * weight) + (total stickers * bonus weight)
-                // This ensures we fit multiple stickers while maximizing their size
-                $areaWeight = 1.0;
-                $countWeight = 10000.0; // Strong preference for more stickers
-                $score = ($stickerArea * $areaWeight) + ($totalStickers * $countWeight);
 
-                // Prefer this layout if it has a better score
-                // But also ensure the stickers aren't too small (minimum 50 points in width or height)
-                if ($finalWidth >= 50 && $finalHeight >= 50 && $score > $bestScore) {
-                    $bestScore = $score;
+                // Prefer this layout if it results in larger stickers
+                if ($stickerArea > $maxStickerArea) {
+                    $maxStickerArea = $stickerArea;
                     $bestLayout = [
                         'rows' => $rows,
                         'cols' => $cols,
