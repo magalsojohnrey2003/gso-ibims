@@ -1352,15 +1352,19 @@ async function submitForm(form) {
   const method = (form.getAttribute('method') || 'POST').toUpperCase();
   const formData = new FormData(form);
 
-  // Extract raw currency values for currency-formatted fields before submission
-  const currencyFields = form.querySelectorAll('[data-currency-format]');
-  currencyFields.forEach((field) => {
-    const rawValue = field.dataset.currencyRaw;
-    if (rawValue !== undefined) {
-      // Replace the formatted value with the raw numeric value
-      formData.set(field.name, rawValue || '');
-    }
+  const response = await fetch(action, {
+    method,
+    headers: {
+      Accept: 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+    },
+    body: formData,
   });
+
+async function submitForm(form) {
+  const action = form.getAttribute('action') || window.location.href;
+  const method = (form.getAttribute('method') || 'POST').toUpperCase();
+  const formData = new FormData(form);
 
   const response = await fetch(action, {
     method,
@@ -1413,6 +1417,7 @@ async function submitForm(form) {
   }
 
   throw new Error(`Request failed (${response.status}).`);
+}
 }
 function handleSuccess(form, elements, result) {
   const data = result?.data || {};
