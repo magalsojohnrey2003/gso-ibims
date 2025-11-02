@@ -99,7 +99,7 @@
                     <i class="fas fa-tag text-purple-600 mt-1"></i>
                     <div>
                         <div class="font-medium text-gray-800">Status</div>
-                        <div id="mbi-status-badge" class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">—</div>
+                        <div id="mbi-status-badge" class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">—</div>
                     </div>
                 </div>
 
@@ -206,7 +206,7 @@
             const key = raw === 'qr_verified' ? 'approved' : raw;
             const tpl = document.querySelector(`#statusBadgeTemplates template[data-status="${key}"]`)
                       || document.querySelector('#statusBadgeTemplates template[data-status="default"]');
-            return tpl ? tpl.innerHTML : `<span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">${status || '—'}</span>`;
+            return tpl ? tpl.innerHTML : `<span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700"><i class="fas fa-question-circle text-xs"></i><span>${status || '—'}</span></span>`;
         };
     </script>
 

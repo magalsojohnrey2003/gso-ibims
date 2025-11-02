@@ -151,7 +151,7 @@
                         <i class="fas fa-tag text-purple-600 mt-1"></i>
                         <div>
                             <div class="font-medium text-gray-800">Status</div>
-                            <div id="manage-status-badge" class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">--</div>
+                            <div id="manage-status-badge" class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">--</div>
                         </div>
                     </div>
                     <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3">

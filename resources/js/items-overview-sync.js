@@ -9,6 +9,17 @@ const STATUS_CLASS_MAP = {
   unknown: 'bg-gray-200 text-gray-700',
 };
 
+const STATUS_ICON_MAP = {
+  available: 'fa-check-circle',
+  borrowed: 'fa-box',
+  returned: 'fa-arrow-left',
+  missing: 'fa-exclamation-triangle',
+  damaged: 'fa-exclamation-triangle',
+  minor_damage: 'fa-exclamation-circle',
+  pending: 'fa-clock',
+  unknown: 'fa-question-circle',
+};
+
 const STATUS_LABEL_MAP = {
   borrowed: 'Borrowed',
   minor_damage: 'Minor Damage',
@@ -33,9 +44,10 @@ function applyStatusToBadge(badge, status) {
   if (!badge) return;
   const key = normalizeStatus(status);
   const classes = STATUS_CLASS_MAP[key] || STATUS_CLASS_MAP.unknown;
-  const base = badge.dataset.badgeBase || '';
-  badge.className = base ? `${base} ${classes}` : `${classes}`;
-  badge.textContent = toLabel(status);
+  const icon = STATUS_ICON_MAP[key] || STATUS_ICON_MAP.unknown;
+  const base = badge.dataset.badgeBase || 'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold';
+  badge.className = `${base} ${classes}`;
+  badge.innerHTML = `<i class="fas ${icon} text-xs"></i><span>${toLabel(status)}</span>`;
 }
 
 function updateInstanceStatus(itemInstanceId, status) {

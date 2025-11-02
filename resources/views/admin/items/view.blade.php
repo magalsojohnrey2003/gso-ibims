@@ -127,12 +127,24 @@
                                             'minor_damage' => 'bg-yellow-100 text-yellow-700',
                                             'pending' => 'bg-gray-200 text-gray-700',
                                         ];
+                                        $statusIcons = [
+                                            'available' => 'fa-check-circle',
+                                            'borrowed' => 'fa-box',
+                                            'returned' => 'fa-arrow-left',
+                                            'missing' => 'fa-exclamation-triangle',
+                                            'damaged' => 'fa-exclamation-triangle',
+                                            'minor_damage' => 'fa-exclamation-circle',
+                                            'pending' => 'fa-clock',
+                                            'unknown' => 'fa-question-circle',
+                                        ];
                                         $badgeClass = $statusClasses[$status] ?? 'bg-gray-200 text-gray-700';
-                                        $badgeBase = 'inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold';
+                                        $badgeIcon = $statusIcons[$status] ?? 'fa-question-circle';
+                                        $badgeBase = 'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold';
                                         $statusLabel = ucwords(str_replace('_', ' ', $status));
                                     @endphp
                                     <span class="{{ $badgeBase }} {{ $badgeClass }}" data-instance-status data-badge-base="{{ $badgeBase }}">
-                                        {{ $statusLabel }}
+                                        <i class="fas {{ $badgeIcon }} text-xs"></i>
+                                        <span>{{ $statusLabel }}</span>
                                     </span>
                                 </td>
                             </tr>

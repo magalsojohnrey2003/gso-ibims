@@ -62,34 +62,41 @@ function formatInventoryStatusLabel(status) {
 
 function renderInventoryStatusBadge(status, label) {
     const span = document.createElement('span');
-    const base = 'inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full';
+    const base = 'inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-full';
     const key = String(status || '').toLowerCase();
     let classes = ' bg-gray-100 text-gray-700';
+    let icon = 'fa-question-circle';
 
     switch (key) {
         case 'available':
             classes = ' bg-green-100 text-green-700';
+            icon = 'fa-check-circle';
             break;
         case 'borrowed':
             classes = ' bg-indigo-100 text-indigo-700';
+            icon = 'fa-box';
             break;
         case 'damaged':
         case 'missing':
             classes = ' bg-red-100 text-red-700';
+            icon = 'fa-exclamation-triangle';
             break;
         case 'under_repair':
             classes = ' bg-yellow-100 text-yellow-700';
+            icon = 'fa-wrench';
             break;
         case 'retired':
             classes = ' bg-gray-200 text-gray-800';
+            icon = 'fa-archive';
             break;
         default:
             classes = ' bg-gray-100 text-gray-700';
+            icon = 'fa-question-circle';
             break;
     }
 
     span.className = `${base}${classes}`;
-    span.textContent = label || formatInventoryStatusLabel(status);
+    span.innerHTML = `<i class="fas ${icon} text-xs"></i><span>${label || formatInventoryStatusLabel(status)}</span>`;
     return span;
 }
 

@@ -37,8 +37,29 @@ function getBadgeHtml(status) {
             console.error('renderStatusBadge failed', err);
         }
     }
-    const label = st ? (st.charAt(0).toUpperCase() + st.slice(1)) : '—';
-    return `<span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">${escapeHtml(label)}</span>`;
+    // Fallback with icon mapping
+    const statusIcons = {
+        'approved': 'fa-check-circle',
+        'pending': 'fa-clock',
+        'return_pending': 'fa-clock',
+        'returned': 'fa-arrow-left',
+        'rejected': 'fa-times-circle',
+        'qr_verified': 'fa-check-circle',
+        'validated': 'fa-check-circle',
+    };
+    const statusColors = {
+        'approved': 'bg-green-100 text-green-700',
+        'pending': 'bg-yellow-100 text-yellow-700',
+        'return_pending': 'bg-blue-100 text-blue-700',
+        'returned': 'bg-emerald-100 text-emerald-700',
+        'rejected': 'bg-red-100 text-red-700',
+        'qr_verified': 'bg-green-100 text-green-700',
+        'validated': 'bg-blue-100 text-blue-700',
+    };
+    const icon = statusIcons[st] || 'fa-question-circle';
+    const color = statusColors[st] || 'bg-gray-100 text-gray-700';
+    const label = st ? (st.charAt(0).toUpperCase() + st.slice(1).replace(/_/g, ' ')) : '—';
+    return `<span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-full ${color}"><i class="fas ${icon} text-xs"></i><span>${escapeHtml(label)}</span></span>`;
 }
 
 function showAlert(type, msg) {

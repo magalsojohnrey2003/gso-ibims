@@ -149,25 +149,56 @@ function buildStatusBadge(status, deliveryStatus) {
     const statusKey = String(status || '').toLowerCase();
     const deliveryKey = String(deliveryStatus || '').toLowerCase();
 
+    // Helper to get icon HTML
+    const getIcon = (iconClass) => `<i class="fas ${iconClass} text-xs"></i>`;
+
     if (deliveryKey === 'dispatched') {
-        return { label: 'Delivered', classes: 'bg-emerald-100 text-emerald-700' };
+        return { 
+            label: 'Delivered', 
+            classes: 'bg-emerald-100 text-emerald-700',
+            icon: getIcon('fa-check-circle')
+        };
     }
     if (statusKey === 'validated') {
-        return { label: 'Validated', classes: 'bg-blue-100 text-blue-700' };
+        return { 
+            label: 'Validated', 
+            classes: 'bg-blue-100 text-blue-700',
+            icon: getIcon('fa-check-circle')
+        };
     }
     if (statusKey === 'approved' || statusKey === 'qr_verified') {
-        return { label: 'Approved', classes: 'bg-indigo-100 text-indigo-700' };
+        return { 
+            label: 'Approved', 
+            classes: 'bg-green-100 text-green-700',
+            icon: getIcon('fa-check-circle')
+        };
     }
     if (statusKey === 'rejected') {
-        return { label: 'Rejected', classes: 'bg-red-100 text-red-700' };
+        return { 
+            label: 'Rejected', 
+            classes: 'bg-red-100 text-red-700',
+            icon: getIcon('fa-times-circle')
+        };
     }
     if (statusKey === 'returned') {
-        return { label: 'Returned', classes: 'bg-emerald-100 text-emerald-700' };
+        return { 
+            label: 'Returned', 
+            classes: 'bg-emerald-100 text-emerald-700',
+            icon: getIcon('fa-arrow-left')
+        };
     }
     if (statusKey === 'pending') {
-        return { label: 'Pending', classes: 'bg-yellow-100 text-yellow-700' };
+        return { 
+            label: 'Pending', 
+            classes: 'bg-yellow-100 text-yellow-700',
+            icon: getIcon('fa-clock')
+        };
     }
-    return { label: humanizeStatus(statusKey || 'pending'), classes: 'bg-gray-100 text-gray-700' };
+    return { 
+        label: humanizeStatus(statusKey || 'pending'), 
+        classes: 'bg-gray-100 text-gray-700',
+        icon: getIcon('fa-question-circle')
+    };
 }
 
 function renderBorrowRequests() {
@@ -193,8 +224,8 @@ function renderBorrowRequests() {
         const tdBorrowDate = `<td class="px-4 py-3">${escapeHtml(formatDate(req.borrow_date))}</td>`;
         const tdReturnDate = `<td class="px-4 py-3">${escapeHtml(formatDate(req.return_date))}</td>`;
 
-        const { label: statusLabel, classes: statusClasses } = buildStatusBadge(req.status, req.delivery_status);
-        const tdStatus = `<td class="px-4 py-3"><span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full ${statusClasses}">${escapeHtml(statusLabel)}</span></td>`;
+        const { label: statusLabel, classes: statusClasses, icon } = buildStatusBadge(req.status, req.delivery_status);
+        const tdStatus = `<td class="px-4 py-3"><span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-full ${statusClasses}">${icon || ''}${escapeHtml(statusLabel)}</span></td>`;
 
         const tdActions = document.createElement('td');
         tdActions.className = 'px-4 py-3';
@@ -420,9 +451,9 @@ function fillRequestModal(req) {
 
     const statusBadge = document.getElementById('statusBadge');
     if (statusBadge) {
-        const { label, classes } = buildStatusBadge(req.status, req.delivery_status);
-        statusBadge.textContent = label;
-        statusBadge.className = `inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full ${classes}`;
+        const { label, classes, icon } = buildStatusBadge(req.status, req.delivery_status);
+        statusBadge.className = `inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-full ${classes}`;
+        statusBadge.innerHTML = `${icon || ''}<span>${escapeHtml(label)}</span>`;
     }
 
     const itemsEl = document.getElementById('itemsList');
