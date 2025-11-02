@@ -24,9 +24,13 @@ class BorrowRequest extends Model
         'delivered_at',
         'delivery_reported_at',
         'delivery_report_reason',
+<<<<<<< Updated upstream
         'delivery_reason_type',
         'delivery_reason_details',
     ];
+=======
+        'letter',];
+>>>>>>> Stashed changes
         
 
     public function user()

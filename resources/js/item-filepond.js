@@ -14,13 +14,18 @@ function initFilePondOnInput(input) {
   const initialUrl = input.getAttribute('data-initial-url') || '';
   const previewHeight = parseInt(input.getAttribute('data-preview-height') || '120', 10);
   const thumbWidth = parseInt(input.getAttribute('data-thumb-width') || '160', 10);
-
+  
+  // Check if this is a letter upload (accepts PDF and images)
+  const isLetter = input.name === 'letter' || input.id === 'letter';
+  const acceptedFileTypes = isLetter ? 'image/*,application/pdf' : 'image/*';
+  
   const pond = FilePond.create(input, {
     allowMultiple: false,
     instantUpload: false,
     allowReorder: false,
     credits: false,
     allowImagePreview: true,
+    acceptedFileTypes: acceptedFileTypes,
 
     // Image preview sizing (height controls preview panel height)
     imagePreviewHeight: previewHeight,
@@ -31,7 +36,12 @@ function initFilePondOnInput(input) {
     imageResizeMode: 'cover',
 
     // Modern interactive placeholder text (no default image fallback)
-    labelIdle: `
+    labelIdle: isLetter ? `
+      <div style="text-align:left;padding:8px 12px">
+        <div style="font-weight:600;color:#111827;font-size:14px">Click to upload Letter</div>
+        <div style="font-size:12px;color:#6b7280;margin-top:3px">or
+        <span style="font-weight:600">drag and drop</span> JPG/PNG/PDF, up to 5MB</div>
+      </div>` : `
       <div style="text-align:left;padding:8px 12px">
         <div style="font-weight:600;color:#111827;font-size:14px">Click to upload Item Photo</div>
         <div style="font-size:12px;color:#6b7280;margin-top:3px">or

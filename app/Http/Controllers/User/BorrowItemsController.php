@@ -13,8 +13,13 @@ use App\Events\BorrowRequestSubmitted;
 use App\Notifications\RequestNotification;
 use Illuminate\Support\Facades\Notification;
 use App\Models\User;
+<<<<<<< Updated upstream
 use App\Services\BorrowRequestFormPdf; 
 use Illuminate\Support\Facades\Storage;
+=======
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Storage; 
+>>>>>>> Stashed changes
 
 class BorrowItemsController extends Controller
 {
@@ -88,9 +93,28 @@ class BorrowItemsController extends Controller
 
         $borrowList = Session::get('borrowList', []);
 
+<<<<<<< Updated upstream
         $photoPath = $item->photo
             ? $item->photo
             : $this->defaultPhotos[$item->category] ?? 'images/no-image.png';
+=======
+        // Ensure consistent photo path format
+        $photoPath = null;
+        if ($item->photo) {
+            // Check if it's already a full URL or path, otherwise prepend storage/
+            if (str_starts_with($item->photo, 'http')) {
+                $photoPath = $item->photo;
+            } elseif (str_starts_with($item->photo, 'storage/')) {
+                $photoPath = $item->photo;
+            } elseif (\Illuminate\Support\Facades\Storage::disk('public')->exists($item->photo)) {
+                $photoPath = 'storage/' . $item->photo;
+            } else {
+                $photoPath = asset('storage/' . $item->photo);
+            }
+        } else {
+            $photoPath = $this->defaultPhotos[$item->category] ?? 'images/no-image.png';
+        }
+>>>>>>> Stashed changes
 
         if (isset($borrowList[$item->id])) {
             $newQty = min($borrowList[$item->id]['qty'] + $qty, $item->total_qty);
@@ -130,6 +154,7 @@ class BorrowItemsController extends Controller
             return back()->withErrors(['borrowList' => 'Your Borrow List is empty.']);
         }
 
+<<<<<<< Updated upstream
         $postedItems = $request->input('items', []);
         foreach ($borrowList as $itemId => &$listItem) {
             if (!isset($postedItems[$itemId]['quantity'])) {
@@ -160,6 +185,14 @@ class BorrowItemsController extends Controller
         ], [
             'support_letter.required' => 'Please upload your signed letter before proceeding.',
             'support_letter.mimes'    => 'The letter must be an image or PDF file.',
+=======
+        $validated = $request->validate([
+            'borrow_date'    => 'required|date|after_or_equal:today',
+            'return_date'    => 'required|date|after_or_equal:borrow_date',
+            'manpower_count' => 'nullable|integer|min:1|max:100',
+            'location'       => 'nullable|string|max:255',
+            'letter'         => 'nullable|file|mimes:jpeg,jpg,png,pdf|max:5120',
+>>>>>>> Stashed changes
         ]);
 
         [$borrowDate, $returnDate] = [$validated['borrow_date'], $validated['return_date']];
@@ -186,20 +219,31 @@ class BorrowItemsController extends Controller
         }
 
         $letterPath = null;
+<<<<<<< Updated upstream
         if ($request->hasFile('support_letter')) {
             $letterPath = $request->file('support_letter')->store('borrow-letters', 'public');
+=======
+        if ($request->hasFile('letter')) {
+            $letterPath = $request->file('letter')->store('borrow-letters', 'public');
+>>>>>>> Stashed changes
         }
 
         $borrowRequest = BorrowRequest::create([
             'user_id'        => Auth::id(),
             'borrow_date'    => $borrowDate,
             'return_date'    => $returnDate,
+<<<<<<< Updated upstream
             'time_of_usage'  => $validated['time_of_usage'],
             'manpower_count' => $validated['manpower_count'] ?? null,
             'purpose_office' => $validated['purpose_office'],
             'purpose'        => $validated['purpose'],
             'location'       => $validated['location'],
             'letter_path'    => $letterPath,
+=======
+            'manpower_count' => $request->input('manpower_count'),
+            'location'       => $request->input('location'),
+            'letter'         => $letterPath,
+>>>>>>> Stashed changes
             'status'         => 'pending',
         ]);
 

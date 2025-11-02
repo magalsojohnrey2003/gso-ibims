@@ -270,6 +270,7 @@
         <form id="assignManpowerForm" class="space-y-5" onsubmit="return false;">
             <input type="hidden" id="assignManpowerRequestId" />
 
+<<<<<<< Updated upstream
             <div class="grid gap-4 md:grid-cols-[2fr,3fr]">
                 <div class="space-y-2">
                     <label class="text-xs font-semibold tracking-wide text-gray-600 uppercase">Delivery Location</label>
@@ -282,6 +283,19 @@
                         <span id="assignLetterFallback" class="text-sm text-gray-500">No letter uploaded</span>
                     </div>
                 </div>
+=======
+            <!-- Uploaded Letter Display -->
+            <div id="assignManpowerLetterContainer" class="mb-4 p-3 border rounded-lg bg-gray-50 hidden">
+                <label class="text-sm font-semibold text-gray-700 mb-2 block">Uploaded Letter</label>
+                <div id="assignManpowerLetterDisplay" class="mt-2">
+                    <!-- Letter will be displayed here -->
+                </div>
+            </div>
+
+            <div class="text-sm text-gray-700 mb-2">
+                Requested manpower (total): <span id="assignRequestedTotal" class="font-medium">—</span>
+                <span id="assignManpowerHint" class="ml-3 text-xs text-gray-400">Tip: Reduce item Qty to mark less units requested (cannot increase).</span>
+>>>>>>> Stashed changes
             </div>
 
             <div class="grid gap-3 md:grid-cols-[1fr,1fr]">

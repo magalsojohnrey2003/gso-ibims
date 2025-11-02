@@ -660,8 +660,58 @@ public function store(Request $request, PropertyNumberService $numbers)
                 $request->user(),
                 ['source' => 'admin_item_store']
             );
+<<<<<<< Updated upstream
         } else {
             // no instances to create
+=======
+
+            $this->syncItemQuantities($item);
+
+            DB::commit();
+
+            if ($request->wantsJson()) {
+                $photoUrl = $item->photo ? asset('storage/' . ltrim($item->photo, '/')) : null;
+                return response()->json([
+                    'message' => (count($created) > 1) ? 'Items created.' : 'Item created.',
+                    'item_id' => $item->id,
+                    'created_count' => count($created),
+                    'created_pns' => $created,
+                    'skipped_serials' => $skipped,
+                    'photo' => $photoUrl,
+                    'item' => [
+                        'id' => $item->id,
+                        'name' => $item->name,
+                        'category' => $item->category,
+                        'total_qty' => $item->total_qty,
+                        'available_qty' => $item->available_qty,
+                        'photo' => $photoUrl,
+                    ],
+                ], $skipped ? 207 : 201);
+            }
+
+            if (! empty($skipped)) {
+                $message = (count($created) > 1)
+                    ? 'Items created. Some serials skipped.'
+                    : 'Item created. Some serials skipped.';
+            } else {
+                $message = (count($created) > 1) ? 'Items created.' : 'Item created.';
+            }
+
+            return redirect()->route('items.index')->with('success', $message);
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            if ($request->hasFile('photo') && $photoPath) {
+                Storage::disk('public')->delete($photoPath);
+            }
+
+            // For AJAX/JS clients: return JSON error instead of allowing an HTML error page
+            if ($request->wantsJson() || $request->isXmlHttpRequest()) {
+                $status = $e instanceof \RuntimeException ? 409 : 500;
+                return response()->json(['message' => $e->getMessage() ?: 'Failed to create item.'], $status);
+            }
+            return redirect()->route('items.index')->with('error', 'Failed to create item: ' . $e->getMessage());
+>>>>>>> Stashed changes
         }
 
         $this->syncItemQuantities($item);
@@ -725,8 +775,12 @@ public function update(Request $request, Item $item)
         'acquisition_cost' => 'nullable|string|max:50',
     ]);
 
+<<<<<<< Updated upstream
     $originalPhoto = $item->photo;
     $photoPath = $originalPhoto;
+=======
+    $photoPath = $item->photo;
+>>>>>>> Stashed changes
     $uploadedNewPhoto = false;
 
     if ($request->hasFile('photo')) {
@@ -741,6 +795,7 @@ public function update(Request $request, Item $item)
         $item->name = $data['name'];
         $item->category = $data['category'];
         $item->photo = $photoPath;
+<<<<<<< Updated upstream
 
         if ($request->has('acquisition_date')) {
             if ($request->filled('acquisition_date')) {
@@ -763,7 +818,25 @@ public function update(Request $request, Item $item)
         if ($primaryInstance && array_key_exists('description', $data)) {
             $primaryInstance->notes = $data['description'] ?? null;
             $primaryInstance->save();
+=======
+        
+        // Update description if provided via primary instance notes
+        if (isset($data['description'])) {
+            $instance = $data['item_instance_id']
+                ? ItemInstance::find($data['item_instance_id'])
+                : $item->instances()->first();
+            
+            if ($instance) {
+                $instance->notes = $data['description'];
+                $instance->save();
+            }
+>>>>>>> Stashed changes
         }
+        
+        $item->save();
+        
+        // Note: Property number fields (year, category_code, serial, office) are managed
+        // separately via inline editing in the Existing Property Numbers section
 
         $this->syncItemQuantities($item);
 
@@ -775,8 +848,16 @@ public function update(Request $request, Item $item)
 
         if ($request->wantsJson()) {
             $photoUrl = $item->photo ? asset('storage/' . ltrim($item->photo, '/')) : null;
+            $instance = $data['item_instance_id']
+                ? ItemInstance::find($data['item_instance_id'])
+                : $item->instances()->first();
+            
             return response()->json([
+<<<<<<< Updated upstream
                 'message' => 'Item details updated successfully.',
+=======
+                'message' => 'Item updated successfully.',
+>>>>>>> Stashed changes
                 'item_id' => $item->id,
                 'id' => $item->id,
                 'name' => $item->name,
@@ -788,7 +869,12 @@ public function update(Request $request, Item $item)
             ]);
         }
 
+<<<<<<< Updated upstream
         return redirect()->route('items.index')->with('success', 'Item details updated successfully.');
+=======
+        return redirect()->route('items.index')->with('success', 'Item updated successfully.');
+
+>>>>>>> Stashed changes
     } catch (\Throwable $e) {
         DB::rollBack();
 

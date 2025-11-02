@@ -159,12 +159,261 @@ function buildStatusBadge(status, deliveryStatus) {
             icon: getIcon('fa-check-circle')
         };
     }
+<<<<<<< Updated upstream
     if (statusKey === 'validated') {
         return { 
             label: 'Validated', 
             classes: 'bg-blue-100 text-blue-700',
             icon: getIcon('fa-check-circle')
         };
+=======
+
+    const container = document.getElementById('assignManpowerItemsContainer');
+    const requestIdInput = document.getElementById('assignManpowerRequestId');
+    const requestedTotalEl = document.getElementById('assignRequestedTotal');
+    const warningEl = document.getElementById('assignManpowerWarning');
+    const forceCheckbox = document.getElementById('assignForceOverride');
+    const letterContainer = document.getElementById('assignManpowerLetterContainer');
+    const letterDisplay = document.getElementById('assignManpowerLetterDisplay');
+
+    if (!container || !requestIdInput || !requestedTotalEl) return;
+
+    container.innerHTML = '';
+    requestIdInput.value = id;
+    requestedTotalEl.textContent = req.manpower_count ?? '—';
+    warningEl.classList.add('hidden');
+    warningEl.textContent = '';
+    if (forceCheckbox) forceCheckbox.checked = false;
+
+    // Display uploaded letter if available
+    if (letterContainer && letterDisplay) {
+        if (req.letter) {
+            const letterUrl = req.letter.startsWith('http') ? req.letter : `/storage/${req.letter}`;
+            const isPdf = req.letter.toLowerCase().endsWith('.pdf');
+            
+            if (isPdf) {
+                letterDisplay.innerHTML = `<a href="${letterUrl}" target="_blank" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    <i class="fas fa-file-pdf mr-2"></i> View Letter (PDF)
+                </a>`;
+            } else {
+                letterDisplay.innerHTML = `<img src="${letterUrl}" alt="Uploaded Letter" class="max-w-full h-auto rounded-lg border border-gray-300" style="max-height: 300px;" />`;
+            }
+            letterContainer.classList.remove('hidden');
+        } else {
+            letterContainer.classList.add('hidden');
+            letterDisplay.innerHTML = '';
+        }
+    }
+
+    // roles - keep consistent with backend choices
+    const ROLE_OPTIONS = ['', 'Setup', 'Operator', 'Driver', 'Other'];
+
+        (req.items || []).forEach(it => {
+        const row = document.createElement('div');
+        row.className = 'grid grid-cols-12 gap-2 items-center border-b pb-2 py-2';
+
+        const nameCol = document.createElement('div');
+        nameCol.className = 'col-span-4';
+        nameCol.innerHTML = `<div class="font-medium">${escapeHtml(it.item?.name ?? 'Unknown')}</div><div class="text-xs text-gray-500">Requested: ${escapeHtml(String(it.quantity || 0))}</div>`;
+
+        // hidden input for borrow_request_item_id (kept for form-style structure)
+        const hiddenInput = `<input type="hidden" name="borrow_request_item_id" value="${escapeHtml(String(it.id || (it.borrow_request_item_id ?? '')))}" />`;
+
+        // quantity edit (admin may only reduce here)
+        const qtyCol = document.createElement('div');
+        qtyCol.className = 'col-span-2';
+        qtyCol.innerHTML = `
+            ${hiddenInput}
+            <label class="text-xs text-gray-600">Qty</label>
+            <input type="number" min="0" max="${escapeHtml(String(it.quantity ?? 0))}" class="w-full border rounded px-2 py-1 assign-qty-input" 
+                value="${escapeHtml(String(it.quantity ?? 0))}" />
+        `;
+
+        // assigned manpower
+        const assignedInput = document.createElement('div');
+        assignedInput.className = 'col-span-2';
+        assignedInput.innerHTML = `
+            <label class="text-xs text-gray-600">Manpower</label>
+            <input type="number" min="0" class="w-full border rounded px-2 py-1 assign-manpower-input" 
+                value="${escapeHtml(String(it.assigned_manpower ?? 0))}" />
+        `;
+
+        // role select
+        const roleSelect = document.createElement('div');
+        roleSelect.className = 'col-span-2';
+        const ROLE_OPTIONS = ['', 'Setup', 'Operator', 'Driver', 'Other'];
+        const roleHtml = ROLE_OPTIONS.map(opt => `<option value="${escapeHtml(opt)}" ${it.manpower_role === opt ? 'selected' : ''}>${escapeHtml(opt || '—')}</option>`).join('');
+        roleSelect.innerHTML = `
+            <label class="text-xs text-gray-600">Role</label>
+            <select class="w-full border rounded px-2 py-1 assign-manpower-role">${roleHtml}</select>
+        `;
+
+        // notes + not in inventory checkbox
+        const notesInput = document.createElement('div');
+        notesInput.className = 'col-span-2';
+        notesInput.innerHTML = `
+            <label class="text-xs text-gray-600">Notes</label>
+            <input type="text" class="w-full border rounded px-2 py-1 assign-manpower-notes" value="${escapeHtml(it.manpower_notes ?? '')}" placeholder="notes (optional)" />
+            <div class="text-xs mt-1"><label><input type="checkbox" class="assign-not-inventory" ${it.manpower_notes && String(it.manpower_notes).includes('[NOT IN INVENTORY]') ? 'checked' : ''} /> Not in physical inventory</label></div>
+        `;
+
+        row.appendChild(nameCol);
+        row.appendChild(qtyCol);
+        row.appendChild(assignedInput);
+        row.appendChild(roleSelect);
+        row.appendChild(notesInput);
+
+        // attach data attribute with borrow_request_item_id for retrieval
+        row.dataset.borrowRequestItemId = it.id ?? (it.borrow_request_item_id ?? '');
+
+        container.appendChild(row);
+    });
+
+    // open modal
+    window.dispatchEvent(new CustomEvent('open-modal', { detail: 'assignManpowerModal' }));
+}
+
+// wire the confirm button for the assignManpowerModal
+document.addEventListener('DOMContentLoaded', () => {
+    const confirmBtn = document.getElementById('assignManpowerConfirmBtn');
+    if (!confirmBtn) return;
+
+    confirmBtn.addEventListener('click', async (ev) => {
+        const id = confirmBtn.dataset.requestId;
+        const status = confirmBtn.dataset.status;
+        if (!id || !status) { showError('Invalid action.'); return; }
+        confirmBtn.disabled = true;
+        try {
+            if (status === 'delivered') {
+                // deliver endpoint
+                const res = await fetch(`/admin/borrow-requests/${encodeURIComponent(id)}/deliver`, {
+                    method: 'POST',
+                    headers: {
+                        "X-CSRF-TOKEN": CSRF_TOKEN,
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
+                    },
+                    body: JSON.stringify({})
+                });
+                const data = await res.json().catch(() => null);
+                if (!res.ok) throw new Error(data?.message || `Delivery failed (status ${res.status})`);
+                await loadBorrowRequests();
+                showSuccess('Items marked as delivered successfully.');
+            } else if (status === 'validated') {
+                // from assign manpower modal
+                const assignments = collectManpowerAssignments();
+                await updateRequest(Number(id), 'validated', assignments, confirmBtn);
+            } else {
+                await updateRequest(Number(id), status, confirmBtn);
+            }
+
+            window.dispatchEvent(new CustomEvent('close-modal', { detail: 'confirmActionModal' }));
+        } catch (err) {
+            console.error(err);
+            showError(err?.message || 'Failed to update.');
+        } finally {
+            confirmBtn.disabled = false;
+        }
+    });
+});
+
+// wire the Save & Approve button for the assignManpowerModal
+// Save & Approve handler — replaced to first save assignments as 'validated' then optionally approve
+document.addEventListener('DOMContentLoaded', () => {
+    const confirmBtn = document.getElementById('assignManpowerConfirmBtn');
+    if (!confirmBtn) return;
+
+    confirmBtn.addEventListener('click', async (ev) => {
+        ev.preventDefault();
+        confirmBtn.disabled = true;
+        try {
+            const requestId = document.getElementById('assignManpowerRequestId')?.value;
+            if (!requestId) { showError('Missing request'); return; }
+
+            const container = document.getElementById('assignManpowerItemsContainer');
+            const forceCheckbox = document.getElementById('assignForceOverride');
+            const requestedTotal = parseInt(document.getElementById('assignRequestedTotal')?.textContent || '0', 10) || 0;
+
+            const assignments = collectManpowerAssignments();
+            let totalAssigned = assignments.reduce((s, a) => s + (Number(a.assigned_manpower) || 0), 0);
+
+            const warningEl = document.getElementById('assignManpowerWarning');
+            if (totalAssigned > requestedTotal && !forceCheckbox.checked) {
+                if (warningEl) {
+                    warningEl.textContent = `Assigned manpower total (${totalAssigned}) exceeds requested (${requestedTotal}). Check 'Allow assignments to exceed requested total' to proceed.`;
+                    warningEl.classList.remove('hidden');
+                }
+                return;
+            } else {
+                if (warningEl) { warningEl.classList.add('hidden'); warningEl.textContent = ''; }
+            }
+
+            // 1) Save assignments first using status 'validated' so server will persist manpower fields
+            //   - silent: true (don't show an extra toast for this intermediate step)
+            await updateRequest(Number(requestId), 'validated', assignments, confirmBtn, !!forceCheckbox.checked, true);
+
+            // 2) Then approve to proceed with allocation if admin intended Save & Approve
+            // Note: we call approved with no assignments (they are already saved). This triggers the approved logic on server.
+            await updateRequest(Number(requestId), 'approved', null, confirmBtn, false, false);
+
+            // close modal on success
+            window.dispatchEvent(new CustomEvent('close-modal', { detail: 'assignManpowerModal' }));
+        } catch (err) {
+            console.error(err);
+            // updateRequest already shows errors
+        } finally {
+            confirmBtn.disabled = false;
+        }
+    });
+});
+
+// updateRequest now accepts optional manpower_assignments and force_assign flag
+async function updateRequest(id, status, manpower_assignments = null, btn = null, force_assign = false, silent = false) {
+    if (btn) btn.disabled = true;
+    try {
+        const body = { status };
+        if (manpower_assignments) body.manpower_assignments = manpower_assignments;
+        if (force_assign) body.force_assign = true;
+
+        const res = await fetch(`/admin/borrow-requests/${id}/update-status`, {
+            method: "POST",
+            headers: {
+                "X-CSRF-TOKEN": CSRF_TOKEN,
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            },
+            body: JSON.stringify(body)
+        });
+        const data = await res.json().catch(()=>null);
+        if (!res.ok) {
+            throw new Error(data?.message || `Update failed (status ${res.status})`);
+        }
+        // update local cache
+        const r = BORROW_CACHE.find(x => x.id === id);
+        if (r) r.status = status;
+
+        // refresh the entire list from server for freshest data
+        await loadBorrowRequests();
+
+        // publish a cross-tab notification so user pages can refresh immediately
+        try {
+            const payload = { borrow_request_id: Number(id), new_status: status, timestamp: Date.now() };
+            localStorage.setItem('borrow_request_updated', JSON.stringify(payload));
+            // remove after short time so it can fire again later if needed
+            setTimeout(() => { try { localStorage.removeItem('borrow_request_updated'); } catch(e){} }, 1000);
+        } catch (e) {
+            console.warn('Could not set storage event', e);
+        }
+
+        if (!silent) showSuccess(`Borrow request ${humanizeStatus(status)} successfully!`);
+        return data;
+    } catch (err) {
+        console.error(err);
+        showError(err?.message || "Failed to update status");
+        throw err;
+    } finally {
+        if (btn) btn.disabled = false;
+>>>>>>> Stashed changes
     }
     if (statusKey === 'approved' || statusKey === 'qr_verified') {
         return { 
