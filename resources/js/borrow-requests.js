@@ -384,13 +384,21 @@ function openAssignManpowerModal(id) {
     const letterUrl = req.letter_url || req.letter_path || '';
     if (letterPreview && letterFallback) {
         if (letterUrl) {
-            letterPreview.src = letterUrl;
+            // Check if it's a full URL or needs asset prefix
+            const finalUrl = letterUrl.startsWith('http') ? letterUrl : (letterUrl.startsWith('/') ? letterUrl : `/${letterUrl}`);
+            letterPreview.src = finalUrl;
             letterPreview.classList.remove('hidden');
             letterFallback.classList.add('hidden');
+            letterPreview.onerror = () => {
+                letterPreview.classList.add('hidden');
+                letterFallback.classList.remove('hidden');
+                letterFallback.textContent = 'Letter file not found';
+            };
         } else {
             letterPreview.src = '';
             letterPreview.classList.add('hidden');
             letterFallback.classList.remove('hidden');
+            letterFallback.textContent = 'No letter uploaded';
         }
     }
 

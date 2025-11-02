@@ -795,6 +795,14 @@ class PropertyRowsManager {
     if (!this.container) return;
     const target = this.container.querySelector('[data-invalid="1"], [data-duplicate="1"]');
     if (target instanceof HTMLInputElement) {
+      // Open the Property Numbers accordion section
+      const propertySection = this.form.querySelector('[data-accordion-target*="property"], [data-accordion-target*="rows"]');
+      if (propertySection) {
+        const trigger = propertySection.closest('[data-accordion-item]')?.querySelector('[data-accordion-trigger]');
+        if (trigger && trigger.getAttribute('aria-expanded') !== 'true') {
+          trigger.click();
+        }
+      }
       try {
         target.focus({ preventScroll: true });
       } catch (_) {
@@ -1164,6 +1172,10 @@ class SerialModelRowsManager {
     if (!this.container) return;
     const target = this.container.querySelector('input[data-invalid="1"]');
     if (target instanceof HTMLInputElement) {
+      // Open the Serial and Model No accordion section
+      if (this.trigger && this.trigger.getAttribute('aria-expanded') !== 'true') {
+        this.trigger.click();
+      }
       try {
         target.focus({ preventScroll: true });
       } catch (_) {
@@ -1428,10 +1440,37 @@ function handleSuccess(form, elements, result) {
   hideMessage(elements.error);
   hideMessage(elements.feedback);
 
+  // Update table row if item photo was changed
+  if (data.photo && data.item_id) {
+    const row = document.querySelector(`[data-item-row="${data.item_id}"]`);
+    if (row) {
+      const photoCell = row.querySelector('[data-item-photo]');
+      const photoImg = row.querySelector('[data-item-photo-img]');
+      if (photoCell && photoImg) {
+        photoImg.src = data.photo;
+      } else if (photoCell && data.photo) {
+        // If no image exists, create one
+        photoCell.innerHTML = '';
+        const imgDiv = document.createElement('div');
+        imgDiv.className = 'flex justify-center';
+        const img = document.createElement('img');
+        img.src = data.photo;
+        img.className = 'h-12 w-12 object-cover rounded-lg shadow-sm';
+        img.setAttribute('data-item-photo-img', '');
+        imgDiv.appendChild(img);
+        photoCell.appendChild(imgDiv);
+      }
+    }
+  }
+
   form.reset();
   form.dispatchEvent(new Event('reset'));
   window.dispatchEvent(new CustomEvent('close-modal', { detail: 'create-item' }));
-  window.location.reload();
+  
+  // Only reload if we couldn't update the table inline
+  if (!data.photo || !data.item_id) {
+    window.location.reload();
+  }
 }
 
 function handleError(elements, error) {
@@ -1957,10 +1996,33 @@ function initAddItemsForm(form) {
         showMessage(elements.error, summary);
         showToast('error', summary);
       }
+      
+      // Focus on first invalid field and open appropriate accordion section
+      // Serial/Model errors should NOT trigger accordion opening if fields are just empty (not required)
+      const serialFieldsOnly = !rowValidation.fields.size && serialValidation.fields instanceof Set && serialValidation.fields.size > 0;
+      const serialHasFormatErrors = Array.from(serialValidation.fields || []).some(f => {
+        // Check if it's a format error (not just empty)
+        const serialInputs = elements.serialManager?.container?.querySelectorAll('[data-serial-model-field="serial_no"], [data-serial-model-field="model_no"]') || [];
+        for (const input of serialInputs) {
+          if (input.dataset.invalid === '1' && input.value && input.value.trim()) {
+            return true; // Has a format error (value present but invalid)
+          }
+        }
+        return false;
+      });
+      
       if (rowValidation.fields.size) {
+        // Property rows have errors - open that section
         rowsManager.focusFirstInvalid();
-      } else if (!serialValidation.ok) {
+      } else if (!serialValidation.ok && serialHasFormatErrors) {
+        // Serial/Model has format errors (not just empty) - open that section
         elements.serialManager?.focusFirstInvalid();
+      } else if (base.serialValue && !base.serialHasDigit) {
+        // Base serial field has error - ensure main section is visible
+        const serialInput = form.querySelector('[data-add-field="serial"]');
+        if (serialInput) {
+          serialInput.focus();
+        }
       }
       return;
     }

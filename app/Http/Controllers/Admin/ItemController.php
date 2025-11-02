@@ -674,12 +674,15 @@ public function store(Request $request, PropertyNumberService $numbers)
                 $jsonMessage .= ' Some serials were skipped.';
             }
 
+            $photoUrl = $item->photo ? (Storage::disk('public')->exists($item->photo) ? Storage::disk('public')->url($item->photo) : asset($item->photo)) : null;
+            
             return response()->json([
                 'message' => $jsonMessage,
                 'item_id' => $item->id,
                 'created_count' => count($created),
                 'created_pns' => $created,
                 'skipped_serials' => $skipped,
+                'photo' => $photoUrl,
                 'item' => [
                     'id' => $item->id,
                     'name' => $item->name,

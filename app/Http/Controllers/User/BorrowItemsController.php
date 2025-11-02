@@ -88,9 +88,19 @@ class BorrowItemsController extends Controller
 
         $borrowList = Session::get('borrowList', []);
 
-        $photoPath = $item->photo
-            ? $item->photo
-            : $this->defaultPhotos[$item->category] ?? 'images/no-image.png';
+        // Ensure photo path is properly formatted
+        $photoPath = null;
+        if ($item->photo) {
+            // Check if photo exists in storage
+            if (Storage::disk('public')->exists($item->photo)) {
+                $photoPath = $item->photo;
+            } else {
+                // Fallback to default if photo doesn't exist
+                $photoPath = $this->defaultPhotos[$item->category] ?? 'images/no-image.png';
+            }
+        } else {
+            $photoPath = $this->defaultPhotos[$item->category] ?? 'images/no-image.png';
+        }
 
         if (isset($borrowList[$item->id])) {
             $newQty = min($borrowList[$item->id]['qty'] + $qty, $item->total_qty);
