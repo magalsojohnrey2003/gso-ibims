@@ -30,11 +30,9 @@ class StickerPdfService
 
     /**
      * @param array<int, array<string, string|null>> $stickers
-     * @param string|null $filename
-     * @param string $orientation 'P' for portrait, 'L' for landscape
      * @return array{filename: string, content: string}
      */
-    public function render(array $stickers, ?string $filename = null, string $orientation = 'P'): array
+    public function render(array $stickers, ?string $filename = null): array
     {
         if (!class_exists(Fpdi::class)) {
             throw new RuntimeException('The setasign/fpdi package is required to generate sticker PDFs.');
@@ -54,10 +52,7 @@ class StickerPdfService
             throw new RuntimeException('No form fields could be detected in the sticker template.');
         }
 
-        // Normalize orientation
-        $orientation = strtoupper($orientation) === 'L' ? 'L' : 'P';
-        
-        $pdf = new Fpdi($orientation, 'pt');
+        $pdf = new Fpdi('P', 'pt');
         $pdf->SetAutoPageBreak(false);
         $pdf->SetMargins(0, 0, 0);
 
@@ -67,47 +62,66 @@ class StickerPdfService
         }
 
         $templateId = $pdf->importPage(1);
-        $templateSize = $pdf->getTemplateSize($templateId);
-        $templateWidth = $templateSize['width'];
-        $templateHeight = $templateSize['height'];
-        $templateAspectRatio = $templateWidth / $templateHeight;
+        $size = $pdf->getTemplateSize($templateId);
 
-        // A4 dimensions in points (72 DPI)
+        // A4 portrait dimensions in points (72 DPI)
         $a4Width = 595.28;
         $a4Height = 841.89;
 
         // Spacing and border settings (in points)
         $borderWidth = 2; // Small border around each sticker
-        $spacing = 8; // Small spacing between stickers (matches example image)
-        $pageMargin = 12; // Margin from page edges
+        $spacing = 10; // Small spacing between stickers
+        $pageMargin = 15; // Margin from page edges
 
-        // Set page dimensions based on orientation
-        $pageWidth = $orientation === 'L' ? $a4Height : $a4Width;
-        $pageHeight = $orientation === 'L' ? $a4Width : $a4Height;
+        // Calculate sticker dimensions with border and spacing
+        $stickerWidth = $size['width'] + ($borderWidth * 2);
+        $stickerHeight = $size['height'] + ($borderWidth * 2);
 
-        // Available space after margins
-        $availableWidth = $pageWidth - ($pageMargin * 2);
-        $availableHeight = $pageHeight - ($pageMargin * 2);
+        // Calculate how many stickers fit per row and column
+        $availableWidth = $a4Width - ($pageMargin * 2);
+        $availableHeight = $a4Height - ($pageMargin * 2);
 
-        // Calculate optimal grid layout by trying different configurations
-        $bestLayout = $this->calculateOptimalLayout(
-            $templateWidth,
-            $templateHeight,
-            $availableWidth,
-            $availableHeight,
-            $spacing,
-            $borderWidth
-        );
+        // Calculate stickers per row (accounting for spacing)
+        $stickersPerRow = max(1, floor(($availableWidth + $spacing) / ($stickerWidth + $spacing)));
+        // Calculate stickers per column (accounting for spacing)
+        $stickersPerColumn = max(1, floor(($availableHeight + $spacing) / ($stickerHeight + $spacing)));
 
-        $stickersPerRow = $bestLayout['cols'];
-        $stickersPerColumn = $bestLayout['rows'];
+        // Calculate actual sticker size to maximize space usage
         $totalStickersPerPage = $stickersPerRow * $stickersPerColumn;
-        $scaleX = $bestLayout['scaleX'];
-        $scaleY = $bestLayout['scaleY'];
+        if ($totalStickersPerPage > 1) {
+            // Calculate optimal dimensions
+            $optimalWidth = ($availableWidth - ($spacing * ($stickersPerRow - 1))) / $stickersPerRow;
+            $optimalHeight = ($availableHeight - ($spacing * ($stickersPerColumn - 1))) / $stickersPerColumn;
 
-        // Calculate scaled dimensions
-        $scaledStickerWidth = ($templateWidth * $scaleX) + ($borderWidth * 2);
-        $scaledStickerHeight = ($templateHeight * $scaleY) + ($borderWidth * 2);
+            // Maintain aspect ratio while maximizing space
+            $templateAspectRatio = $size['width'] / $size['height'];
+            $optimalAspectRatio = ($optimalWidth - ($borderWidth * 2)) / ($optimalHeight - ($borderWidth * 2));
+
+            if ($optimalAspectRatio > $templateAspectRatio) {
+                // Width is limiting factor
+                $scaledWidth = $optimalWidth - ($borderWidth * 2);
+                $scaledHeight = $scaledWidth / $templateAspectRatio;
+            } else {
+                // Height is limiting factor
+                $scaledHeight = $optimalHeight - ($borderWidth * 2);
+                $scaledWidth = $scaledHeight * $templateAspectRatio;
+            }
+
+            $scaleX = $scaledWidth / $size['width'];
+            $scaleY = $scaledHeight / $size['height'];
+        } else {
+            // Single sticker per page - use original size
+            $scaleX = 1.0;
+            $scaleY = 1.0;
+        }
+
+        $scaledStickerWidth = ($size['width'] * $scaleX) + ($borderWidth * 2);
+        $scaledStickerHeight = ($size['height'] * $scaleY) + ($borderWidth * 2);
+
+        // Recalculate stickers per row/column with scaled dimensions
+        $stickersPerRow = max(1, floor(($availableWidth + $spacing) / ($scaledStickerWidth + $spacing)));
+        $stickersPerColumn = max(1, floor(($availableHeight + $spacing) / ($scaledStickerHeight + $spacing)));
+        $totalStickersPerPage = $stickersPerRow * $stickersPerColumn;
 
         $currentPage = null;
         $stickersOnCurrentPage = 0;
@@ -115,7 +129,7 @@ class StickerPdfService
         foreach ($stickers as $index => $payload) {
             // Start new page if needed
             if ($currentPage === null || $stickersOnCurrentPage >= $totalStickersPerPage) {
-                $pdf->AddPage($orientation, [$pageWidth, $pageHeight]);
+                $pdf->AddPage('P', [$a4Width, $a4Height]);
                 $currentPage = $index;
                 $stickersOnCurrentPage = 0;
             }
@@ -124,13 +138,25 @@ class StickerPdfService
             $row = floor($stickersOnCurrentPage / $stickersPerRow);
             $col = $stickersOnCurrentPage % $stickersPerRow;
 
-            // Calculate total width and height of the grid
-            $totalGridWidth = ($scaledStickerWidth * $stickersPerRow) + ($spacing * ($stickersPerRow - 1));
-            $totalGridHeight = ($scaledStickerHeight * $stickersPerColumn) + ($spacing * ($stickersPerColumn - 1));
+            // Calculate X position (center if only one sticker per row)
+            $xOffset = $pageMargin;
+            if ($stickersPerRow > 1) {
+                $totalRowWidth = ($scaledStickerWidth * $stickersPerRow) + ($spacing * ($stickersPerRow - 1));
+                $xOffset = $pageMargin + (($availableWidth - $totalRowWidth) / 2) + ($col * ($scaledStickerWidth + $spacing));
+            } else {
+                // Center single sticker horizontally
+                $xOffset = ($a4Width - $scaledStickerWidth) / 2;
+            }
 
-            // Center the grid and calculate position
-            $xOffset = $pageMargin + (($availableWidth - $totalGridWidth) / 2) + ($col * ($scaledStickerWidth + $spacing));
-            $yOffset = $pageMargin + (($availableHeight - $totalGridHeight) / 2) + ($row * ($scaledStickerHeight + $spacing));
+            // Calculate Y position
+            $yOffset = $pageMargin;
+            if ($stickersPerColumn > 1) {
+                $totalColHeight = ($scaledStickerHeight * $stickersPerColumn) + ($spacing * ($stickersPerColumn - 1));
+                $yOffset = $pageMargin + (($availableHeight - $totalColHeight) / 2) + ($row * ($scaledStickerHeight + $spacing));
+            } else {
+                // Center single sticker vertically
+                $yOffset = ($a4Height - $scaledStickerHeight) / 2;
+            }
 
             // Draw border around sticker
             $pdf->SetDrawColor(200, 200, 200); // Light gray border
@@ -140,11 +166,11 @@ class StickerPdfService
             // Calculate template position (centered within border)
             $templateX = $xOffset + $borderWidth;
             $templateY = $yOffset + $borderWidth;
-            $scaledTemplateWidth = $templateWidth * $scaleX;
-            $scaledTemplateHeight = $templateHeight * $scaleY;
+            $templateWidth = $size['width'] * $scaleX;
+            $templateHeight = $size['height'] * $scaleY;
 
             // Use template at scaled size
-            $pdf->useTemplate($templateId, $templateX, $templateY, $scaledTemplateWidth, $scaledTemplateHeight, false);
+            $pdf->useTemplate($templateId, $templateX, $templateY, $templateWidth, $templateHeight, false);
 
             // Render fields with scaling applied
             foreach ($layout as $field => $rect) {
@@ -169,7 +195,7 @@ class StickerPdfService
                 // Adjust Y coordinate (PDF coordinates are bottom-left, FPDF uses top-left)
                 // Convert from PDF bottom-left to FPDF top-left coordinate system
                 // The field's top edge (ury) in PDF coordinates becomes the position in FPDF coordinates
-                $adjustedY = $templateY + ($scaledTemplateHeight - ($rect['ury'] * $scaleY));
+                $adjustedY = $templateY + ($templateHeight - ($rect['ury'] * $scaleY));
 
                 if (is_string($value) && str_starts_with(trim($value), 'data:image')) {
                     $this->renderImage($pdf, trim($value), $scaledX, $adjustedY, $scaledWidth, $scaledHeight);
@@ -192,113 +218,6 @@ class StickerPdfService
             'filename' => $filename ? $this->sanitizeFilename($filename) : 'stickers-' . now()->format('YmdHis') . '.pdf',
             'content' => $binary,
         ];
-    }
-
-    /**
-     * Calculate the optimal grid layout that maximizes sticker size
-     * 
-     * @param float $templateWidth Original template width
-     * @param float $templateHeight Original template height
-     * @param float $availableWidth Available width for stickers
-     * @param float $availableHeight Available height for stickers
-     * @param float $spacing Spacing between stickers
-     * @param float $borderWidth Border width around each sticker
-     * @return array{rows: int, cols: int, scaleX: float, scaleY: float, stickerArea: float}
-     */
-    private function calculateOptimalLayout(
-        float $templateWidth,
-        float $templateHeight,
-        float $availableWidth,
-        float $availableHeight,
-        float $spacing,
-        float $borderWidth
-    ): array {
-        $bestLayout = null;
-        $maxStickerArea = 0;
-
-        // Try different grid configurations (rows x cols)
-        // Test up to 5 columns and 5 rows
-        $maxCols = 5;
-        $maxRows = 5;
-
-        for ($rows = 1; $rows <= $maxRows; $rows++) {
-            for ($cols = 1; $cols <= $maxCols; $cols++) {
-                // Calculate available space per sticker (accounting for spacing)
-                $spacingWidth = $spacing * max(0, $cols - 1);
-                $spacingHeight = $spacing * max(0, $rows - 1);
-                
-                $spacePerStickerWidth = ($availableWidth - $spacingWidth) / $cols;
-                $spacePerStickerHeight = ($availableHeight - $spacingHeight) / $rows;
-
-                // Account for borders
-                $stickerContentWidth = max(0, $spacePerStickerWidth - ($borderWidth * 2));
-                $stickerContentHeight = max(0, $spacePerStickerHeight - ($borderWidth * 2));
-
-                if ($stickerContentWidth <= 0 || $stickerContentHeight <= 0) {
-                    continue; // This layout doesn't fit
-                }
-
-                // Calculate scale factors while maintaining aspect ratio
-                // Try scaling by width first
-                $scaleByWidth = $stickerContentWidth / $templateWidth;
-                $resultingHeight = $templateHeight * $scaleByWidth;
-                
-                if ($resultingHeight > $stickerContentHeight) {
-                    // Scale by height instead
-                    $scaleByHeight = $stickerContentHeight / $templateHeight;
-                    $resultingWidth = $templateWidth * $scaleByHeight;
-                    
-                    if ($resultingWidth > $stickerContentWidth) {
-                        continue; // This layout doesn't work
-                    }
-                    
-                    $scaleX = $scaleY = $scaleByHeight;
-                    $finalWidth = $templateWidth * $scaleX;
-                    $finalHeight = $templateHeight * $scaleY;
-                } else {
-                    $scaleX = $scaleY = $scaleByWidth;
-                    $finalWidth = $templateWidth * $scaleX;
-                    $finalHeight = $templateHeight * $scaleY;
-                }
-
-                // Calculate sticker area
-                $stickerArea = $finalWidth * $finalHeight;
-
-                // Prefer this layout if it results in larger stickers
-                if ($stickerArea > $maxStickerArea) {
-                    $maxStickerArea = $stickerArea;
-                    $bestLayout = [
-                        'rows' => $rows,
-                        'cols' => $cols,
-                        'scaleX' => $scaleX,
-                        'scaleY' => $scaleY,
-                        'stickerArea' => $stickerArea,
-                    ];
-                }
-            }
-        }
-
-        // Fallback to single sticker if no layout found
-        if ($bestLayout === null) {
-            // Calculate scale for single sticker
-            $stickerContentWidth = $availableWidth - ($borderWidth * 2);
-            $stickerContentHeight = $availableHeight - ($borderWidth * 2);
-            
-            // Maintain aspect ratio
-            $scaleByWidth = $stickerContentWidth / $templateWidth;
-            $scaleByHeight = $stickerContentHeight / $templateHeight;
-            $scale = min($scaleByWidth, $scaleByHeight);
-
-            $bestLayout = [
-                'rows' => 1,
-                'cols' => 1,
-                'scaleX' => $scale,
-                'scaleY' => $scale,
-                'stickerArea' => ($templateWidth * $scale) * ($templateHeight * $scale),
-            ];
-        }
-
-        return $bestLayout;
     }
 
     private function renderImage(Fpdi $pdf, string $dataUrl, float $x, float $y, float $width, float $height): void
