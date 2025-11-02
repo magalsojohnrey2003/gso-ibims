@@ -10,11 +10,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const routeInput = modal.querySelector('[data-print-route-input]');
   const quantityInput = modal.querySelector('[data-print-quantity-input]');
   const personInput = modal.querySelector('[data-print-person]');
+  const orientationSelect = modal.querySelector('[data-print-orientation]');
   const canvas = modal.querySelector('[data-print-signature-canvas]');
   const clearBtn = modal.querySelector('[data-print-signature-clear]');
   const cancelBtn = modal.querySelector('[data-print-cancel]');
 
-  if (!form || !summaryEl || !routeInput || !quantityInput || !personInput || !canvas || !clearBtn || !cancelBtn) {
+  if (!form || !summaryEl || !routeInput || !quantityInput || !personInput || !orientationSelect || !canvas || !clearBtn || !cancelBtn) {
     return;
   }
 
@@ -207,6 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     appendField('signature_data', signatureData);
     appendField('quantity', String(quantity));
+    appendField('orientation', orientationSelect.value || 'P');
 
     document.body.appendChild(tempForm);
     tempForm.submit();

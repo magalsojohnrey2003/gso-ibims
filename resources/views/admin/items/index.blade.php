@@ -374,6 +374,18 @@
                 <p class="text-xs text-gray-500">Optional: include who will receive the assets.</p>
             </div>
             <div class="space-y-2">
+                <x-input-label for="print-orientation" value="Page Orientation" />
+                <select
+                    id="print-orientation"
+                    name="orientation"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    data-print-orientation>
+                    <option value="P" selected>Portrait</option>
+                    <option value="L">Landscape</option>
+                </select>
+                <p class="text-xs text-gray-500">Select the page orientation for the sticker layout.</p>
+            </div>
+            <div class="space-y-2">
                 <div class="flex items-center justify-between">
                     <span class="text-sm font-medium text-gray-700">Signature</span>
                     <button type="button" class="text-xs text-blue-600 hover:underline" data-print-signature-clear>Clear</button>

@@ -957,6 +957,8 @@ public function update(Request $request, Item $item)
 
         $personAccountable = trim((string) $request->input('person_accountable', ''));
         $signatureData = (string) $request->input('signature_data', '');
+        $orientation = strtoupper((string) $request->input('orientation', 'P'));
+        $orientation = in_array($orientation, ['P', 'L'], true) ? $orientation : 'P';
 
         $acquisitionDate = '';
         if (!empty($item->acquisition_date)) {
@@ -1008,7 +1010,7 @@ public function update(Request $request, Item $item)
         $filename = 'stickers-' . $item->id . '-' . now()->format('YmdHis') . '.pdf';
 
         try {
-            $result = $stickerPdf->render($stickers->all(), $filename);
+            $result = $stickerPdf->render($stickers->all(), $filename, $orientation);
         } catch (\Throwable $e) {
             $message = 'Failed to generate sticker PDF: ' . $e->getMessage();
 
