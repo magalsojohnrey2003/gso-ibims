@@ -164,29 +164,32 @@
                             <div class="flex items-center gap-2 flex-nowrap">
                                 <input
                                     type="text"
-                                    class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-year"
+                                    class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-gray-100 instance-part-year"
                                     value="{{ $inst->year_procured ?? '' }}"
                                     placeholder="Year"
                                     inputmode="numeric"
-                                    maxlength="4">
+                                    maxlength="4"
+                                    readonly>
                                 <div class="text-gray-500 select-none">-</div>
 
                                 <input
                                     type="text"
-                                    class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-category"
+                                    class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-gray-100 instance-part-category"
                                     value="{{ $inst->category_code ?? $inst->category_id ?? '' }}"
                                     placeholder="Category"
                                     inputmode="numeric"
-                                    maxlength="4">
+                                    maxlength="4"
+                                    readonly>
                                 <div class="text-gray-500 select-none">-</div>
 
                                 <input
                                     type="text"
-                                    class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-gla"
+                                    class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-gray-100 instance-part-gla"
                                     value="{{ $inst->gla ?? '' }}"
                                     placeholder="GLA"
                                     inputmode="numeric"
-                                    maxlength="4">
+                                    maxlength="4"
+                                    readonly>
                                 <div class="text-gray-500 select-none">-</div>
 
                                 <input
@@ -199,11 +202,12 @@
 
                                 <input
                                     type="text"
-                                    class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-office"
+                                    class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-gray-100 instance-part-office"
                                     value="{{ $inst->office_code ?? '' }}"
                                     placeholder="Office"
                                     inputmode="numeric"
-                                    maxlength="4">
+                                    maxlength="4"
+                                    readonly>
                             </div>
 
                             <div class="flex justify-end">

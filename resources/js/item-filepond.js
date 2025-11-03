@@ -14,6 +14,8 @@ function initFilePondOnInput(input) {
   const initialUrl = input.getAttribute('data-initial-url') || '';
   const previewHeight = parseInt(input.getAttribute('data-preview-height') || '120', 10);
   const thumbWidth = parseInt(input.getAttribute('data-thumb-width') || '160', 10);
+  const isLetterUpload = input.hasAttribute('data-letter-upload');
+  const acceptTypes = input.getAttribute('data-filepond-accept') || input.getAttribute('accept') || 'image/*';
 
   const pond = FilePond.create(input, {
     allowMultiple: false,
@@ -21,6 +23,8 @@ function initFilePondOnInput(input) {
     allowReorder: false,
     credits: false,
     allowImagePreview: true,
+    acceptedFileTypes: acceptTypes ? acceptTypes.split(',') : null,
+    maxFileSize: isLetterUpload ? '5MB' : '2MB',
 
     // Image preview sizing (height controls preview panel height)
     imagePreviewHeight: previewHeight,
@@ -31,7 +35,12 @@ function initFilePondOnInput(input) {
     imageResizeMode: 'cover',
 
     // Modern interactive placeholder text (no default image fallback)
-    labelIdle: `
+    labelIdle: isLetterUpload ? `
+      <div style="text-align:left;padding:8px 12px">
+        <div style="font-weight:600;color:#111827;font-size:14px">Click to upload Signed Letter</div>
+        <div style="font-size:12px;color:#6b7280;margin-top:3px">or
+        <span style="font-weight:600">drag and drop</span> JPG/PNG/WEBP/PDF, up to 5MB</div>
+      </div>` : `
       <div style="text-align:left;padding:8px 12px">
         <div style="font-weight:600;color:#111827;font-size:14px">Click to upload Item Photo</div>
         <div style="font-size:12px;color:#6b7280;margin-top:3px">or
@@ -80,5 +89,11 @@ function initFilePondOnInput(input) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('input[data-filepond="true"]').forEach(initFilePondOnInput);
+  document.querySelectorAll('input[data-filepond="true"]').forEach((input) => {
+    const pond = initFilePondOnInput(input);
+    // Store FilePond instance on the input element for easy access
+    if (pond && input) {
+      input.filepondInstance = pond;
+    }
+  });
 });

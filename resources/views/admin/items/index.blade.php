@@ -1,4 +1,5 @@
 @php
+    use Illuminate\Support\Facades\Storage;
     // Build a map of category id => name for quick lookup (safe default if $categories empty)
     $categoryMap = collect($categories ?? [])->filter()->keyBy('id')->map(fn($c) => $c['name'])->toArray();
     $bootstrapCategories = collect($categories ?? [])->map(function ($c) {
@@ -105,18 +106,27 @@
                           @endphp
                           <tr class="hover:bg-gray-50" data-item-row="{{ $item->id }}">
                               <td class="px-6 py-4 text-center" data-item-photo>
-                                  @if($item->photo)
-                                      @php
-                                          $photoUrl = Storage::disk('public')->exists($item->photo)
-                                              ? Storage::disk('public')->url($item->photo)
-                                              : asset($item->photo);
-                                      @endphp
-                                      <div class="flex justify-center">
-                                          <img src="{{ $photoUrl }}" data-item-photo-img class="h-12 w-12 object-cover rounded-lg shadow-sm">
-                                      </div>
-                                  @else
-                                      <x-status-badge type="gray" text="No photo" />
-                                  @endif
+                                  @php
+                                      $defaultPhotos = [
+                                          'furniture' => 'images/defaults_category_photo/furniture.png',
+                                          'electronics' => 'images/defaults_category_photo/electronics.png',
+                                          'tools' => 'images/defaults_category_photo/tools.png',
+                                          'vehicles' => 'images/defaults_category_photo/vehicles.png',
+                                      ];
+                                      $photoUrl = null;
+                                      if ($item->photo) {
+                                          if (Storage::disk('public')->exists($item->photo)) {
+                                              $photoUrl = Storage::disk('public')->url($item->photo);
+                                          } else {
+                                              $photoUrl = asset($item->photo);
+                                          }
+                                      } else {
+                                          $photoUrl = asset($defaultPhotos[$item->category] ?? 'images/no-image.png');
+                                      }
+                                  @endphp
+                                  <div class="flex justify-center">
+                                      <img src="{{ $photoUrl }}" data-item-photo-img class="h-12 w-12 object-cover rounded-lg shadow-sm" alt="{{ $item->name }}">
+                                  </div>
                               </td>
                               <td class="px-6 py-4 font-semibold text-gray-900" data-item-name>{{ $item->name }}</td>
                               <td class="px-6 py-4" data-item-category>{{ $displayCategory }}</td>
