@@ -1034,12 +1034,17 @@ class SerialModelRowsManager {
       } else {
         this.trigger.removeAttribute('aria-disabled');
         this.trigger.classList.remove('opacity-60', 'cursor-not-allowed');
-        if (this.trigger.getAttribute('aria-expanded') !== 'true') {
-          window.setTimeout(() => {
-            if (this.trigger && this.trigger.getAttribute('aria-expanded') !== 'true') {
-              this.trigger.click();
-            }
-          }, 0);
+        // Don't auto-open Serial and Model No. section - it's optional
+        // Instead, if rows are complete and this section was just unlocked, open Additional Details
+        const wasLocked = this.trigger.hasAttribute('aria-disabled');
+        if (wasLocked && !this.isLocked && hasRows && this.rowsComplete) {
+          // Find Additional Details accordion and open it
+          const additionalDetailsTrigger = this.form.querySelector('[data-accordion-target="create-additional-details"]');
+          if (additionalDetailsTrigger && additionalDetailsTrigger.getAttribute('aria-expanded') !== 'true') {
+            window.setTimeout(() => {
+              additionalDetailsTrigger.click();
+            }, 100);
+          }
         }
       }
     }

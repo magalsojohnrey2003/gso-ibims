@@ -387,10 +387,8 @@ class ItemInstancesManager {
       const value = sanitizeSerialNo(serialInput.value || '');
       if (serialInput.value !== value) serialInput.value = value;
       if (serialEnabled && !serialInput.disabled) {
-        if (!value) {
-          setInvalid(serialInput, 'empty');
-          errors.add('serial_no');
-        } else if (!/^[A-Z0-9]{1,4}$/.test(value)) {
+        // Serial No. is optional - only validate format if provided
+        if (value && !/^[A-Z0-9]{1,4}$/.test(value)) {
           clearInvalid(serialInput, 'empty');
           setInvalid(serialInput, 'format');
           errors.add('serial_no');
@@ -409,10 +407,8 @@ class ItemInstancesManager {
       const value = sanitizeModelNo(modelInput.value || '');
       if (modelInput.value !== value) modelInput.value = value;
       if (modelEnabled && !modelInput.disabled) {
-        if (!value) {
-          setInvalid(modelInput, 'empty');
-          errors.add('model_no');
-        } else if (!/^[A-Z0-9]{1,15}$/.test(value)) {
+        // Model No. is optional - only validate format if provided
+        if (value && !/^[A-Z0-9]{1,15}$/.test(value)) {
           clearInvalid(modelInput, 'empty');
           setInvalid(modelInput, 'format');
           errors.add('model_no');
@@ -766,6 +762,14 @@ class ItemInstancesManager {
       this.rows = this.rows.filter((item) => item !== state);
       showToast('success', 'Item instance deleted successfully.');
       window.dispatchEvent(new CustomEvent('instance:deleted', { detail: { instanceId: state.id } }));
+    }
+
+    // Show success toast if there were updates
+    if (updates.length > 0) {
+      const message = updates.length === 1 
+        ? 'Property number updated successfully.' 
+        : `${updates.length} property numbers updated successfully.`;
+      showToast('success', message);
     }
 
     return { ok: true };
