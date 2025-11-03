@@ -979,37 +979,6 @@ class SerialModelRowsManager {
       pnDisplay.textContent = rowData.propertyNumber || '---- ---- ----';
     }
 
-    // Display photo if available from FilePond
-    const photoImg = rowEl.querySelector('[data-serial-model-photo-img]');
-    if (photoImg) {
-      const photoInput = this.form.querySelector('#photo[data-filepond="true"]');
-      if (photoInput && photoInput.filepondInstance) {
-        const files = photoInput.filepondInstance.getFiles();
-        if (files.length > 0) {
-          const file = files[0];
-          // FilePond stores file as file.file (Blob/File object)
-          if (file.file) {
-            const url = URL.createObjectURL(file.file);
-            photoImg.src = url;
-            photoImg.classList.remove('hidden');
-          } else if (file.source) {
-            // If it's a local file source
-            photoImg.src = file.source;
-            photoImg.classList.remove('hidden');
-          } else {
-            photoImg.src = '';
-            photoImg.classList.add('hidden');
-          }
-        } else {
-          photoImg.src = '';
-          photoImg.classList.add('hidden');
-        }
-      } else {
-        photoImg.src = '';
-        photoImg.classList.add('hidden');
-      }
-    }
-
     const serialInput = rowEl.querySelector('[data-serial-model-field="serial_no"]');
     const modelInput = rowEl.querySelector('[data-serial-model-field="model_no"]');
 
@@ -1471,21 +1440,6 @@ function handleError(elements, error) {
   showToast('error', message);
   hideMessage(elements.feedback);
   showMessage(elements.error, message);
-  
-  // Rollback dropdowns to default state
-  const form = elements.error?.closest('form');
-  if (form) {
-    // Reset category select
-    const categorySelect = form.querySelector('[data-category-select]');
-    if (categorySelect) {
-      categorySelect.value = '';
-    }
-    // Reset office select
-    const officeSelect = form.querySelector('[data-office-select]');
-    if (officeSelect) {
-      officeSelect.value = '';
-    }
-  }
 }
 
 function attachOfficeValidation(form) {

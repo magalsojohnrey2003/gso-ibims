@@ -256,14 +256,7 @@
 
         <template data-serial-model-template>
             <div class="border border-gray-200 rounded-lg p-3 bg-indigo-50 space-y-3" data-serial-model-row>
-                <div class="flex items-center gap-3">
-                    <div class="flex-1">
-                        <div class="text-sm font-semibold text-gray-700" data-serial-model-pn>PROPERTY-NUMBER</div>
-                    </div>
-                    <div class="flex-none" data-serial-model-photo>
-                        <img src="" alt="Item photo" class="h-12 w-12 object-cover rounded-lg shadow-sm hidden" data-serial-model-photo-img />
-                    </div>
-                </div>
+                <div class="text-sm font-semibold text-gray-700" data-serial-model-pn>PROPERTY-NUMBER</div>
                 <div class="flex flex-col md:flex-row gap-3">
                     <div class="flex-1">
                         <label class="block text-xs font-semibold text-gray-600 mb-1">Serial No.</label>

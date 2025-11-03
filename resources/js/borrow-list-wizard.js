@@ -34,7 +34,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const confirmBorrowRequestBtn = document.getElementById('confirmBorrowRequestBtn');
     const letterInput = document.getElementById('support_letter');
     const letterFileName = document.getElementById('letterFileName');
-    let letterPond = null; // Store FilePond instance reference
 
     const summaryBorrowDates = document.getElementById('summaryBorrowDates');
     const summaryAddress = document.getElementById('summaryAddress');
@@ -175,14 +174,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Check FilePond instance if available, otherwise check regular input
-        const hasLetter = letterPond ? (letterPond.getFiles().length > 0) : (letterInput?.files?.length > 0);
-        const letterName = letterPond 
-            ? (letterPond.getFiles().length > 0 ? letterPond.getFiles()[0].filename : '')
-            : (letterInput?.files?.length > 0 ? letterInput.files[0].name : '');
-        
-        if (letterFileName && hasLetter) {
-            letterFileName.textContent = letterName;
+        if (letterFileName && letterInput?.files?.length) {
+            letterFileName.textContent = letterInput.files[0].name;
             letterFileName.classList.remove('hidden');
         } else if (letterFileName) {
             letterFileName.textContent = '';
@@ -231,12 +224,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (modalLetterName) {
-            const hasLetter = letterPond ? (letterPond.getFiles().length > 0) : (letterInput?.files?.length > 0);
-            const letterName = letterPond 
-                ? (letterPond.getFiles().length > 0 ? letterPond.getFiles()[0].filename : '')
-                : (letterInput?.files?.length > 0 ? letterInput.files[0].name : '');
-            if (hasLetter) {
-                modalLetterName.textContent = letterName;
+            if (letterInput?.files?.length) {
+                modalLetterName.textContent = letterInput.files[0].name;
             } else {
                 modalLetterName.textContent = 'No letter uploaded.';
             }
@@ -268,17 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
         step3BackBtn.addEventListener('click', () => goToStep(1));
     }
 
-    // Initialize FilePond if the input has data-filepond attribute
-    if (letterInput && letterInput.hasAttribute('data-filepond')) {
-        // Wait for FilePond to initialize, then get the instance
-        setTimeout(() => {
-            if (letterInput.filepondInstance) {
-                letterPond = letterInput.filepondInstance;
-                letterPond.on('addfile', updateSummary);
-                letterPond.on('removefile', updateSummary);
-            }
-        }, 200);
-    } else if (letterInput) {
+    if (letterInput) {
         letterInput.addEventListener('change', updateSummary);
     }
 
@@ -294,8 +273,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 goToStep(0);
                 return;
             }
-            const hasLetter = letterPond ? (letterPond.getFiles().length > 0) : (letterInput?.files?.length > 0);
-            if (!hasLetter) {
+            if (!letterInput?.files?.length) {
                 alert('Please upload your letter before submitting.');
                 return;
             }
@@ -356,8 +334,7 @@ document.addEventListener('DOMContentLoaded', () => {
         purposeInput.addEventListener('input', updateSummary);
     }
 
-    // FilePond initialization is already handled above, no need to duplicate
-    if (letterInput && !letterInput.hasAttribute('data-filepond')) {
+    if (letterInput) {
         letterInput.addEventListener('change', updateSummary);
     }
 
