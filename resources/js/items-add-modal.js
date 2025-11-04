@@ -309,7 +309,6 @@ function collectBase(form) {
 
   let quantity = parseInt(fields.quantity?.value ?? '1', 10);
   if (!Number.isFinite(quantity) || quantity < 1) quantity = 1;
-  if (quantity > 500) quantity = 500;
 
   const ready = Boolean(year.length === 4 && categoryCode.length === 4 && office.length === 4 && serialHasDigit);
   const signature = [year, categoryCode, glaVal, office, formattedSerial, quantity].join('|');
@@ -389,7 +388,6 @@ class PropertyRowsManager {
     const raw = String(this.quantityInput.value || '').replace(/\D/g, '');
     let value = parseInt(raw || '1', 10);
     if (!Number.isFinite(value) || value < 1) value = 1;
-    if (value > 500) value = 500;
     this.quantityInput.value = String(value);
     return value;
   }
@@ -1423,6 +1421,8 @@ function handleSuccess(form, elements, result) {
   const data = result?.data || {};
   const hasSkipped = Array.isArray(data.skipped_serials) && data.skipped_serials.length > 0;
   const toastMessage = hasSkipped ? 'Items added successfully. Some property numbers were skipped because they are already in use.' : 'Items added successfully.';
+  
+  // Show toast first, then reload after a short delay to ensure toast is visible
   showToast('success', toastMessage);
 
   hideMessage(elements.error);
@@ -1431,7 +1431,11 @@ function handleSuccess(form, elements, result) {
   form.reset();
   form.dispatchEvent(new Event('reset'));
   window.dispatchEvent(new CustomEvent('close-modal', { detail: 'create-item' }));
-  window.location.reload();
+  
+  // Delay reload to ensure toast is visible
+  setTimeout(() => {
+    window.location.reload();
+  }, 500);
 }
 
 function handleError(elements, error) {

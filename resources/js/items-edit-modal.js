@@ -129,13 +129,24 @@ function wireEditForm(form) {
       const data = result?.data || {};
       const message = data.message || 'Item details updated successfully.';
 
+      // Show toast notification
       showToast('success', message);
       showMessage(feedbackEl, message);
 
       if (modalName) {
+        // Delay closing modal slightly to ensure toast is visible
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent('close-modal', { detail: modalName }));
-        }, 200);
+          // Reload to reflect changes
+          setTimeout(() => {
+            window.location.reload();
+          }, 300);
+        }, 500);
+      } else {
+        // If no modal name, just reload after a delay
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
       }
     } catch (error) {
       console.error(error);
