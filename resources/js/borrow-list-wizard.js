@@ -34,7 +34,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const confirmBorrowRequestBtn = document.getElementById('confirmBorrowRequestBtn');
     const letterInput = document.getElementById('support_letter');
     const letterFileName = document.getElementById('letterFileName');
-    let letterPond = null;
 
     const summaryBorrowDates = document.getElementById('summaryBorrowDates');
     const summaryAddress = document.getElementById('summaryAddress');
@@ -224,43 +223,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        const modalLetterImage = document.getElementById('modalLetterImage');
-        const modalLetterPreviewWrapper = document.getElementById('modalLetterPreviewWrapper');
-        if (modalLetterImage && modalLetterPreviewWrapper) {
-            // Get file from FilePond or regular input
-            let file = null;
-            if (letterPond && letterPond.getFiles().length > 0) {
-                file = letterPond.getFiles()[0].file;
-            } else if (letterInput?.files?.length) {
-                file = letterInput.files[0];
-            }
-            
-            if (file) {
-                if (file.type && file.type.startsWith('image/')) {
-                    const url = URL.createObjectURL(file);
-                    modalLetterImage.src = url;
-                    modalLetterImage.classList.remove('hidden');
-                    if (modalLetterName) {
-                        modalLetterName.classList.add('hidden');
-                    }
-                } else {
-                    modalLetterImage.classList.add('hidden');
-                    if (modalLetterName) {
-                        modalLetterName.textContent = file.name || 'Letter uploaded';
-                        modalLetterName.classList.remove('hidden');
-                    }
-                }
-            } else {
-                modalLetterImage.classList.add('hidden');
-                if (modalLetterName) {
-                    modalLetterName.textContent = 'No letter uploaded.';
-                    modalLetterName.classList.remove('hidden');
-                }
-            }
-        } else if (modalLetterName) {
-            if (letterPond && letterPond.getFiles().length > 0) {
-                modalLetterName.textContent = letterPond.getFiles()[0].file.name || 'Letter uploaded';
-            } else if (letterInput?.files?.length) {
+        if (modalLetterName) {
+            if (letterInput?.files?.length) {
                 modalLetterName.textContent = letterInput.files[0].name;
             } else {
                 modalLetterName.textContent = 'No letter uploaded.';
@@ -293,24 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
         step3BackBtn.addEventListener('click', () => goToStep(1));
     }
 
-    // Initialize FilePond for letter input if FilePond is available
-    if (letterInput && typeof FilePond !== 'undefined') {
-        // Wait for FilePond to be initialized
-        setTimeout(() => {
-            const pondElement = letterInput.parentElement?.querySelector('.filepond--root');
-            if (pondElement) {
-                letterPond = FilePond.find(pondElement);
-                if (letterPond) {
-                    letterPond.on('addfile', () => {
-                        updateSummary();
-                    });
-                    letterPond.on('removefile', () => {
-                        updateSummary();
-                    });
-                }
-            }
-        }, 500);
-    } else if (letterInput) {
+    if (letterInput) {
         letterInput.addEventListener('change', updateSummary);
     }
 
@@ -326,16 +273,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 goToStep(0);
                 return;
             }
-            
-            // Check for file in FilePond or regular input
-            let hasFile = false;
-            if (letterPond && letterPond.getFiles().length > 0) {
-                hasFile = true;
-            } else if (letterInput?.files?.length) {
-                hasFile = true;
-            }
-            
-            if (!hasFile) {
+            if (!letterInput?.files?.length) {
                 alert('Please upload your letter before submitting.');
                 return;
             }

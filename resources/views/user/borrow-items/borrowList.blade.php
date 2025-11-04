@@ -474,9 +474,7 @@
                                         type="file"
                                         accept=".jpg,.jpeg,.png,.webp,.pdf"
                                         required
-                                        data-filepond="true"
-                                        data-preview-height="120"
-                                        data-thumb-width="160" />
+                                        class="mt-1 block w-full cursor-pointer rounded-lg border border-dashed border-gray-400 bg-gray-50 px-4 py-3 text-sm text-gray-700 focus:border-purple-500 focus:ring-purple-500" />
                                     <p class="text-xs text-gray-500">Accepted formats: JPG, PNG, WEBP, or PDF. Max 5MB.</p>
                                     <x-input-error :messages="$errors->get('support_letter')" class="mt-1" />
                                     <p id="letterFileName" class="text-sm text-gray-600 hidden"></p>
