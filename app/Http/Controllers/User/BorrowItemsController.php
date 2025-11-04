@@ -18,12 +18,7 @@ use Illuminate\Support\Facades\Storage;
 
 class BorrowItemsController extends Controller
 {
-    private array $defaultPhotos = [
-        'furniture'   => 'images/defaults_category_photo/furniture.png',
-        'electronics' => 'images/defaults_category_photo/electronics.png',
-        'tools'       => 'images/defaults_category_photo/tools.png',
-        'vehicles'    => 'images/defaults_category_photo/vehicles.png',
-    ];
+    private string $defaultPhoto = 'images/item.png';
 
     public function index(Request $request)
     {
@@ -50,7 +45,7 @@ class BorrowItemsController extends Controller
             'items'            => $items,
             'borrowList'       => $borrowList,
             'borrowListCount'  => count($borrowList),
-            'defaultPhotos'    => $this->defaultPhotos,
+            'defaultPhoto'     => $this->defaultPhoto,
         ]);
     }
 
@@ -72,7 +67,7 @@ class BorrowItemsController extends Controller
         return view('user.borrow-items.borrowList', [
             'borrowList'      => $borrowList,
             'borrowListCount' => count($borrowList),
-            'defaultPhotos'   => $this->defaultPhotos,
+            'defaultPhoto'    => $this->defaultPhoto,
         ]);
     }
 
@@ -88,9 +83,7 @@ class BorrowItemsController extends Controller
 
         $borrowList = Session::get('borrowList', []);
 
-        $photoPath = $item->photo
-            ? $item->photo
-            : $this->defaultPhotos[$item->category] ?? 'images/no-image.png';
+        $photoPath = $item->photo ?: $this->defaultPhoto;
 
         if (isset($borrowList[$item->id])) {
             $newQty = min($borrowList[$item->id]['qty'] + $qty, $item->total_qty);

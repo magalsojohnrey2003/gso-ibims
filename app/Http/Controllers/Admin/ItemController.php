@@ -21,13 +21,6 @@ class ItemController extends Controller
 {
     protected string $defaultPhoto = 'images/item.png';
 
-    protected array $defaultPhotos = [
-        'furniture'   => 'images/defaults_category_photo/furniture.png',
-        'electronics' => 'images/defaults_category_photo/electronics.png',
-        'tools'       => 'images/defaults_category_photo/tools.png',
-        'vehicles'    => 'images/defaults_category_photo/vehicles.png',
-    ];
-
     protected array $categoryCodeMap = [];
 
     protected array $auditInstanceFields = [
@@ -209,8 +202,8 @@ class ItemController extends Controller
             ];
         })->values()->toArray();
 
-        $defaultPhotos = $this->defaultPhotos;
-        return view('admin.items.index', compact('items', 'categories', 'categoryCodeMap', 'offices', 'defaultPhotos'));
+        $defaultPhoto = $this->defaultPhoto;
+        return view('admin.items.index', compact('items', 'categories', 'categoryCodeMap', 'offices', 'defaultPhoto'));
     }
 
     public function search(Request $request)
@@ -791,8 +784,13 @@ public function update(Request $request, Item $item)
 
         DB::commit();
 
-        if ($uploadedNewPhoto && $originalPhoto && $originalPhoto !== $photoPath && ! str_starts_with($originalPhoto, 'defaults/')) {
-            Storage::disk('public')->delete($originalPhoto);
+        // Delete old photo from storage if it exists and is different from the new one
+        // Only delete if it's actually in storage (not default photo which is in public directory)
+        if ($uploadedNewPhoto && $originalPhoto && $originalPhoto !== $photoPath && $originalPhoto !== $this->defaultPhoto) {
+            // Only delete if the original photo is in storage (starts with 'items/' or similar)
+            if (Storage::disk('public')->exists($originalPhoto)) {
+                Storage::disk('public')->delete($originalPhoto);
+            }
         }
 
         if ($request->wantsJson()) {
@@ -814,8 +812,11 @@ public function update(Request $request, Item $item)
     } catch (\Throwable $e) {
         DB::rollBack();
 
-        if ($uploadedNewPhoto && $photoPath && ! str_starts_with($photoPath, 'defaults/')) {
-            Storage::disk('public')->delete($photoPath);
+        // Clean up uploaded photo on error if it exists in storage
+        if ($uploadedNewPhoto && $photoPath && $photoPath !== $this->defaultPhoto) {
+            if (Storage::disk('public')->exists($photoPath)) {
+                Storage::disk('public')->delete($photoPath);
+            }
         }
 
         if ($request->wantsJson()) {

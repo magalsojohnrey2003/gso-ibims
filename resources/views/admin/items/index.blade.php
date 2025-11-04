@@ -108,17 +108,22 @@
                                   @php
                                       $photoUrl = null;
                                       if ($item->photo) {
+                                          // Check if photo is in storage (public disk)
                                           if (Storage::disk('public')->exists($item->photo)) {
                                               $photoUrl = Storage::disk('public')->url($item->photo);
-                                          } elseif (str_starts_with($item->photo, 'http')) {
+                                          } 
+                                          // Check if it's a full HTTP URL
+                                          elseif (str_starts_with($item->photo, 'http')) {
                                               $photoUrl = $item->photo;
-                                          } elseif (file_exists(public_path($item->photo))) {
+                                          } 
+                                          // Check if it's in public directory (default photo or legacy path)
+                                          elseif (file_exists(public_path($item->photo))) {
                                               $photoUrl = asset($item->photo);
                                           }
                                       }
+                                      // Use default photo if no photo found or photo column is empty
                                       if (!$photoUrl) {
-                                          // Use same default photo logic as Borrow Items page
-                                          $photoUrl = asset($defaultPhotos[$item->category] ?? 'images/item.png');
+                                          $photoUrl = asset($defaultPhoto);
                                       }
                                   @endphp
                                   <div class="flex justify-center">

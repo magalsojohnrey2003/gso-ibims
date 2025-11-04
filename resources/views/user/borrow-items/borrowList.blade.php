@@ -145,8 +145,29 @@
                                             data-item-total="{{ $item['total_qty'] }}"
                                             data-item-quantity="{{ $currentQty }}">
                                             <div class="flex items-center gap-3">
+                                                @php
+                                                    $photoUrl = null;
+                                                    if (!empty($item['photo'])) {
+                                                        // Check if photo is in storage (public disk)
+                                                        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($item['photo'])) {
+                                                            $photoUrl = \Illuminate\Support\Facades\Storage::disk('public')->url($item['photo']);
+                                                        } 
+                                                        // Check if it's a full HTTP URL
+                                                        elseif (str_starts_with($item['photo'], 'http')) {
+                                                            $photoUrl = $item['photo'];
+                                                        } 
+                                                        // Check if it's in public directory (default photo or legacy path)
+                                                        elseif (file_exists(public_path($item['photo']))) {
+                                                            $photoUrl = asset($item['photo']);
+                                                        }
+                                                    }
+                                                    // Use default photo if no photo found or photo column is empty
+                                                    if (!$photoUrl) {
+                                                        $photoUrl = asset($defaultPhoto);
+                                                    }
+                                                @endphp
                                                 <img
-                                                    src="{{ $item['photo'] ? asset('storage/'.$item['photo']) : asset($defaultPhotos[$item['category']] ?? 'images/no-image.png') }}"
+                                                    src="{{ $photoUrl }}"
                                                     class="h-14 w-14 rounded object-cover"
                                                     alt="{{ $item['name'] }}">
                                                 <div class="space-y-1">

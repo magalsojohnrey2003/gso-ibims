@@ -72,9 +72,28 @@
                 >
 
                     <!-- Item Image -->
-                    <img src="{{ $item->photo 
-                                ? asset('storage/'.$item->photo) 
-                                : asset($defaultPhotos[$item->category] ?? 'images/no-image.png') }}"
+                    @php
+                        $photoUrl = null;
+                        if ($item->photo) {
+                            // Check if photo is in storage (public disk)
+                            if (\Illuminate\Support\Facades\Storage::disk('public')->exists($item->photo)) {
+                                $photoUrl = \Illuminate\Support\Facades\Storage::disk('public')->url($item->photo);
+                            } 
+                            // Check if it's a full HTTP URL
+                            elseif (str_starts_with($item->photo, 'http')) {
+                                $photoUrl = $item->photo;
+                            } 
+                            // Check if it's in public directory (default photo or legacy path)
+                            elseif (file_exists(public_path($item->photo))) {
+                                $photoUrl = asset($item->photo);
+                            }
+                        }
+                        // Use default photo if no photo found or photo column is empty
+                        if (!$photoUrl) {
+                            $photoUrl = asset($defaultPhoto);
+                        }
+                    @endphp
+                    <img src="{{ $photoUrl }}"
                          alt="{{ $item->name }}" 
                          class="h-32 w-full object-cover rounded border-2 border-purple-500 mb-3">
 

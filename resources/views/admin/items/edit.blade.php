@@ -21,12 +21,22 @@
         $categoryCodeForCategory = $raw ? substr(preg_replace('/\D/', '', strtoupper($raw)), 0, 4) : '';
     }
 
-    $existingPath = $primaryInstance->photo ?? $item->photo ?? '';
+    // Get existing photo URL - photos are stored in items table, not instances
+    $existingPath = $item->photo ?? '';
     $existingUrl = '';
-    if ($existingPath && \Illuminate\Support\Facades\Storage::disk('public')->exists($existingPath)) {
-        $existingUrl = \Illuminate\Support\Facades\Storage::disk('public')->url($existingPath);
-    } elseif ($existingPath && str_starts_with($existingPath, 'http')) {
-        $existingUrl = $existingPath;
+    if ($existingPath) {
+        // Check if photo is in storage (public disk)
+        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($existingPath)) {
+            $existingUrl = \Illuminate\Support\Facades\Storage::disk('public')->url($existingPath);
+        } 
+        // Check if it's a full HTTP URL
+        elseif (str_starts_with($existingPath, 'http')) {
+            $existingUrl = $existingPath;
+        } 
+        // Check if it's in public directory (default photo or legacy path)
+        elseif (file_exists(public_path($existingPath))) {
+            $existingUrl = asset($existingPath);
+        }
     }
 
     $hasModelNo = $item->instances->contains(fn ($inst) => filled($inst->model_no ?? null));
