@@ -21,13 +21,6 @@ class ItemController extends Controller
 {
     protected string $defaultPhoto = 'images/item.png';
 
-    protected array $defaultPhotos = [
-        'furniture'   => 'images/defaults_category_photo/furniture.png',
-        'electronics' => 'images/defaults_category_photo/electronics.png',
-        'tools'       => 'images/defaults_category_photo/tools.png',
-        'vehicles'    => 'images/defaults_category_photo/vehicles.png',
-    ];
-
     protected array $categoryCodeMap = [];
 
     protected array $auditInstanceFields = [
@@ -209,8 +202,7 @@ class ItemController extends Controller
             ];
         })->values()->toArray();
 
-        $defaultPhotos = $this->defaultPhotos;
-        return view('admin.items.index', compact('items', 'categories', 'categoryCodeMap', 'offices', 'defaultPhotos'));
+        return view('admin.items.index', compact('items', 'categories', 'categoryCodeMap', 'offices'));
     }
 
     public function search(Request $request)
@@ -288,7 +280,7 @@ class ItemController extends Controller
             'office_code' => 'required|alpha_num|min:1|max:4',
             'gla' => 'nullable|digits_between:1,4',
             'start_serial' => 'required|digits_between:1,8',
-            'quantity' => 'required|integer|min:1',
+            'quantity' => 'required|integer|min:1|max:500',
             'category' => 'nullable|string',
             'category_code' => 'nullable|string|max:20',
             'exclude_instance_id' => 'nullable|integer|exists:item_instances,id',
@@ -358,7 +350,7 @@ public function store(Request $request, PropertyNumberService $numbers)
     $data = $request->validate([
         'name' => 'required|string|max:255',
         'category' => 'required|string',
-        'quantity' => 'required|integer|min:1',
+        'quantity' => 'required|integer|min:1|max:500',
         // Make the generate inputs optional (not required)
         'year_procured' => 'nullable|digits:4|integer|min:2020|max:' . date('Y'),
         'gla' => 'nullable|digits_between:1,4',
@@ -670,23 +662,9 @@ public function store(Request $request, PropertyNumberService $numbers)
             );
         } else {
             // no instances to create
-            // Set total_qty to entered quantity even if no instances are created
-            $item->total_qty = $quantity;
-            $item->available_qty = 0;
-            $item->save();
         }
 
-        // Only sync quantities if instances were created (it will count actual instances)
-        // Otherwise, total_qty is already set to the entered quantity above
-        if (!empty($rowsToCreate) || $hasBulkInputs) {
-            // Update total_qty to entered quantity (not just instance count) to reflect what admin entered
-            $item->total_qty = $quantity;
-            // But available_qty should still be based on actual available instances
-            $item->available_qty = ItemInstance::where('item_id', $item->id)
-                ->where('status', 'available')
-                ->count();
-            $item->save();
-        }
+        $this->syncItemQuantities($item);
 
         DB::commit();
 

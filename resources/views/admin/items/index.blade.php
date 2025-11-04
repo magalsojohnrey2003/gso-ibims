@@ -105,25 +105,18 @@
                           @endphp
                           <tr class="hover:bg-gray-50" data-item-row="{{ $item->id }}">
                               <td class="px-6 py-4 text-center" data-item-photo>
-                                  @php
-                                      $photoUrl = null;
-                                      if ($item->photo) {
-                                          if (Storage::disk('public')->exists($item->photo)) {
-                                              $photoUrl = Storage::disk('public')->url($item->photo);
-                                          } elseif (str_starts_with($item->photo, 'http')) {
-                                              $photoUrl = $item->photo;
-                                          } elseif (file_exists(public_path($item->photo))) {
-                                              $photoUrl = asset($item->photo);
-                                          }
-                                      }
-                                      if (!$photoUrl) {
-                                          // Use same default photo logic as Borrow Items page
-                                          $photoUrl = asset($defaultPhotos[$item->category] ?? 'images/item.png');
-                                      }
-                                  @endphp
-                                  <div class="flex justify-center">
-                                      <img src="{{ $photoUrl }}" data-item-photo-img class="h-12 w-12 object-cover rounded-lg shadow-sm" alt="{{ $item->name }}">
-                                  </div>
+                                  @if($item->photo)
+                                      @php
+                                          $photoUrl = Storage::disk('public')->exists($item->photo)
+                                              ? Storage::disk('public')->url($item->photo)
+                                              : asset($item->photo);
+                                      @endphp
+                                      <div class="flex justify-center">
+                                          <img src="{{ $photoUrl }}" data-item-photo-img class="h-12 w-12 object-cover rounded-lg shadow-sm">
+                                      </div>
+                                  @else
+                                      <x-status-badge type="gray" text="No photo" />
+                                  @endif
                               </td>
                               <td class="px-6 py-4 font-semibold text-gray-900" data-item-name>{{ $item->name }}</td>
                               <td class="px-6 py-4" data-item-category>{{ $displayCategory }}</td>
