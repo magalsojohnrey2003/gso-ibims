@@ -381,16 +381,45 @@ function openAssignManpowerModal(id) {
         locationEl.textContent = req.location && req.location.trim() !== '' ? req.location : '--';
     }
 
-    const letterUrl = req.letter_url || req.letter_path || '';
+    // Handle letter URL - check if it's a full URL or needs to be converted from path
+    let letterUrl = req.letter_url || '';
+    if (!letterUrl && req.letter_path) {
+        // If we only have a path, construct the storage URL
+        if (req.letter_path.startsWith('http')) {
+            letterUrl = req.letter_path;
+        } else {
+            letterUrl = '/storage/' + req.letter_path.replace(/^storage\//, '');
+        }
+    }
+    
     if (letterPreview && letterFallback) {
         if (letterUrl) {
-            letterPreview.src = letterUrl;
-            letterPreview.classList.remove('hidden');
-            letterFallback.classList.add('hidden');
+            // Check if it's an image (by URL extension or type)
+            const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(letterUrl);
+            if (isImage) {
+                letterPreview.src = letterUrl;
+                letterPreview.onerror = () => {
+                    letterPreview.classList.add('hidden');
+                    letterFallback.classList.remove('hidden');
+                    letterFallback.textContent = 'Letter uploaded (cannot preview)';
+                };
+                letterPreview.onload = () => {
+                    letterPreview.classList.remove('hidden');
+                    letterFallback.classList.add('hidden');
+                };
+                letterPreview.classList.remove('hidden');
+                letterFallback.classList.add('hidden');
+            } else {
+                // PDF or other file type
+                letterPreview.classList.add('hidden');
+                letterFallback.classList.remove('hidden');
+                letterFallback.textContent = 'Letter uploaded (PDF or non-image file)';
+            }
         } else {
             letterPreview.src = '';
             letterPreview.classList.add('hidden');
             letterFallback.classList.remove('hidden');
+            letterFallback.textContent = 'No letter uploaded';
         }
     }
 
