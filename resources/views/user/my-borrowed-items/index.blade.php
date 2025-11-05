@@ -112,11 +112,16 @@
                 </div>
 
                 <div class="col-span-2 hidden" id="mbi-rejection-block">
-                    <p class="text-red-600 font-semibold">⚠️ Rejection Reason</p>
-                    <p id="mbi-rejection-reason" class="bg-red-50 text-red-800 p-2 rounded"></p>
+                    <div class="bg-red-50 border border-red-100 rounded-lg p-3 flex items-start gap-3">
+                        <i class="fas fa-exclamation-triangle text-red-500 mt-1"></i>
+                        <div class="text-sm">
+                            <p class="text-red-700 font-semibold">Rejection Reason</p>
+                            <p id="mbi-rejection-reason" class="text-red-800 mt-1"></p>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="col-span-2 hidden" id="mbi-delivery-reason-block">
+                <div class=\"col-span-2 hidden\" id=\"mbi-delivery-reason-block\">
                     <div class="bg-indigo-50 border border-indigo-100 rounded-lg p-3">
                         <div class="flex items-start justify-between gap-3">
                             <div class="flex-1">
@@ -212,3 +217,4 @@
 
     @vite(['resources/js/app.js'])
 </x-app-layout>
+

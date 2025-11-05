@@ -151,6 +151,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalItemsList = document.getElementById('modalItemsList');
     const modalAddress = document.getElementById('modalAddress');
     const modalLetterName = document.getElementById('modalLetterName');
+    const modalLetterLink = document.getElementById('modalLetterLink');
+    const modalLetterDetails = document.getElementById('modalLetterDetails');
     const modalPurposeOffice = document.getElementById('modalPurposeOffice');
     const modalPurpose = document.getElementById('modalPurpose');
     const modalUsage = document.getElementById('modalUsage');
@@ -171,6 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
         usageStartSelect?.value || null,
         usageEndSelect?.value || null,
     ) || '--';
+    let currentLetterObjectUrl = null;
 
     initLocationSelector({
         barangaysUrl: window.LOCATION_ENDPOINTS?.barangays,
@@ -332,23 +335,53 @@ document.addEventListener('DOMContentLoaded', () => {
         const { file: letterFile, name: letterName } = getLetterFileInfo();
         const modalLetterImage = document.getElementById('modalLetterImage');
         const modalLetterPreviewWrapper = document.getElementById('modalLetterPreviewWrapper');
-        if (modalLetterImage && modalLetterPreviewWrapper) {
-            if (letterFile && letterFile.type && letterFile.type.startsWith('image/')) {
-                const url = URL.createObjectURL(letterFile);
-                modalLetterImage.src = url;
-                modalLetterImage.classList.remove('hidden');
-                if (modalLetterName) {
-                    modalLetterName.classList.add('hidden');
-                }
-            } else {
-                modalLetterImage.classList.add('hidden');
-                if (modalLetterName) {
-                    modalLetterName.textContent = letterName || 'Letter uploaded';
-                    modalLetterName.classList.remove('hidden');
-                }
+
+        if (currentLetterObjectUrl) {
+            try {
+                URL.revokeObjectURL(currentLetterObjectUrl);
+            } catch (revokeError) {
+                console.warn('Failed to revoke previous letter preview URL', revokeError);
             }
-        } else if (modalLetterName) {
-            modalLetterName.textContent = letterName || 'No letter uploaded.';
+            currentLetterObjectUrl = null;
+        }
+
+        let previewUrl = null;
+        if (letterFile && typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+            try {
+                previewUrl = URL.createObjectURL(letterFile);
+                currentLetterObjectUrl = previewUrl;
+            } catch (previewError) {
+                console.warn('Failed to generate preview URL for support letter', previewError);
+            }
+        }
+
+        const showImagePreview = Boolean(letterFile && letterFile.type && letterFile.type.startsWith('image/') && previewUrl);
+        if (modalLetterImage) {
+            if (showImagePreview) {
+                modalLetterImage.src = previewUrl;
+                modalLetterImage.classList.remove('hidden');
+            } else {
+                modalLetterImage.removeAttribute('src');
+                modalLetterImage.classList.add('hidden');
+            }
+        }
+
+        if (modalLetterName) {
+            modalLetterName.textContent = letterName || (letterFile ? 'Letter uploaded' : 'No letter uploaded');
+        }
+
+        if (modalLetterDetails) {
+            modalLetterDetails.classList.remove('hidden');
+        }
+
+        if (modalLetterLink) {
+            if (previewUrl) {
+                modalLetterLink.href = previewUrl;
+                modalLetterLink.classList.remove('hidden');
+            } else {
+                modalLetterLink.href = '#';
+                modalLetterLink.classList.add('hidden');
+            }
         }
     };
 

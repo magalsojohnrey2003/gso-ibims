@@ -177,6 +177,162 @@
     </div>
     </x-modal>
 
+<!-- Rejection Reason Modal -->
+<x-modal name="rejectionReasonModal" maxWidth="md">
+    <div class="p-6 space-y-6" id="rejectionReasonModalPanel">
+        <div class="flex items-center justify-between">
+            <div>
+                <h3 class="text-xl font-semibold text-gray-900">Select Rejection Reason</h3>
+                <p class="text-sm text-gray-600 mt-1">Choose the main reason for rejecting this request:</p>
+            </div>
+            <button
+                type="button"
+                class="text-gray-400 hover:text-gray-600 transition"
+                @click="$dispatch('close-modal','rejectionReasonModal'); window.dispatchEvent(new CustomEvent('rejection-flow-reset'));"
+            >
+                <i class="fas fa-times text-lg"></i>
+            </button>
+        </div>
+
+        <div class="space-y-3">
+            <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:border-purple-400 cursor-pointer transition">
+                <input type="radio" name="rejectionReason" value="Incomplete" class="text-purple-600 focus:ring-purple-500" />
+                <span class="text-sm text-gray-700 font-medium">Incomplete</span>
+            </label>
+            <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:border-purple-400 cursor-pointer transition">
+                <input type="radio" name="rejectionReason" value="Invalid" class="text-purple-600 focus:ring-purple-500" />
+                <span class="text-sm text-gray-700 font-medium">Invalid</span>
+            </label>
+            <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:border-purple-400 cursor-pointer transition">
+                <input type="radio" name="rejectionReason" value="Duplicate" class="text-purple-600 focus:ring-purple-500" />
+                <span class="text-sm text-gray-700 font-medium">Duplicate</span>
+            </label>
+            <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:border-purple-400 cursor-pointer transition">
+                <input type="radio" name="rejectionReason" value="Other" class="text-purple-600 focus:ring-purple-500" />
+                <span class="text-sm text-gray-700 font-medium">Other</span>
+            </label>
+        </div>
+
+        <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
+            <x-button id="rejectionReasonCancelBtn" variant="secondary" class="px-4 py-2 text-sm">
+                Cancel
+            </x-button>
+            <x-button id="rejectionReasonConfirmBtn" variant="danger" class="px-4 py-2 text-sm">
+                Confirm
+            </x-button>
+        </div>
+    </div>
+</x-modal>
+
+<!-- Custom Rejection Modal -->
+<x-modal name="customRejectionModal" maxWidth="md">
+    <div class="p-6 space-y-6" id="customRejectionModalPanel">
+        <div class="flex items-center justify-between">
+            <div>
+                <h3 class="text-xl font-semibold text-gray-900">Custom Rejection Reason</h3>
+                <p class="text-sm text-gray-600 mt-1">Please provide a detailed reason for rejecting this item:</p>
+            </div>
+            <button
+                type="button"
+                class="text-gray-400 hover:text-gray-600 transition"
+                @click="$dispatch('close-modal','customRejectionModal'); window.dispatchEvent(new CustomEvent('rejection-flow-reset'));"
+            >
+                <i class="fas fa-times text-lg"></i>
+            </button>
+        </div>
+
+        <div class="space-y-4">
+            <div>
+                <label for="customRejectionSubject" class="text-sm font-medium text-gray-700">Subject</label>
+                <input
+                    type="text"
+                    id="customRejectionSubject"
+                    class="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500"
+                    placeholder="Brief subject line..."
+                />
+            </div>
+            <div>
+                <label for="customRejectionDetails" class="text-sm font-medium text-gray-700">Detailed Reason</label>
+                <textarea
+                    id="customRejectionDetails"
+                    rows="4"
+                    class="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500"
+                    placeholder="Enter detailed rejection reason..."
+                ></textarea>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-between pt-4 border-t border-gray-200">
+            <x-button id="customRejectionBackBtn" variant="secondary" class="px-4 py-2 text-sm">
+                &larr; Back
+            </x-button>
+
+            <x-button id="customRejectionConfirmBtn" variant="danger" class="px-4 py-2 text-sm">
+                Confirm Reject
+            </x-button>
+        </div>
+    </div>
+</x-modal>
+
+<!-- Letter Preview Modal -->
+<x-modal name="letterPreviewModal" maxWidth="3xl">
+    <div class="p-6 space-y-6">
+        <div class="flex items-center justify-between border-b border-gray-200 pb-3">
+            <div>
+                <h3 class="text-xl font-semibold text-gray-800">Uploaded Support Letter</h3>
+                <p class="text-sm text-gray-600 mt-1">Preview the submitted signed support letter.</p>
+            </div>
+            <button
+                type="button"
+                class="text-gray-400 hover:text-gray-600 transition"
+                @click="$dispatch('close-modal','letterPreviewModal')"
+            >
+                <i class="fas fa-times text-lg"></i>
+            </button>
+        </div>
+
+        <div class="bg-gray-50 border border-gray-200 rounded-xl overflow-hidden min-h-[360px] flex items-center justify-center">
+            <img id="letterPreviewImage" src="" alt="Letter preview" class="max-h-[520px] w-auto hidden" />
+            <iframe id="letterPreviewFrame" title="Letter preview frame" class="w-full h-[460px] hidden" loading="lazy"></iframe>
+            <div id="letterPreviewPlaceholder" class="text-center text-gray-600 text-sm space-y-2">
+                <p>Preview not available for this file type.</p>
+                <a
+                    id="letterPreviewDownloadPrimary"
+                    href="#"
+                    target="_blank"
+                    rel="noopener"
+                    class="inline-flex items-center gap-2 text-purple-600 font-medium hover:text-purple-700 hidden"
+                >
+                    <i class="fas fa-arrow-up-right-from-square"></i>
+                    <span>Open letter in new tab</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t border-gray-200">
+            <div class="text-sm text-gray-600">
+                <span class="font-medium text-gray-800">File:</span>
+                <span id="letterPreviewFilename">--</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <a
+                    id="letterPreviewDownloadFooter"
+                    href="#"
+                    target="_blank"
+                    rel="noopener"
+                    class="inline-flex items-center gap-2 text-purple-600 font-medium hover:text-purple-700 hidden"
+                >
+                    <i class="fas fa-arrow-up-right-from-square"></i>
+                    <span>Open in new tab</span>
+                </a>
+                <x-button variant="secondary" class="px-4 py-2 text-sm" @click="$dispatch('close-modal','letterPreviewModal')">
+                    Close
+                </x-button>
+            </div>
+        </div>
+    </div>
+</x-modal>
+
 <!-- Deliver Items Modal -->
 <x-modal name="deliverItemsModal" maxWidth="md">
     <div class="p-6 space-y-4">
@@ -277,9 +433,26 @@
                 </div>
                 <div class="space-y-2">
                     <label class="text-xs font-semibold tracking-wide text-gray-600 uppercase">Uploaded Letter</label>
-                    <div id="assignLetterPreviewWrapper" class="flex items-center justify-center border border-dashed border-gray-300 rounded-lg bg-white p-3 min-h-[140px]">
-                        <img id="assignLetterPreview" src="" alt="Uploaded letter" class="max-h-40 object-contain rounded shadow hidden" />
-                        <span id="assignLetterFallback" class="text-sm text-gray-500">No letter uploaded</span>
+                    <div
+                        id="assignLetterPreviewWrapper"
+                        class="group flex flex-col items-center justify-center border border-dashed border-gray-300 rounded-lg bg-white p-3 min-h-[160px] cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition"
+                        role="button"
+                        tabindex="0"
+                        aria-disabled="true"
+                        data-letter-url=""
+                        data-letter-name=""
+                        data-letter-type=""
+                    >
+                        <img
+                            id="assignLetterPreview"
+                            src=""
+                            alt="Uploaded letter preview"
+                            class="max-h-48 object-contain rounded shadow hidden"
+                        />
+                        <div class="text-center space-y-2">
+                            <span id="assignLetterFallback" class="text-sm text-gray-500 block">No letter uploaded</span>
+                            <span id="assignLetterHint" class="hidden text-xs font-medium text-purple-600">Click to preview</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -372,7 +545,5 @@
     @vite(['resources/js/app.js'])
 
 </x-app-layout>
-
-
 
 
