@@ -388,22 +388,14 @@ function openAssignManpowerModal(id) {
         locationEl.textContent = req.location && req.location.trim() !== '' ? req.location : '--';
     }
 
-    // Handle letter URL - check if it's a full URL or needs to be converted from path
-    let letterUrl = req.letter_url || '';
-    if (!letterUrl && req.letter_path) {
-        // If we only have a path, construct the storage URL
-        if (req.letter_path.startsWith('http')) {
-            letterUrl = req.letter_path;
-        } else {
-            letterUrl = '/storage/' + req.letter_path.replace(/^storage\//, '');
-        }
-    }
-    
-    const letterName = (req.letter_path || '').split('/').pop() || 'Uploaded letter';
-    const letterType = letterUrl ? detectLetterType(letterUrl) : 'other';
+    const resolvedLetterUrl = resolveLetterUrl(req.letter_path, req.letter_url);
+    const absoluteLetterUrl = toAbsoluteUrl(resolvedLetterUrl);
+    const rawLetterName = req.letter_path || req.letter_url || '';
+    const letterName = rawLetterName ? rawLetterName.split('/').pop().split('?')[0] : 'Uploaded letter';
+    const letterType = absoluteLetterUrl ? detectLetterType(absoluteLetterUrl) : 'other';
     if (letterWrapper) {
-        if (letterUrl) {
-            letterWrapper.dataset.letterUrl = letterUrl;
+        if (absoluteLetterUrl) {
+            letterWrapper.dataset.letterUrl = absoluteLetterUrl;
             letterWrapper.dataset.letterName = letterName;
             letterWrapper.dataset.letterType = letterType;
             letterWrapper.setAttribute('aria-disabled', 'false');
@@ -428,17 +420,17 @@ function openAssignManpowerModal(id) {
         letterPreview.removeAttribute('src');
     }
     if (letterFallback) {
-        letterFallback.textContent = letterUrl ? 'Letter uploaded' : 'No letter uploaded';
-        if (letterUrl && letterType === 'image') {
+        letterFallback.textContent = absoluteLetterUrl ? 'Letter uploaded' : 'No letter uploaded';
+        if (absoluteLetterUrl && letterType === 'image') {
             letterFallback.classList.add('hidden');
         } else {
             letterFallback.classList.remove('hidden');
         }
     }
 
-    if (letterUrl && letterPreview) {
+    if (absoluteLetterUrl && letterPreview) {
         if (letterType === 'image') {
-            letterPreview.src = letterUrl;
+            letterPreview.src = absoluteLetterUrl;
             letterPreview.onload = () => {
                 letterPreview.classList.remove('hidden');
                 if (letterFallback) letterFallback.classList.add('hidden');
@@ -446,15 +438,15 @@ function openAssignManpowerModal(id) {
             letterPreview.onerror = () => {
                 letterPreview.classList.add('hidden');
                 if (letterFallback) {
-                    letterFallback.textContent = 'Letter uploaded (preview unavailable)';
+                    letterFallback.textContent = 'Letter uploaded (preview unavailable - click to open in new tab)';
                     letterFallback.classList.remove('hidden');
                 }
             };
         } else {
             if (letterFallback) {
                 letterFallback.textContent = letterType === 'pdf'
-                    ? 'PDF uploaded — click to preview'
-                    : 'Letter uploaded (preview unavailable)';
+                    ? 'PDF uploaded - click to open in new tab'
+                    : 'Letter uploaded (preview unavailable - click to open in new tab)';
                 letterFallback.classList.remove('hidden');
             }
         }
@@ -628,97 +620,74 @@ function detectLetterType(url, providedType = '') {
     return 'other';
 }
 
-function openLetterPreviewModal({ url, name, type } = {}) {
-    if (!url) {
+function normalizeLetterSource(value) {
+    if (!value) return '';
+    const trimmed = String(value).trim();
+    if (!trimmed) return '';
+
+    if (/^https?:\/\//i.test(trimmed)) {
+        try {
+            const parsed = new URL(trimmed);
+            if (parsed.pathname.startsWith('/storage/')) {
+                return parsed.pathname + parsed.search + parsed.hash;
+            }
+            if (parsed.host === window.location.host) {
+                return parsed.pathname + parsed.search + parsed.hash;
+            }
+            return parsed.href;
+        } catch {
+            return trimmed;
+        }
+    }
+
+    if (trimmed.startsWith('//')) {
+        return `${window.location.protocol}${trimmed}`;
+    }
+
+    if (trimmed.startsWith('/storage/')) {
+        return trimmed;
+    }
+
+    let normalized = trimmed.replace(/^\/+/, '');
+    normalized = normalized.replace(/^public\//i, '');
+    normalized = normalized.replace(/^storage\//i, '');
+    normalized = normalized.replace(/^\/+/, '');
+
+    if (!normalized) return '';
+    return `/storage/${normalized}`;
+}
+
+function resolveLetterUrl(pathValue, explicitUrl) {
+    return normalizeLetterSource(pathValue) || normalizeLetterSource(explicitUrl) || '';
+}
+
+function toAbsoluteUrl(url) {
+    if (!url) return '';
+    try {
+        return new URL(url, window.location.origin).href;
+    } catch {
+        return url;
+    }
+}
+
+function openLetterPreviewModal({ url, name } = {}) {
+    const normalized = normalizeLetterSource(url);
+    if (!normalized) {
         showError('No uploaded letter available to preview.');
         return;
     }
 
-    const letterType = detectLetterType(url, type);
-    const filename = (name || url.split('/').pop() || 'Uploaded letter').split('?')[0];
-
-    const imageEl = document.getElementById('letterPreviewImage');
-    const frameEl = document.getElementById('letterPreviewFrame');
-    const placeholderEl = document.getElementById('letterPreviewPlaceholder');
-    const primaryLink = document.getElementById('letterPreviewDownloadPrimary');
-    const footerLink = document.getElementById('letterPreviewDownloadFooter');
-    const filenameEl = document.getElementById('letterPreviewFilename');
-
-    if (imageEl) {
-        imageEl.classList.add('hidden');
-        imageEl.removeAttribute('src');
-    }
-    if (frameEl) {
-        frameEl.classList.add('hidden');
-        if (frameEl.contentWindow) {
-            frameEl.src = 'about:blank';
-        } else {
-            frameEl.removeAttribute('src');
+    const absoluteUrl = toAbsoluteUrl(normalized);
+    const win = window.open(absoluteUrl, '_blank', 'noopener');
+    if (!win) return;
+    win.opener = null;
+    if (name) {
+        try {
+            win.document.title = name;
+        } catch (err) {
+            // Ignore cross-origin title assignment failures.
         }
     }
-    if (placeholderEl) {
-        placeholderEl.classList.add('hidden');
-    }
-    if (primaryLink) {
-        primaryLink.classList.add('hidden');
-        primaryLink.href = '#';
-    }
-    if (footerLink) {
-        footerLink.classList.add('hidden');
-        footerLink.href = '#';
-    }
-    if (filenameEl) {
-        filenameEl.textContent = filename;
-    }
-
-    if (letterType === 'image' && imageEl) {
-        imageEl.onload = () => {
-            imageEl.classList.remove('hidden');
-            if (placeholderEl) placeholderEl.classList.add('hidden');
-        };
-        imageEl.onerror = () => {
-            imageEl.classList.add('hidden');
-            if (placeholderEl) placeholderEl.classList.remove('hidden');
-            if (primaryLink) {
-                primaryLink.href = url;
-                primaryLink.classList.remove('hidden');
-            }
-            if (footerLink) {
-                footerLink.href = url;
-                footerLink.classList.remove('hidden');
-            }
-        };
-        imageEl.src = url;
-        if (footerLink) {
-            footerLink.href = url;
-            footerLink.classList.remove('hidden');
-        }
-    } else if (letterType === 'pdf' && frameEl) {
-        frameEl.src = url;
-        frameEl.classList.remove('hidden');
-        if (primaryLink) {
-            primaryLink.href = url;
-            primaryLink.classList.remove('hidden');
-        }
-        if (footerLink) {
-            footerLink.href = url;
-            footerLink.classList.remove('hidden');
-        }
-    } else {
-        if (placeholderEl) {
-            placeholderEl.classList.remove('hidden');
-        }
-        if (primaryLink) {
-            primaryLink.href = url;
-            primaryLink.classList.remove('hidden');
-        }
-        if (footerLink) {
-            footerLink.href = url;
-            footerLink.classList.remove('hidden');
-        }
-    }
-
-    window.dispatchEvent(new CustomEvent('open-modal', { detail: 'letterPreviewModal' }));
 }
 
 function openConfirmModal(id, status) {

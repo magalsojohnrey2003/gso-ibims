@@ -274,65 +274,6 @@
     </div>
 </x-modal>
 
-<!-- Letter Preview Modal -->
-<x-modal name="letterPreviewModal" maxWidth="3xl">
-    <div class="p-6 space-y-6">
-        <div class="flex items-center justify-between border-b border-gray-200 pb-3">
-            <div>
-                <h3 class="text-xl font-semibold text-gray-800">Uploaded Support Letter</h3>
-                <p class="text-sm text-gray-600 mt-1">Preview the submitted signed support letter.</p>
-            </div>
-            <button
-                type="button"
-                class="text-gray-400 hover:text-gray-600 transition"
-                @click="$dispatch('close-modal','letterPreviewModal')"
-            >
-                <i class="fas fa-times text-lg"></i>
-            </button>
-        </div>
-
-        <div class="bg-gray-50 border border-gray-200 rounded-xl overflow-hidden min-h-[360px] flex items-center justify-center">
-            <img id="letterPreviewImage" src="" alt="Letter preview" class="max-h-[520px] w-auto hidden" />
-            <iframe id="letterPreviewFrame" title="Letter preview frame" class="w-full h-[460px] hidden" loading="lazy"></iframe>
-            <div id="letterPreviewPlaceholder" class="text-center text-gray-600 text-sm space-y-2">
-                <p>Preview not available for this file type.</p>
-                <a
-                    id="letterPreviewDownloadPrimary"
-                    href="#"
-                    target="_blank"
-                    rel="noopener"
-                    class="inline-flex items-center gap-2 text-purple-600 font-medium hover:text-purple-700 hidden"
-                >
-                    <i class="fas fa-arrow-up-right-from-square"></i>
-                    <span>Open letter in new tab</span>
-                </a>
-            </div>
-        </div>
-
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t border-gray-200">
-            <div class="text-sm text-gray-600">
-                <span class="font-medium text-gray-800">File:</span>
-                <span id="letterPreviewFilename">--</span>
-            </div>
-            <div class="flex items-center gap-3">
-                <a
-                    id="letterPreviewDownloadFooter"
-                    href="#"
-                    target="_blank"
-                    rel="noopener"
-                    class="inline-flex items-center gap-2 text-purple-600 font-medium hover:text-purple-700 hidden"
-                >
-                    <i class="fas fa-arrow-up-right-from-square"></i>
-                    <span>Open in new tab</span>
-                </a>
-                <x-button variant="secondary" class="px-4 py-2 text-sm" @click="$dispatch('close-modal','letterPreviewModal')">
-                    Close
-                </x-button>
-            </div>
-        </div>
-    </div>
-</x-modal>
-
 <!-- Deliver Items Modal -->
 <x-modal name="deliverItemsModal" maxWidth="md">
     <div class="p-6 space-y-4">
@@ -451,7 +392,7 @@
                         />
                         <div class="text-center space-y-2">
                             <span id="assignLetterFallback" class="text-sm text-gray-500 block">No letter uploaded</span>
-                            <span id="assignLetterHint" class="hidden text-xs font-medium text-purple-600">Click to preview</span>
+                            <span id="assignLetterHint" class="hidden text-xs font-medium text-purple-600">Click to open in new tab</span>
                         </div>
                     </div>
                 </div>
@@ -545,5 +486,3 @@
     @vite(['resources/js/app.js'])
 
 </x-app-layout>
-
-
