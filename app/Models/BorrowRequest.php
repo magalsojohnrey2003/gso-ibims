@@ -18,8 +18,6 @@ class BorrowRequest extends Model
         'location',
         'letter_path',
         'qr_verified_form_path',
-        'reject_category',
-        'reject_reason',
         'status',
         'delivery_status',
         'dispatched_at',

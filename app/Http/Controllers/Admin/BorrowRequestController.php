@@ -37,10 +37,6 @@ class BorrowRequestController extends Controller
                     'location' => $request->location,
                     'letter_path' => $request->letter_path,
                     'letter_url' => $this->makeLetterUrl($request->letter_path),
-                    'reject_category' => $request->reject_category,
-                    'reject_reason' => $request->reject_reason,
-                    'rejection_reason' => $request->reject_reason,
-                    'rejection_reason_display' => $request->reject_reason ?? $request->reject_category,
                     'qr_verified_form_path' => $request->qr_verified_form_path,
                     'qr_verified_form_url' => $this->makeLetterUrl($request->qr_verified_form_path),
                     'approved_form_url' => $this->makeLetterUrl($request->qr_verified_form_path),
@@ -72,19 +68,9 @@ class BorrowRequestController extends Controller
 
     public function updateStatus(Request $request, BorrowRequest $borrowRequest)
     {
-        $statusInput = $request->input('status');
-        $rules = [
-            'status' => 'required|in:pending,validated,approved,rejected,returned,return_pending,qr_verified',
-            'rejection_category' => 'nullable|string|max:255',
-            'rejection_reason' => 'nullable|string|max:2000',
-        ];
-
-        if ($statusInput === 'rejected') {
-            $rules['rejection_category'] = 'required|string|max:255';
-            $rules['rejection_reason'] = 'required|string|max:2000';
-        }
-
-        $request->validate($rules);
+        $request->validate([
+            'status' => 'required|in:pending,validated,approved,rejected,returned,return_pending,qr_verified'
+        ]);
 
         $old = $borrowRequest->status;
         $new = $request->status === 'qr_verified' ? 'approved' : $request->status;
@@ -153,16 +139,6 @@ class BorrowRequestController extends Controller
                 }
             }
 
-
-            if ($new === 'rejected') {
-                $category = $request->input('rejection_category');
-                $reason = $request->input('rejection_reason');
-                $borrowRequest->reject_category = $category ? mb_substr($category, 0, 255) : null;
-                $borrowRequest->reject_reason = $reason ? mb_substr($reason, 0, 2000) : null;
-            } else {
-                $borrowRequest->reject_category = null;
-                $borrowRequest->reject_reason = null;
-            }
 
             if ($old !== 'approved' && $new === 'approved') {
                 foreach ($borrowRequest->items as $reqItem) {
@@ -283,8 +259,7 @@ class BorrowRequestController extends Controller
                         'items' => $items,
                         'borrow_date' => $borrowRequest->borrow_date,
                         'return_date' => $borrowRequest->return_date,
-                        'reason' => $borrowRequest->reject_reason,
-                        'rejection_category' => $borrowRequest->reject_category,
+                        'reason' => $request->input('rejection_reason') ?? null,
                     ];
 
                     $user->notify(new RequestNotification($payload));

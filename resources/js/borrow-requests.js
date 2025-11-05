@@ -5,11 +5,6 @@ let BORROW_CACHE = [];
 let currentPage = 1;
 const PER_PAGE = 5;
 
-const REJECTION_STATE = {
-    requestId: null,
-    category: null,
-};
-
 function formatDate(value) {
     if (!value) return 'N/A';
     const date = new Date(value);
@@ -358,8 +353,6 @@ function openAssignManpowerModal(id) {
     const locationEl = document.getElementById('assignManpowerLocation');
     const letterPreview = document.getElementById('assignLetterPreview');
     const letterFallback = document.getElementById('assignLetterFallback');
-    const letterHint = document.getElementById('assignLetterHint');
-    const letterWrapper = document.getElementById('assignLetterPreviewWrapper');
 
     if (!container || !requestIdInput || !requestedTotalEl || !manpowerInput) return;
 
@@ -399,64 +392,34 @@ function openAssignManpowerModal(id) {
         }
     }
     
-    const letterName = (req.letter_path || '').split('/').pop() || 'Uploaded letter';
-    const letterType = letterUrl ? detectLetterType(letterUrl) : 'other';
-    if (letterWrapper) {
+    if (letterPreview && letterFallback) {
         if (letterUrl) {
-            letterWrapper.dataset.letterUrl = letterUrl;
-            letterWrapper.dataset.letterName = letterName;
-            letterWrapper.dataset.letterType = letterType;
-            letterWrapper.setAttribute('aria-disabled', 'false');
-            letterWrapper.setAttribute('tabindex', '0');
-            letterWrapper.classList.remove('cursor-not-allowed');
-            letterWrapper.classList.add('cursor-pointer');
-            if (letterHint) letterHint.classList.remove('hidden');
-        } else {
-            letterWrapper.dataset.letterUrl = '';
-            letterWrapper.dataset.letterName = '';
-            letterWrapper.dataset.letterType = '';
-            letterWrapper.setAttribute('aria-disabled', 'true');
-            letterWrapper.setAttribute('tabindex', '-1');
-            letterWrapper.classList.remove('cursor-pointer');
-            letterWrapper.classList.add('cursor-not-allowed');
-            if (letterHint) letterHint.classList.add('hidden');
-        }
-    }
-
-    if (letterPreview) {
-        letterPreview.classList.add('hidden');
-        letterPreview.removeAttribute('src');
-    }
-    if (letterFallback) {
-        letterFallback.textContent = letterUrl ? 'Letter uploaded' : 'No letter uploaded';
-        if (letterUrl && letterType === 'image') {
-            letterFallback.classList.add('hidden');
-        } else {
-            letterFallback.classList.remove('hidden');
-        }
-    }
-
-    if (letterUrl && letterPreview) {
-        if (letterType === 'image') {
-            letterPreview.src = letterUrl;
-            letterPreview.onload = () => {
-                letterPreview.classList.remove('hidden');
-                if (letterFallback) letterFallback.classList.add('hidden');
-            };
-            letterPreview.onerror = () => {
-                letterPreview.classList.add('hidden');
-                if (letterFallback) {
-                    letterFallback.textContent = 'Letter uploaded (preview unavailable)';
+            // Check if it's an image (by URL extension or type)
+            const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(letterUrl);
+            if (isImage) {
+                letterPreview.src = letterUrl;
+                letterPreview.onerror = () => {
+                    letterPreview.classList.add('hidden');
                     letterFallback.classList.remove('hidden');
-                }
-            };
-        } else {
-            if (letterFallback) {
-                letterFallback.textContent = letterType === 'pdf'
-                    ? 'PDF uploaded — click to preview'
-                    : 'Letter uploaded (preview unavailable)';
+                    letterFallback.textContent = 'Letter uploaded (cannot preview)';
+                };
+                letterPreview.onload = () => {
+                    letterPreview.classList.remove('hidden');
+                    letterFallback.classList.add('hidden');
+                };
+                letterPreview.classList.remove('hidden');
+                letterFallback.classList.add('hidden');
+            } else {
+                // PDF or other file type
+                letterPreview.classList.add('hidden');
                 letterFallback.classList.remove('hidden');
+                letterFallback.textContent = 'Letter uploaded (PDF or non-image file)';
             }
+        } else {
+            letterPreview.src = '';
+            letterPreview.classList.add('hidden');
+            letterFallback.classList.remove('hidden');
+            letterFallback.textContent = 'No letter uploaded';
         }
     }
 
@@ -544,183 +507,6 @@ function viewRequest(id) {
     window.dispatchEvent(new CustomEvent('open-modal', { detail: 'requestDetailsModal' }));
 }
 
-function resetRejectionState() {
-    REJECTION_STATE.requestId = null;
-    REJECTION_STATE.category = null;
-    document.querySelectorAll('input[name="rejectionReason"]').forEach((radio) => {
-        radio.checked = false;
-    });
-    const subjectInput = document.getElementById('customRejectionSubject');
-    const detailsInput = document.getElementById('customRejectionDetails');
-    if (subjectInput) subjectInput.value = '';
-    if (detailsInput) detailsInput.value = '';
-}
-
-function openRejectionReasonModal(id, preserveSelection = false) {
-    REJECTION_STATE.requestId = id;
-    if (!preserveSelection) {
-        REJECTION_STATE.category = null;
-        document.querySelectorAll('input[name="rejectionReason"]').forEach((radio) => {
-            radio.checked = false;
-        });
-    }
-    window.dispatchEvent(new CustomEvent('open-modal', { detail: 'rejectionReasonModal' }));
-}
-
-function openCustomRejectionModal() {
-    window.dispatchEvent(new CustomEvent('close-modal', { detail: 'rejectionReasonModal' }));
-    window.dispatchEvent(new CustomEvent('open-modal', { detail: 'customRejectionModal' }));
-    const subjectInput = document.getElementById('customRejectionSubject');
-    if (subjectInput) {
-        subjectInput.focus();
-        subjectInput.select();
-    }
-}
-
-function returnToRejectionReasonModal() {
-    window.dispatchEvent(new CustomEvent('close-modal', { detail: 'customRejectionModal' }));
-    openRejectionReasonModal(REJECTION_STATE.requestId ?? null, true);
-    document.querySelectorAll('input[name="rejectionReason"]').forEach((radio) => {
-        if ((radio.value || '').toLowerCase() === 'other') {
-            radio.checked = true;
-        }
-    });
-}
-
-async function processRejection(category, reason, button) {
-    const requestId = REJECTION_STATE.requestId;
-    if (!requestId) {
-        showError('Unable to determine which request to reject. Please refresh and try again.');
-        return;
-    }
-
-    const trimmedCategory = (category || '').trim();
-    const trimmedReason = (reason || '').trim();
-    if (!trimmedCategory || !trimmedReason) {
-        showError('Please provide a rejection reason before continuing.');
-        return;
-    }
-
-    try {
-        await updateRequest(Number(requestId), 'rejected', {
-            rejectionCategory: trimmedCategory,
-            rejectionReason: trimmedReason,
-            button: button || null,
-        });
-        window.dispatchEvent(new CustomEvent('close-modal', { detail: 'rejectionReasonModal' }));
-        window.dispatchEvent(new CustomEvent('close-modal', { detail: 'customRejectionModal' }));
-        resetRejectionState();
-    } catch (error) {
-        console.error('Reject request failed', error);
-        throw error;
-    }
-}
-
-function detectLetterType(url, providedType = '') {
-    if (providedType && typeof providedType === 'string') {
-        const normalized = providedType.toLowerCase();
-        if (['image', 'pdf'].includes(normalized)) return normalized;
-    }
-    if (!url) return 'other';
-    const cleanUrl = url.split('?')[0].toLowerCase();
-    if (cleanUrl.match(/\.(png|jpe?g|gif|webp)$/)) return 'image';
-    if (cleanUrl.endsWith('.pdf')) return 'pdf';
-    return 'other';
-}
-
-function openLetterPreviewModal({ url, name, type } = {}) {
-    if (!url) {
-        showError('No uploaded letter available to preview.');
-        return;
-    }
-
-    const letterType = detectLetterType(url, type);
-    const filename = (name || url.split('/').pop() || 'Uploaded letter').split('?')[0];
-
-    const imageEl = document.getElementById('letterPreviewImage');
-    const frameEl = document.getElementById('letterPreviewFrame');
-    const placeholderEl = document.getElementById('letterPreviewPlaceholder');
-    const primaryLink = document.getElementById('letterPreviewDownloadPrimary');
-    const footerLink = document.getElementById('letterPreviewDownloadFooter');
-    const filenameEl = document.getElementById('letterPreviewFilename');
-
-    if (imageEl) {
-        imageEl.classList.add('hidden');
-        imageEl.removeAttribute('src');
-    }
-    if (frameEl) {
-        frameEl.classList.add('hidden');
-        if (frameEl.contentWindow) {
-            frameEl.src = 'about:blank';
-        } else {
-            frameEl.removeAttribute('src');
-        }
-    }
-    if (placeholderEl) {
-        placeholderEl.classList.add('hidden');
-    }
-    if (primaryLink) {
-        primaryLink.classList.add('hidden');
-        primaryLink.href = '#';
-    }
-    if (footerLink) {
-        footerLink.classList.add('hidden');
-        footerLink.href = '#';
-    }
-    if (filenameEl) {
-        filenameEl.textContent = filename;
-    }
-
-    if (letterType === 'image' && imageEl) {
-        imageEl.onload = () => {
-            imageEl.classList.remove('hidden');
-            if (placeholderEl) placeholderEl.classList.add('hidden');
-        };
-        imageEl.onerror = () => {
-            imageEl.classList.add('hidden');
-            if (placeholderEl) placeholderEl.classList.remove('hidden');
-            if (primaryLink) {
-                primaryLink.href = url;
-                primaryLink.classList.remove('hidden');
-            }
-            if (footerLink) {
-                footerLink.href = url;
-                footerLink.classList.remove('hidden');
-            }
-        };
-        imageEl.src = url;
-        if (footerLink) {
-            footerLink.href = url;
-            footerLink.classList.remove('hidden');
-        }
-    } else if (letterType === 'pdf' && frameEl) {
-        frameEl.src = url;
-        frameEl.classList.remove('hidden');
-        if (primaryLink) {
-            primaryLink.href = url;
-            primaryLink.classList.remove('hidden');
-        }
-        if (footerLink) {
-            footerLink.href = url;
-            footerLink.classList.remove('hidden');
-        }
-    } else {
-        if (placeholderEl) {
-            placeholderEl.classList.remove('hidden');
-        }
-        if (primaryLink) {
-            primaryLink.href = url;
-            primaryLink.classList.remove('hidden');
-        }
-        if (footerLink) {
-            footerLink.href = url;
-            footerLink.classList.remove('hidden');
-        }
-    }
-
-    window.dispatchEvent(new CustomEvent('open-modal', { detail: 'letterPreviewModal' }));
-}
-
 function openConfirmModal(id, status) {
     const confirmBtn = document.getElementById('confirmActionConfirmBtn');
     const iconEl = document.getElementById('confirmActionIcon');
@@ -728,15 +514,15 @@ function openConfirmModal(id, status) {
     const messageEl = document.getElementById('confirmActionMessage');
 
     const action = String(status || '').toLowerCase();
-    if (action === 'rejected') {
-        openRejectionReasonModal(id);
-        return;
-    }
     let title = 'Confirm Action';
     let message = 'Are you sure you want to continue?';
     let iconClass = 'fas fa-exclamation-circle text-yellow-500';
 
-    if (action === 'delivered') {
+    if (action === 'rejected') {
+        title = 'Reject Request';
+        message = 'Are you sure you want to reject this borrow request?';
+        iconClass = 'fas fa-times-circle text-red-600';
+    } else if (action === 'delivered') {
         title = 'Deliver Items';
         message = 'Confirm that the items have been delivered to the borrower.';
         iconClass = 'fas fa-truck text-indigo-600';
@@ -879,8 +665,6 @@ async function updateRequest(id, status, options = {}) {
         manpowerReason = null,
         button = null,
         silent = false,
-        rejectionCategory = undefined,
-        rejectionReason = undefined,
     } = options || {};
 
     const manpowerReasonProvided = Object.prototype.hasOwnProperty.call(options || {}, 'manpowerReason');
@@ -891,12 +675,6 @@ async function updateRequest(id, status, options = {}) {
         if (assignments) body.manpower_assignments = assignments;
         if (Number.isFinite(manpowerTotal)) body.manpower_total = manpowerTotal;
         if (manpowerReasonProvided) body.manpower_reason = manpowerReason;
-        if (typeof rejectionCategory === 'string' && rejectionCategory.trim() !== '') {
-            body.rejection_category = rejectionCategory.trim();
-        }
-        if (typeof rejectionReason === 'string' && rejectionReason.trim() !== '') {
-            body.rejection_reason = rejectionReason.trim();
-        }
 
         const res = await fetch(`/admin/borrow-requests/${id}/update-status`, {
             method: 'POST',
@@ -1006,110 +784,6 @@ async function updateRequest(id, status, options = {}) {
                 if (error?.message) showError(error.message);
             } finally {
                 submitBtn.disabled = false;
-            }
-        });
-    });
-})();
-
-(function bindRejectionModals() {
-    document.addEventListener('DOMContentLoaded', () => {
-        const reasonConfirmBtn = document.getElementById('rejectionReasonConfirmBtn');
-        const reasonCancelBtn = document.getElementById('rejectionReasonCancelBtn');
-        const customConfirmBtn = document.getElementById('customRejectionConfirmBtn');
-        const customBackBtn = document.getElementById('customRejectionBackBtn');
-
-        if (reasonConfirmBtn) {
-            reasonConfirmBtn.addEventListener('click', async () => {
-                const radios = Array.from(document.querySelectorAll('input[name="rejectionReason"]'));
-                const selected = radios.find((radio) => radio.checked);
-                if (!selected) {
-                    showError('Please select a rejection reason before confirming.');
-                    return;
-                }
-                const value = (selected.value || '').trim();
-                if (value.toLowerCase() === 'other') {
-                    REJECTION_STATE.category = 'Other';
-                    openCustomRejectionModal();
-                    return;
-                }
-                REJECTION_STATE.category = value;
-                try {
-                    await processRejection(value, value, reasonConfirmBtn);
-                } catch (error) {
-                    // Errors surface via updateRequest/processRejection
-                }
-            });
-        }
-
-        if (reasonCancelBtn) {
-            reasonCancelBtn.addEventListener('click', () => {
-                window.dispatchEvent(new CustomEvent('close-modal', { detail: 'rejectionReasonModal' }));
-                resetRejectionState();
-            });
-        }
-
-        if (customConfirmBtn) {
-            customConfirmBtn.addEventListener('click', async () => {
-                const subjectInput = document.getElementById('customRejectionSubject');
-                const detailsInput = document.getElementById('customRejectionDetails');
-                const subject = subjectInput?.value?.trim() || '';
-                const details = detailsInput?.value?.trim() || '';
-
-                if (!subject) {
-                    showError('Please provide a short subject for the rejection.');
-                    if (subjectInput) subjectInput.focus();
-                    return;
-                }
-                if (!details) {
-                    showError('Please provide a detailed rejection reason.');
-                    if (detailsInput) detailsInput.focus();
-                    return;
-                }
-
-                const combined = `${subject}: ${details}`;
-                try {
-                    await processRejection('Other', combined, customConfirmBtn);
-                } catch (error) {
-                    // Errors surface via updateRequest/processRejection
-                }
-            });
-        }
-
-        if (customBackBtn) {
-            customBackBtn.addEventListener('click', () => {
-                returnToRejectionReasonModal();
-            });
-        }
-
-        window.addEventListener('rejection-flow-reset', () => {
-            resetRejectionState();
-        });
-    });
-})();
-
-(function bindLetterPreviewTrigger() {
-    document.addEventListener('DOMContentLoaded', () => {
-        const wrapper = document.getElementById('assignLetterPreviewWrapper');
-        if (!wrapper) return;
-
-        const triggerPreview = () => {
-            const url = wrapper.dataset.letterUrl || '';
-            if (!url) return;
-            const name = wrapper.dataset.letterName || '';
-            const type = wrapper.dataset.letterType || '';
-            openLetterPreviewModal({ url, name, type });
-        };
-
-        wrapper.addEventListener('click', () => {
-            if (wrapper.getAttribute('aria-disabled') === 'true') return;
-            triggerPreview();
-        });
-
-        wrapper.addEventListener('keydown', (event) => {
-            if (wrapper.getAttribute('aria-disabled') === 'true') return;
-            if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                triggerPreview();
             }
         });
     });

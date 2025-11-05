@@ -595,25 +595,9 @@
 
                     <div class="space-y-3">
                         <h4 class="font-semibold text-gray-800">Uploaded Letter</h4>
-                        <div id="modalLetterPreviewWrapper" class="rounded-lg border border-gray-200 bg-gray-50 p-3 flex flex-col items-center justify-center gap-3 min-h-[180px] text-center">
-                            <img
-                                id="modalLetterImage"
-                                alt="Uploaded letter preview"
-                                class="max-h-64 w-auto rounded-lg shadow hidden"
-                            />
-                            <div id="modalLetterDetails" class="space-y-2">
-                                <p id="modalLetterName" class="text-gray-700 text-sm">No letter selected</p>
-                                <a
-                                    id="modalLetterLink"
-                                    href="#"
-                                    target="_blank"
-                                    rel="noopener"
-                                    class="hidden inline-flex items-center gap-2 text-sm font-medium text-purple-600 hover:text-purple-700"
-                                >
-                                    <i class="fas fa-eye"></i>
-                                    <span>Open full preview</span>
-                                </a>
-                            </div>
+                        <div id="modalLetterPreviewWrapper" class="rounded-lg border border-gray-200 bg-gray-50 p-3 flex items-center justify-center min-h-[160px]">
+                            <img id="modalLetterImage" alt="Uploaded letter preview" class="max-h-64 w-auto rounded-lg shadow hidden" />
+                            <p id="modalLetterName" class="text-gray-700">-</p>
                         </div>
                     </div>
                 </div>

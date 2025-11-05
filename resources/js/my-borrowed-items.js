@@ -260,29 +260,12 @@ export function fillBorrowModal(data) {
     // rejection block
     const rejBlock = document.getElementById('mbi-rejection-block');
     const rejReason = document.getElementById('mbi-rejection-reason');
-    const rejectCategory = (data.reject_category || '').toString().trim();
-    const rejectReason = (data.rejection_reason || data.reject_reason || '').toString().trim();
-    let rejectionDisplay = '';
-    if ((data.status || '').toLowerCase() === 'rejected') {
-        if (rejectReason && rejectCategory) {
-            const normalizedReason = rejectReason.toLowerCase();
-            const normalizedCategory = rejectCategory.toLowerCase();
-            rejectionDisplay = normalizedReason.startsWith(normalizedCategory)
-                ? rejectReason
-                : `${rejectCategory}: ${rejectReason}`;
-        } else {
-            rejectionDisplay = rejectReason || rejectCategory;
-        }
-    }
-
-    if (rejBlock) {
-        if (rejectionDisplay) {
-            rejBlock.classList.remove('hidden');
-            if (rejReason) rejReason.textContent = rejectionDisplay;
-        } else {
-            rejBlock.classList.add('hidden');
-            if (rejReason) rejReason.textContent = '';
-        }
+    if (data.status === 'rejected' && data.rejection_reason) {
+        rejBlock.classList.remove('hidden');
+        if (rejReason) rejReason.textContent = data.rejection_reason;
+    } else {
+        rejBlock.classList.add('hidden');
+        if (rejReason) rejReason.textContent = '';
     }
 
     // delivery reason block

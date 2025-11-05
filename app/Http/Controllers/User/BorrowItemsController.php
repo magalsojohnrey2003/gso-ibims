@@ -180,16 +180,7 @@ class BorrowItemsController extends Controller
 
         $letterPath = null;
         if ($request->hasFile('support_letter')) {
-            $lettersDirectory = 'support-letters';
-            $publicDisk = Storage::disk('public');
-            if (method_exists($publicDisk, 'directoryExists')) {
-                if (! $publicDisk->directoryExists($lettersDirectory)) {
-                    $publicDisk->makeDirectory($lettersDirectory);
-                }
-            } elseif (! $publicDisk->exists($lettersDirectory)) {
-                $publicDisk->makeDirectory($lettersDirectory);
-            }
-            $letterPath = $request->file('support_letter')->store($lettersDirectory, 'public');
+            $letterPath = $request->file('support_letter')->store('borrow-letters', 'public');
         }
 
         $borrowRequest = BorrowRequest::create([
