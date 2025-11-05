@@ -18,39 +18,6 @@ function formatUsageLabel(startValue, endValue) {
     return `${toLabel(startValue)} - ${toLabel(endValue)}`;
 }
 
-function looksLikeImageFile(file, fallbackName = '') {
-    const mime = String(file?.type || '').toLowerCase();
-    if (mime.startsWith('image/')) return true;
-    const name = String(file?.name || fallbackName || '').toLowerCase();
-    return /\.(png|jpe?g|gif|webp|bmp)$/i.test(name);
-}
-
-function extractFilePondPreviewUrl(input) {
-    if (!input) return null;
-    const root = input.parentElement;
-    if (!root) return null;
-    const previewEl = root.querySelector('.filepond--image-preview');
-    if (!previewEl) return null;
-
-    const styleValue = previewEl.style?.backgroundImage || '';
-    const match = styleValue.match(/url\((['"]?)(.*?)\1\)/i);
-    if (match && match[2]) return match[2];
-
-    const imgEl = previewEl.querySelector('img');
-    if (imgEl?.src) return imgEl.src;
-
-    const canvasEl = previewEl.querySelector('canvas');
-    if (canvasEl && typeof canvasEl.toDataURL === 'function') {
-        try {
-            return canvasEl.toDataURL('image/png');
-        } catch (error) {
-            console.warn('Failed to extract canvas preview for support letter', error);
-        }
-    }
-
-    return null;
-}
-
 document.addEventListener('DOMContentLoaded', () => {
     const wizardContainer = document.getElementById('borrowWizardSteps');
     const form = document.getElementById('borrowListForm');
@@ -207,7 +174,6 @@ document.addEventListener('DOMContentLoaded', () => {
         usageEndSelect?.value || null,
     ) || '--';
     let currentLetterObjectUrl = null;
-    let letterObjectUrlActive = false;
 
     initLocationSelector({
         barangaysUrl: window.LOCATION_ENDPOINTS?.barangays,
@@ -370,14 +336,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const modalLetterImage = document.getElementById('modalLetterImage');
         const modalLetterPreviewWrapper = document.getElementById('modalLetterPreviewWrapper');
 
-        if (letterObjectUrlActive && currentLetterObjectUrl) {
+        if (currentLetterObjectUrl) {
             try {
                 URL.revokeObjectURL(currentLetterObjectUrl);
             } catch (revokeError) {
                 console.warn('Failed to revoke previous letter preview URL', revokeError);
             }
             currentLetterObjectUrl = null;
-            letterObjectUrlActive = false;
         }
 
         let previewUrl = null;
@@ -385,30 +350,19 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 previewUrl = URL.createObjectURL(letterFile);
                 currentLetterObjectUrl = previewUrl;
-                letterObjectUrlActive = true;
             } catch (previewError) {
                 console.warn('Failed to generate preview URL for support letter', previewError);
             }
         }
 
-        if (!previewUrl) {
-            const fallbackPreview = extractFilePondPreviewUrl(letterInput);
-            if (fallbackPreview) {
-                previewUrl = fallbackPreview;
-            }
-        }
-
-        const imageCandidate = looksLikeImageFile(letterFile, letterName);
-        const showImagePreview = Boolean(imageCandidate && previewUrl);
+        const showImagePreview = Boolean(letterFile && letterFile.type && letterFile.type.startsWith('image/') && previewUrl);
         if (modalLetterImage) {
             if (showImagePreview) {
                 modalLetterImage.src = previewUrl;
                 modalLetterImage.classList.remove('hidden');
-                modalLetterImage.alt = letterName ? `Preview of ${letterName}` : 'Uploaded letter preview';
             } else {
                 modalLetterImage.removeAttribute('src');
                 modalLetterImage.classList.add('hidden');
-                modalLetterImage.alt = 'Uploaded letter preview';
             }
         }
 
