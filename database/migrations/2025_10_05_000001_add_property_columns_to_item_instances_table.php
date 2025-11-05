@@ -107,9 +107,31 @@ return new class extends Migration
     {
         $connection = Schema::getConnection();
         $tableName = $connection->getTablePrefix() . $table;
+        $driver = $connection->getDriverName();
+        $normalizedIndex = strtolower($index);
 
-        $result = DB::select("SHOW INDEX FROM `{$tableName}` WHERE Key_name = ?", [$index]);
+        if ($driver === 'sqlite') {
+            $result = DB::select("PRAGMA index_list('{$tableName}')");
+            foreach ($result as $row) {
+                $name = isset($row->name) ? strtolower((string) $row->name) : null;
+                if ($name === $normalizedIndex) {
+                    return true;
+                }
+            }
+            return false;
+        }
 
-        return ! empty($result);
+        if (in_array($driver, ['mysql', 'mariadb'], true)) {
+            $result = DB::select("SHOW INDEX FROM `{$tableName}` WHERE Key_name = ?", [$index]);
+            return ! empty($result);
+        }
+
+        try {
+            $schemaManager = $connection->getDoctrineSchemaManager();
+            $indexes = $schemaManager->listTableIndexes($tableName);
+            return array_key_exists($index, $indexes);
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 };

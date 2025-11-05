@@ -99,7 +99,7 @@
                         <span class="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-gray-700">2</span>
                         <div>
                             <p class="text-xs uppercase tracking-wide text-gray-400">Step 2</p>
-                            <p>Schedule</p>
+                            <p>Borrow Date</p>
                         </div>
                     </li>
                     <li data-step-index="3" class="flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-600">
@@ -172,7 +172,7 @@
                                                     alt="{{ $item['name'] }}">
                                                 <div class="space-y-1">
                                                     <p class="font-semibold text-gray-800">{{ $item['name'] }}</p>
-                                                    <p class="text-sm text-gray-500">Available: {{ $item['total_qty'] }} total</p>
+                                                    <p class="text-sm text-gray-500">Available: {{ $item['total_qty'] }}</p>
                                                 </div>
                                             </div>
 

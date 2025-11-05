@@ -21,6 +21,8 @@ function initFilePondOnInput(input) {
     allowReorder: false,
     credits: false,
     allowImagePreview: true,
+    // Ensure the file remains attached to the original <input> so FormData submissions include it
+    storeAsFile: true,
 
     // Image preview sizing (height controls preview panel height)
     imagePreviewHeight: previewHeight,
@@ -45,6 +47,39 @@ function initFilePondOnInput(input) {
 
     // small accessibility label
     labelFileProcessingComplete: 'Upload ready',
+  });
+
+  input._pond = pond;
+
+  const dispatchInputChange = () => {
+    try {
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    } catch (error) {
+      console.warn('FilePond change dispatch failed', error);
+    }
+  };
+
+  const markDatasetState = (hasFile, fileItem = null) => {
+    if (hasFile) {
+      input.dataset.filepondHasFile = '1';
+      const name = fileItem?.filename || fileItem?.file?.name || '';
+      input.dataset.filepondFileName = name;
+    } else {
+      delete input.dataset.filepondHasFile;
+      delete input.dataset.filepondFileName;
+    }
+  };
+
+  pond.on('addfile', (error, fileItem) => {
+    if (!error) {
+      markDatasetState(true, fileItem);
+      dispatchInputChange();
+    }
+  });
+
+  pond.on('removefile', () => {
+    markDatasetState(false);
+    dispatchInputChange();
   });
 
   // adjust DOM for thumbnail sizing after FilePond mounts
