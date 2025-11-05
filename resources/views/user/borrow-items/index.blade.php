@@ -5,13 +5,6 @@
         {{-- Alerts --}}
         @if(session('success'))
             <x-alert type="success" :message="session('success')" />
-            <script>
-                document.addEventListener('DOMContentLoaded', () => {
-                    if (typeof window.showToast === 'function') {
-                        window.showToast('success', @json(session('success')));
-                    }
-                });
-            </script>
         @endif
         @if(session('error'))
             <x-alert type="error" :message="session('error')" />
@@ -422,6 +415,7 @@
     </script>
 
 </x-app-layout>
+
 
 
 

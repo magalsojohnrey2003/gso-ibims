@@ -663,9 +663,9 @@ public function store(Request $request, PropertyNumberService $numbers)
             );
         } else {
             // no instances to create
-            // Set total & available quantities to what the admin entered
+            // Set total_qty to entered quantity even if no instances are created
             $item->total_qty = $quantity;
-            $item->available_qty = $quantity;
+            $item->available_qty = 0;
             $item->save();
         }
 
@@ -673,17 +673,11 @@ public function store(Request $request, PropertyNumberService $numbers)
         // Otherwise, total_qty is already set to the entered quantity above
         if (!empty($rowsToCreate) || $hasBulkInputs) {
             // Update total_qty to entered quantity (not just instance count) to reflect what admin entered
-            $availableCount = ItemInstance::where('item_id', $item->id)
+            $item->total_qty = $quantity;
+            // But available_qty should still be based on actual available instances
+            $item->available_qty = ItemInstance::where('item_id', $item->id)
                 ->where('status', 'available')
                 ->count();
-            $item->total_qty = $quantity;
-            // Ensure available quantity matches the entered total, but never under-report actual available instances
-            if ($availableCount > $quantity) {
-                $item->total_qty = $availableCount;
-                $item->available_qty = $availableCount;
-            } else {
-                $item->available_qty = $quantity;
-            }
             $item->save();
         }
 

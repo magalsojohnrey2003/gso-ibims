@@ -36,108 +36,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const letterFileName = document.getElementById('letterFileName');
     let letterPond = null;
 
-    function handleLetterPondFileChange() {
-        if (letterInput) {
-            try {
-                letterInput.dispatchEvent(new Event('change', { bubbles: true }));
-            } catch (error) {
-                console.warn('Failed to dispatch change event on support_letter input', error);
-            }
-        }
-        updateSummary();
-    }
-
-    function resolveLetterPondInstance() {
-        if (!letterInput || typeof FilePond === 'undefined') return null;
-        if (letterPond && typeof letterPond.getFiles === 'function') return letterPond;
-
-        let instance = letterInput._pond || letterInput.filepond || null;
-
-        if (!instance && typeof FilePond.find === 'function') {
-            try {
-                instance = FilePond.find(letterInput);
-            } catch (err) {
-                const root = letterInput.parentElement?.querySelector('.filepond--root');
-                if (root) {
-                    try {
-                        instance = FilePond.find(root);
-                    } catch (innerErr) {
-                        console.warn('Unable to resolve FilePond instance for support letter', innerErr);
-                    }
-                }
-            }
-        }
-
-        if (instance && typeof instance.on === 'function' && !instance.__borrowWizardListenerAttached) {
-            instance.on('addfile', handleLetterPondFileChange);
-            instance.on('removefile', handleLetterPondFileChange);
-            instance.__borrowWizardListenerAttached = true;
-        }
-
-        if (instance) {
-            letterPond = instance;
-        }
-
-        return letterPond;
-    }
-
-    function scheduleLetterPondResolution() {
-        if (!letterInput || typeof FilePond === 'undefined') return;
-        if (resolveLetterPondInstance()) {
-            scheduleLetterPondResolution.attempts = 0;
-            return;
-        }
-
-        scheduleLetterPondResolution.attempts = (scheduleLetterPondResolution.attempts || 0) + 1;
-        if (scheduleLetterPondResolution.attempts > 20) return;
-
-        setTimeout(scheduleLetterPondResolution, 150);
-    }
-
-    function getLetterFileInfo() {
-        const pond = resolveLetterPondInstance();
-        if (pond && typeof pond.getFiles === 'function') {
-            const files = pond.getFiles();
-            if (files && files.length > 0) {
-                const primary = files[0];
-                const file = primary?.file || null;
-                const name = primary?.filename || primary?.file?.name || '';
-                return { file, name };
-            }
-        }
-
-        const datasetName = letterInput?.dataset?.filepondFileName || '';
-        const datasetHasFile = letterInput?.dataset?.filepondHasFile === '1';
-
-        if (letterInput?.files?.length) {
-            const file = letterInput.files[0];
-            return { file, name: file?.name || datasetName };
-        }
-
-        if (datasetHasFile) {
-            return { file: null, name: datasetName };
-        }
-
-        const pondList = letterInput?.parentElement?.querySelector('.filepond--list');
-        const pondItem = pondList?.querySelector('.filepond--item:not(.filepond--item-error)');
-        if (pondItem) {
-            const label = pondItem.querySelector('.filepond--file-info-main')?.textContent || '';
-            return { file: null, name: label?.trim() || datasetName };
-        }
-
-        return { file: null, name: '' };
-    }
-
-    function hasLetterUpload() {
-        const { file, name } = getLetterFileInfo();
-        if (file) return true;
-        if (name && name.trim().length > 0) return true;
-        if (letterInput?.dataset?.filepondHasFile === '1') return true;
-        const pondList = letterInput?.parentElement?.querySelector('.filepond--list');
-        if (pondList?.querySelector('.filepond--item:not(.filepond--item-error)')) return true;
-        return false;
-    }
-
     const summaryBorrowDates = document.getElementById('summaryBorrowDates');
     const summaryAddress = document.getElementById('summaryAddress');
     const summaryManpower = document.getElementById('summaryManpower');
@@ -277,15 +175,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        if (letterFileName) {
-            const letterInfo = getLetterFileInfo();
-            if (letterInfo.name) {
-                letterFileName.textContent = letterInfo.name;
-                letterFileName.classList.remove('hidden');
-            } else {
-                letterFileName.textContent = '';
-                letterFileName.classList.add('hidden');
-            }
+        if (letterFileName && letterInput?.files?.length) {
+            letterFileName.textContent = letterInput.files[0].name;
+            letterFileName.classList.remove('hidden');
+        } else if (letterFileName) {
+            letterFileName.textContent = '';
+            letterFileName.classList.add('hidden');
         }
     };
 
@@ -329,26 +224,47 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        const { file: letterFile, name: letterName } = getLetterFileInfo();
         const modalLetterImage = document.getElementById('modalLetterImage');
         const modalLetterPreviewWrapper = document.getElementById('modalLetterPreviewWrapper');
         if (modalLetterImage && modalLetterPreviewWrapper) {
-            if (letterFile && letterFile.type && letterFile.type.startsWith('image/')) {
-                const url = URL.createObjectURL(letterFile);
-                modalLetterImage.src = url;
-                modalLetterImage.classList.remove('hidden');
-                if (modalLetterName) {
-                    modalLetterName.classList.add('hidden');
+            // Get file from FilePond or regular input
+            let file = null;
+            if (letterPond && letterPond.getFiles().length > 0) {
+                file = letterPond.getFiles()[0].file;
+            } else if (letterInput?.files?.length) {
+                file = letterInput.files[0];
+            }
+            
+            if (file) {
+                if (file.type && file.type.startsWith('image/')) {
+                    const url = URL.createObjectURL(file);
+                    modalLetterImage.src = url;
+                    modalLetterImage.classList.remove('hidden');
+                    if (modalLetterName) {
+                        modalLetterName.classList.add('hidden');
+                    }
+                } else {
+                    modalLetterImage.classList.add('hidden');
+                    if (modalLetterName) {
+                        modalLetterName.textContent = file.name || 'Letter uploaded';
+                        modalLetterName.classList.remove('hidden');
+                    }
                 }
             } else {
                 modalLetterImage.classList.add('hidden');
                 if (modalLetterName) {
-                    modalLetterName.textContent = letterName || 'Letter uploaded';
+                    modalLetterName.textContent = 'No letter uploaded.';
                     modalLetterName.classList.remove('hidden');
                 }
             }
         } else if (modalLetterName) {
-            modalLetterName.textContent = letterName || 'No letter uploaded.';
+            if (letterPond && letterPond.getFiles().length > 0) {
+                modalLetterName.textContent = letterPond.getFiles()[0].file.name || 'Letter uploaded';
+            } else if (letterInput?.files?.length) {
+                modalLetterName.textContent = letterInput.files[0].name;
+            } else {
+                modalLetterName.textContent = 'No letter uploaded.';
+            }
         }
     };
 
@@ -377,9 +293,23 @@ document.addEventListener('DOMContentLoaded', () => {
         step3BackBtn.addEventListener('click', () => goToStep(1));
     }
 
+    // Initialize FilePond for letter input if FilePond is available
     if (letterInput && typeof FilePond !== 'undefined') {
-        scheduleLetterPondResolution();
-        letterInput.addEventListener('change', updateSummary);
+        // Wait for FilePond to be initialized
+        setTimeout(() => {
+            const pondElement = letterInput.parentElement?.querySelector('.filepond--root');
+            if (pondElement) {
+                letterPond = FilePond.find(pondElement);
+                if (letterPond) {
+                    letterPond.on('addfile', () => {
+                        updateSummary();
+                    });
+                    letterPond.on('removefile', () => {
+                        updateSummary();
+                    });
+                }
+            }
+        }, 500);
     } else if (letterInput) {
         letterInput.addEventListener('change', updateSummary);
     }
@@ -397,7 +327,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             
-            if (!hasLetterUpload()) {
+            // Check for file in FilePond or regular input
+            let hasFile = false;
+            if (letterPond && letterPond.getFiles().length > 0) {
+                hasFile = true;
+            } else if (letterInput?.files?.length) {
+                hasFile = true;
+            }
+            
+            if (!hasFile) {
                 alert('Please upload your letter before submitting.');
                 return;
             }
@@ -410,23 +348,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (confirmBorrowRequestBtn) {
         confirmBorrowRequestBtn.addEventListener('click', () => {
-            if (form.dataset.submitting === '1') return;
-            form.dataset.submitting = '1';
-
             confirmBorrowRequestBtn.disabled = true;
             confirmBorrowRequestBtn.classList.add('opacity-60', 'cursor-not-allowed');
-
-            window.dispatchEvent(new CustomEvent('close-modal', { detail: 'borrowConfirmModal' }));
-
             try {
-                if (typeof form.requestSubmit === 'function') {
-                    form.requestSubmit();
-                } else {
-                    form.submit();
-                }
+                form.submit();
             } finally {
                 setTimeout(() => {
-                    form.dataset.submitting = '0';
                     confirmBorrowRequestBtn.disabled = false;
                     confirmBorrowRequestBtn.classList.remove('opacity-60', 'cursor-not-allowed');
                 }, 1500);
