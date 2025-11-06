@@ -12,6 +12,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('borrow_requests', function (Blueprint $table) {
+            $table->foreignId('rejection_reason_id')
+                ->nullable()
+                ->constrained('rejection_reasons')
+                ->nullOnDelete();
             $table->string('reject_category')->nullable();
             $table->text('reject_reason')->nullable();
         });
@@ -23,7 +27,8 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('borrow_requests', function (Blueprint $table) {
-            //
+            $table->dropConstrainedForeignId('rejection_reason_id');
+            $table->dropColumn(['reject_category', 'reject_reason']);
         });
     }
 };

@@ -11,6 +11,7 @@ use App\Notifications\RequestNotification;
 use App\Models\BorrowItemInstance;
 use App\Models\BorrowRequestItem;
 use App\Services\BorrowRequestFormPdf;
+use App\Models\RejectionReason;
 
 class BorrowRequestController extends Controller
 {
@@ -32,6 +33,9 @@ class BorrowRequestController extends Controller
                     'return_date' => $request->return_date,
                     'status' => $status,
                     'delivery_status' => $request->delivery_status,
+                    'rejection_reason_id' => $request->rejection_reason_id,
+                    'reject_category' => $request->reject_category,
+                    'reject_reason' => $request->reject_reason,
                     'manpower_count' => $request->manpower_count,
                     'manpower_adjustment_reason' => $request->manpower_adjustment_reason,
                     'location' => $request->location,
@@ -82,9 +86,57 @@ class BorrowRequestController extends Controller
             ]);
         }
 
+        $notificationReason = null;
+
+        $requestedReasonId = $request->input('reject_reason_id');
+        $inputRejectSubject = $request->input('reject_subject');
+        $inputRejectDetail = $request->input('reject_detail');
+
         DB::beginTransaction();
         try {
             $borrowRequest->load('items.item');
+
+            if ($new === 'rejected') {
+                $resolvedTemplate = null;
+                if ($requestedReasonId) {
+                    $resolvedTemplate = RejectionReason::query()
+                        ->where('id', $requestedReasonId)
+                        ->lockForUpdate()
+                        ->first();
+
+                    if (! $resolvedTemplate) {
+                        DB::rollBack();
+                        return response()->json([
+                            'message' => 'The selected rejection reason is no longer available.',
+                        ], 422);
+                    }
+                }
+
+                $subject = is_string($inputRejectSubject) ? trim($inputRejectSubject) : '';
+                $detail = is_string($inputRejectDetail) ? trim($inputRejectDetail) : '';
+
+                if ($resolvedTemplate) {
+                    $subject = $resolvedTemplate->subject;
+                    $detail = $resolvedTemplate->detail;
+                }
+
+                if ($subject === '' || $detail === '') {
+                    DB::rollBack();
+                    return response()->json([
+                        'message' => 'A rejection subject and detailed explanation are required.',
+                    ], 422);
+                }
+
+                $borrowRequest->rejection_reason_id = $resolvedTemplate?->id;
+                $borrowRequest->reject_category = $subject;
+                $borrowRequest->reject_reason = $detail;
+                $notificationReason = $detail;
+
+                if ($resolvedTemplate) {
+                    $resolvedTemplate->usage_count = ($resolvedTemplate->usage_count ?? 0) + 1;
+                    $resolvedTemplate->save();
+                }
+            }
 
             if ($new === 'validated') {
                 $assignments = $request->input('manpower_assignments', []);
@@ -259,7 +311,8 @@ class BorrowRequestController extends Controller
                         'items' => $items,
                         'borrow_date' => $borrowRequest->borrow_date,
                         'return_date' => $borrowRequest->return_date,
-                        'reason' => $request->input('rejection_reason') ?? null,
+                        'reason' => $notificationReason ?? $borrowRequest->reject_reason,
+                        'reject_category' => $borrowRequest->reject_category,
                     ];
 
                     $user->notify(new RequestNotification($payload));
@@ -278,7 +331,10 @@ class BorrowRequestController extends Controller
             
             $response = [
                 'message' => $statusMessages[$new] ?? 'Status updated successfully.',
-                'status'  => $borrowRequest->status
+                'status'  => $borrowRequest->status,
+                'rejection_reason_id' => $borrowRequest->rejection_reason_id,
+                'reject_category' => $borrowRequest->reject_category,
+                'reject_reason' => $borrowRequest->reject_reason,
             ];
 
             return response()->json($response);

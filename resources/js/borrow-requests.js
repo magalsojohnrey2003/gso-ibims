@@ -4,6 +4,15 @@ const LIST_ROUTE = window.LIST_ROUTE || '/admin/borrow-requests/list';
 let BORROW_CACHE = [];
 let currentPage = 1;
 const PER_PAGE = 5;
+const REJECTION_REASONS_ENDPOINT = window.REJECTION_REASONS_ENDPOINT || '/admin/rejection-reasons';
+const OTHER_REJECTION_REASON_KEY = '__other__';
+
+let REJECTION_REASONS_CACHE = [];
+const rejectionFlowState = {
+    requestId: null,
+    selectedReasonId: null,
+    prevModal: null,
+};
 
 function formatDate(value) {
     if (!value) return 'N/A';
@@ -49,6 +58,390 @@ function escapeHtml(unsafe) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
+}
+
+function setRejectionReasonsCache(reasons) {
+    REJECTION_REASONS_CACHE = Array.isArray(reasons) ? reasons.slice() : [];
+    REJECTION_REASONS_CACHE.sort((a, b) => {
+        const usageA = Number(a?.usage_count ?? 0);
+        const usageB = Number(b?.usage_count ?? 0);
+        if (usageA !== usageB) {
+            return usageB - usageA;
+        }
+        const subjectA = (a?.subject ?? '').toLowerCase();
+        const subjectB = (b?.subject ?? '').toLowerCase();
+        if (subjectA < subjectB) return -1;
+        if (subjectA > subjectB) return 1;
+        return 0;
+    });
+}
+
+async function fetchRejectionReasons(force = false) {
+    if (!force && REJECTION_REASONS_CACHE.length) {
+        return REJECTION_REASONS_CACHE;
+    }
+
+    try {
+        const res = await fetch(REJECTION_REASONS_ENDPOINT, { headers: { Accept: 'application/json' } });
+        let payload = null;
+        try {
+            payload = await res.json();
+        } catch (error) {
+            payload = null;
+        }
+
+        if (!res.ok) {
+            throw new Error(payload?.message || `Failed to load rejection reasons (status ${res.status})`);
+        }
+
+        const reasons = Array.isArray(payload) ? payload : [];
+        setRejectionReasonsCache(reasons);
+        return REJECTION_REASONS_CACHE;
+    } catch (error) {
+        throw error;
+    }
+}
+
+function getRejectionReasonById(reasonId) {
+    if (reasonId === null || reasonId === undefined) return null;
+    const numeric = Number(reasonId);
+    if (Number.isNaN(numeric)) return null;
+    return REJECTION_REASONS_CACHE.find((reason) => Number(reason.id) === numeric) || null;
+}
+
+function resetRejectionFlow() {
+    rejectionFlowState.requestId = null;
+    rejectionFlowState.selectedReasonId = null;
+    rejectionFlowState.prevModal = null;
+}
+
+async function openRejectionFlow(requestId) {
+    rejectionFlowState.requestId = requestId;
+    try {
+        const reasons = await fetchRejectionReasons(REJECTION_REASONS_CACHE.length === 0);
+        if (!reasons.length) {
+            rejectionFlowState.selectedReasonId = OTHER_REJECTION_REASON_KEY;
+            openRejectionCustomModal(requestId, { fromSelection: false });
+            return;
+        }
+        openRejectionSelectModal(requestId);
+    } catch (error) {
+        console.error('Failed to load rejection reasons', error);
+        showError(error?.message || 'Failed to load rejection reasons. Please try again.');
+    }
+}
+
+function openRejectionSelectModal(requestId, options = {}) {
+    if (!REJECTION_REASONS_CACHE.length) {
+        openRejectionCustomModal(requestId, { fromSelection: false });
+        return;
+    }
+
+    const preserveSelection = Boolean(options.preserveSelection);
+    if (!preserveSelection) {
+        rejectionFlowState.selectedReasonId = null;
+    }
+    rejectionFlowState.requestId = requestId;
+    rejectionFlowState.prevModal = null;
+
+    renderRejectionReasonList();
+    updateRejectConfirmButton();
+
+    if (rejectionFlowState.selectedReasonId === OTHER_REJECTION_REASON_KEY) {
+        const otherRadio = document.getElementById('rejectReasonOtherOption');
+        if (otherRadio) {
+            otherRadio.checked = true;
+        }
+    }
+
+    window.dispatchEvent(new CustomEvent('open-modal', { detail: 'rejectReasonSelectModal' }));
+}
+
+function renderRejectionReasonList() {
+    const container = document.getElementById('rejectReasonOptions');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (!REJECTION_REASONS_CACHE.length) {
+        const empty = document.createElement('p');
+        empty.className = 'text-sm text-gray-500';
+        empty.textContent = 'No rejection reasons saved yet.';
+        container.appendChild(empty);
+        return;
+    }
+
+    REJECTION_REASONS_CACHE.forEach((reason) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'flex items-start justify-between gap-3 border border-gray-200 rounded-lg p-3 hover:border-purple-300 transition';
+        const radioId = `rejectReasonOption${reason.id}`;
+        wrapper.innerHTML = `
+            <label class="flex items-start gap-3 flex-1 cursor-pointer" for="${radioId}">
+                <input type="radio" id="${radioId}" class="mt-1 text-purple-600 focus:ring-purple-500" name="rejectReasonChoice" value="${escapeHtml(String(reason.id))}">
+                <div>
+                    <div class="text-sm font-semibold text-gray-900">${escapeHtml(reason.subject || 'Untitled reason')}</div>
+                    <div class="text-xs text-gray-500 mt-0.5">Used ${escapeHtml(String(reason.usage_count ?? 0))} time(s)</div>
+                </div>
+            </label>
+            <div class="flex items-center gap-2 shrink-0">
+                <button type="button" class="text-sm text-indigo-600 hover:text-indigo-700" data-action="view" data-reason-id="${escapeHtml(String(reason.id))}">View</button>
+                <button type="button" class="text-sm text-red-500 hover:text-red-600" data-action="remove" data-reason-id="${escapeHtml(String(reason.id))}">✕</button>
+            </div>
+        `;
+        container.appendChild(wrapper);
+    });
+
+    if (rejectionFlowState.selectedReasonId) {
+        const selector = `input[name="rejectReasonChoice"][value="${rejectionFlowState.selectedReasonId}"]`;
+        const radio = container.querySelector(selector);
+        if (radio) {
+            radio.checked = true;
+        }
+    }
+}
+
+function updateRejectConfirmButton() {
+    const confirmBtn = document.getElementById('rejectReasonSelectConfirmBtn');
+    if (!confirmBtn) return;
+
+    const selected = rejectionFlowState.selectedReasonId;
+    confirmBtn.disabled = !selected;
+    if (selected === OTHER_REJECTION_REASON_KEY) {
+        confirmBtn.textContent = 'Next';
+    } else {
+        confirmBtn.textContent = 'Confirm Reject';
+    }
+}
+
+function openRejectionCustomModal(requestId, options = {}) {
+    const subjectInput = document.getElementById('rejectReasonSubjectInput');
+    const detailInput = document.getElementById('rejectReasonDetailInput');
+
+    rejectionFlowState.requestId = requestId;
+    rejectionFlowState.prevModal = options.fromSelection ? 'select' : null;
+    if (options.fromSelection) {
+        rejectionFlowState.selectedReasonId = OTHER_REJECTION_REASON_KEY;
+    }
+
+    if (subjectInput) subjectInput.value = options.subject ?? '';
+    if (detailInput) detailInput.value = options.detail ?? '';
+
+    if (subjectInput) subjectInput.focus();
+
+    window.dispatchEvent(new CustomEvent('open-modal', { detail: 'rejectReasonCustomModal' }));
+}
+
+function openRejectionDetailModal(reason) {
+    const subjectEl = document.getElementById('rejectReasonViewSubject');
+    const detailEl = document.getElementById('rejectReasonViewDetail');
+
+    if (subjectEl) subjectEl.textContent = reason?.subject ?? '';
+    if (detailEl) detailEl.textContent = reason?.detail ?? '';
+
+    window.dispatchEvent(new CustomEvent('open-modal', { detail: 'rejectReasonViewModal' }));
+}
+
+function openRejectionDeleteModal(reasonId) {
+    const reason = getRejectionReasonById(reasonId);
+    if (!reason) {
+        showError('The selected rejection reason is no longer available.');
+        return;
+    }
+
+    const nameEl = document.getElementById('rejectReasonDeleteName');
+    const usageEl = document.getElementById('rejectReasonDeleteUsage');
+    const confirmBtn = document.getElementById('rejectReasonDeleteConfirmBtn');
+
+    if (nameEl) nameEl.textContent = reason.subject || 'Untitled reason';
+    if (usageEl) usageEl.textContent = `Used ${Number(reason.usage_count ?? 0)} time(s)`;
+    if (confirmBtn) confirmBtn.dataset.reasonId = reason.id;
+
+    window.dispatchEvent(new CustomEvent('open-modal', { detail: 'rejectReasonDeleteModal' }));
+}
+
+async function deleteRejectionReason(reasonId, button) {
+    if (!reasonId) return;
+
+    if (button) button.disabled = true;
+    try {
+        const res = await fetch(`${REJECTION_REASONS_ENDPOINT}/${encodeURIComponent(reasonId)}`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRF-TOKEN': CSRF_TOKEN,
+                Accept: 'application/json',
+            },
+        });
+        let payload = null;
+        try {
+            payload = await res.json();
+        } catch (error) {
+            payload = null;
+        }
+
+        if (!res.ok) {
+            throw new Error(payload?.message || `Failed to remove rejection reason (status ${res.status})`);
+        }
+
+        const numericId = Number(reasonId);
+        const removedIndex = REJECTION_REASONS_CACHE.findIndex((reason) => Number(reason.id) === numericId);
+        if (removedIndex > -1) {
+            REJECTION_REASONS_CACHE.splice(removedIndex, 1);
+        }
+
+        if (REJECTION_REASONS_CACHE.length) {
+            const nextIndex = Math.min(removedIndex, REJECTION_REASONS_CACHE.length - 1);
+            const nextReason = REJECTION_REASONS_CACHE[nextIndex];
+            rejectionFlowState.selectedReasonId = nextReason ? String(nextReason.id) : null;
+        } else {
+            rejectionFlowState.selectedReasonId = null;
+        }
+
+        setRejectionReasonsCache(REJECTION_REASONS_CACHE);
+        renderRejectionReasonList();
+        updateRejectConfirmButton();
+
+        window.dispatchEvent(new CustomEvent('close-modal', { detail: 'rejectReasonDeleteModal' }));
+        showSuccess(payload?.message || 'Rejection reason removed successfully.');
+
+        if (!REJECTION_REASONS_CACHE.length && rejectionFlowState.requestId) {
+            window.dispatchEvent(new CustomEvent('close-modal', { detail: 'rejectReasonSelectModal' }));
+            openRejectionCustomModal(rejectionFlowState.requestId, { fromSelection: false });
+        }
+    } catch (error) {
+        console.error('Failed to remove rejection reason', error);
+        showError(error?.message || 'Failed to remove rejection reason. Please try again.');
+    } finally {
+        if (button) button.disabled = false;
+    }
+}
+
+async function submitRejectionDecision({ requestId, reasonId, subject, detail, button }) {
+    if (!requestId) {
+        showError('No borrow request selected.');
+        return;
+    }
+
+    try {
+        await updateRequest(Number(requestId), 'rejected', {
+            button,
+            rejectReasonId: reasonId != null ? Number(reasonId) : null,
+            rejectSubject: subject,
+            rejectDetail: detail,
+        });
+
+        if (reasonId != null) {
+            const idx = REJECTION_REASONS_CACHE.findIndex((reason) => Number(reason.id) === Number(reasonId));
+            if (idx > -1) {
+                const updated = { ...REJECTION_REASONS_CACHE[idx] };
+                updated.usage_count = Number(updated.usage_count ?? 0) + 1;
+                REJECTION_REASONS_CACHE[idx] = updated;
+                setRejectionReasonsCache(REJECTION_REASONS_CACHE);
+            }
+        }
+
+        window.dispatchEvent(new CustomEvent('close-modal', { detail: 'rejectReasonCustomModal' }));
+        window.dispatchEvent(new CustomEvent('close-modal', { detail: 'rejectReasonSelectModal' }));
+        resetRejectionFlow();
+    } catch (error) {
+        console.error('Failed to reject borrow request', error);
+        showError(error?.message || 'Failed to reject the borrow request.');
+    }
+}
+
+async function saveCustomRejectionReason(button) {
+    if (!rejectionFlowState.requestId) {
+        showError('No borrow request selected.');
+        return;
+    }
+
+    const subjectInput = document.getElementById('rejectReasonSubjectInput');
+    const detailInput = document.getElementById('rejectReasonDetailInput');
+
+    const subject = subjectInput?.value?.trim() || '';
+    const detail = detailInput?.value?.trim() || '';
+
+    if (!subject) {
+        showError('Please enter a subject for the rejection reason.');
+        if (subjectInput) subjectInput.focus();
+        return;
+    }
+
+    if (!detail) {
+        showError('Please provide the detailed rejection reason.');
+        if (detailInput) detailInput.focus();
+        return;
+    }
+
+    if (button) button.disabled = true;
+
+    try {
+        const res = await fetch(REJECTION_REASONS_ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': CSRF_TOKEN,
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+            body: JSON.stringify({ subject, detail }),
+        });
+
+        let payload = null;
+        try {
+            payload = await res.json();
+        } catch (error) {
+            payload = null;
+        }
+
+        if (!res.ok) {
+            throw new Error(payload?.message || `Failed to save rejection reason (status ${res.status})`);
+        }
+
+        const reasonData = payload?.reason ?? null;
+        if (reasonData) {
+            const idx = REJECTION_REASONS_CACHE.findIndex((reason) => Number(reason.id) === Number(reasonData.id));
+            if (idx > -1) {
+                REJECTION_REASONS_CACHE[idx] = reasonData;
+            } else {
+                REJECTION_REASONS_CACHE.push(reasonData);
+            }
+            setRejectionReasonsCache(REJECTION_REASONS_CACHE);
+        }
+
+        const subjectForUpdate = reasonData?.subject ?? subject;
+        const detailForUpdate = reasonData?.detail ?? detail;
+
+        await submitRejectionDecision({
+            requestId: rejectionFlowState.requestId,
+            reasonId: reasonData?.id ?? null,
+            subject: subjectForUpdate,
+            detail: detailForUpdate,
+            button,
+        });
+
+        if (subjectInput) subjectInput.value = '';
+        if (detailInput) detailInput.value = '';
+    } catch (error) {
+        console.error('Failed to save rejection reason', error);
+        showError(error?.message || 'Failed to save rejection reason. Please try again.');
+    } finally {
+        if (button) button.disabled = false;
+    }
+}
+
+function handleCustomRejectionBack() {
+    window.dispatchEvent(new CustomEvent('close-modal', { detail: 'rejectReasonCustomModal' }));
+
+    if (rejectionFlowState.prevModal === 'select' && REJECTION_REASONS_CACHE.length) {
+        rejectionFlowState.selectedReasonId = OTHER_REJECTION_REASON_KEY;
+        openRejectionSelectModal(rejectionFlowState.requestId, { preserveSelection: true });
+        const otherRadio = document.getElementById('rejectReasonOtherOption');
+        if (otherRadio) {
+            otherRadio.checked = true;
+        }
+        updateRejectConfirmButton();
+    } else {
+        resetRejectionFlow();
+    }
 }
 
 async function loadBorrowRequests() {
@@ -498,10 +891,30 @@ function fillRequestModal(req) {
         const itemsHtml = (req.items || []).map((item) => {
             const name = escapeHtml(item.item?.name ?? 'Unknown');
             const qty = escapeHtml(String(item.quantity ?? 0));
-            const condition = item.quantity_reason ? ` — Reason: ${escapeHtml(item.quantity_reason)}` : '';
+            const condition = item.quantity_reason ? ` - Reason: ${escapeHtml(item.quantity_reason)}` : '';
             return `<li>${name} (x${qty})${condition}</li>`;
         }).join('');
         itemsEl.innerHTML = itemsHtml ? `<ul class="list-disc list-inside text-gray-600">${itemsHtml}</ul>` : '<div class="text-gray-500">No items recorded.</div>';
+    }
+
+    const rejectionCard = document.getElementById('rejectionReasonCard');
+    if (rejectionCard) {
+        const subjectEl = document.getElementById('rejectionReasonSubject');
+        const detailEl = document.getElementById('rejectionReasonDetail');
+        const statusValue = String(req.status || '').toLowerCase();
+        const subjectValue = typeof req.reject_category === 'string' ? req.reject_category.trim() : '';
+        const detailValue = typeof req.reject_reason === 'string' ? req.reject_reason.trim() : '';
+        const hasReason = subjectValue !== '' || detailValue !== '';
+
+        if (statusValue === 'rejected' && hasReason) {
+            if (subjectEl) subjectEl.textContent = subjectValue || 'No subject provided';
+            if (detailEl) detailEl.textContent = detailValue || 'No detailed reason provided.';
+            rejectionCard.classList.remove('hidden');
+        } else {
+            if (subjectEl) subjectEl.textContent = '';
+            if (detailEl) detailEl.textContent = '';
+            rejectionCard.classList.add('hidden');
+        }
     }
 }
 
@@ -551,9 +964,9 @@ function openConfirmModal(id, status) {
     let iconClass = 'fas fa-exclamation-circle text-yellow-500';
 
     if (action === 'rejected') {
-        title = 'Reject Request';
-        message = 'Are you sure you want to reject this borrow request?';
-        iconClass = 'fas fa-times-circle text-red-600';
+        resetRejectionFlow();
+        openRejectionFlow(id);
+        return;
     } else if (action === 'delivered') {
         title = 'Deliver Items';
         message = 'Confirm that the items have been delivered to the borrower.';
@@ -703,9 +1116,14 @@ async function updateRequest(id, status, options = {}) {
         manpowerReason = null,
         button = null,
         silent = false,
+        rejectReasonId = null,
+        rejectSubject = null,
+        rejectDetail = null,
     } = options || {};
 
     const manpowerReasonProvided = Object.prototype.hasOwnProperty.call(options || {}, 'manpowerReason');
+    const rejectSubjectProvided = Object.prototype.hasOwnProperty.call(options || {}, 'rejectSubject');
+    const rejectDetailProvided = Object.prototype.hasOwnProperty.call(options || {}, 'rejectDetail');
 
     if (button) button.disabled = true;
     try {
@@ -713,6 +1131,23 @@ async function updateRequest(id, status, options = {}) {
         if (assignments) body.manpower_assignments = assignments;
         if (Number.isFinite(manpowerTotal)) body.manpower_total = manpowerTotal;
         if (manpowerReasonProvided) body.manpower_reason = manpowerReason;
+
+        if (rejectReasonId !== null && rejectReasonId !== undefined && rejectReasonId !== '') {
+            const numericReasonId = Number(rejectReasonId);
+            if (!Number.isNaN(numericReasonId)) {
+                body.reject_reason_id = numericReasonId;
+            }
+        }
+
+        if (rejectSubjectProvided) {
+            const normalizedSubject = typeof rejectSubject === 'string' ? rejectSubject.trim() : '';
+            body.reject_subject = normalizedSubject;
+        }
+
+        if (rejectDetailProvided) {
+            const normalizedDetail = typeof rejectDetail === 'string' ? rejectDetail.trim() : '';
+            body.reject_detail = normalizedDetail;
+        }
 
         const res = await fetch(`/admin/borrow-requests/${id}/update-status`, {
             method: 'POST',
@@ -824,6 +1259,150 @@ async function updateRequest(id, status, options = {}) {
                 submitBtn.disabled = false;
             }
         });
+    });
+})();
+
+(function bindRejectionReasonModals() {
+    document.addEventListener('DOMContentLoaded', () => {
+        const optionsContainer = document.getElementById('rejectReasonOptions');
+        if (optionsContainer) {
+            optionsContainer.addEventListener('change', (event) => {
+                const target = event.target;
+                if (!(target instanceof HTMLInputElement)) return;
+                if (target.name !== 'rejectReasonChoice') return;
+                rejectionFlowState.selectedReasonId = target.value;
+                updateRejectConfirmButton();
+            });
+
+            optionsContainer.addEventListener('click', (event) => {
+                const target = event.target;
+                if (!(target instanceof HTMLElement)) return;
+                const action = target.dataset.action;
+                if (!action) return;
+
+                event.preventDefault();
+                event.stopPropagation();
+
+                const reasonId = target.dataset.reasonId;
+                if (!reasonId) return;
+
+                if (action === 'view') {
+                    const reason = getRejectionReasonById(reasonId);
+                    if (!reason) {
+                        showError('The selected rejection reason is no longer available.');
+                        return;
+                    }
+                    openRejectionDetailModal(reason);
+                } else if (action === 'remove') {
+                    openRejectionDeleteModal(reasonId);
+                }
+            });
+        }
+
+        const otherOption = document.getElementById('rejectReasonOtherOption');
+        if (otherOption) {
+            otherOption.addEventListener('change', (event) => {
+                const input = event.target;
+                if (!(input instanceof HTMLInputElement)) return;
+                if (input.checked) {
+                    rejectionFlowState.selectedReasonId = OTHER_REJECTION_REASON_KEY;
+                    updateRejectConfirmButton();
+                }
+            });
+        }
+
+        const createNewBtn = document.getElementById('rejectReasonCreateNewBtn');
+        if (createNewBtn) {
+            createNewBtn.addEventListener('click', () => {
+                if (!rejectionFlowState.requestId) {
+                    showError('No borrow request selected.');
+                    return;
+                }
+                window.dispatchEvent(new CustomEvent('close-modal', { detail: 'rejectReasonSelectModal' }));
+                openRejectionCustomModal(rejectionFlowState.requestId, { fromSelection: true });
+            });
+        }
+
+        const selectConfirmBtn = document.getElementById('rejectReasonSelectConfirmBtn');
+        if (selectConfirmBtn) {
+            selectConfirmBtn.addEventListener('click', async () => {
+                if (!rejectionFlowState.requestId) {
+                    showError('No borrow request selected.');
+                    return;
+                }
+
+                if (!rejectionFlowState.selectedReasonId) {
+                    showError('Please select a rejection reason before continuing.');
+                    return;
+                }
+
+                if (rejectionFlowState.selectedReasonId === OTHER_REJECTION_REASON_KEY) {
+                    window.dispatchEvent(new CustomEvent('close-modal', { detail: 'rejectReasonSelectModal' }));
+                    openRejectionCustomModal(rejectionFlowState.requestId, { fromSelection: true });
+                    return;
+                }
+
+                const reason = getRejectionReasonById(rejectionFlowState.selectedReasonId);
+                if (!reason) {
+                    showError('The selected rejection reason is no longer available.');
+                    return;
+                }
+
+                selectConfirmBtn.disabled = true;
+                try {
+                    await submitRejectionDecision({
+                        requestId: rejectionFlowState.requestId,
+                        reasonId: reason.id,
+                        subject: reason.subject,
+                        detail: reason.detail,
+                        button: selectConfirmBtn,
+                    });
+                } finally {
+                    selectConfirmBtn.disabled = false;
+                }
+            });
+        }
+
+        const selectCancelBtn = document.getElementById('rejectReasonSelectCancelBtn');
+        if (selectCancelBtn) {
+            selectCancelBtn.addEventListener('click', () => {
+                window.dispatchEvent(new CustomEvent('close-modal', { detail: 'rejectReasonSelectModal' }));
+                resetRejectionFlow();
+            });
+        }
+
+        const customConfirmBtn = document.getElementById('rejectReasonCustomConfirmBtn');
+        if (customConfirmBtn) {
+            customConfirmBtn.addEventListener('click', async () => {
+                await saveCustomRejectionReason(customConfirmBtn);
+            });
+        }
+
+        const customBackBtn = document.getElementById('rejectReasonCustomBackBtn');
+        if (customBackBtn) {
+            customBackBtn.addEventListener('click', () => {
+                handleCustomRejectionBack();
+            });
+        }
+
+        const deleteConfirmBtn = document.getElementById('rejectReasonDeleteConfirmBtn');
+        if (deleteConfirmBtn) {
+            deleteConfirmBtn.addEventListener('click', async () => {
+                const reasonId = deleteConfirmBtn.dataset.reasonId;
+                if (!reasonId) {
+                    showError('Unable to remove the selected reason.');
+                    return;
+                }
+                await deleteRejectionReason(reasonId, deleteConfirmBtn);
+            });
+        }
+
+        const deleteCancelBtn = document.getElementById('rejectReasonDeleteCancelBtn');
+        if (deleteCancelBtn) {
+            deleteCancelBtn.addEventListener('click', () => {
+                window.dispatchEvent(new CustomEvent('close-modal', { detail: 'rejectReasonDeleteModal' }));
+            });
+        }
     });
 })();
 

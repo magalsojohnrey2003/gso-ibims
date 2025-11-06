@@ -26,6 +26,9 @@ class BorrowRequest extends Model
         'delivery_report_reason',
         'delivery_reason_type',
         'delivery_reason_details',
+        'rejection_reason_id',
+        'reject_category',
+        'reject_reason',
     ];
         
 
@@ -42,6 +45,11 @@ class BorrowRequest extends Model
     public function borrowedInstances()
     {
         return $this->hasMany(BorrowItemInstance::class);
+    }
+
+    public function rejectionTemplate()
+    {
+        return $this->belongsTo(RejectionReason::class, 'rejection_reason_id');
     }
 
     protected $casts = [

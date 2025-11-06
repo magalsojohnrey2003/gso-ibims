@@ -107,6 +107,18 @@
                     </div>
                 </div>
 
+                <!-- Rejection Reason -->
+                <div id="rejectionReasonCard" class="hidden flex items-start gap-3 bg-red-50 border border-red-100 rounded-lg p-3 sm:col-span-2">
+                    <i class="fas fa-circle-xmark text-red-600 mt-1"></i>
+                    <div>
+                        <div class="font-medium text-red-700">Rejection Reason</div>
+                        <div class="mt-1 space-y-1">
+                            <div class="text-sm font-semibold text-gray-900" id="rejectionReasonSubject"></div>
+                            <p class="text-sm text-gray-600 whitespace-pre-line" id="rejectionReasonDetail"></p>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Borrow Date -->
                 <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
                     <i class="fas fa-calendar-day text-purple-600 mt-1"></i>
@@ -175,6 +187,149 @@
             </x-button>
         </div>
     </div>
+    </x-modal>
+
+    <!-- Rejection Reason Select Modal -->
+    <x-modal name="rejectReasonSelectModal" maxWidth="md">
+        <div class="p-6 space-y-5">
+            <div class="flex items-start justify-between">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900">Select Rejection Reason</h3>
+                    <p class="text-sm text-gray-500 mt-1">Choose from saved reasons or create a new one.</p>
+                </div>
+                <button
+                    type="button"
+                    class="text-gray-400 hover:text-gray-600 transition"
+                    @click="$dispatch('close-modal', 'rejectReasonSelectModal')"
+                >
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+            </div>
+
+            <div id="rejectReasonOptions" class="space-y-3 max-h-64 overflow-y-auto pr-1"></div>
+
+            <div class="border-t border-gray-200 pt-4 space-y-3">
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="radio" name="rejectReasonChoice" value="__other__" id="rejectReasonOtherOption" class="text-purple-600 focus:ring-purple-500">
+                    <div>
+                        <div class="text-sm font-semibold text-gray-900">Other</div>
+                        <p class="text-xs text-gray-500">Create a new rejection reason</p>
+                    </div>
+                </label>
+                <button type="button" id="rejectReasonCreateNewBtn" class="text-sm font-medium text-indigo-600 hover:text-indigo-700">
+                    Create New &rarr;
+                </button>
+            </div>
+
+            <div class="flex items-center justify-between pt-4 border-t border-gray-100">
+                <x-button id="rejectReasonSelectCancelBtn" variant="secondary" class="px-4 py-2 text-sm" @click="$dispatch('close-modal', 'rejectReasonSelectModal')">
+                    Cancel
+                </x-button>
+                <x-button id="rejectReasonSelectConfirmBtn" variant="danger" class="px-4 py-2 text-sm" disabled>
+                    Confirm Reject
+                </x-button>
+            </div>
+        </div>
+    </x-modal>
+
+    <!-- Rejection Reason Custom Modal -->
+    <x-modal name="rejectReasonCustomModal" maxWidth="md">
+        <div class="p-6 space-y-5">
+            <div class="flex flex-col gap-1">
+                <h3 class="text-lg font-semibold text-gray-900">Custom Rejection Reason</h3>
+                <p class="text-sm text-gray-500">Provide a subject and detailed explanation for rejecting this request.</p>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label for="rejectReasonSubjectInput" class="block text-sm font-medium text-gray-700">Subject</label>
+                    <input
+                        type="text"
+                        id="rejectReasonSubjectInput"
+                        class="mt-1 block w-full rounded-lg border-gray-300 focus:border-purple-500 focus:ring-purple-500 text-sm"
+                        placeholder="e.g. Incomplete requirements"
+                    >
+                </div>
+                <div>
+                    <label for="rejectReasonDetailInput" class="block text-sm font-medium text-gray-700">Detailed Reason</label>
+                    <textarea
+                        id="rejectReasonDetailInput"
+                        rows="4"
+                        class="mt-1 block w-full rounded-lg border-gray-300 focus:border-purple-500 focus:ring-purple-500 text-sm"
+                        placeholder="Share the specific reason for rejecting this request."
+                    ></textarea>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between pt-4 border-t border-gray-100">
+                <x-button id="rejectReasonCustomBackBtn" variant="secondary" class="px-4 py-2 text-sm">
+                    Back
+                </x-button>
+                <x-button id="rejectReasonCustomConfirmBtn" variant="danger" class="px-4 py-2 text-sm">
+                    Confirm Reject
+                </x-button>
+            </div>
+        </div>
+    </x-modal>
+
+    <!-- Rejection Reason View Modal -->
+    <x-modal name="rejectReasonViewModal" maxWidth="md">
+        <div class="p-6 space-y-5">
+            <div class="flex items-start justify-between">
+                <h3 class="text-lg font-semibold text-gray-900">Rejection Reason Details</h3>
+                <button
+                    type="button"
+                    class="text-gray-400 hover:text-gray-600 transition"
+                    @click="$dispatch('close-modal', 'rejectReasonViewModal')"
+                >
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3">
+                <div>
+                    <p class="text-xs uppercase tracking-wide text-gray-500">Subject</p>
+                    <p class="text-sm font-semibold text-gray-900" id="rejectReasonViewSubject"></p>
+                </div>
+                <div>
+                    <p class="text-xs uppercase tracking-wide text-gray-500">Detailed Reason</p>
+                    <p class="text-sm text-gray-700 whitespace-pre-line" id="rejectReasonViewDetail"></p>
+                </div>
+            </div>
+
+            <div class="flex justify-end">
+                <x-button variant="secondary" class="px-4 py-2 text-sm" @click="$dispatch('close-modal', 'rejectReasonViewModal')">
+                    Close
+                </x-button>
+            </div>
+        </div>
+    </x-modal>
+
+    <!-- Rejection Reason Delete Modal -->
+    <x-modal name="rejectReasonDeleteModal" maxWidth="sm">
+        <div class="p-6 space-y-5">
+            <div class="flex items-start gap-3">
+                <i class="fas fa-triangle-exclamation text-red-500 text-xl mt-0.5"></i>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900">Confirm Removal</h3>
+                    <p class="text-sm text-gray-600 mt-1">Are you sure you want to remove this rejection reason?</p>
+                </div>
+            </div>
+
+            <div class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                <p class="text-sm font-semibold text-gray-800" id="rejectReasonDeleteName"></p>
+                <p class="text-xs text-gray-500 mt-1" id="rejectReasonDeleteUsage"></p>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-2">
+                <x-button id="rejectReasonDeleteCancelBtn" variant="secondary" class="px-4 py-2 text-sm" @click="$dispatch('close-modal', 'rejectReasonDeleteModal')">
+                    Cancel
+                </x-button>
+                <x-button id="rejectReasonDeleteConfirmBtn" variant="danger" class="px-4 py-2 text-sm">
+                    Remove
+                </x-button>
+            </div>
+        </div>
     </x-modal>
 
 <!-- Deliver Items Modal -->
@@ -375,7 +530,5 @@
     @vite(['resources/js/app.js'])
 
 </x-app-layout>
-
-
 
 
