@@ -295,8 +295,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize FilePond for letter input if FilePond is available
     if (letterInput && typeof FilePond !== 'undefined') {
-        // Wait for FilePond to be initialized
-        setTimeout(() => {
+        // Try multiple times to find FilePond instance as it may be initialized asynchronously
+        const findFilePond = (attempts = 0) => {
             const pondElement = letterInput.parentElement?.querySelector('.filepond--root');
             if (pondElement) {
                 letterPond = FilePond.find(pondElement);
@@ -307,9 +307,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     letterPond.on('removefile', () => {
                         updateSummary();
                     });
+                    return;
                 }
             }
-        }, 500);
+            // Retry if not found and haven't exceeded max attempts
+            if (attempts < 5) {
+                setTimeout(() => findFilePond(attempts + 1), 200);
+            }
+        };
+        // Start looking after a short delay
+        setTimeout(() => findFilePond(0), 100);
     } else if (letterInput) {
         letterInput.addEventListener('change', updateSummary);
     }
@@ -329,9 +336,30 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Check for file in FilePond or regular input
             let hasFile = false;
-            if (letterPond && letterPond.getFiles().length > 0) {
-                hasFile = true;
-            } else if (letterInput?.files?.length) {
+            
+            // Try to find FilePond instance dynamically if letterPond is not set
+            let pondInstance = letterPond;
+            if (!pondInstance && letterInput && typeof FilePond !== 'undefined') {
+                const pondElement = letterInput.parentElement?.querySelector('.filepond--root');
+                if (pondElement) {
+                    pondInstance = FilePond.find(pondElement);
+                }
+            }
+            
+            // Check FilePond first
+            if (pondInstance && typeof pondInstance.getFiles === 'function') {
+                try {
+                    const files = pondInstance.getFiles();
+                    if (files && files.length > 0) {
+                        hasFile = true;
+                    }
+                } catch (e) {
+                    // FilePond instance might not be fully initialized, continue to fallback
+                }
+            }
+            
+            // Fallback to regular input files if FilePond doesn't have files
+            if (!hasFile && letterInput?.files?.length > 0) {
                 hasFile = true;
             }
             
