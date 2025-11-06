@@ -322,7 +322,7 @@
 
             <div class="flex justify-end gap-3">
                 <x-button type="button" variant="secondary" @click="$dispatch('close-modal','assignManpowerModal')">Cancel</x-button>
-                <x-button id="assignManpowerConfirmBtn" variant="success">Save &amp; Approve</x-button>
+                <x-button id="assignManpowerConfirmBtn" variant="success">Save &amp; Validate</x-button>
             </div>
         </form>
     </div>
@@ -332,13 +332,16 @@
         <x-button variant="secondary" iconName="eye" class="px-2 py-1 text-xs" data-action="view">View</x-button>
     </template>
     <template id="btn-validate-template">
-        <x-button variant="success" iconName="check" class="px-2 py-1 text-xs" data-action="accept">Validate</x-button>
+        <x-button variant="success" iconName="check" class="px-2 py-1 text-xs" data-action="validate">Validate</x-button>
     </template>
     <template id="btn-reject-template">
         <x-button variant="danger" iconName="x-circle" class="px-2 py-1 text-xs" data-action="reject">Reject</x-button>
     </template>
     <template id="btn-deliver-template">
         <x-button variant="info" iconName="truck" class="px-2 py-1 text-xs" data-action="deliver">Deliver Items</x-button>
+    </template>
+    <template id="btn-accept-template">
+        <x-button variant="success" iconName="check-circle" class="px-2 py-1 text-xs" data-action="approve">Accept</x-button>
     </template>
 
     {{-- Alert templates --}}

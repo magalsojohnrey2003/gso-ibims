@@ -115,8 +115,10 @@ function createButtonFromTemplate(templateId, id) {
 
     if (action === 'view') {
         btn.addEventListener('click', (ev) => { ev.stopPropagation(); viewRequest(id); });
-    } else if (action === 'accept' || action === 'validate') {
+    } else if (action === 'validate') {
         btn.addEventListener('click', (ev) => { ev.stopPropagation(); openAssignManpowerModal(id); });
+    } else if (action === 'approve') {
+        btn.addEventListener('click', (ev) => { ev.stopPropagation(); approveRequest(id); });
     } else if (action === 'reject') {
         btn.addEventListener('click', (ev) => { ev.stopPropagation(); openConfirmModal(id, 'rejected'); });
     } else if (['dispatch', 'deliver', 'deliver_items'].includes(action)) {
@@ -239,7 +241,10 @@ function renderBorrowRequests() {
         if (statusKey === 'pending') {
             wrapper.appendChild(createButtonFromTemplate('btn-validate-template', req.id));
             wrapper.appendChild(createButtonFromTemplate('btn-reject-template', req.id));
-        } else if (['validated', 'approved'].includes(statusKey)) {
+        } else if (statusKey === 'validated') {
+            wrapper.appendChild(createButtonFromTemplate('btn-accept-template', req.id));
+            wrapper.appendChild(createButtonFromTemplate('btn-reject-template', req.id));
+        } else if (statusKey === 'approved' && deliveryKey !== 'dispatched') {
             wrapper.appendChild(createButtonFromTemplate('btn-deliver-template', req.id));
         } else if (deliveryKey === 'dispatched' || ['returned', 'rejected'].includes(statusKey)) {
             wrapper.appendChild(createButtonFromTemplate('btn-view-template', req.id));
@@ -381,21 +386,23 @@ function openAssignManpowerModal(id) {
         locationEl.textContent = req.location && req.location.trim() !== '' ? req.location : '--';
     }
 
-    // Handle letter URL - check if it's a full URL or needs to be converted from path
+    // Handle letter URL - prioritize letter_url from backend, fallback to letter_path
     let letterUrl = req.letter_url || '';
     if (!letterUrl && req.letter_path) {
         // If we only have a path, construct the storage URL
         if (req.letter_path.startsWith('http')) {
             letterUrl = req.letter_path;
         } else {
-            letterUrl = '/storage/' + req.letter_path.replace(/^storage\//, '');
+            // Remove any leading 'storage/' or 'public/' prefixes and construct proper URL
+            let cleanPath = req.letter_path.replace(/^(storage\/|public\/)/, '');
+            letterUrl = '/storage/' + cleanPath;
         }
     }
     
     if (letterPreview && letterFallback) {
         if (letterUrl) {
             // Check if it's an image (by URL extension or type)
-            const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(letterUrl);
+            const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(letterUrl) || /\.(jpg|jpeg|png|webp|gif)$/i.test(req.letter_path || '');
             if (isImage) {
                 letterPreview.src = letterUrl;
                 letterPreview.onerror = () => {
@@ -407,6 +414,7 @@ function openAssignManpowerModal(id) {
                     letterPreview.classList.remove('hidden');
                     letterFallback.classList.add('hidden');
                 };
+                // Try to load the image
                 letterPreview.classList.remove('hidden');
                 letterFallback.classList.add('hidden');
             } else {
@@ -497,6 +505,30 @@ function fillRequestModal(req) {
     }
 }
 
+async function approveRequest(id) {
+    const req = BORROW_CACHE.find((r) => r.id === id);
+    if (!req) {
+        showError('Request not found.');
+        return;
+    }
+
+    // Check if request is validated before approving
+    if (req.status !== 'validated') {
+        showError('Only validated requests can be approved.');
+        return;
+    }
+
+    try {
+        // Use the same updateRequest function to set status to approved
+        // This will trigger the same backend logic as QR scan
+        await updateRequest(Number(id), 'approved', {});
+        showSuccess('Request approved successfully.');
+    } catch (error) {
+        console.error('Failed to approve request', error);
+        showError(error?.message || 'Failed to approve request. Please try again.');
+    }
+}
+
 function viewRequest(id) {
     const req = BORROW_CACHE.find((r) => r.id === id);
     if (!req) {
@@ -546,6 +578,12 @@ async function openDeliverItemsModal(id) {
         return;
     }
 
+    // Check if request is approved before allowing dispatch
+    if (req.status !== 'approved') {
+        showError('Only approved requests can be dispatched.');
+        return;
+    }
+
     // Validate that available quantity is at least 98% of total quantity for all items
     let needsReasonModal = false;
     if (req.items && req.items.length > 0) {
@@ -556,13 +594,13 @@ async function openDeliverItemsModal(id) {
             const totalQty = Number(itemData.total_qty ?? 0);
             const availableQty = Number(itemData.available_qty ?? 0);
 
-            // If total quantity is 0 or unavailable, skip check for this item
+            // If total quantity is 0, skip check for this item
             if (totalQty === 0) continue;
 
             // Check if available quantity is below 98% threshold
-            const percentage = (availableQty / totalQty) * 100;
+            const percentage = (totalQty > 0) ? (availableQty / totalQty) * 100 : 0;
             if (percentage < 98 || availableQty === 0) {
-                showError('Failed to dispatch.');
+                showError('Failed to dispatch. Available quantity is below the required threshold.');
                 return;
             }
 
@@ -572,7 +610,7 @@ async function openDeliverItemsModal(id) {
             }
         }
     } else {
-        showError('Failed to dispatch.');
+        showError('Failed to dispatch. No items found in this request.');
         return;
     }
 

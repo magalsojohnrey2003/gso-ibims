@@ -422,31 +422,33 @@ class BorrowRequestController extends Controller
             // ensure we have items loaded
             $borrowRequest->load('items.item');
 
-            // Validate that available quantity is at least 98% of total quantity for all items
-            foreach ($borrowRequest->items as $requestItem) {
-                $item = $requestItem->item;
-                if (!$item) {
-                    continue;
-                }
-
-                $totalQty = (int) ($item->total_qty ?? 0);
-                $availableQty = (int) ($item->available_qty ?? 0);
-
-                // If total quantity is 0, skip check for this item
-                if ($totalQty === 0) {
-                    continue;
-                }
-
-                // Check if available quantity is below 98% threshold
-                $percentage = ($totalQty > 0) ? (($availableQty / $totalQty) * 100) : 0;
-                if ($percentage < 98 || $availableQty === 0) {
-                    DB::rollBack();
-                    return response()->json(['message' => 'Failed to dispatch.'], 422);
-                }
-            }
-
-            // allocate item instances if status is not already approved (i.e. not allocated)
+            // Only check available quantity if status is not already approved
+            // If already approved, items are already allocated, so we can proceed
             if ($borrowRequest->status !== 'approved') {
+                // Validate that available quantity is at least 98% of total quantity for all items
+                foreach ($borrowRequest->items as $requestItem) {
+                    $item = $requestItem->item;
+                    if (!$item) {
+                        continue;
+                    }
+
+                    $totalQty = (int) ($item->total_qty ?? 0);
+                    $availableQty = (int) ($item->available_qty ?? 0);
+
+                    // If total quantity is 0, skip check for this item
+                    if ($totalQty === 0) {
+                        continue;
+                    }
+
+                    // Check if available quantity is below 98% threshold
+                    $percentage = ($totalQty > 0) ? (($availableQty / $totalQty) * 100) : 0;
+                    if ($percentage < 98 || $availableQty === 0) {
+                        DB::rollBack();
+                        return response()->json(['message' => 'Failed to dispatch.'], 422);
+                    }
+                }
+
+                // allocate item instances if status is not already approved (i.e. not allocated)
                 $this->allocateInstancesForBorrowRequest($borrowRequest);
             }
 

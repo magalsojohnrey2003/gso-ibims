@@ -441,6 +441,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     window.location.reload();
                 } else {
                     // Redirected to success page (borrow-items) - success!
+                    // Show success toast if available, then redirect
+                    try {
+                        // Import toast function if available
+                        if (typeof showToast === 'function') {
+                            showToast('success', 'Borrow request submitted successfully!');
+                        } else if (window.showToast && typeof window.showToast === 'function') {
+                            window.showToast('success', 'Borrow request submitted successfully!');
+                        }
+                    } catch (e) {
+                        // Toast not available, that's okay - flash message will show
+                    }
                     // Follow the redirect
                     window.location.href = finalUrl;
                 }
