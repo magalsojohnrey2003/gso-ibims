@@ -35,6 +35,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const letterInput = document.getElementById('support_letter');
     const letterFileName = document.getElementById('letterFileName');
     let letterPond = null;
+    
+    // Function to get FilePond instance reliably
+    const getLetterPond = () => {
+        if (letterPond) return letterPond;
+        if (!letterInput) return null;
+        
+        // Try to get from stored instance
+        if (letterInput._filepondInstance) {
+            letterPond = letterInput._filepondInstance;
+            return letterPond;
+        }
+        
+        // Try to find by DOM element
+        const pondElement = letterInput.parentElement?.querySelector('.filepond--root');
+        const FilePondLib = window.FilePond || (typeof FilePond !== 'undefined' ? FilePond : null);
+        if (pondElement && FilePondLib && FilePondLib.find) {
+            letterPond = FilePondLib.find(pondElement);
+            return letterPond;
+        }
+        
+        return null;
+    };
 
     const summaryBorrowDates = document.getElementById('summaryBorrowDates');
     const summaryAddress = document.getElementById('summaryAddress');
@@ -175,12 +197,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        if (letterFileName && letterInput?.files?.length) {
-            letterFileName.textContent = letterInput.files[0].name;
-            letterFileName.classList.remove('hidden');
-        } else if (letterFileName) {
-            letterFileName.textContent = '';
-            letterFileName.classList.add('hidden');
+        // Update letter file name display using FilePond
+        if (letterFileName) {
+            const pond = getLetterPond();
+            if (pond && pond.getFiles().length > 0) {
+                const file = pond.getFiles()[0];
+                letterFileName.textContent = file.filename || file.file?.name || 'Letter uploaded';
+                letterFileName.classList.remove('hidden');
+            } else {
+                letterFileName.textContent = '';
+                letterFileName.classList.add('hidden');
+            }
         }
     };
 
@@ -226,13 +253,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const modalLetterImage = document.getElementById('modalLetterImage');
         const modalLetterPreviewWrapper = document.getElementById('modalLetterPreviewWrapper');
+        const pond = getLetterPond();
+        
         if (modalLetterImage && modalLetterPreviewWrapper) {
-            // Get file from FilePond or regular input
+            // Get file from FilePond
             let file = null;
-            if (letterPond && letterPond.getFiles().length > 0) {
-                file = letterPond.getFiles()[0].file;
-            } else if (letterInput?.files?.length) {
-                file = letterInput.files[0];
+            if (pond && pond.getFiles().length > 0) {
+                file = pond.getFiles()[0].file;
             }
             
             if (file) {
@@ -258,10 +285,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         } else if (modalLetterName) {
-            if (letterPond && letterPond.getFiles().length > 0) {
-                modalLetterName.textContent = letterPond.getFiles()[0].file.name || 'Letter uploaded';
-            } else if (letterInput?.files?.length) {
-                modalLetterName.textContent = letterInput.files[0].name;
+            if (pond && pond.getFiles().length > 0) {
+                const file = pond.getFiles()[0].file;
+                modalLetterName.textContent = file?.name || 'Letter uploaded';
             } else {
                 modalLetterName.textContent = 'No letter uploaded.';
             }
@@ -293,25 +319,28 @@ document.addEventListener('DOMContentLoaded', () => {
         step3BackBtn.addEventListener('click', () => goToStep(1));
     }
 
-    // Initialize FilePond for letter input if FilePond is available
-    if (letterInput && typeof FilePond !== 'undefined') {
-        // Wait for FilePond to be initialized
-        setTimeout(() => {
-            const pondElement = letterInput.parentElement?.querySelector('.filepond--root');
-            if (pondElement) {
-                letterPond = FilePond.find(pondElement);
-                if (letterPond) {
-                    letterPond.on('addfile', () => {
-                        updateSummary();
-                    });
-                    letterPond.on('removefile', () => {
-                        updateSummary();
-                    });
-                }
-            }
-        }, 500);
-    } else if (letterInput) {
-        letterInput.addEventListener('change', updateSummary);
+    // Initialize FilePond for letter input
+    // FilePond is initialized in item-filepond.js, so we just need to hook into it
+    const initializeLetterPond = () => {
+        const pond = getLetterPond();
+        if (pond) {
+            letterPond = pond;
+            // Listen for file changes
+            pond.on('addfile', () => {
+                updateSummary();
+            });
+            pond.on('removefile', () => {
+                updateSummary();
+            });
+        } else if (window.FilePond || typeof FilePond !== 'undefined') {
+            // Retry after a short delay if not found yet
+            setTimeout(initializeLetterPond, 100);
+        }
+    };
+    
+    if (letterInput) {
+        // Try to initialize immediately
+        initializeLetterPond();
     }
 
     if (openConfirmModalBtn) {
@@ -327,13 +356,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             
-            // Check for file in FilePond or regular input
-            let hasFile = false;
-            if (letterPond && letterPond.getFiles().length > 0) {
-                hasFile = true;
-            } else if (letterInput?.files?.length) {
-                hasFile = true;
-            }
+            // Check for file in FilePond
+            const pond = getLetterPond();
+            const hasFile = pond && pond.getFiles().length > 0;
             
             if (!hasFile) {
                 alert('Please upload your letter before submitting.');
@@ -348,6 +373,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (confirmBorrowRequestBtn) {
         confirmBorrowRequestBtn.addEventListener('click', () => {
+            // FilePond with instantUpload: false automatically syncs files to the input
+            // element when the form is submitted, so no special handling needed here
             confirmBorrowRequestBtn.disabled = true;
             confirmBorrowRequestBtn.classList.add('opacity-60', 'cursor-not-allowed');
             try {
@@ -396,9 +423,7 @@ document.addEventListener('DOMContentLoaded', () => {
         purposeInput.addEventListener('input', updateSummary);
     }
 
-    if (letterInput) {
-        letterInput.addEventListener('change', updateSummary);
-    }
+    // FilePond file changes are handled in initializeLetterPond
 
     updateStep1NextState();
     updateSummary();

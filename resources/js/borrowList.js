@@ -681,33 +681,5 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     }
 
-    // Letter preview in confirm modal
-    const letterInput = document.getElementById('support_letter');
-    const previewImg = document.getElementById('modalLetterImage');
-    const previewName = document.getElementById('modalLetterName');
-    const updateLetterPreview = () => {
-        if (!letterInput || !letterInput.files || letterInput.files.length === 0) {
-            if (previewImg) { previewImg.src = ''; previewImg.classList.add('hidden'); }
-            if (previewName) { previewName.textContent = '—'; previewName.classList.remove('hidden'); }
-            return;
-        }
-        const file = letterInput.files[0];
-        if (file && file.type && file.type.startsWith('image/')) {
-            const url = URL.createObjectURL(file);
-            if (previewImg) {
-                previewImg.src = url;
-                previewImg.classList.remove('hidden');
-            }
-            if (previewName) {
-                previewName.textContent = '';
-                previewName.classList.add('hidden');
-            }
-        } else {
-            if (previewImg) { previewImg.src = ''; previewImg.classList.add('hidden'); }
-            if (previewName) { previewName.textContent = file ? file.name : '—'; previewName.classList.remove('hidden'); }
-        }
-    };
-    if (letterInput) {
-        letterInput.addEventListener('change', updateLetterPreview);
-    }
+    // Letter preview is now handled by borrow-list-wizard.js using FilePond
 });
