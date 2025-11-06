@@ -191,10 +191,58 @@ class BorrowRequestController extends Controller
                 }
             }
 
-            // NOTE: Allocation of item instances and decrementing item.available_qty
-            // has been intentionally removed from updateStatus. Accepting (approved)
-            // will only change the request status. Actual allocation and stock
-            // deduction happen during dispatch() (Deliver Items).
+
+            if ($old !== 'approved' && $new === 'approved') {
+                foreach ($borrowRequest->items as $reqItem) {
+                    $item = $reqItem->item;
+                    if (! $item) {
+                        DB::rollBack();
+                        return response()->json(['message' => 'Item not found for a request row.'], 422);
+                    }
+
+                    $needed = (int) $reqItem->quantity;
+
+                    $availableInstances = \App\Models\ItemInstance::where('item_id', $item->id)
+                        ->where('status', 'available')
+                        ->lockForUpdate()
+                        ->limit($needed)
+                        ->get();
+
+                    $availableCount = $availableInstances->count();
+
+                    if ($availableCount < $needed) {
+                        DB::rollBack();
+                        $shortfall = max(0, $needed - $availableCount);
+                        $message = $availableCount > 0
+                            ? "Only {$availableCount} of {$item->name} available right now (needed {$needed})."
+                            : "No available instances for {$item->name}.";
+
+                        return response()->json([
+                            'message' => $message,
+                            'available_instances' => $availableCount,
+                            'requested_quantity' => $needed,
+                            'shortfall' => $shortfall,
+                        ], 422);
+                    }
+
+                    foreach ($availableInstances as $inst) {
+                        $inst->status = 'borrowed';
+                        $inst->save();
+
+                        BorrowItemInstance::create([
+                            'borrow_request_id' => $borrowRequest->id,
+                            'item_id'           => $item->id,
+                            'item_instance_id'  => $inst->id,
+                            'checked_out_at'    => now(),
+                            'expected_return_at'=> $borrowRequest->return_date,
+                            'return_condition'  => 'pending',
+                        ]);
+                    }
+
+                    $item->available_qty = max(0, (int) $item->available_qty - $needed);
+                    $item->save();
+                }
+            }
 
             if ($old === 'approved' && $new !== 'approved') {
                 $allocRows = \App\Models\BorrowItemInstance::where('borrow_request_id', $borrowRequest->id)
