@@ -258,17 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const files = pondInstance.getFiles();
                 if (files && Array.isArray(files) && files.length > 0) {
-                    // FilePond file object structure: { file: File, ... }
-                    const fileItem = files[0];
-                    // Check if it's a File object directly or has a .file property
-                    if (fileItem instanceof File) {
-                        return fileItem;
-                    } else if (fileItem.file instanceof File) {
-                        return fileItem.file;
-                    } else if (fileItem.file) {
-                        // FilePond might return a file-like object
-                        return fileItem.file;
-                    }
+                    return files[0].file || files[0]; // FilePond file object has .file property
                 }
             } catch (e) {
                 // Continue to fallback
@@ -325,33 +315,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const modalLetterImage = document.getElementById('modalLetterImage');
         const modalLetterPreviewWrapper = document.getElementById('modalLetterPreviewWrapper');
-        let file = getUploadedFile();
-        
-        // If file not found via helper, try directly from FilePond instance
-        if (!file) {
-            const pondInstance = getFilePondInstance();
-            if (pondInstance && typeof pondInstance.getFiles === 'function') {
-                try {
-                    const pondFiles = pondInstance.getFiles();
-                    if (pondFiles && pondFiles.length > 0) {
-                        const fileItem = pondFiles[0];
-                        // FilePond file item structure: { file: File, filename: string, ... }
-                        if (fileItem.file instanceof File) {
-                            file = fileItem.file;
-                        } else if (fileItem instanceof File) {
-                            file = fileItem;
-                        }
-                    }
-                } catch (e) {
-                    console.error('Error getting file from FilePond:', e);
-                }
-            }
-        }
+        const file = getUploadedFile();
         
         if (modalLetterImage && modalLetterPreviewWrapper) {
             if (file) {
                 if (file.type && file.type.startsWith('image/')) {
-                    // Create object URL for image preview
                     const url = URL.createObjectURL(file);
                     modalLetterImage.src = url;
                     modalLetterImage.classList.remove('hidden');
@@ -359,7 +327,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         modalLetterName.classList.add('hidden');
                     }
                 } else {
-                    // For PDF or other non-image files
                     modalLetterImage.classList.add('hidden');
                     if (modalLetterName) {
                         modalLetterName.textContent = file.name || 'Letter uploaded';
@@ -468,44 +435,13 @@ document.addEventListener('DOMContentLoaded', () => {
         confirmBorrowRequestBtn.addEventListener('click', () => {
             confirmBorrowRequestBtn.disabled = true;
             confirmBorrowRequestBtn.classList.add('opacity-60', 'cursor-not-allowed');
-            
             try {
-                // Get FilePond instance and sync files to the original input
-                const pondInstance = getFilePondInstance();
-                
-                if (pondInstance && typeof pondInstance.getFiles === 'function') {
-                    const files = pondInstance.getFiles();
-                    if (files && files.length > 0 && letterInput) {
-                        // Get the actual file from FilePond
-                        const fileItem = files[0];
-                        let fileToUpload = null;
-                        
-                        if (fileItem instanceof File) {
-                            fileToUpload = fileItem;
-                        } else if (fileItem.file instanceof File) {
-                            fileToUpload = fileItem.file;
-                        } else if (fileItem.file) {
-                            fileToUpload = fileItem.file;
-                        }
-                        
-                        if (fileToUpload) {
-                            // Sync FilePond file to the original input element
-                            // Use DataTransfer to create a FileList
-                            const dataTransfer = new DataTransfer();
-                            dataTransfer.items.add(fileToUpload);
-                            letterInput.files = dataTransfer.files;
-                        }
-                    }
-                }
-                
-                // Submit the form normally (FilePond file is now synced to input)
                 form.submit();
-                
-            } catch (error) {
-                console.error('Error submitting form:', error);
-                alert('An error occurred while submitting the form. Please try again.');
-                confirmBorrowRequestBtn.disabled = false;
-                confirmBorrowRequestBtn.classList.remove('opacity-60', 'cursor-not-allowed');
+            } finally {
+                setTimeout(() => {
+                    confirmBorrowRequestBtn.disabled = false;
+                    confirmBorrowRequestBtn.classList.remove('opacity-60', 'cursor-not-allowed');
+                }, 1500);
             }
         });
     }
