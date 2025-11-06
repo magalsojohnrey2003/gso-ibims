@@ -371,52 +371,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Intercept form submission to ensure FilePond file is included
-    if (form) {
-        form.addEventListener('submit', (e) => {
-            const pond = getLetterPond();
-            
-            // Ensure FilePond file is attached to the input before submission
-            if (pond && pond.getFiles().length > 0) {
-                const fileItem = pond.getFiles()[0];
-                const file = fileItem.file;
-                
-                // FilePond hides the original input but keeps it in the DOM
-                // We need to find the actual input element (it might be hidden)
-                let actualInput = letterInput;
-                
-                // If the input was replaced by FilePond, try to find it
-                // FilePond keeps the original input in a hidden state
-                if (!actualInput || actualInput.type !== 'file') {
-                    // Try to find the input by name or ID
-                    actualInput = form.querySelector('input[name="support_letter"]') || 
-                                  form.querySelector('input#support_letter');
-                }
-                
-                if (actualInput && file && file instanceof File) {
-                    try {
-                        // Create a DataTransfer object to set the file
-                        const dataTransfer = new DataTransfer();
-                        dataTransfer.items.add(file);
-                        
-                        // Set the files on the input element
-                        // This ensures the file is included in FormData
-                        actualInput.files = dataTransfer.files;
-                        
-                        // Verify the file was set
-                        if (actualInput.files.length === 0) {
-                            console.warn('FilePond file was not set on input element');
-                        }
-                    } catch (error) {
-                        console.error('Error setting FilePond file on input:', error);
-                    }
-                }
-            }
-        });
-    }
-    
     if (confirmBorrowRequestBtn) {
         confirmBorrowRequestBtn.addEventListener('click', () => {
+            // FilePond with instantUpload: false automatically syncs files to the input
+            // element when the form is submitted, so no special handling needed here
             confirmBorrowRequestBtn.disabled = true;
             confirmBorrowRequestBtn.classList.add('opacity-60', 'cursor-not-allowed');
             try {
