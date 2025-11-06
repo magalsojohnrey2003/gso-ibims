@@ -372,10 +372,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (confirmBorrowRequestBtn) {
-        confirmBorrowRequestBtn.addEventListener('click', () => {
-            // Get FilePond instance and ensure files are synced to the input element
-            // FilePond with instantUpload: false doesn't automatically sync files when
-            // form.submit() is called programmatically, so we need to manually sync them
+        confirmBorrowRequestBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            
+            // Get FilePond instance and check for uploaded file
             const pond = getLetterPond();
             const hasFileInPond = pond && pond.getFiles().length > 0;
             
@@ -384,33 +384,72 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             
-            // Sync the file from FilePond to the input element
-            if (letterInput && hasFileInPond) {
-                const files = pond.getFiles();
-                if (files.length > 0) {
-                    const file = files[0].file;
-                    // Create a new FileList using DataTransfer API and set it on the input
-                    const dataTransfer = new DataTransfer();
-                    dataTransfer.items.add(file);
-                    letterInput.files = dataTransfer.files;
-                }
-            }
-            
             confirmBorrowRequestBtn.disabled = true;
             confirmBorrowRequestBtn.classList.add('opacity-60', 'cursor-not-allowed');
             
-            // Use requestSubmit() to trigger proper form validation and submit event
-            // This ensures FilePond and other form handlers can process the submission
             try {
-                form.requestSubmit();
+                // Build FormData manually to ensure FilePond file is included
+                const formData = new FormData(form);
+                
+                // Get the file from FilePond and add it to FormData
+                // This ensures the file is included even if FilePond hasn't synced to the input
+                const files = pond.getFiles();
+                if (files.length > 0) {
+                    const file = files[0].file;
+                    // Remove any existing support_letter entry and add the actual file
+                    formData.delete('support_letter');
+                    formData.append('support_letter', file, file.name);
+                }
+                
+                // Submit the form using fetch to have full control
+                // Note: fetch will follow redirects automatically
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    redirect: 'follow', // Follow redirects
+                });
+                
+                // Get the final URL after redirects
+                const finalUrl = response.url || window.location.href;
+                const submitUrl = form.action;
+                
+                // Check if we're still on the submit page (validation error) or redirected (success)
+                // Success redirects to /user/borrow-items, error redirects back to /user/borrow-list/submit
+                if (finalUrl.includes('/borrow-list/submit')) {
+                    // Still on submit page - validation error occurred
+                    try {
+                        const text = await response.text();
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(text, 'text/html');
+                        
+                        // Look for error messages in the response
+                        const errorElement = doc.querySelector('.alert-error, .text-red-600, [role="alert"], .error, x-alert[type="error"]');
+                        if (errorElement) {
+                            const errorText = errorElement.textContent || errorElement.innerText || 'Please check your form and try again.';
+                            alert(errorText);
+                        } else {
+                            alert('Please check your form and try again.');
+                        }
+                    } catch (e) {
+                        // If we can't parse the response, just show generic error
+                        alert('Please check your form and try again.');
+                    }
+                    // Reload to show errors on page
+                    window.location.reload();
+                } else {
+                    // Redirected to success page (borrow-items) - success!
+                    // Follow the redirect
+                    window.location.href = finalUrl;
+                }
             } catch (error) {
-                // Fallback to submit() if requestSubmit() is not supported (older browsers)
-                form.submit();
+                console.error('Form submission error:', error);
+                alert('An error occurred while submitting your request. Please try again.');
             } finally {
-                setTimeout(() => {
-                    confirmBorrowRequestBtn.disabled = false;
-                    confirmBorrowRequestBtn.classList.remove('opacity-60', 'cursor-not-allowed');
-                }, 1500);
+                confirmBorrowRequestBtn.disabled = false;
+                confirmBorrowRequestBtn.classList.remove('opacity-60', 'cursor-not-allowed');
             }
         });
     }
