@@ -115,6 +115,11 @@ class BorrowRequestController extends Controller
                 $subject = is_string($inputRejectSubject) ? trim($inputRejectSubject) : '';
                 $detail = is_string($inputRejectDetail) ? trim($inputRejectDetail) : '';
 
+                if ($resolvedTemplate) {
+                    $subject = $resolvedTemplate->subject;
+                    $detail = $resolvedTemplate->detail;
+                }
+
                 if ($subject === '' || $detail === '') {
                     DB::rollBack();
                     return response()->json([
@@ -186,61 +191,59 @@ class BorrowRequestController extends Controller
                 }
             }
 
-            // Remove stock deduction and instance status update on "approved" status here
-            // Only change status and save, do not deduct stock or allocate instances
+
             if ($old !== 'approved' && $new === 'approved') {
-                // Just update status without stock changes
-                $borrowRequest->status = $new;
-                $borrowRequest->save();
-
-                DB::commit();
-
-                // Fire event and send notification after commit
-                event(new BorrowRequestStatusUpdated($borrowRequest, $old, $new));
-
-                try {
-                    $user = $borrowRequest->user;
-                    if ($user) {
-                        $items = $borrowRequest->items->map(function($it) {
-                            return [
-                                'id' => $it->item->id ?? null,
-                                'name' => $it->item->name ?? '',
-                                'quantity' => $it->quantity,
-                                'assigned_manpower' => $it->assigned_manpower ?? 0,
-                                'manpower_role' => $it->manpower_role ?? null,
-                                'manpower_notes' => $it->manpower_notes ?? null,
-                            ];
-                        })->toArray();
-
-                        $payload = [
-                            'type' => 'borrow_status_changed',
-                            'message' => "Your borrow request #{$borrowRequest->id} was changed to {$new}.",
-                            'borrow_request_id' => $borrowRequest->id,
-                            'old_status' => $old,
-                            'new_status' => $new,
-                            'items' => $items,
-                            'borrow_date' => $borrowRequest->borrow_date,
-                            'return_date' => $borrowRequest->return_date,
-                            'reason' => $notificationReason ?? $borrowRequest->reject_reason,
-                            'reject_category' => $borrowRequest->reject_category,
-                        ];
-
-                        $user->notify(new RequestNotification($payload));
+                foreach ($borrowRequest->items as $reqItem) {
+                    $item = $reqItem->item;
+                    if (! $item) {
+                        DB::rollBack();
+                        return response()->json(['message' => 'Item not found for a request row.'], 422);
                     }
-                } catch (\Throwable $e) {
-                    // Ignore notification errors
-                }
 
-                return response()->json([
-                    'message' => 'Request approved successfully.',
-                    'status'  => $borrowRequest->status,
-                    'rejection_reason_id' => $borrowRequest->rejection_reason_id,
-                    'reject_category' => $borrowRequest->reject_category,
-                    'reject_reason' => $borrowRequest->reject_reason,
-                ]);
+                    $needed = (int) $reqItem->quantity;
+
+                    $availableInstances = \App\Models\ItemInstance::where('item_id', $item->id)
+                        ->where('status', 'available')
+                        ->lockForUpdate()
+                        ->limit($needed)
+                        ->get();
+
+                    $availableCount = $availableInstances->count();
+
+                    if ($availableCount < $needed) {
+                        DB::rollBack();
+                        $shortfall = max(0, $needed - $availableCount);
+                        $message = $availableCount > 0
+                            ? "Only {$availableCount} of {$item->name} available right now (needed {$needed})."
+                            : "No available instances for {$item->name}.";
+
+                        return response()->json([
+                            'message' => $message,
+                            'available_instances' => $availableCount,
+                            'requested_quantity' => $needed,
+                            'shortfall' => $shortfall,
+                        ], 422);
+                    }
+
+                    foreach ($availableInstances as $inst) {
+                        $inst->status = 'borrowed';
+                        $inst->save();
+
+                        BorrowItemInstance::create([
+                            'borrow_request_id' => $borrowRequest->id,
+                            'item_id'           => $item->id,
+                            'item_instance_id'  => $inst->id,
+                            'checked_out_at'    => now(),
+                            'expected_return_at'=> $borrowRequest->return_date,
+                            'return_condition'  => 'pending',
+                        ]);
+                    }
+
+                    $item->available_qty = max(0, (int) $item->available_qty - $needed);
+                    $item->save();
+                }
             }
 
-            // Handle reverting from approved to other statuses (e.g. rejected or pending) with stock restore
             if ($old === 'approved' && $new !== 'approved') {
                 $allocRows = \App\Models\BorrowItemInstance::where('borrow_request_id', $borrowRequest->id)
                     ->whereNull('returned_at')
@@ -278,17 +281,13 @@ class BorrowRequestController extends Controller
                 }
             }
 
-            // If status is other than approved, just update status and save
-            if (!($old !== 'approved' && $new === 'approved') && !($old === 'approved' && $new !== 'approved')) {
-                $borrowRequest->status = $new;
-                $borrowRequest->save();
-            }
+            $borrowRequest->status = $new;
+            $borrowRequest->save();
 
             event(new BorrowRequestStatusUpdated($borrowRequest, $old, $new));
 
             DB::commit();
 
-            // Notify user for status changes other than handled above
             try {
                 $user = $borrowRequest->user;
                 if ($user) {
@@ -319,7 +318,6 @@ class BorrowRequestController extends Controller
                     $user->notify(new RequestNotification($payload));
                 }
             } catch (\Throwable $e) {
-                // Ignore notification errors
             }
 
             $statusMessages = [
