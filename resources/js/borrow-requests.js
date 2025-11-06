@@ -115,8 +115,12 @@ function createButtonFromTemplate(templateId, id) {
 
     if (action === 'view') {
         btn.addEventListener('click', (ev) => { ev.stopPropagation(); viewRequest(id); });
-    } else if (action === 'accept' || action === 'validate') {
+    } else if (action === 'validate') {
+        // Validate button opens Assign Manpower modal (for pending status)
         btn.addEventListener('click', (ev) => { ev.stopPropagation(); openAssignManpowerModal(id); });
+    } else if (action === 'accept') {
+        // Accept button manually approves (for validated status)
+        btn.addEventListener('click', (ev) => { ev.stopPropagation(); openConfirmModal(id, 'approved'); });
     } else if (action === 'reject') {
         btn.addEventListener('click', (ev) => { ev.stopPropagation(); openConfirmModal(id, 'rejected'); });
     } else if (['dispatch', 'deliver', 'deliver_items'].includes(action)) {
@@ -239,9 +243,18 @@ function renderBorrowRequests() {
         if (statusKey === 'pending') {
             wrapper.appendChild(createButtonFromTemplate('btn-validate-template', req.id));
             wrapper.appendChild(createButtonFromTemplate('btn-reject-template', req.id));
-        } else if (['validated', 'approved'].includes(statusKey)) {
+        } else if (statusKey === 'validated') {
+            // Show Accept and Deliver Items buttons for validated status
+            wrapper.appendChild(createButtonFromTemplate('btn-accept-template', req.id));
             wrapper.appendChild(createButtonFromTemplate('btn-deliver-template', req.id));
-        } else if (deliveryKey === 'dispatched' || ['returned', 'rejected'].includes(statusKey)) {
+        } else if (statusKey === 'approved') {
+            // Show Deliver Items for approved status (if not yet dispatched)
+            if (deliveryKey !== 'dispatched' && deliveryKey !== 'delivered') {
+                wrapper.appendChild(createButtonFromTemplate('btn-deliver-template', req.id));
+            } else {
+                wrapper.appendChild(createButtonFromTemplate('btn-view-template', req.id));
+            }
+        } else if (deliveryKey === 'dispatched' || deliveryKey === 'delivered' || ['returned', 'rejected'].includes(statusKey)) {
             wrapper.appendChild(createButtonFromTemplate('btn-view-template', req.id));
         } else {
             wrapper.appendChild(createButtonFromTemplate('btn-view-template', req.id));
@@ -388,7 +401,8 @@ function openAssignManpowerModal(id) {
         if (req.letter_path.startsWith('http')) {
             letterUrl = req.letter_path;
         } else {
-            letterUrl = '/storage/' + req.letter_path.replace(/^storage\//, '');
+            // Remove leading 'storage/' if present, then prepend '/storage/'
+            letterUrl = '/storage/' + req.letter_path.replace(/^storage\//, '').replace(/^\//, '');
         }
     }
     
@@ -397,7 +411,7 @@ function openAssignManpowerModal(id) {
             // Check if it's an image (by URL extension or type)
             const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(letterUrl);
             if (isImage) {
-                letterPreview.src = letterUrl;
+                // Reset any previous error state
                 letterPreview.onerror = () => {
                     letterPreview.classList.add('hidden');
                     letterFallback.classList.remove('hidden');
@@ -407,6 +421,9 @@ function openAssignManpowerModal(id) {
                     letterPreview.classList.remove('hidden');
                     letterFallback.classList.add('hidden');
                 };
+                // Set src after setting up handlers
+                letterPreview.src = letterUrl;
+                // Show preview immediately, will hide on error if needed
                 letterPreview.classList.remove('hidden');
                 letterFallback.classList.add('hidden');
             } else {
@@ -522,6 +539,10 @@ function openConfirmModal(id, status) {
         title = 'Reject Request';
         message = 'Are you sure you want to reject this borrow request?';
         iconClass = 'fas fa-times-circle text-red-600';
+    } else if (action === 'approved') {
+        title = 'Approve Request';
+        message = 'Are you sure you want to approve this borrow request? This will mark it as approved and allow delivery.';
+        iconClass = 'fas fa-check-circle text-green-600';
     } else if (action === 'delivered') {
         title = 'Deliver Items';
         message = 'Confirm that the items have been delivered to the borrower.';
