@@ -340,9 +340,6 @@
     <template id="btn-deliver-template">
         <x-button variant="info" iconName="truck" class="px-2 py-1 text-xs" data-action="deliver">Deliver Items</x-button>
     </template>
-    <template id="btn-accept-template">
-        <x-button variant="success" iconName="check-circle" class="px-2 py-1 text-xs" data-action="accept">Accept</x-button>
-    </template>
 
     {{-- Alert templates --}}
     <template id="alert-success-template">

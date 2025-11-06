@@ -415,31 +415,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Get the final URL after redirects
                 const finalUrl = response.url || window.location.href;
                 const submitUrl = form.action;
-                const currentOrigin = window.location.origin;
                 
                 // Check if we're still on the submit page (validation error) or redirected (success)
-                // Success redirects to /user/borrow-items, error redirects back to /user/borrow-list
-                const isStillOnSubmitPage = finalUrl.includes('/borrow-list/submit') || 
-                                            finalUrl.includes('/borrow-list') && !finalUrl.includes('/borrow-items');
-                
-                if (isStillOnSubmitPage) {
+                // Success redirects to /user/borrow-items, error redirects back to /user/borrow-list/submit
+                if (finalUrl.includes('/borrow-list/submit')) {
                     // Still on submit page - validation error occurred
                     try {
-                        // Try to read response text if available (might not be for redirects)
-                        const contentType = response.headers.get('content-type');
-                        if (contentType && contentType.includes('text/html')) {
-                            const text = await response.text();
-                            const parser = new DOMParser();
-                            const doc = parser.parseFromString(text, 'text/html');
-                            
-                            // Look for error messages in the response
-                            const errorElement = doc.querySelector('.alert-error, .text-red-600, [role="alert"], .error, x-alert[type="error"]');
-                            if (errorElement) {
-                                const errorText = errorElement.textContent || errorElement.innerText || 'Please check your form and try again.';
-                                alert(errorText);
-                            } else {
-                                alert('Please check your form and try again.');
-                            }
+                        const text = await response.text();
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(text, 'text/html');
+                        
+                        // Look for error messages in the response
+                        const errorElement = doc.querySelector('.alert-error, .text-red-600, [role="alert"], .error, x-alert[type="error"]');
+                        if (errorElement) {
+                            const errorText = errorElement.textContent || errorElement.innerText || 'Please check your form and try again.';
+                            alert(errorText);
                         } else {
                             alert('Please check your form and try again.');
                         }
@@ -451,13 +441,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     window.location.reload();
                 } else {
                     // Redirected to success page (borrow-items) - success!
-                    // The session will have the success message, so just navigate to show it
-                    // Construct full URL if needed
-                    let redirectUrl = finalUrl;
-                    if (!redirectUrl.startsWith('http')) {
-                        redirectUrl = currentOrigin + (redirectUrl.startsWith('/') ? redirectUrl : '/' + redirectUrl);
-                    }
-                    window.location.href = redirectUrl;
+                    // Follow the redirect
+                    window.location.href = finalUrl;
                 }
             } catch (error) {
                 console.error('Form submission error:', error);
