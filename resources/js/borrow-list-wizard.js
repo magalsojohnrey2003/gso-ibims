@@ -373,11 +373,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (confirmBorrowRequestBtn) {
         confirmBorrowRequestBtn.addEventListener('click', () => {
-            // FilePond with instantUpload: false automatically syncs files to the input
-            // element when the form is submitted, so no special handling needed here
+            // Get FilePond instance and ensure files are synced to the input element
+            // FilePond with instantUpload: false doesn't automatically sync files when
+            // form.submit() is called programmatically, so we need to manually sync them
+            const pond = getLetterPond();
+            const hasFileInPond = pond && pond.getFiles().length > 0;
+            
+            if (!hasFileInPond) {
+                alert('Please upload your signed letter before proceeding.');
+                return;
+            }
+            
+            // Sync the file from FilePond to the input element
+            if (letterInput && hasFileInPond) {
+                const files = pond.getFiles();
+                if (files.length > 0) {
+                    const file = files[0].file;
+                    // Create a new FileList using DataTransfer API and set it on the input
+                    const dataTransfer = new DataTransfer();
+                    dataTransfer.items.add(file);
+                    letterInput.files = dataTransfer.files;
+                }
+            }
+            
             confirmBorrowRequestBtn.disabled = true;
             confirmBorrowRequestBtn.classList.add('opacity-60', 'cursor-not-allowed');
+            
+            // Use requestSubmit() to trigger proper form validation and submit event
+            // This ensures FilePond and other form handlers can process the submission
             try {
+                form.requestSubmit();
+            } catch (error) {
+                // Fallback to submit() if requestSubmit() is not supported (older browsers)
                 form.submit();
             } finally {
                 setTimeout(() => {
