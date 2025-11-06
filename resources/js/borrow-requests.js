@@ -1423,8 +1423,7 @@ async function updateRequest(id, status, options = {}) {
             try {
                 // Handle 'delivered' status differently - call dispatch endpoint without reason
                 if (status === 'delivered') {
-                    // Call the dedicated deliver endpoint which performs allocation and marks delivered
-                    const res = await fetch(`/admin/borrow-requests/${encodeURIComponent(id)}/deliver`, {
+                    const res = await fetch(`/admin/borrow-requests/${encodeURIComponent(id)}/dispatch`, {
                         method: 'POST',
                         headers: {
                             'X-CSRF-TOKEN': CSRF_TOKEN,
@@ -1435,9 +1434,9 @@ async function updateRequest(id, status, options = {}) {
                     });
                     const payload = await res.json().catch(() => null);
                     if (!res.ok) {
-                        throw new Error(payload?.message || `Failed to deliver items (status ${res.status})`);
+                        throw new Error(payload?.message || `Failed to dispatch items (status ${res.status})`);
                     }
-                    showSuccess(payload?.message || 'Items delivered successfully.');
+                    showSuccess(payload?.message || 'Items dispatched and marked as delivered successfully.');
                     await loadBorrowRequests();
                     window.dispatchEvent(new CustomEvent('close-modal', { detail: 'confirmActionModal' }));
                 } else {
@@ -1499,7 +1498,7 @@ async function updateRequest(id, status, options = {}) {
                     body.delivery_reason_explanation = explanation;
                 }
 
-                    const res = await fetch(`/admin/borrow-requests/${encodeURIComponent(id)}/deliver`, {
+                    const res = await fetch(`/admin/borrow-requests/${encodeURIComponent(id)}/dispatch`, {
                         method: 'POST',
                         headers: {
                             'X-CSRF-TOKEN': CSRF_TOKEN,

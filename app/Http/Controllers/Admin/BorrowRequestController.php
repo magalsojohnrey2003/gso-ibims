@@ -192,12 +192,57 @@ class BorrowRequestController extends Controller
             }
 
 
-            // NOTE: allocation of physical item instances must only happen when items are
-            // actually delivered. Earlier implementations allocated on approval which
-            // caused available stock to be reduced when admin clicked "Accept".
-            // We intentionally do NOT allocate here. Allocation now happens in the
-            // dedicated `deliver` action which is called when the admin confirms
-            // delivery (see `deliver()` method and front-end `deliver` calls).
+            if ($old !== 'approved' && $new === 'approved') {
+                foreach ($borrowRequest->items as $reqItem) {
+                    $item = $reqItem->item;
+                    if (! $item) {
+                        DB::rollBack();
+                        return response()->json(['message' => 'Item not found for a request row.'], 422);
+                    }
+
+                    $needed = (int) $reqItem->quantity;
+
+                    $availableInstances = \App\Models\ItemInstance::where('item_id', $item->id)
+                        ->where('status', 'available')
+                        ->lockForUpdate()
+                        ->limit($needed)
+                        ->get();
+
+                    $availableCount = $availableInstances->count();
+
+                    if ($availableCount < $needed) {
+                        DB::rollBack();
+                        $shortfall = max(0, $needed - $availableCount);
+                        $message = $availableCount > 0
+                            ? "Only {$availableCount} of {$item->name} available right now (needed {$needed})."
+                            : "No available instances for {$item->name}.";
+
+                        return response()->json([
+                            'message' => $message,
+                            'available_instances' => $availableCount,
+                            'requested_quantity' => $needed,
+                            'shortfall' => $shortfall,
+                        ], 422);
+                    }
+
+                    foreach ($availableInstances as $inst) {
+                        $inst->status = 'borrowed';
+                        $inst->save();
+
+                        BorrowItemInstance::create([
+                            'borrow_request_id' => $borrowRequest->id,
+                            'item_id'           => $item->id,
+                            'item_instance_id'  => $inst->id,
+                            'checked_out_at'    => now(),
+                            'expected_return_at'=> $borrowRequest->return_date,
+                            'return_condition'  => 'pending',
+                        ]);
+                    }
+
+                    $item->available_qty = max(0, (int) $item->available_qty - $needed);
+                    $item->save();
+                }
+            }
 
             if ($old === 'approved' && $new !== 'approved') {
                 $allocRows = \App\Models\BorrowItemInstance::where('borrow_request_id', $borrowRequest->id)
@@ -506,86 +551,6 @@ class BorrowRequestController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
             return response()->json(['message' => 'Failed to dispatch items. Please try again.', 'error' => $e->getMessage()], 500);
-        }
-    }
-
-    /**
-     * Deliver items: perform allocation (create BorrowItemInstance rows, mark instances borrowed)
-     * and mark the request as delivered. This endpoint is intended to be called when the
-     * admin confirms delivery (the actual physical handover).
-     */
-    public function deliver(Request $request, BorrowRequest $borrowRequest)
-    {
-        // Validate delivery reason if provided
-        $data = $request->validate([
-            'delivery_reason_type' => 'nullable|in:missing,damaged,others',
-            'delivery_reason_subject' => 'nullable|string|max:255|required_if:delivery_reason_type,others',
-            'delivery_reason_explanation' => 'nullable|string|required_if:delivery_reason_type,others',
-        ]);
-
-        DB::beginTransaction();
-        try {
-            $borrowRequest->load('items.item');
-
-            if ($borrowRequest->delivery_status === 'delivered') {
-                return response()->json(['message' => 'Already delivered.'], 200);
-            }
-
-            // Only allow delivery when request is approved (admin accepted)
-            $statusKey = strtolower((string) $borrowRequest->status);
-            if ($statusKey !== 'approved' && $statusKey !== 'qr_verified') {
-                return response()->json(['message' => 'Only approved requests can be marked delivered.'], 422);
-            }
-
-            // Attempt to allocate item instances (this will throw if insufficient)
-            try {
-                $this->allocateInstancesForBorrowRequest($borrowRequest);
-            } catch (\RuntimeException $re) {
-                DB::rollBack();
-                return response()->json(['message' => $re->getMessage()], 422);
-            }
-
-            // mark delivered
-            $borrowRequest->delivery_status = 'delivered';
-            $borrowRequest->delivered_at = now();
-            // keep status as approved
-            $borrowRequest->save();
-
-            // store delivery reason if provided
-            if (!empty($data['delivery_reason_type'])) {
-                $borrowRequest->delivery_reason_type = $data['delivery_reason_type'];
-                if ($data['delivery_reason_type'] === 'others') {
-                    $borrowRequest->delivery_reason_details = json_encode([
-                        'subject' => $data['delivery_reason_subject'] ?? '',
-                        'explanation' => $data['delivery_reason_explanation'] ?? '',
-                    ]);
-                } else {
-                    $borrowRequest->delivery_reason_details = null;
-                }
-                $borrowRequest->save();
-            }
-
-            // notify user
-            $user = $borrowRequest->user;
-            if ($user) {
-                $payload = [
-                    'type' => 'borrow_delivered',
-                    'message' => "Your borrow request #{$borrowRequest->id} has been delivered.",
-                    'borrow_request_id' => $borrowRequest->id,
-                    'user_id' => $user->id,
-                    'user_name' => trim($user->first_name . ' ' . ($user->last_name ?? '')),
-                    'borrow_date' => (string) $borrowRequest->borrow_date,
-                    'return_date' => (string) $borrowRequest->return_date,
-                    'delivered_at' => $borrowRequest->delivered_at ? $borrowRequest->delivered_at->toDateTimeString() : null,
-                ];
-                $user->notify(new RequestNotification($payload));
-            }
-
-            DB::commit();
-            return response()->json(['message' => 'Items delivered successfully.']);
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            return response()->json(['message' => 'Failed to deliver items. Please try again.', 'error' => $e->getMessage()], 500);
         }
     }
 
