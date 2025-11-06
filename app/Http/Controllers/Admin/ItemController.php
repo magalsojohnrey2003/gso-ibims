@@ -664,8 +664,9 @@ public function store(Request $request, PropertyNumberService $numbers)
         } else {
             // no instances to create
             // Set total_qty to entered quantity even if no instances are created
+            // For new items without instances, all quantity should be available
             $item->total_qty = $quantity;
-            $item->available_qty = 0;
+            $item->available_qty = $quantity;
             $item->save();
         }
 
