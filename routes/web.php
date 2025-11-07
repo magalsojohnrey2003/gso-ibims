@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\BorrowRequestController;
 use App\Http\Controllers\Admin\ReturnItemsController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\RejectionReasonController;
+use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\User\BorrowItemsController;
 use App\Http\Controllers\User\MyBorrowedItemsController;
 use App\Http\Controllers\User\LocationController;
@@ -108,6 +109,10 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
             Route::get('{rejectionReason}', [RejectionReasonController::class, 'show'])->name('show');
             Route::delete('{rejectionReason}', [RejectionReasonController::class, 'destroy'])->name('destroy');
         });
+
+        // User Management (admin)
+        // Provides listing, creating, updating (including password/email changes), and deleting users.
+        Route::resource('users', UserController::class)->names('admin.users');
 
         // Return Items
         Route::get('return-items', [ReturnItemsController::class, 'index'])->name('admin.return-items.index');

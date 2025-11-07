@@ -61,6 +61,19 @@
                 </a>
             </li>
 
+            {{-- Manage Users --}}
+            <li role="none">
+                <a href="{{ route('admin.users.index') }}"
+                   title="Manage Users"
+                   role="menuitem"
+                   @if(request()->routeIs('admin.users.*')) aria-current="page" @endif
+                   class="flex items-center px-4 py-3 rounded-md gov-hover transition-colors duration-150 group focus:outline-none focus:ring-2 focus:ring-offset-1
+                          {{ request()->routeIs('admin.users.*') ? 'gov-active' : '' }}">
+                    <i class="fas fa-users-cog mr-3 sidebar-icon" aria-hidden="true"></i>
+                    <span class="sidebar-text">Manage Users</span>
+                </a>
+            </li>
+
             {{-- Reports --}}
             <li role="none">
                 <a href="{{ route('reports.index') }}"
