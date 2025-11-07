@@ -6,6 +6,7 @@ use App\Models\BorrowRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 use App\Events\BorrowRequestStatusUpdated;
 use App\Notifications\RequestNotification;
 use App\Models\BorrowItemInstance;
@@ -338,6 +339,15 @@ class BorrowRequestController extends Controller
             return response()->json($response);
         } catch (\Throwable $e) {
             DB::rollBack();
+            // Log full exception so we can see stack trace in storage/logs/laravel.log
+            Log::error('Failed to update borrow request status', [
+                'borrow_request_id' => $borrowRequest->id ?? null,
+                'old_status' => $old ?? null,
+                'new_status' => $new ?? null,
+                'exception' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
             return response()->json([
                 'message' => 'Failed to update request status. Please try again.',
                 'error'   => $e->getMessage(),
