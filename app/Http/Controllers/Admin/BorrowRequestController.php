@@ -12,6 +12,7 @@ use App\Models\BorrowItemInstance;
 use App\Models\BorrowRequestItem;
 use App\Services\BorrowRequestFormPdf;
 use App\Models\RejectionReason;
+use Illuminate\Support\Facades\Log;
 
 class BorrowRequestController extends Controller
 {
@@ -193,12 +194,28 @@ class BorrowRequestController extends Controller
 
 
             if ($old !== 'approved' && $new === 'approved') {
+                Log::info('Processing approval status change', [
+                    'borrow_request_id' => $borrowRequest->id,
+                    'old_status' => $old,
+                    'new_status' => $new
+                ]);
+                
                 foreach ($borrowRequest->items as $reqItem) {
                     $item = $reqItem->item;
                     if (! $item) {
+                        Log::error('Item not found during approval', [
+                            'borrow_request_id' => $borrowRequest->id,
+                            'request_item_id' => $reqItem->id
+                        ]);
                         DB::rollBack();
                         return response()->json(['message' => 'Item not found for a request row.'], 422);
                     }
+                    
+                    Log::info('Processing item for approval', [
+                        'item_id' => $item->id,
+                        'item_name' => $item->name,
+                        'current_available_qty' => $item->available_qty
+                    ]);
 
                     $needed = (int) $reqItem->quantity;
 
@@ -405,12 +422,23 @@ class BorrowRequestController extends Controller
 
     protected function allocateInstancesForBorrowRequest(BorrowRequest $borrowRequest): void
     {
+        Log::info('Starting allocation for borrow request', [
+            'borrow_request_id' => $borrowRequest->id,
+            'status' => $borrowRequest->status
+        ]);
+        
         // Assumes $borrowRequest->load('items.item') has been called by caller if needed.
         foreach ($borrowRequest->items as $requestItem) {
             $item = $requestItem->item;
             if (!$item) {
                 continue;
             }
+            
+            Log::info('Processing item for allocation', [
+                'item_id' => $item->id,
+                'item_name' => $item->name,
+                'current_available_qty' => $item->available_qty
+            ]);
 
             $needed = $requestItem->quantity;
             $instances = $item->instances()
@@ -557,7 +585,17 @@ class BorrowRequestController extends Controller
 
     public function markDelivered(Request $request, BorrowRequest $borrowRequest)
     {
+        Log::info('Starting markDelivered process', [
+            'borrow_request_id' => $borrowRequest->id,
+            'current_status' => $borrowRequest->status,
+            'current_delivery_status' => $borrowRequest->delivery_status
+        ]);
+
         if ($borrowRequest->delivery_status !== 'dispatched') {
+            Log::warning('Attempted to mark non-dispatched request as delivered', [
+                'borrow_request_id' => $borrowRequest->id,
+                'current_delivery_status' => $borrowRequest->delivery_status
+            ]);
             return response()->json(['message' => 'Only dispatched items can be marked as delivered.'], 422);
         }
 
@@ -588,9 +626,24 @@ class BorrowRequestController extends Controller
                         }
                     });
 
+                // Log before deducting quantity
+                Log::info('About to deduct stock on delivery', [
+                    'item_id' => $item->id,
+                    'item_name' => $item->name,
+                    'current_qty' => $item->available_qty,
+                    'deduct_amount' => $needed,
+                    'new_qty' => max(0, (int) $item->available_qty - $needed)
+                ]);
+
                 // Now deduct from available quantity
                 $item->available_qty = max(0, (int) $item->available_qty - $needed);
                 $item->save();
+
+                Log::info('Stock deducted on delivery', [
+                    'item_id' => $item->id,
+                    'item_name' => $item->name,
+                    'new_qty' => $item->available_qty
+                ]);
             }
 
             $borrowRequest->delivery_status = 'delivered';
