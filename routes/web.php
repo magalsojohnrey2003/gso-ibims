@@ -33,6 +33,9 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
+    // Legacy / convenience dashboard route used by tests and some auth flows
+    Route::get('/dashboard', [UserDashboardController::class, 'index'])->name('dashboard');
+
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::get('/notifications/list', [NotificationController::class, 'list'])->name('notifications.list');
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
@@ -93,6 +96,10 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
         // Dispatch action
         Route::post('borrow-requests/{borrowRequest}/dispatch', [BorrowRequestController::class, 'dispatch'])
             ->name('admin.borrow.requests.dispatch');
+            
+        // Mark items as delivered
+        Route::post('borrow-requests/{borrowRequest}/deliver', [BorrowRequestController::class, 'markDelivered'])
+            ->name('admin.borrow.requests.deliver');
 
         // Rejection Reasons
         Route::prefix('rejection-reasons')->name('admin.rejection-reasons.')->group(function () {

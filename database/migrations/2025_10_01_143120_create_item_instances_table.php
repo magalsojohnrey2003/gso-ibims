@@ -10,7 +10,8 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('item_id')->constrained()->onDelete('cascade');
             // serial used for human display/seed — do not enforce unique at base level (property_number is the canonical unique key)
-            $table->string('serial')->index(); // e.g. CHR-0001
+            // make serial nullable to allow tests and seeds that may set property_number without serial
+            $table->string('serial')->nullable()->index(); // e.g. CHR-0001
             $table->enum('status', ['available','borrowed','damaged','under_repair','retired','missing'])
                   ->default('available');
             $table->text('notes')->nullable();

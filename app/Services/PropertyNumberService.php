@@ -16,25 +16,34 @@ class PropertyNumberService
         $normalized = preg_replace('/\s+/', '', $value);
         $parts = explode('-', $normalized);
 
-        // Expect five segments now: year-category-gla-serial-office
-        if (count($parts) !== 5 || in_array('', $parts, true)) {
-            throw new InvalidArgumentException('Property numbers must contain five non-empty segments (year-category-gla-serial-office).');
+        // Support both 4-part and 5-part formats:
+        //  - 4-part: year-category-serial-office
+        //  - 5-part: year-category-gla-serial-office
+        if (! in_array(count($parts), [4, 5], true) || in_array('', $parts, true)) {
+            throw new InvalidArgumentException('Property numbers must contain either 4 or 5 non-empty segments (year-category-serial-office or year-category-gla-serial-office).');
         }
 
-        [$year, $categoryCode, $gla, $serial, $office] = $parts;
+        if (count($parts) === 4) {
+            [$year, $categoryCode, $serial, $office] = $parts;
+            $gla = null;
+        } else {
+            [$year, $categoryCode, $gla, $serial, $office] = $parts;
+        }
 
         if (! preg_match('/^\d{4}$/', $year)) {
             throw new InvalidArgumentException('Year segment must be four digits.');
         }
 
-        // Category: must be exactly 4 digits
-        if (! preg_match('/^\d{4}$/', $categoryCode)) {
-            throw new InvalidArgumentException('Category segment must be exactly 4 digits.');
+        // Category: allow 1-4 digits (legacy codes may be shorter like '05')
+        if (! preg_match('/^\d{1,4}$/', $categoryCode)) {
+            throw new InvalidArgumentException('Category segment must be 1 to 4 digits.');
         }
 
-        // GLA: must be 1-4 digits
-        if (! preg_match('/^\d{1,4}$/', $gla)) {
-            throw new InvalidArgumentException('GLA segment must be 1 to 4 digits.');
+        // GLA: if present must be 1-4 digits
+        if ($gla !== null && $gla !== '') {
+            if (! preg_match('/^\d{1,4}$/', $gla)) {
+                throw new InvalidArgumentException('GLA segment must be 1 to 4 digits when present.');
+            }
         }
 
         $serial = strtoupper($serial);
@@ -56,7 +65,7 @@ class PropertyNumberService
             throw new InvalidArgumentException('Office code segment must be exactly 4 digits.');
         }
 
-        $categoryDigits = substr($categoryCode, 0, 4);
+    $categoryDigits = preg_replace('/\D/', '', (string) $categoryCode);
         $officeDigits = substr($officeRaw, 0, 4);
 
         $assembled = $this->assemble([
@@ -83,7 +92,7 @@ class PropertyNumberService
     {
         $year = $components['year'] ?? $components['year_procured'] ?? null;
         $category = $components['category'] ?? $components['category_code'] ?? null;
-        $gla = isset($components['gla']) ? (string) $components['gla'] : null;
+    $gla = $components['gla'] ?? null;
         $serial = $components['serial'] ?? null;
         $office = $components['office'] ?? $components['office_code'] ?? null;
 
@@ -92,16 +101,15 @@ class PropertyNumberService
         }
 
         $categoryDigits = preg_replace('/\D/', '', (string) $category);
-        if (strlen($categoryDigits) !== 4) {
-            throw new InvalidArgumentException('Category segment must be exactly 4 digits.');
+        if ($categoryDigits === '' || strlen($categoryDigits) > 4) {
+            throw new InvalidArgumentException('Category segment must be 1 to 4 digits.');
         }
 
-        // GLA must be digits 1-4
-        if ($gla === null || $gla === '') {
-            throw new InvalidArgumentException('GLA segment cannot be empty.');
-        }
-        if (! preg_match('/^\d{1,4}$/', (string) $gla)) {
-            throw new InvalidArgumentException('GLA segment must be 1 to 4 digits.');
+        // GLA is optional (supports 4-part and 5-part formats). If present it must be digits 1-4.
+        if ($gla !== null && $gla !== '') {
+            if (! preg_match('/^\d{1,4}$/', (string) $gla)) {
+                throw new InvalidArgumentException('GLA segment must be 1 to 4 digits.');
+            }
         }
 
         if ($serial === null && isset($components['serial_int'])) {
@@ -121,6 +129,9 @@ class PropertyNumberService
             throw new InvalidArgumentException('Office code segment must be exactly 4 digits.');
         }
 
+        if ($gla === null || $gla === '') {
+            return sprintf('%s-%s-%s-%s', $year, $categoryDigits, $serial, $officeDigits);
+        }
         return sprintf('%s-%s-%s-%s-%s', $year, $categoryDigits, $gla, $serial, $officeDigits);
     }
 

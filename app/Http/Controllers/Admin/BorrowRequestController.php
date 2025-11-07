@@ -226,7 +226,7 @@ class BorrowRequestController extends Controller
                     }
 
                     foreach ($availableInstances as $inst) {
-                        $inst->status = 'borrowed';
+                        $inst->status = 'allocated';
                         $inst->save();
 
                         BorrowItemInstance::create([
@@ -238,9 +238,7 @@ class BorrowRequestController extends Controller
                             'return_condition'  => 'pending',
                         ]);
                     }
-
-                    $item->available_qty = max(0, (int) $item->available_qty - $needed);
-                    $item->save();
+                    // Stock deduction will happen on delivery
                 }
             }
 
@@ -405,35 +403,23 @@ class BorrowRequestController extends Controller
         ]);
     }
 
-    protected function allocateInstancesForBorrowRequest(BorrowRequest $borrowRequest)
+    protected function allocateInstancesForBorrowRequest(BorrowRequest $borrowRequest): void
     {
         // Assumes $borrowRequest->load('items.item') has been called by caller if needed.
-        foreach ($borrowRequest->items as $reqItem) {
-            $item = $reqItem->item;
-            if (! $item) {
-                throw new \RuntimeException("Item not found for request row (id: {$reqItem->id}).");
+        foreach ($borrowRequest->items as $requestItem) {
+            $item = $requestItem->item;
+            if (!$item) {
+                continue;
             }
 
-            $needed = (int) $reqItem->quantity;
-
-            $availableInstances = \App\Models\ItemInstance::where('item_id', $item->id)
+            $needed = $requestItem->quantity;
+            $instances = $item->instances()
                 ->where('status', 'available')
-                ->lockForUpdate()
-                ->limit($needed)
+                ->take($needed)
                 ->get();
 
-            $availableCount = $availableInstances->count();
-
-            if ($availableCount < $needed) {
-                $shortfall = max(0, $needed - $availableCount);
-                $message = $availableCount > 0
-                    ? "Only {$availableCount} of {$item->name} available right now (needed {$needed})."
-                    : "No available instances for {$item->name}.";
-                throw new \RuntimeException($message);
-            }
-
-            foreach ($availableInstances as $inst) {
-                $inst->status = 'borrowed';
+            foreach ($instances as $inst) {
+                $inst->status = 'allocated';  // Changed from 'borrowed' to 'allocated'
                 $inst->save();
 
                 BorrowItemInstance::create([
@@ -445,9 +431,7 @@ class BorrowRequestController extends Controller
                     'return_condition'  => 'pending',
                 ]);
             }
-
-            $item->available_qty = max(0, (int) $item->available_qty - $needed);
-            $item->save();
+            // Stock deduction happens on delivery, not allocation
         }
     }
 
@@ -569,5 +553,71 @@ class BorrowRequestController extends Controller
         }
 
         return null;
+    }
+
+    public function markDelivered(Request $request, BorrowRequest $borrowRequest)
+    {
+        if ($borrowRequest->delivery_status !== 'dispatched') {
+            return response()->json(['message' => 'Only dispatched items can be marked as delivered.'], 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            $borrowRequest->load('items.item', 'borrowedInstances.instance');
+
+            // Update statuses from 'allocated' to 'borrowed' and deduct stock
+            foreach ($borrowRequest->items as $requestItem) {
+                $item = $requestItem->item;
+                if (!$item) {
+                    continue;
+                }
+
+                $needed = $requestItem->quantity;
+
+                // Update the instances status
+                $borrowRequest->borrowedInstances()
+                    ->whereHas('instance', function ($query) {
+                        $query->where('status', 'allocated');
+                    })
+                    ->where('item_id', $item->id)
+                    ->get()
+                    ->each(function ($borrowInstance) {
+                        if ($borrowInstance->instance) {
+                            $borrowInstance->instance->status = 'borrowed';
+                            $borrowInstance->instance->save();
+                        }
+                    });
+
+                // Now deduct from available quantity
+                $item->available_qty = max(0, (int) $item->available_qty - $needed);
+                $item->save();
+            }
+
+            $borrowRequest->delivery_status = 'delivered';
+            $borrowRequest->delivered_at = now();
+            $borrowRequest->save();
+
+            // Notify the user
+            $user = $borrowRequest->user;
+            if ($user) {
+                $payload = [
+                    'type' => 'borrow_delivered',
+                    'message' => "Your borrow request #{$borrowRequest->id} has been delivered.",
+                    'borrow_request_id' => $borrowRequest->id,
+                    'user_id' => $user->id,
+                    'delivered_at' => $borrowRequest->delivered_at?->toDateTimeString(),
+                ];
+                $user->notify(new RequestNotification($payload));
+            }
+
+            DB::commit();
+            return response()->json(['message' => 'Items marked as delivered successfully.']);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Failed to mark items as delivered. Please try again.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }
