@@ -79,8 +79,8 @@
                   </x-button>
               </form>
           </div>
-          <div class="overflow-x-auto rounded-2xl shadow-lg">
-              <table class="w-full text-sm text-center text-gray-600 shadow-sm border rounded-lg overflow-hidden">
+          <div class="overflow-x-auto rounded-2xl shadow-lg table-wrapper">
+              <table class="w-full text-sm text-center text-gray-600 shadow-sm border rounded-lg overflow-hidden gov-table">
                   <thead class="bg-purple-600 text-white text-xs uppercase font-semibold text-center">
                       <tr>
                           <th class="px-6 py-3">Photo</th>

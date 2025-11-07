@@ -12,8 +12,8 @@
         <div id="userAlertContainer" class="fixed top-4 right-4 space-y-2 z-[9999]"></div>
 
         <!-- Table -->
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm text-center text-gray-600 shadow-sm border rounded-lg overflow-hidden">
+        <div class="overflow-x-auto table-wrapper">
+            <table class="w-full text-sm text-center text-gray-600 shadow-sm border rounded-lg overflow-hidden gov-table">
                 <thead class="bg-purple-600 text-white text-xs uppercase font-semibold">
                     <tr>
                         <th class="px-6 py-3">Request ID</th>

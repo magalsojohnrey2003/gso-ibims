@@ -100,7 +100,7 @@
 
         <div class="overflow-hidden rounded-xl border border-gray-200">
             <div class="max-h-72 overflow-auto">
-                <table class="min-w-full divide-y divide-gray-200 text-sm">
+                <table class="min-w-full divide-y divide-gray-200 text-sm gov-table">
                     <thead class="bg-gray-50 text-xs uppercase text-gray-500 sticky top-0 z-10">
                         <tr>
                             <th class="px-4 py-3 text-left font-semibold sticky left-0 bg-gray-50">Property Numbers</th>

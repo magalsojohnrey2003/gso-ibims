@@ -12,8 +12,8 @@
 
         <div id="alertContainer" class="fixed top-4 right-4 space-y-2 z-[9999]" aria-live="assertive"></div>
 
-        <div class="overflow-x-auto rounded-lg shadow">
-            <table class="w-full text-sm text-gray-600 shadow-sm border rounded-lg overflow-hidden">
+        <div class="overflow-x-auto rounded-lg shadow table-wrapper">
+            <table class="w-full text-sm text-gray-600 shadow-sm border rounded-lg overflow-hidden gov-table">
                 <thead class="bg-purple-600 text-white text-xs uppercase font-semibold">
                     <tr>
                         <th class="px-6 py-3 text-left">Borrower</th>
@@ -219,8 +219,8 @@
                 </div>
 
                 <div class="border border-gray-200 rounded-lg">
-                    <div class="max-h-64 overflow-y-auto">
-                        <table class="w-full text-sm text-gray-700">
+            <div class="max-h-64 overflow-y-auto table-wrapper">
+                <table class="w-full text-sm text-gray-700 gov-table">
                             <thead class="bg-gray-100 text-xs uppercase text-gray-600 sticky top-0 z-10">
                                 <tr>
                                     <th class="px-4 py-2 text-left w-12" id="manage-checkbox-header" style="display: none;">

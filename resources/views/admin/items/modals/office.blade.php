@@ -12,8 +12,8 @@
       <button id="office-add-btn" type="button" class="px-4 py-2 bg-yellow-600 text-white rounded sm:w-auto">Save</button>
     </form>
 
-    <div class="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-      <table class="min-w-full divide-y divide-gray-200 text-sm text-left text-gray-700">
+    <div class="border border-gray-200 rounded-lg overflow-hidden shadow-sm table-wrapper">
+      <table class="min-w-full divide-y divide-gray-200 text-sm text-left text-gray-700 gov-table">
         <thead class="bg-gray-50 text-xs uppercase text-gray-500 tracking-wide">
           <tr>
             <th class="px-3 py-2">Code</th>

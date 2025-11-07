@@ -17,6 +17,7 @@ import './items-edit-modal';
 import './items-print';
 import './items-overview-sync';
 import '../css/admin-dashboard.css';
+import '../css/ui.css';
 import './user-dashboard';
 import './reports';
 import './qty-controls';

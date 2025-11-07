@@ -1,0 +1,127 @@
+/* Global UI helpers for GSO-IBIMS
+   - Government-appropriate palette (purple used sparingly)
+   - No gradients
+   - Works with Tailwind / existing classes; minimal specificity
+   - Supports light/dark via .dark on html or body.theme-dark
+*/
+:root {
+    --gov-accent: #A855F7; /* accent purple (use sparingly) */
+    --accent-soft: rgba(168,85,247,0.06);
+    --nav-bg: #ffffff; /* navbar background (light) */
+    --sidebar-bg: #ffffff; /* sidebar background (light) */
+    --bg: #f4f6f8;
+    --card-bg: #ffffff;
+    --text: #0f1724;
+    --muted: #6b7280;
+    --table-border: #e6e9ee;
+}
+
+.theme-dark, .dark {
+    --bg: #0b1220;
+    --card-bg: #0f1724;
+    --text: #e6eef8;
+    --muted: #94a3b8;
+    --table-border: #1f2a37;
+    --nav-bg: #071026; /* slightly different for dark nav */
+    --sidebar-bg: #071826;
+    --accent-soft: rgba(168,85,247,0.12);
+}
+
+/* Sidebar helpers */
+.sidebar-icon { color: var(--muted); width: 18px; text-align: center; }
+.sidebar-text { color: var(--text); font-weight: 600; }
+.gov-hover:hover { background-color: rgba(168,85,247,0.06); }
+.gov-active { background-color: rgba(168,85,247,0.08); border-left: 3px solid var(--gov-accent); }
+
+/* Navbar + Sidebar subtle purple accents (light touch) */
+nav[role="navigation"] {
+    background-color: var(--nav-bg);
+    color: var(--text);
+}
+
+/* Sidebar surface - keep subtle and low-contrast */
+aside#sidebar {
+    background-color: var(--sidebar-bg);
+}
+
+/* Make active item show a thin accent line and subtle tint */
+.sidebar .gov-active {
+    background-color: var(--accent-soft);
+    border-left-color: var(--gov-accent);
+}
+
+/* Brand / logo accents inside nav: give brand a subtle purple ring */
+.application-logo, .brand, .nav-brand {
+    border-radius: 8px;
+}
+
+/* Unified table styling for UI pages */
+.gov-table {
+    border-collapse: separate; /* keep rounded corners nicer */
+    border-spacing: 0;
+    width: 100%;
+    background: transparent;
+    color: var(--text);
+}
+.gov-table thead th {
+    background-color: var(--gov-accent);
+    color: #fff;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: .02em;
+    /* remove header bottom border to avoid a thin seam between thead and tbody */
+    border-bottom: none;
+    /* ensure background respects rounded corners and doesn't show gaps */
+    -webkit-background-clip: padding-box;
+    background-clip: padding-box;
+}
+.gov-table th, .gov-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--table-border);
+    vertical-align: middle;
+}
+.gov-table tbody tr:hover { background-color: rgba(0,0,0,0.02); }
+
+/* Remove top border from the first row to eliminate the white line gap */
+.gov-table tbody tr:first-child td {
+    border-top: none;
+}
+
+/* Rounded corners for table headers and footers when wrapped by .table-wrapper */
+.table-wrapper .gov-table thead th:first-child { border-top-left-radius: 0.6rem; }
+.table-wrapper .gov-table thead th:last-child { border-top-right-radius: 0.6rem; }
+.table-wrapper .gov-table tbody tr:last-child td:first-child { border-bottom-left-radius: 0.6rem; }
+.table-wrapper .gov-table tbody tr:last-child td:last-child { border-bottom-right-radius: 0.6rem; }
+
+/* Light/dark adjustments */
+.theme-dark .gov-table thead th, .dark .gov-table thead th {
+    background-color: rgba(168,85,247,0.9);
+}
+.theme-dark .gov-table tbody tr:hover, .dark .gov-table tbody tr:hover { background-color: rgba(255,255,255,0.02); }
+
+/* Make tables horizontally scrollable on narrow screens but keep modern rounded card look */
+.table-wrapper { border-radius: 0.6rem; overflow: hidden; box-shadow: 0 6px 20px rgba(2,6,23,0.06); }
+
+/* Small helper for content cards */
+.page-card { background: var(--card-bg); color: var(--text); padding: 1rem; border-radius: .6rem; }
+
+/* Buttons and small accents (kept minimal, Tailwind remains primary) */
+.btn-accent { background-color: var(--gov-accent); color: #fff; border: none; }
+
+/* Accessibility: focus ring fallback */
+.focus-ring:focus { outline: 3px solid rgba(168,85,247,0.18); outline-offset: 2px; }
+
+/* Ensure modals with color-coded headers remain readable */
+.modal-header-accent { background-color: var(--gov-accent); color: #fff; }
+
+/* Small print / muted */
+.muted { color: var(--muted); }
+
+/* Prevent gradients or heavy backgrounds by clearing image backgrounds used by previous toast code */
+#toast { background: rgba(20,20,20,0.85); color: #fff; }
+
+/* Keep forms and inputs legible in dark */
+.theme-dark input, .theme-dark select, .theme-dark textarea { background: #0b1220; color: var(--text); border-color: var(--table-border); }
+
+/* End of ui.css */

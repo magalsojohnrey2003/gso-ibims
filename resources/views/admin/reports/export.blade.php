@@ -1,4 +1,4 @@
-<table>
+<table class="gov-table">
     <thead>
         <tr>
             <th>#</th>
