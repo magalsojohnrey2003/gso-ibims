@@ -32,29 +32,12 @@
                 <div class="mb-4 alert-error">{{ session('error') }}</div>
             @endif
 
-                <div class="card">
-                <div class="overflow-x-auto">
-                    <table id="users-table" class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registered</th>
-                            <th class="px-6 py-3"></th>
-                        </tr>
-                        </thead>
-                        <tbody id="users-tbody" class="bg-white divide-y divide-gray-200">
-                        @foreach($users as $user)
-                            @include('admin.users._row', ['user' => $user])
-                        @endforeach
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="p-4">
-                    {{ $users->links() }}
-                </div>
-            </div>
+            <x-gov-table :headers="['Name','Email','Registered','']" tableId="users-table">
+                @foreach($users as $user)
+                    @include('admin.users._row', ['user' => $user])
+                @endforeach
+            </x-gov-table>
+            <div class="p-4">{{ $users->links() }}</div>
         </div>
     </div>
 

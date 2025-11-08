@@ -11,25 +11,14 @@
         <!-- Alerts -->
         <div id="userAlertContainer" class="fixed top-4 right-4 space-y-2 z-[9999]"></div>
 
-        <!-- Table -->
-        <div class="overflow-x-auto table-wrapper">
-            <table class="w-full text-sm text-center text-gray-600 shadow-sm border rounded-lg overflow-hidden gov-table">
-                <thead class="bg-purple-600 text-white text-xs uppercase font-semibold">
-                    <tr>
-                        <th class="px-6 py-3">Request ID</th>
-                        <th class="px-6 py-3">Borrow Date</th>
-                        <th class="px-6 py-3">Return Date</th>
-                        <th class="px-6 py-3">Status</th>
-                        <th class="px-6 py-3">Action</th>
-                    </tr>
-                </thead>
-                <tbody id="myBorrowedItemsTableBody" class="divide-y bg-white">
-                    <tr>
-                        <td colspan="5" class="py-4 text-gray-500">Loading...</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+        <!-- Table (Unified structure) -->
+        <x-gov-table :headers="['Request ID','Borrow Date','Return Date','Status','Action']" tableId="my-borrowed-items-table">
+            <tbody id="myBorrowedItemsTableBody" class="bg-white divide-y divide-gray-200">
+                <tr>
+                    <td colspan="5" class="px-6 py-4 text-gray-500">Loading...</td>
+                </tr>
+            </tbody>
+        </x-gov-table>
 
         <!-- Pagination -->
         <div class="flex justify-center mt-6">
