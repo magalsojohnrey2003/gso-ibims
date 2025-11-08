@@ -13,7 +13,8 @@
     </form>
 
     <div class="border border-gray-200 rounded-lg overflow-hidden shadow-sm table-wrapper">
-      <table class="min-w-full divide-y divide-gray-200 text-sm text-left text-gray-700 gov-table">
+      <div class="table-container">
+        <table class="min-w-full divide-y divide-gray-200 text-sm text-left text-gray-700 gov-table">
         <thead class="bg-gray-50 text-xs uppercase text-gray-500 tracking-wide">
           <tr>
             <th class="px-3 py-2">Name</th>
@@ -24,7 +25,8 @@
         <tbody id="category-list-body" class="divide-y divide-gray-100 bg-white">
           <!-- Filled by JS -->
         </tbody>
-      </table>
+        </table>
+      </div>
       <template data-category-row-template>
         <tr data-category-row>
           <td class="px-3 py-2" data-category-name></td>

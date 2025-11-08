@@ -12,28 +12,25 @@
         <div id="userAlertContainer" class="fixed top-4 right-4 space-y-2 z-[9999]"></div>
 
         <!-- Table -->
-        <div class="overflow-x-auto table-wrapper">
-            <table class="w-full text-sm text-center text-gray-600 shadow-sm border rounded-lg overflow-hidden gov-table">
-                <thead class="bg-purple-600 text-white text-xs uppercase font-semibold">
-                    <tr>
-                        <th class="px-6 py-3">Request ID</th>
-                        <th class="px-6 py-3">Borrow Date</th>
-                        <th class="px-6 py-3">Return Date</th>
-                        <th class="px-6 py-3">Status</th>
-                        <th class="px-6 py-3">Action</th>
-                    </tr>
-                </thead>
-                <tbody id="myBorrowedItemsTableBody" class="divide-y bg-white">
-                    <tr>
-                        <td colspan="5" class="py-4 text-gray-500">Loading...</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Pagination -->
-        <div class="flex justify-center mt-6">
-            <nav id="paginationNav" class="inline-flex items-center space-x-2"></nav>
+        <div class="rounded-lg shadow table-wrapper">
+            <div class="table-container">
+                <table class="w-full text-sm text-center text-gray-600 gov-table">
+                    <thead class="bg-purple-600 text-white text-xs uppercase font-semibold">
+                        <tr>
+                            <th class="px-6 py-3">Request ID</th>
+                            <th class="px-6 py-3">Borrow Date</th>
+                            <th class="px-6 py-3">Return Date</th>
+                            <th class="px-6 py-3">Status</th>
+                            <th class="px-6 py-3">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="myBorrowedItemsTableBody">
+                        <tr>
+                            <td colspan="5" class="py-4 text-gray-500">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 

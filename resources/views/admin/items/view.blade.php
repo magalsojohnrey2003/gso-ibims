@@ -98,8 +98,8 @@
             <span class="text-xs text-gray-500">Showing {{ $item->instances->count() }} record{{ $item->instances->count() === 1 ? '' : 's' }}</span>
         </div>
 
-        <div class="overflow-hidden rounded-xl border border-gray-200">
-            <div class="max-h-72 overflow-auto">
+        <div class="overflow-hidden rounded-xl border border-gray-200 table-wrapper">
+            <div class="table-container" style="max-height: 18rem;">
                 <table class="min-w-full divide-y divide-gray-200 text-sm gov-table">
                     <thead class="bg-gray-50 text-xs uppercase text-gray-500 sticky top-0 z-10">
                         <tr>

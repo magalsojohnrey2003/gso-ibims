@@ -2,8 +2,6 @@
 const LIST_ROUTE = window.LIST_ROUTE || '/admin/borrow-requests/list';
 
 let BORROW_CACHE = [];
-let currentPage = 1;
-const PER_PAGE = 5;
 const REJECTION_REASONS_ENDPOINT = window.REJECTION_REASONS_ENDPOINT || '/admin/rejection-reasons';
 const OTHER_REJECTION_REASON_KEY = '__other__';
 
@@ -460,42 +458,7 @@ async function loadBorrowRequests() {
     }
 }
 
-function paginate(data) {
-    const start = (currentPage - 1) * PER_PAGE;
-    return data.slice(start, start + PER_PAGE);
-}
-
-function renderPagination(totalItems) {
-    const nav = document.getElementById('paginationNav');
-    if (!nav) return;
-    nav.innerHTML = '';
-    const totalPages = Math.ceil(totalItems / PER_PAGE);
-    if (totalPages <= 1) return;
-
-    const createBtn = (label, page, disabled = false, active = false) => {
-        const btn = document.createElement('button');
-        btn.textContent = label;
-        btn.className = [
-            'px-3 py-1 rounded-md text-sm transition',
-            active ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-purple-100',
-            disabled ? 'opacity-50 cursor-not-allowed' : '',
-        ].join(' ');
-        if (!disabled) {
-            btn.addEventListener('click', () => {
-                currentPage = page;
-                renderBorrowRequests();
-                window.scrollTo(0, 0);
-            });
-        }
-        return btn;
-    };
-
-    nav.appendChild(createBtn('Prev', Math.max(1, currentPage - 1), currentPage === 1));
-    for (let page = 1; page <= totalPages; page += 1) {
-        nav.appendChild(createBtn(page, page, false, page === currentPage));
-    }
-    nav.appendChild(createBtn('Next', Math.min(totalPages, currentPage + 1), currentPage === totalPages));
-}
+// Pagination removed - displaying all results with scrolling
 
 function createButtonFromTemplate(templateId, id) {
     const tpl = document.getElementById(templateId);
@@ -601,14 +564,12 @@ function renderBorrowRequests() {
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    const pageData = paginate(BORROW_CACHE);
-    if (!pageData.length) {
+    if (!BORROW_CACHE.length) {
         tbody.innerHTML = '<tr><td colspan="6" class="py-4 text-gray-500">No requests found.</td></tr>';
-        renderPagination(0);
         return;
     }
 
-    pageData.forEach((req) => {
+    BORROW_CACHE.forEach((req) => {
         const tr = document.createElement('tr');
         tr.className = 'transition hover:bg-purple-50 hover:shadow-md';
 
@@ -651,8 +612,6 @@ function renderBorrowRequests() {
         tr.appendChild(tdActions);
         tbody.appendChild(tr);
     });
-
-    renderPagination(BORROW_CACHE.length);
 }
 
 function collectManpowerAssignments() {

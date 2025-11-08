@@ -3,8 +3,6 @@ const LIST_ROUTE = window.LIST_ROUTE || '/user/my-borrowed-items/list';
 const CSRF_TOKEN = window.CSRF_TOKEN || document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
 let ITEMS_CACHE = [];
-let currentPage = 1;
-const perPage = 5;
 
 // ---------- helpers ----------
 export function formatDate(dateStr) {
@@ -90,7 +88,6 @@ export async function loadMyBorrowedItems() {
         }
         const json = await res.json();
         ITEMS_CACHE = Array.isArray(json) ? json : (Array.isArray(json.data) ? json.data : []);
-        currentPage = 1;
         renderItems();
     } catch (e) {
         console.error('loadMyBorrowedItems error', e);
@@ -98,44 +95,7 @@ export async function loadMyBorrowedItems() {
     }
 }
 
-// ---------- pagination ----------
-function paginate(data){
-    const start = (currentPage - 1) * perPage;
-    return data.slice(start, start + perPage);
-}
-
-function renderPagination(total) {
-    const nav = document.getElementById("paginationNav");
-    if (!nav) return;
-    nav.innerHTML = "";
-    const totalPages = Math.ceil(total / perPage) || 0;
-    if (totalPages <= 1) return;
-
-    function createBtn(label, page, disabled = false, active = false) {
-        const btn = document.createElement("button");
-        btn.textContent = label;
-        btn.className =
-            "px-3 py-1 rounded-md text-sm transition " +
-            (active
-                ? "bg-purple-600 text-white"
-                : "bg-gray-100 text-gray-700 hover:bg-purple-100") +
-            (disabled ? " opacity-50 cursor-not-allowed" : "");
-        if (!disabled) {
-            btn.addEventListener("click", () => {
-                currentPage = page;
-                renderItems();
-                window.scrollTo(0, 0);
-            });
-        }
-        return btn;
-    }
-
-    nav.appendChild(createBtn("Prev", Math.max(1, currentPage - 1), currentPage === 1));
-    for (let i = 1; i <= totalPages; i++) {
-        nav.appendChild(createBtn(i, i, false, i === currentPage));
-    }
-    nav.appendChild(createBtn("Next", Math.min(totalPages, currentPage + 1), currentPage === totalPages));
-}
+// Pagination removed - displaying all results with scrolling
 
 // ---------- create buttons from template ----------
 function createButtonFromTemplate(templateId, id) {
@@ -170,15 +130,12 @@ function renderItems() {
     if (!tbody) return;
     tbody.innerHTML = "";
 
-    const pageData = paginate(ITEMS_CACHE);
-
-    if (!pageData.length) {
+    if (!ITEMS_CACHE.length) {
         tbody.innerHTML = `<tr><td colspan="5" class="py-4 text-gray-500">No borrowed items</td></tr>`;
-        renderPagination(0);
         return;
     }
 
-    pageData.forEach(req => {
+    ITEMS_CACHE.forEach(req => {
         const tr = document.createElement("tr");
         tr.className = "transition hover:bg-purple-50 hover:shadow-md";
         tr.dataset.id = req.id;
@@ -213,8 +170,6 @@ function renderItems() {
 
         tbody.appendChild(tr);
     });
-
-    renderPagination(ITEMS_CACHE.length);
 }
 
 // ---------- modal population ----------

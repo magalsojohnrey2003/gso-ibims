@@ -6,8 +6,6 @@ const COLLECT_BASE = CONFIG.collectBase || '/admin/return-items';
 const CSRF_TOKEN = CONFIG.csrf || document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
 let RETURN_ROWS = [];
-let CURRENT_PAGE = 1;
-const PER_PAGE = 10;
 
 let MANAGE_ITEMS = [];
 let MANAGE_BORROW_ID = null;
@@ -134,13 +132,12 @@ function formatDateTime(value) {
     });
 }
 
-async function loadReturnItems(resetPage = true) {
+async function loadReturnItems() {
     try {
         const res = await fetch(LIST_ROUTE, { headers: { Accept: 'application/json' } });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         RETURN_ROWS = Array.isArray(data) ? data : [];
-        if (resetPage) CURRENT_PAGE = 1;
         renderTable();
     } catch (err) {
         console.error('Failed to load return items', err);
@@ -172,12 +169,7 @@ function renderTable() {
         return;
     }
 
-    const totalPages = Math.max(1, Math.ceil(RETURN_ROWS.length / PER_PAGE));
-    CURRENT_PAGE = Math.min(Math.max(1, CURRENT_PAGE), totalPages);
-    const start = (CURRENT_PAGE - 1) * PER_PAGE;
-    const rows = RETURN_ROWS.slice(start, start + PER_PAGE);
-
-    rows.forEach((row) => {
+    RETURN_ROWS.forEach((row) => {
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-gray-50 transition';
 
@@ -240,38 +232,6 @@ function renderTable() {
 
         tbody.appendChild(tr);
     });
-
-    renderPagination(totalPages);
-}
-
-function renderPagination(totalPages) {
-    const container = document.getElementById('paginationContainer');
-    if (!container) return;
-    container.innerHTML = '';
-    if (totalPages <= 1) return;
-
-    const createBtn = (label, page, disabled = false, active = false) => {
-        const btn = document.createElement('button');
-        btn.textContent = label;
-        btn.className = [
-            'px-3 py-1 rounded-md text-sm transition',
-            active ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-purple-100',
-            disabled ? ' opacity-50 cursor-not-allowed' : '',
-        ].join(' ');
-        if (!disabled) {
-            btn.addEventListener('click', () => {
-                CURRENT_PAGE = page;
-                renderTable();
-            });
-        }
-        return btn;
-    };
-
-    container.appendChild(createBtn('Prev', Math.max(1, CURRENT_PAGE - 1), CURRENT_PAGE === 1));
-    for (let page = 1; page <= totalPages; page += 1) {
-        container.appendChild(createBtn(page, page, false, page === CURRENT_PAGE));
-    }
-    container.appendChild(createBtn('Next', Math.min(totalPages, CURRENT_PAGE + 1), CURRENT_PAGE === totalPages));
 }
 
 async function openManageModal(id) {

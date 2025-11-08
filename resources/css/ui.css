@@ -57,11 +57,11 @@ aside#sidebar {
 
 /* Unified table styling for UI pages */
 .gov-table {
-    border-collapse: separate; /* keep rounded corners nicer */
-    border-spacing: 0;
+    border-collapse: collapse; /* Remove border spacing to eliminate white gaps */
     width: 100%;
     background: transparent;
     color: var(--text);
+    border: none; /* Remove table border */
 }
 .gov-table thead th {
     background-color: var(--gov-accent);
@@ -70,25 +70,31 @@ aside#sidebar {
     text-transform: uppercase;
     font-size: 0.75rem;
     letter-spacing: .02em;
-    /* remove header bottom border to avoid a thin seam between thead and tbody */
-    border-bottom: none;
-    /* ensure background respects rounded corners and doesn't show gaps */
-    -webkit-background-clip: padding-box;
-    background-clip: padding-box;
+    border: none; /* Remove all borders from header */
+    padding: 0.75rem 1rem;
+    vertical-align: middle;
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
 .gov-table th, .gov-table td {
     padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--table-border);
+    border: none; /* Remove all cell borders */
     vertical-align: middle;
 }
-.gov-table tbody tr:hover { background-color: rgba(0,0,0,0.02); }
 
-/* Remove top border from the first row to eliminate the white line gap */
-.gov-table tbody tr:first-child td {
-    border-top: none;
+/* Zebra striping for table rows */
+.gov-table tbody tr:nth-child(even) {
+    background-color: rgba(168,85,247,0.05); /* Light purple for even rows */
+}
+.gov-table tbody tr:nth-child(odd) {
+    background-color: #ffffff; /* White for odd rows */
+}
+.gov-table tbody tr:hover { 
+    background-color: rgba(168,85,247,0.1) !important; /* Purple hover effect */
 }
 
-/* Rounded corners for table headers and footers when wrapped by .table-wrapper */
+/* Rounded corners for table headers when wrapped by .table-wrapper */
 .table-wrapper .gov-table thead th:first-child { border-top-left-radius: 0.6rem; }
 .table-wrapper .gov-table thead th:last-child { border-top-right-radius: 0.6rem; }
 .table-wrapper .gov-table tbody tr:last-child td:first-child { border-bottom-left-radius: 0.6rem; }
@@ -98,10 +104,68 @@ aside#sidebar {
 .theme-dark .gov-table thead th, .dark .gov-table thead th {
     background-color: rgba(168,85,247,0.9);
 }
-.theme-dark .gov-table tbody tr:hover, .dark .gov-table tbody tr:hover { background-color: rgba(255,255,255,0.02); }
+.theme-dark .gov-table tbody tr:nth-child(even), .dark .gov-table tbody tr:nth-child(even) {
+    background-color: rgba(168,85,247,0.08);
+}
+.theme-dark .gov-table tbody tr:nth-child(odd), .dark .gov-table tbody tr:nth-child(odd) {
+    background-color: var(--card-bg);
+}
+.theme-dark .gov-table tbody tr:hover, .dark .gov-table tbody tr:hover { 
+    background-color: rgba(168,85,247,0.15) !important; 
+}
+
+/* Dark theme scrollbar */
+.theme-dark .table-container::-webkit-scrollbar-track, 
+.dark .table-container::-webkit-scrollbar-track {
+    background: #374151;
+}
+.theme-dark .table-container, 
+.dark .table-container {
+    scrollbar-color: var(--gov-accent) #374151;
+}
 
 /* Make tables horizontally scrollable on narrow screens but keep modern rounded card look */
-.table-wrapper { border-radius: 0.6rem; overflow: hidden; box-shadow: 0 6px 20px rgba(2,6,23,0.06); }
+.table-wrapper { 
+    border-radius: 0.6rem; 
+    overflow: hidden; 
+    box-shadow: 0 6px 20px rgba(2,6,23,0.06);
+    border: none; /* Remove wrapper border */
+}
+
+/* Purple scrollbar styling */
+.table-container {
+    max-height: 70vh;
+    overflow-y: auto;
+    overflow-x: auto;
+    border-radius: 0.6rem;
+    border: none;
+}
+
+/* Webkit scrollbar styles (Chrome, Safari, Edge) */
+.table-container::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.table-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+    background: var(--gov-accent); /* Purple scrollbar */
+    border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+    background: #9333ea; /* Darker purple on hover */
+}
+
+/* Firefox scrollbar styles */
+.table-container {
+    scrollbar-width: thin;
+    scrollbar-color: var(--gov-accent) #f1f1f1;
+}
 
 /* Small helper for content cards */
 .page-card { background: var(--card-bg); color: var(--text); padding: 1rem; border-radius: .6rem; }

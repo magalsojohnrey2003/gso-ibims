@@ -11,29 +11,26 @@
         <div id="adminAlertContainer" class="fixed top-4 right-4 space-y-2 z-[9999]"></div>
 
         <!-- Borrow Requests Table -->
-        <div class="mt-4 overflow-x-auto table-wrapper">
-            <table class="w-full text-sm text-center text-gray-600 shadow-sm border rounded-lg overflow-hidden gov-table">
-                <thead class="bg-purple-600 text-white text-xs uppercase font-semibold">
-                    <tr>
-                        <th class="px-6 py-3">Borrower</th>
-                        <th class="px-6 py-3">Request ID</th>
-                        <th class="px-6 py-3">Borrow Date</th>
-                        <th class="px-6 py-3">Return Date</th>
-                        <th class="px-6 py-3">Status</th>
-                        <th class="px-6 py-3">Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="borrowRequestsTableBody" class="divide-y bg-white">
-                    <tr>
-                        <td colspan="6" class="py-4 text-gray-500">Loading...</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Pagination -->
-        <div class="flex justify-center mt-6">
-            <nav id="paginationNav" class="inline-flex items-center space-x-2"></nav>
+        <div class="mt-4 rounded-lg shadow table-wrapper">
+            <div class="table-container">
+                <table class="w-full text-sm text-center text-gray-600 gov-table">
+                    <thead class="bg-purple-600 text-white text-xs uppercase font-semibold">
+                        <tr>
+                            <th class="px-6 py-3">Borrower</th>
+                            <th class="px-6 py-3">Request ID</th>
+                            <th class="px-6 py-3">Borrow Date</th>
+                            <th class="px-6 py-3">Return Date</th>
+                            <th class="px-6 py-3">Status</th>
+                            <th class="px-6 py-3">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="borrowRequestsTableBody">
+                        <tr>
+                            <td colspan="6" class="py-4 text-gray-500">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 

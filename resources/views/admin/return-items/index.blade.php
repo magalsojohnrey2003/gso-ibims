@@ -12,25 +12,25 @@
 
         <div id="alertContainer" class="fixed top-4 right-4 space-y-2 z-[9999]" aria-live="assertive"></div>
 
-        <div class="overflow-x-auto rounded-lg shadow table-wrapper">
-            <table class="w-full text-sm text-gray-600 shadow-sm border rounded-lg overflow-hidden gov-table">
-                <thead class="bg-purple-600 text-white text-xs uppercase font-semibold">
-                    <tr>
-                        <th class="px-6 py-3 text-left">Borrower</th>
-                        <th class="px-6 py-3 text-left">Status</th>
-                        <th class="px-6 py-3 text-left">Condition</th>
-                        <th class="px-6 py-3">Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="returnItemsTableBody" class="divide-y bg-white">
-                    <tr>
-                        <td colspan="4" class="py-4 text-center text-gray-500">Loading...</td>
-                    </tr>
-                </tbody>
-            </table>
+        <div class="rounded-lg shadow table-wrapper">
+            <div class="table-container">
+                <table class="w-full text-sm text-gray-600 gov-table">
+                    <thead class="bg-purple-600 text-white text-xs uppercase font-semibold">
+                        <tr>
+                            <th class="px-6 py-3 text-left">Borrower</th>
+                            <th class="px-6 py-3 text-left">Status</th>
+                            <th class="px-6 py-3 text-left">Condition</th>
+                            <th class="px-6 py-3">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="returnItemsTableBody">
+                        <tr>
+                            <td colspan="4" class="py-4 text-center text-gray-500">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
-
-        <div id="paginationContainer" class="mt-4 flex justify-center gap-2"></div>
     </div>
 
     <!-- Templates -->
@@ -219,8 +219,9 @@
                 </div>
 
                 <div class="border border-gray-200 rounded-lg">
-            <div class="max-h-64 overflow-y-auto table-wrapper">
-                <table class="w-full text-sm text-gray-700 gov-table">
+            <div class="table-wrapper">
+                <div class="table-container" style="max-height: 16rem;">
+                    <table class="w-full text-sm text-gray-700 gov-table">
                             <thead class="bg-gray-100 text-xs uppercase text-gray-600 sticky top-0 z-10">
                                 <tr>
                                     <th class="px-4 py-2 text-left w-12" id="manage-checkbox-header" style="display: none;">
@@ -238,6 +239,7 @@
                             </tbody>
                         </table>
                     </div>
+                </div>
                 </div>
             </div>
 
