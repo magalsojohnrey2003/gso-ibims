@@ -98,24 +98,24 @@
             <span class="text-xs text-gray-500">{{ $item->instances->count() }} item{{ $item->instances->count() === 1 ? '' : 's' }}</span>
         </div>
 
-        <div class="overflow-hidden rounded-xl border border-gray-200 table-wrapper">
-            <div class="table-container" style="max-height: 18rem;">
-                <table class="min-w-full divide-y divide-gray-200 text-sm gov-table">
-                    <thead class="bg-gray-50 text-xs uppercase text-gray-500 sticky top-0 z-10">
+        <div class="rounded-2xl shadow-lg border border-gray-200 table-wrapper">
+            <div class="table-container-no-scroll" style="max-height: 18rem;">
+                <table class="w-full text-sm text-center text-gray-600 gov-table">
+                    <thead class="bg-purple-600 text-white text-xs uppercase font-semibold text-center">
                         <tr>
-                            <th class="px-4 py-3 text-left font-semibold sticky left-0 bg-gray-50">Property Numbers</th>
-                            <th class="px-4 py-3 text-left font-semibold">Serial No.</th>
-                            <th class="px-4 py-3 text-left font-semibold">Model No.</th>
-                            <th class="px-4 py-3 text-left font-semibold">Status</th>
+                            <th class="px-6 py-3">Property Numbers</th>
+                            <th class="px-6 py-3">Serial No.</th>
+                            <th class="px-6 py-3">Model No.</th>
+                            <th class="px-6 py-3">Status</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-100 bg-white">
+                    <tbody class="text-center">
                         @forelse($item->instances as $instance)
-                            <tr class="hover:bg-indigo-50/40" data-item-instance-id="{{ $instance->id }}">
-                                <td class="px-4 py-3 font-semibold text-gray-900 sticky left-0 bg-white">{{ $instance->property_number }}</td>
-                                <td class="px-4 py-3 text-gray-700">{{ $instance->serial_no ?? '—' }}</td>
-                                <td class="px-4 py-3 text-gray-700">{{ $instance->model_no ?? '—' }}</td>
-                                <td class="px-4 py-3">
+                            <tr class="hover:bg-gray-50" data-item-instance-id="{{ $instance->id }}">
+                                <td class="px-6 py-4">{{ $instance->property_number }}</td>
+                                <td class="px-6 py-4">{{ $instance->serial_no ?? '—' }}</td>
+                                <td class="px-6 py-4">{{ $instance->model_no ?? '—' }}</td>
+                                <td class="px-6 py-4">
                                     @php
                                         $status = strtolower($instance->status ?? 'unknown');
                                         $statusClasses = [
@@ -150,8 +150,8 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="4" class="px-4 py-6 text-center text-sm text-gray-500">
-                                    No Property Numberss are currently linked to this item.
+                                <td colspan="4" class="px-6 py-6 text-center text-sm text-gray-500">
+                                    No Property Numbers are currently linked to this item.
                                 </td>
                             </tr>
                         @endforelse
