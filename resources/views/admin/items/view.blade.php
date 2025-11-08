@@ -94,8 +94,8 @@
 
     <section class="space-y-4">
         <div class="flex items-center justify-between">
-            <h4 class="text-lg font-semibold text-gray-900">Item Record Table</h4>
-            <span class="text-xs text-gray-500">Showing {{ $item->instances->count() }} record{{ $item->instances->count() === 1 ? '' : 's' }}</span>
+            <h4 class="text-lg font-semibold text-gray-900">Property Numbers</h4>
+            <span class="text-xs text-gray-500">{{ $item->instances->count() }} item{{ $item->instances->count() === 1 ? '' : 's' }}</span>
         </div>
 
         <div class="overflow-hidden rounded-xl border border-gray-200 table-wrapper">

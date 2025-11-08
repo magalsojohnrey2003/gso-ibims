@@ -1,19 +1,38 @@
 <x-app-layout>
-    <div class="p-6 space-y-6">
-        <x-title
-            level="h2"
-            size="2xl"
-            weight="bold"
-            icon="arrow-path-rounded-square"
-            iconStyle="plain"
-            iconColor="gov-accent">
-            Return Items
-        </x-title>
+    @php
+        $noMainScroll = false; // Enable main content scrolling since we removed table scrollbar
+    @endphp
 
-        <div id="alertContainer" class="fixed top-4 right-4 space-y-2 z-[9999]" aria-live="assertive"></div>
+    <!-- Title and Actions Section -->
+    <div class="py-2">
+        <div class="px-2">
+            <div id="alertContainer" class="fixed top-4 right-4 space-y-2 z-[9999]" aria-live="assertive"></div>
+            
+            <!-- Title Row -->
+            <div class="rounded-2xl shadow-lg bg-white border border-gray-200 px-6 py-4 mb-2">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <!-- Title -->
+                    <div class="flex-shrink-0 flex items-center">
+                        <x-title
+                            level="h2"
+                            size="2xl"
+                            weight="bold"
+                            icon="arrow-path-rounded-square"
+                            iconStyle="plain"
+                            iconColor="gov-accent">
+                            Return Items
+                        </x-title>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-        <div class="rounded-lg shadow table-wrapper">
-            <div class="table-container">
+    <!-- Table Section -->
+    <div class="pb-2">
+        <div class="px-2">
+            <div class="rounded-2xl shadow-lg border border-gray-200 table-wrapper">
+                <div class="table-container-no-scroll">
                 <table class="w-full text-sm text-gray-600 gov-table">
                     <thead class="bg-purple-600 text-white text-xs uppercase font-semibold">
                         <tr>
@@ -29,6 +48,7 @@
                         </tr>
                     </tbody>
                 </table>
+                </div>
             </div>
         </div>
     </div>

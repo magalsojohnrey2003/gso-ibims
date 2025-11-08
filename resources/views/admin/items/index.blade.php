@@ -37,14 +37,12 @@
         }
     }
 @endphp
+
+@php
+    $noMainScroll = false; // Enable main content scrolling since we removed table scrollbar
+@endphp
+
 <x-app-layout>
-    <x-title level="h2"
-                size="2xl"
-                weight="bold"
-                icon="archive-box"
-                variant="s"
-                iconStyle="plain"
-                iconColor="gov-accent"> Items Management </x-title>
     <div
         class="hidden"
         data-items-bootstrap
@@ -52,35 +50,61 @@
         data-items-offices='@json($bootstrapOffices)'
         data-items-category-codes='@json($bootstrapCategoryCodes)'>
     </div>
-  <div class="py-6">
-      <div class="sm:px-6 lg:px-8 space-y-10">
-          @if(session('success'))
-              <x-alert type="success" :message="session('success')" />
-          @endif
-          @if(session('error'))
-              <x-alert type="error" :message="session('error')" />
-          @endif
-          @if($errors->any())
-              <x-alert type="error" :message="$errors->first()" />
-          @endif
-          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-              <form method="GET" action="{{ route('items.index') }}" class="flex items-center gap-2">
-                  <input type="text"
-                         name="search"
-                         value="{{ request('search') }}"
-                         placeholder="Search by name or category..."
-                         class="border rounded-lg px-3 py-2 text-sm w-64 focus:ring focus:ring-blue-200" />
-                  <x-button
-                      variant="secondary"
-                      iconName="magnifying-glass"
-                      type="submit"
-                      class="text-sm px-3 py-2">
-                      Search
-                  </x-button>
-              </form>
-          </div>
-          <div class="rounded-2xl shadow-lg table-wrapper">
-              <div class="table-container">
+    
+    <!-- Title and Actions Section -->
+    <div class="py-2">
+        <div class="px-2">
+            @if(session('success'))
+                <x-alert type="success" :message="session('success')" />
+            @endif
+            @if(session('error'))
+                <x-alert type="error" :message="session('error')" />
+            @endif
+            @if($errors->any())
+                <x-alert type="error" :message="$errors->first()" />
+            @endif
+            
+            <!-- Title Row with Search Bar - Contained Box -->
+            <div class="rounded-2xl shadow-lg bg-white border border-gray-200 px-6 py-4 mb-2">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <!-- Title -->
+                    <div class="flex-shrink-0 flex items-center">
+                        <x-title level="h2"
+                                size="2xl"
+                                weight="bold"
+                                icon="archive-box"
+                                variant="s"
+                                iconStyle="plain"
+                                iconColor="gov-accent"> Items Management </x-title>
+                    </div>
+                    
+                    <!-- Search Bar -->
+                    <div class="flex-shrink-0">
+                        <form method="GET" action="{{ route('items.index') }}" class="flex items-center gap-2">
+                            <input type="text"
+                                   name="search"
+                                   value="{{ request('search') }}"
+                                   placeholder="Search by name or category..."
+                                   class="border rounded-lg px-3 py-2 text-sm w-64 focus:ring focus:ring-blue-200" />
+                            <x-button
+                                variant="secondary"
+                                iconName="magnifying-glass"
+                                type="submit"
+                                class="text-sm px-3 py-2">
+                                Search
+                            </x-button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table Section -->
+    <div class="pb-2">
+        <div class="px-2">
+          <div class="rounded-2xl shadow-lg border border-gray-200 table-wrapper">
+              <div class="table-container-no-scroll">
                   <table class="w-full text-sm text-center text-gray-600 gov-table">
                       <thead class="bg-purple-600 text-white text-xs uppercase font-semibold text-center">
                           <tr>
@@ -271,8 +295,8 @@
                   </table>
               </div>
           </div>
-      </div>
-  </div>
+        </div>
+    </div>
   
   <x-modal name="create-item" maxWidth="2xl">
       <div class="w-full shadow-lg overflow-hidden flex flex-col max-h-[85vh] bg-white">
