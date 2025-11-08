@@ -12,13 +12,23 @@
 
         <div id="alertContainer" class="fixed top-4 right-4 space-y-2 z-[9999]" aria-live="assertive"></div>
 
-        <x-gov-table :headers="['Borrower','Status','Condition','Actions']" tableId="return-items-table">
-            <tbody id="returnItemsTableBody" class="bg-white divide-y divide-gray-200">
-                <tr>
-                    <td colspan="4" class="px-6 py-4 text-center text-gray-500">Loading...</td>
-                </tr>
-            </tbody>
-        </x-gov-table>
+        <div class="overflow-x-auto rounded-lg shadow table-wrapper">
+            <table class="w-full text-sm text-gray-600 shadow-sm border rounded-lg overflow-hidden gov-table">
+                <thead class="bg-purple-600 text-white text-xs uppercase font-semibold">
+                    <tr>
+                        <th class="px-6 py-3 text-left">Borrower</th>
+                        <th class="px-6 py-3 text-left">Status</th>
+                        <th class="px-6 py-3 text-left">Condition</th>
+                        <th class="px-6 py-3">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="returnItemsTableBody" class="divide-y bg-white">
+                    <tr>
+                        <td colspan="4" class="py-4 text-center text-gray-500">Loading...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
 
         <div id="paginationContainer" class="mt-4 flex justify-center gap-2"></div>
     </div>

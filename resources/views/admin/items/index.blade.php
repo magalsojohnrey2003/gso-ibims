@@ -79,9 +79,19 @@
                   </x-button>
               </form>
           </div>
-          <!-- Unified table structure (matching Manage Users layout) -->
-          <x-gov-table :headers="['Photo','Name','Category','Total Qty','Available','Actions']" tableId="items-table">
-              <tbody id="items-tbody" class="bg-white divide-y divide-gray-200">
+          <div class="overflow-x-auto rounded-2xl shadow-lg table-wrapper">
+              <table class="w-full text-sm text-center text-gray-600 shadow-sm border rounded-lg overflow-hidden gov-table">
+                  <thead class="bg-purple-600 text-white text-xs uppercase font-semibold text-center">
+                      <tr>
+                          <th class="px-6 py-3">Photo</th>
+                          <th class="px-6 py-3">Name</th>
+                          <th class="px-6 py-3">Category</th>
+                          <th class="px-6 py-3">Total Qty</th>
+                          <th class="px-6 py-3">Available</th>
+                          <th class="px-6 py-3">Actions</th>
+                      </tr>
+                  </thead>
+            <tbody class="divide-y bg-white text-center">
                       @forelse ($items as $item)
                           @php
                               // Determine display name for category: if item->category is numeric id and map exists, use mapped name.
@@ -256,8 +266,9 @@
                               </td>
                           </tr>
                       @endforelse
-              </tbody>
-          </x-gov-table>
+                  </tbody>
+              </table>
+          </div>
       </div>
   </div>
   
