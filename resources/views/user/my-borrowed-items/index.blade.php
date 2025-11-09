@@ -33,16 +33,16 @@
             <div class="rounded-2xl shadow-lg border border-gray-200 table-wrapper">
                 <div class="table-container-no-scroll">
                 <table class="w-full text-sm text-center text-gray-600 gov-table">
-                    <thead class="bg-purple-600 text-white text-xs uppercase font-semibold">
+                    <thead class="bg-purple-600 text-white text-xs uppercase font-semibold text-center">
                         <tr>
-                            <th class="px-6 py-3">Request ID</th>
-                            <th class="px-6 py-3">Borrow Date</th>
-                            <th class="px-6 py-3">Return Date</th>
-                            <th class="px-6 py-3">Status</th>
-                            <th class="px-6 py-3">Action</th>
+                            <th class="px-6 py-3 text-center">Request ID</th>
+                            <th class="px-6 py-3 text-center">Borrow Date</th>
+                            <th class="px-6 py-3 text-center">Return Date</th>
+                            <th class="px-6 py-3 text-center">Status</th>
+                            <th class="px-6 py-3 text-center">Action</th>
                         </tr>
                     </thead>
-                    <tbody id="myBorrowedItemsTableBody">
+                    <tbody id="myBorrowedItemsTableBody" class="text-center">
                         <tr>
                             <td colspan="5" class="py-4 text-gray-500">Loading...</td>
                         </tr>

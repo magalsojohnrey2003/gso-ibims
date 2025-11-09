@@ -13,6 +13,15 @@
     <div class="py-10">
         
         <div class="max-w-6xl mx-auto sm:px-6 lg:px-8 space-y-8">
+
+            {{-- Welcome Card - Shows after login --}}
+            @if(session('status') === 'login-success' && session('login_message'))
+                <x-welcome-card 
+                    :message="session('login_message')" 
+                    :userName="session('user_name', auth()->user()->first_name)" 
+                    :type="session('greeting_type', 'returning')" 
+                />
+            @endif
           
             {{-- Quick Stats --}}
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

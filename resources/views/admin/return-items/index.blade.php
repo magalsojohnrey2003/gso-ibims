@@ -33,16 +33,16 @@
         <div class="px-2">
             <div class="rounded-2xl shadow-lg border border-gray-200 table-wrapper">
                 <div class="table-container-no-scroll">
-                <table class="w-full text-sm text-gray-600 gov-table">
-                    <thead class="bg-purple-600 text-white text-xs uppercase font-semibold">
+                <table class="w-full text-sm text-center text-gray-600 gov-table">
+                    <thead class="bg-purple-600 text-white text-xs uppercase font-semibold text-center">
                         <tr>
-                            <th class="px-6 py-3 text-left">Borrower</th>
-                            <th class="px-6 py-3 text-left">Status</th>
-                            <th class="px-6 py-3 text-left">Condition</th>
-                            <th class="px-6 py-3">Actions</th>
+                            <th class="px-6 py-3 text-center">Borrower</th>
+                            <th class="px-6 py-3 text-center">Status</th>
+                            <th class="px-6 py-3 text-center">Condition</th>
+                            <th class="px-6 py-3 text-center">Actions</th>
                         </tr>
                     </thead>
-                    <tbody id="returnItemsTableBody">
+                    <tbody id="returnItemsTableBody" class="text-center">
                         <tr>
                             <td colspan="4" class="py-4 text-center text-gray-500">Loading...</td>
                         </tr>

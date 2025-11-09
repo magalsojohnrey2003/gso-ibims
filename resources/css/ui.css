@@ -74,6 +74,7 @@ aside#sidebar {
     border: none; /* Remove all borders from header */
     padding: 0.75rem 1rem;
     vertical-align: middle;
+    text-align: center !important; /* Force center alignment */
     position: static; /* Remove sticky positioning */
     border-radius: 0 !important; /* Ensure no rounded corners */
     margin: 0; /* Remove any margin */
@@ -82,6 +83,7 @@ aside#sidebar {
     padding: 0.75rem 1rem;
     border: none; /* Remove all cell borders */
     vertical-align: middle;
+    text-align: center !important; /* Force center alignment for all cells */
 }
 
 /* Zebra striping for table rows */
@@ -673,7 +675,6 @@ tr + tr td {
 }
 
 .gov-table thead th {
-    position: relative !important;
     background: #9333ea !important; /* Purple-600 - maintain header color */
     color: white !important;
     border-radius: 0 !important; /* Remove any rounded corners */
@@ -681,26 +682,12 @@ tr + tr td {
     margin: 0 !important;
     padding: 0.75rem 1rem !important;
     border: none !important;
-    vertical-align: top !important;
-    line-height: 1 !important;
-    top: 0;
-    z-index: 20;
+    vertical-align: middle !important;
+    text-align: center !important;
+    line-height: 1.2 !important;
 }
 
-/* Create scrollable table body */
-.gov-table tbody {
-    display: block;
-    max-height: 72vh; /* Significantly increased to match container */
-    overflow-y: auto;
-    overflow-x: hidden;
-}
-
-.gov-table thead,
-.gov-table tbody tr {
-    display: table;
-    width: 100%;
-    table-layout: fixed;
-}
+/* Scrollable container handles scrolling, tbody uses normal table display for proper alignment */
 
 /* Override Tailwind bg-purple-600 class specifically */
 .bg-purple-600.text-white.text-xs.uppercase.font-semibold.text-center {

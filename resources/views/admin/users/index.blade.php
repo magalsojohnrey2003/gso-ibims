@@ -56,13 +56,13 @@
                     <table id="users-table" class="w-full text-sm text-center text-gray-600 gov-table">
                         <thead class="bg-purple-600 text-white text-xs uppercase font-semibold text-center">
                         <tr>
-                            <th class="px-6 py-3">Name</th>
-                            <th class="px-6 py-3">Email</th>
-                            <th class="px-6 py-3">Registered</th>
-                            <th class="px-6 py-3">Actions</th>
+                            <th class="px-6 py-3 text-center">Name</th>
+                            <th class="px-6 py-3 text-center">Email</th>
+                            <th class="px-6 py-3 text-center">Registered</th>
+                            <th class="px-6 py-3 text-center">Actions</th>
                         </tr>
                         </thead>
-                                                <tbody id="users-tbody" class="text-center">
+                        <tbody id="users-tbody" class="text-center">
                         @foreach($users as $user)
                             @include('admin.users._row', ['user' => $user])
                         @endforeach
@@ -72,8 +72,6 @@
             </div>
         </div>
     </div>
-                    </table>
-                </div>
 
                 <div class="p-4">
                     {{ $users->links() }}

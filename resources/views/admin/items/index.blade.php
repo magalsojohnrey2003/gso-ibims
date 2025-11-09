@@ -128,8 +128,8 @@
                                   $displayCategory = $displayCategory ?? '';
                               }
                           @endphp
-                          <tr class="hover:bg-gray-50" data-item-row="{{ $item->id }}">
-                              <td class="px-6 py-4 text-center" data-item-photo>
+                          <tr class="hover:bg-gray-50 text-center" data-item-row="{{ $item->id }}">
+                              <td class="px-6 py-4" data-item-photo>
                                   @php
                                       $photoUrl = null;
                                       if ($item->photo) {
@@ -155,15 +155,15 @@
                                       <img src="{{ $photoUrl }}" data-item-photo-img class="h-12 w-12 object-cover rounded-lg shadow-sm" alt="{{ $item->name }}">
                                   </div>
                               </td>
-                              <td class="px-6 py-4 font-semibold text-gray-900" data-item-name>{{ $item->name }}</td>
-                              <td class="px-6 py-4" data-item-category>{{ $displayCategory }}</td>
-                              <td class="px-6 py-4" data-item-total>{{ $item->total_qty }}</td>
-                              <td class="px-6 py-4" data-item-available>
+                              <td class="px-6 py-4 font-semibold text-gray-900 text-center" data-item-name>{{ $item->name }}</td>
+                              <td class="px-6 py-4 text-center" data-item-category>{{ $displayCategory }}</td>
+                              <td class="px-6 py-4 text-center" data-item-total>{{ $item->total_qty }}</td>
+                              <td class="px-6 py-4 text-center" data-item-available>
                                   <span class="{{ $item->available_qty > 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold' }}">
                                       {{ $item->available_qty }}
                                   </span>
                               </td>
-                              <td class="px-6 py-4">
+                              <td class="px-6 py-4 text-center">
                                   <div class="flex items-center justify-center gap-3">
                                       <x-button
                                           variant="primary"
