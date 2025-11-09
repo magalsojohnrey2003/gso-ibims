@@ -10,6 +10,8 @@
     'iconStyle' => 'plain',        // 'plain' | 'circle'
     'iconBg'    => 'transparent',  // token used for circle bg
     'iconLabel' => null,
+    // Compact mode removes bottom margin and tightens line-height for use in page title bars
+    'compact'   => false,
 ])
 
 @php
@@ -32,7 +34,9 @@
     $sizeClass = $sizeMap[$size] ?? $sizeMap['2xl'];
     $weightClass = $weightMap[$weight] ?? $weightMap['bold'];
 
-    $headingBase = trim("flex items-center gap-3 {$sizeClass} {$weightClass} leading-tight");
+    // Wrapper and heading classes adapt when compact=true
+    $wrapperClass = trim((($compact ? 'mb-0' : 'mb-6') . ' flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4'));
+    $headingBase = trim("flex items-center gap-3 {$sizeClass} {$weightClass} " . ($compact ? 'leading-none' : 'leading-tight'));
 
     // Map commonly used tokens to utility classes (safe for editor + purge)
     $colorTokenToClass = [
@@ -92,7 +96,7 @@
     $componentName = $icon ? ('heroicon-' . ($variant === 's' ? 's' : 'o') . '-' . $icon) : null;
 @endphp
 
-<div {{ $attributes->merge(['class' => 'mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4']) }}>
+<div {{ $attributes->merge(['class' => $wrapperClass]) }}>
     {{-- Heading --}}
     <{{ $level }} class="{{ $headingBase }} text-current">
         @if($icon && $componentName)

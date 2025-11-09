@@ -12,13 +12,14 @@
                 <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <!-- Title -->
                     <div class="flex-shrink-0 flex items-center">
-                        <x-title level="h2"
+            <x-title level="h2"
                                 size="2xl"
                                 weight="bold"
                                 icon="users"
                                 variant="s"
-                                iconStyle="plain"
-                                iconColor="gov-accent"> Manage Users </x-title>
+                iconStyle="plain"
+                iconColor="gov-accent"
+                compact="true"> Manage Users </x-title>
                     </div>
                     
                     <!-- Actions -->

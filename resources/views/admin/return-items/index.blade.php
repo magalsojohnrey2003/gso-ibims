@@ -19,7 +19,8 @@
                             weight="bold"
                             icon="arrow-path-rounded-square"
                             iconStyle="plain"
-                            iconColor="gov-accent">
+                            iconColor="gov-accent"
+                            compact="true">
                             Return Items
                         </x-title>
                     </div>

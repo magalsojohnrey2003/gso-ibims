@@ -14,13 +14,14 @@
                 <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <!-- Title -->
                     <div class="flex-shrink-0 flex items-center">
-                        <x-title level="h2"
+            <x-title level="h2"
                                 size="2xl"
                                 weight="bold"
                                 icon="clipboard-document-check"
                                 variant="s"
-                                iconStyle="plain"
-                                iconColor="gov-accent"> My Borrowed Items </x-title>
+                iconStyle="plain"
+                iconColor="gov-accent"
+                compact="true"> My Borrowed Items </x-title>
                     </div>
                 </div>
             </div>

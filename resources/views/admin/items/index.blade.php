@@ -69,13 +69,14 @@
                 <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <!-- Title -->
                     <div class="flex-shrink-0 flex items-center">
-                        <x-title level="h2"
+            <x-title level="h2"
                                 size="2xl"
                                 weight="bold"
                                 icon="archive-box"
                                 variant="s"
-                                iconStyle="plain"
-                                iconColor="gov-accent"> Items Management </x-title>
+                iconStyle="plain"
+                iconColor="gov-accent"
+                compact="true"> Items Management </x-title>
                     </div>
                     
                     <!-- Search Bar -->
