@@ -28,24 +28,48 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        // Friendly message for returning users
-        $firstName = Auth::user()->first_name ? trim(Auth::user()->first_name) : '';
-        if ($firstName) {
-            $loginMessage = "Hello again, {$firstName}! Good to see you.";
+        $user = Auth::user();
+        $firstName = $user->first_name ? trim($user->first_name) : '';
+        
+        // Determine if user is new or returning based on last_login_at
+        $isNewUser = is_null($user->last_login_at);
+        
+        // Generate personalized welcome message
+        if ($isNewUser) {
+            // First time login - warm welcome
+            $loginMessage = $firstName 
+                ? "Welcome, {$firstName}! We're excited to have you here." 
+                : "Welcome! We're excited to have you here.";
+            $greetingType = 'new';
         } else {
-            $loginMessage = "Hello again! Good to see you.";
+            // Returning user - welcome back with time-based greeting
+            $hour = now()->hour;
+            $timeGreeting = $hour < 12 ? 'Good morning' : ($hour < 18 ? 'Good afternoon' : 'Good evening');
+            
+            $loginMessage = $firstName 
+                ? "{$timeGreeting}, {$firstName}! Welcome back." 
+                : "{$timeGreeting}! Welcome back.";
+            $greetingType = 'returning';
         }
 
+        // Update last login timestamp
+        $user->last_login_at = now();
+        $user->save();
+
         // Redirect user based on role and set consistent flash keys used by your blades
-        if (Auth::user()->role === 'admin') {
+        if ($user->role === 'admin') {
             return redirect()->route('admin.dashboard')
                              ->with('status', 'login-success')
-                             ->with('login_message', $loginMessage);
+                             ->with('login_message', $loginMessage)
+                             ->with('greeting_type', $greetingType)
+                             ->with('user_name', $firstName ?: $user->full_name);
         }
 
         return redirect()->route('user.dashboard')
                          ->with('status', 'login-success')
-                         ->with('login_message', $loginMessage);
+                         ->with('login_message', $loginMessage)
+                         ->with('greeting_type', $greetingType)
+                         ->with('user_name', $firstName ?: $user->full_name);
     }
 
     /**

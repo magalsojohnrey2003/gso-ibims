@@ -1,39 +1,55 @@
 <x-app-layout>
-    <div class="p-6">
-        <x-title level="h2"
-            size="2xl"
-            weight="bold"
-            icon="clipboard-document-check"
-            iconStyle="plain"
-            iconColor="gov-accent"> Borrow Requests </x-title>
+    @php
+        $noMainScroll = false; // Enable main content scrolling since we removed table scrollbar
+    @endphp
 
-        <!-- Alerts -->
-        <div id="adminAlertContainer" class="fixed top-4 right-4 space-y-2 z-[9999]"></div>
-
-        <!-- Borrow Requests Table -->
-        <div class="mt-4 overflow-x-auto table-wrapper">
-            <table class="w-full text-sm text-center text-gray-600 shadow-sm border rounded-lg overflow-hidden gov-table">
-                <thead class="bg-purple-600 text-white text-xs uppercase font-semibold">
-                    <tr>
-                        <th class="px-6 py-3">Borrower</th>
-                        <th class="px-6 py-3">Request ID</th>
-                        <th class="px-6 py-3">Borrow Date</th>
-                        <th class="px-6 py-3">Return Date</th>
-                        <th class="px-6 py-3">Status</th>
-                        <th class="px-6 py-3">Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="borrowRequestsTableBody" class="divide-y bg-white">
-                    <tr>
-                        <td colspan="6" class="py-4 text-gray-500">Loading...</td>
-                    </tr>
-                </tbody>
-            </table>
+    <!-- Title and Actions Section -->
+    <div class="py-2">
+        <div class="px-2">
+            <!-- Alerts -->
+            <div id="adminAlertContainer" class="fixed top-4 right-4 space-y-2 z-[9999]"></div>
+            
+            <!-- Title Row -->
+            <div class="rounded-2xl shadow-lg bg-white border border-gray-200 px-6 py-4 mb-2">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <!-- Title -->
+                    <div class="flex-shrink-0 flex items-center">
+                        <x-title level="h2"
+                                size="2xl"
+                                weight="bold"
+                                icon="clipboard-document-check"
+                                iconStyle="plain"
+                                iconColor="gov-accent"> Borrow Requests </x-title>
+                    </div>
+                </div>
+            </div>
         </div>
+    </div>
 
-        <!-- Pagination -->
-        <div class="flex justify-center mt-6">
-            <nav id="paginationNav" class="inline-flex items-center space-x-2"></nav>
+    <!-- Table Section -->
+    <div class="pb-2">
+        <div class="px-2">
+            <div class="rounded-2xl shadow-lg border border-gray-200 table-wrapper">
+                <div class="table-container-no-scroll">
+                <table class="w-full text-sm text-center text-gray-600 gov-table">
+                    <thead class="bg-purple-600 text-white text-xs uppercase font-semibold text-center">
+                        <tr>
+                            <th class="px-6 py-3 text-center">Borrower</th>
+                            <th class="px-6 py-3 text-center">Request ID</th>
+                            <th class="px-6 py-3 text-center">Borrow Date</th>
+                            <th class="px-6 py-3 text-center">Return Date</th>
+                            <th class="px-6 py-3 text-center">Status</th>
+                            <th class="px-6 py-3 text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="borrowRequestsTableBody" class="text-center">
+                        <tr>
+                            <td colspan="6" class="py-4 text-gray-500">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -484,19 +500,19 @@
 </x-modal>
     {{-- Button templates (used by JS to create action buttons per-row) --}}
     <template id="btn-view-template">
-        <x-button variant="secondary" iconName="eye" class="px-2 py-1 text-xs" data-action="view">View</x-button>
+        <x-button variant="secondary" iconName="eye" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="view">View</x-button>
     </template>
     <template id="btn-validate-template">
-        <x-button variant="success" iconName="check" class="px-2 py-1 text-xs" data-action="validate">Validate</x-button>
+        <x-button variant="primary" iconName="shield-check" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="validate">Validate</x-button>
     </template>
     <template id="btn-reject-template">
-        <x-button variant="danger" iconName="x-circle" class="px-2 py-1 text-xs" data-action="reject">Reject</x-button>
+        <x-button variant="danger" iconName="x-circle" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="reject">Reject</x-button>
     </template>
     <template id="btn-deliver-template">
-        <x-button variant="info" iconName="truck" class="px-2 py-1 text-xs" data-action="deliver">Deliver Items</x-button>
+        <x-button variant="info" iconName="truck" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="deliver">Deliver Items</x-button>
     </template>
     <template id="btn-accept-template">
-        <x-button variant="success" iconName="check-circle" class="px-2 py-1 text-xs" data-action="approve">Accept</x-button>
+        <x-button variant="success" iconName="check-circle" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="approve">Accept</x-button>
     </template>
 
     {{-- Alert templates --}}

@@ -57,11 +57,12 @@ aside#sidebar {
 
 /* Unified table styling for UI pages */
 .gov-table {
-    border-collapse: separate; /* keep rounded corners nicer */
-    border-spacing: 0;
+    border-collapse: collapse; /* Remove border spacing to eliminate white gaps */
     width: 100%;
     background: transparent;
     color: var(--text);
+    border: none; /* Remove table border */
+    margin: 0; /* Remove any margin that might cause gaps */
 }
 .gov-table thead th {
     background-color: var(--gov-accent);
@@ -70,25 +71,33 @@ aside#sidebar {
     text-transform: uppercase;
     font-size: 0.75rem;
     letter-spacing: .02em;
-    /* remove header bottom border to avoid a thin seam between thead and tbody */
-    border-bottom: none;
-    /* ensure background respects rounded corners and doesn't show gaps */
-    -webkit-background-clip: padding-box;
-    background-clip: padding-box;
+    border: none; /* Remove all borders from header */
+    padding: 0.75rem 1rem;
+    vertical-align: middle;
+    text-align: center !important; /* Force center alignment */
+    position: static; /* Remove sticky positioning */
+    border-radius: 0 !important; /* Ensure no rounded corners */
+    margin: 0; /* Remove any margin */
 }
 .gov-table th, .gov-table td {
     padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--table-border);
+    border: none; /* Remove all cell borders */
     vertical-align: middle;
-}
-.gov-table tbody tr:hover { background-color: rgba(0,0,0,0.02); }
-
-/* Remove top border from the first row to eliminate the white line gap */
-.gov-table tbody tr:first-child td {
-    border-top: none;
+    text-align: center !important; /* Force center alignment for all cells */
 }
 
-/* Rounded corners for table headers and footers when wrapped by .table-wrapper */
+/* Zebra striping for table rows */
+.gov-table tbody tr:nth-child(even) {
+    background-color: rgba(168,85,247,0.05); /* Light purple for even rows */
+}
+.gov-table tbody tr:nth-child(odd) {
+    background-color: #ffffff; /* White for odd rows */
+}
+.gov-table tbody tr:hover { 
+    background-color: rgba(168,85,247,0.1) !important; /* Purple hover effect */
+}
+
+/* Rounded corners for table headers when wrapped by .table-wrapper */
 .table-wrapper .gov-table thead th:first-child { border-top-left-radius: 0.6rem; }
 .table-wrapper .gov-table thead th:last-child { border-top-right-radius: 0.6rem; }
 .table-wrapper .gov-table tbody tr:last-child td:first-child { border-bottom-left-radius: 0.6rem; }
@@ -98,10 +107,92 @@ aside#sidebar {
 .theme-dark .gov-table thead th, .dark .gov-table thead th {
     background-color: rgba(168,85,247,0.9);
 }
-.theme-dark .gov-table tbody tr:hover, .dark .gov-table tbody tr:hover { background-color: rgba(255,255,255,0.02); }
+.theme-dark .gov-table tbody tr:nth-child(even), .dark .gov-table tbody tr:nth-child(even) {
+    background-color: rgba(168,85,247,0.08);
+}
+.theme-dark .gov-table tbody tr:nth-child(odd), .dark .gov-table tbody tr:nth-child(odd) {
+    background-color: var(--card-bg);
+}
+.theme-dark .gov-table tbody tr:hover, .dark .gov-table tbody tr:hover { 
+    background-color: rgba(168,85,247,0.15) !important; 
+}
 
-/* Make tables horizontally scrollable on narrow screens but keep modern rounded card look */
-.table-wrapper { border-radius: 0.6rem; overflow: hidden; box-shadow: 0 6px 20px rgba(2,6,23,0.06); }
+/* Dark theme scrollbar */
+.theme-dark .table-container::-webkit-scrollbar-track, 
+.dark .table-container::-webkit-scrollbar-track {
+    background: #374151;
+}
+.theme-dark .table-container, 
+.dark .table-container {
+    scrollbar-color: var(--gov-accent) #374151;
+}
+
+/* Make tables horizontally scrollable on narrow screens but keep modern connected card look */
+.table-wrapper { 
+    border-radius: 0 0 1rem 1rem !important; /* Only bottom rounded corners */
+    overflow: visible; /* Changed from hidden to visible to prevent nested scrollbars */
+    box-shadow: 0 6px 20px rgba(2,6,23,0.06);
+    border: 1px solid #e5e7eb; /* Add border for connection effect */
+    border-top: none !important; /* Remove top border to connect with title */
+    /* Ensure no additional constraints that might cause scrollbars */
+    max-width: 100%;
+    width: 100%;
+}
+
+/* Purple scrollbar styling */
+.table-container,
+.table-container-no-scroll,
+.gov-table tbody {
+    scrollbar-width: thin;
+    scrollbar-color: var(--gov-accent) #f1f1f1;
+}
+
+/* Webkit scrollbar styles (Chrome, Safari, Edge) */
+.table-container::-webkit-scrollbar,
+.table-container-no-scroll::-webkit-scrollbar,
+.gov-table tbody::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.table-container::-webkit-scrollbar-track,
+.table-container-no-scroll::-webkit-scrollbar-track,
+.gov-table tbody::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb,
+.table-container-no-scroll::-webkit-scrollbar-thumb,
+.gov-table tbody::-webkit-scrollbar-thumb {
+    background: var(--gov-accent); /* Purple scrollbar */
+    border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover,
+.table-container-no-scroll::-webkit-scrollbar-thumb:hover,
+.gov-table tbody::-webkit-scrollbar-thumb:hover {
+    background: #9333ea; /* Darker purple on hover */
+}
+
+/* Dark theme scrollbar */
+.theme-dark .table-container::-webkit-scrollbar-track, 
+.dark .table-container::-webkit-scrollbar-track,
+.theme-dark .table-container-no-scroll::-webkit-scrollbar-track,
+.dark .table-container-no-scroll::-webkit-scrollbar-track,
+.theme-dark .gov-table tbody::-webkit-scrollbar-track,
+.dark .gov-table tbody::-webkit-scrollbar-track {
+    background: #374151;
+}
+
+.theme-dark .table-container, 
+.dark .table-container,
+.theme-dark .table-container-no-scroll,
+.dark .table-container-no-scroll,
+.theme-dark .gov-table tbody,
+.dark .gov-table tbody {
+    scrollbar-color: var(--gov-accent) #374151;
+}
 
 /* Small helper for content cards */
 .page-card { background: var(--card-bg); color: var(--text); padding: 1rem; border-radius: .6rem; }
@@ -123,5 +214,1011 @@ aside#sidebar {
 
 /* Keep forms and inputs legible in dark */
 .theme-dark input, .theme-dark select, .theme-dark textarea { background: #0b1220; color: var(--text); border-color: var(--table-border); }
+
+/* Fix for redundant scrollbars - ensure main content containers don't create extra scrollbars */
+.main-content, 
+main[role="main"],
+#app {
+    overflow-x: visible;
+    max-width: 100vw;
+}
+
+/* Prevent horizontal scrollbars on page containers */
+.py-6, 
+.sm\\:px-6, 
+.lg\\:px-8 {
+    overflow-x: visible;
+}
+
+/* New table container without internal scrollbar - use page scrollbar instead */
+.table-container-no-scroll {
+    overflow: visible; /* No internal scrolling */
+    border-radius: 16px; /* Match rounded-2xl */
+    background: transparent; /* Remove white background */
+}
+
+/* Connected title and table container styling */
+/* Title container - rounded only on top, straight bottom for connection */
+.mb-2.rounded-2xl.shadow-lg.bg-white,
+.title-container {
+    border-radius: 1rem 1rem 0 0 !important; /* Rounded top, straight bottom */
+    border-bottom: none !important; /* Remove bottom border to connect with table */
+    margin-bottom: 0 !important; /* No gap between title and table */
+    padding: 1rem 1.5rem !important; /* Reduced padding from default px-6 py-4 */
+    min-height: auto !important; /* Allow container to shrink */
+}
+
+/* Optimize title container layout for compactness */
+.mb-2.rounded-2xl.shadow-lg.bg-white .flex.flex-col.md\\:flex-row {
+    gap: 1rem !important; /* Reduced gap between title and search */
+    align-items: center !important;
+}
+
+/* Make search bar more compact */
+.mb-2.rounded-2xl.shadow-lg.bg-white .flex.items-center.gap-2 {
+    gap: 0.5rem !important; /* Tighter gap between search input and button */
+}
+
+.mb-2.rounded-2xl.shadow-lg.bg-white input[type="text"] {
+    padding: 0.5rem 0.75rem !important; /* Reduced padding in search input */
+    height: 2.25rem !important; /* Fixed height for search input */
+}
+
+.mb-2.rounded-2xl.shadow-lg.bg-white button {
+    padding: 0.5rem 0.75rem !important; /* Reduced button padding */
+    height: 2.25rem !important; /* Match search input height */
+}
+
+/* Table wrapper - rounded only on bottom, straight top for connection */
+.table-wrapper {
+    margin-top: 0 !important;
+    background: white; /* Match title container background */
+    border: 1px solid #e5e7eb;
+    border-radius: 0 0 1rem 1rem !important; /* Straight top, rounded bottom */
+    border-top: none !important; /* Remove top border to connect with title */
+    padding: 0 !important; /* Remove any padding that might cause gaps */
+}
+
+/* Ensure proper spacing between connected containers */
+.pb-2 {
+    padding-bottom: 0 !important; /* Remove bottom padding to connect containers */
+    padding-top: 0.25rem !important; /* Minimal top padding */
+}
+
+/* Optimize page container spacing for maximum table space */
+.px-2 {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+}
+
+.py-2 {
+    padding-top: 0.125rem !important; /* Minimal top padding */
+    padding-bottom: 0.125rem !important; /* Minimal bottom padding */
+}
+
+/* Ensure main content area uses full available height */
+.min-h-screen {
+    height: 100vh !important; /* Use full viewport height */
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+/* Optimize content wrapper for maximum space utilization */
+.max-w-7xl {
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+/* Remove any margin or padding from table container that could cause gaps */
+.table-container-no-scroll {
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 0 1rem 1rem !important;
+}
+
+/* Optimize table wrapper for full height utilization */
+.table-wrapper {
+    flex-grow: 1 !important; /* Allow table to expand */
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 0 !important; /* Allow shrinking */
+}
+
+/* Ensure table section uses remaining space */
+.pb-2 > .px-2 {
+    flex-grow: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+/* Dark mode support for table wrapper */
+body.theme-dark .table-wrapper {
+    border-color: #374151;
+    background: #1f2937; /* Match dark title container */
+}
+
+/* Dark mode support for title container */
+body.theme-dark .rounded-2xl.shadow-lg.bg-white,
+body.theme-dark .mb-2.rounded-2xl.shadow-lg.bg-white,
+body.theme-dark .title-container {
+    background-color: #1f2937 !important;
+    border-color: #374151 !important;
+    color: #f9fafb !important;
+}
+
+/* Consistent container styling - apply to both title and table */
+.rounded-2xl.shadow-lg,
+.mb-2.rounded-2xl.shadow-lg.bg-white,
+.title-container,
+.table-wrapper {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e5e7eb;
+}
+
+/* Compressed spacing between containers */
+.mb-2 {
+    margin-bottom: 0.5rem; /* Smaller space between title and table containers */
+}
+
+/* Minimize page margins for larger containers */
+.px-2 {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+}
+
+.py-2 {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+}
+
+/* Ensure title container has proper padding and alignment */
+.rounded-2xl .flex.md\\:justify-between {
+    align-items: center;
+    min-height: auto;
+}
+
+/* Remove the old table-container styles that had scrollbars */
+.table-container {
+    overflow: visible !important;
+    max-height: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+}
+
+/* When main content doesn't scroll, ensure proper height calculations */
+#mainContent.overflow-y-visible {
+    height: auto; /* Let content determine height naturally */
+}
+
+/* Ensure the table itself has connected design - no gaps, no top rounding */
+.table-container-no-scroll table {
+    border-radius: 0 0 1rem 1rem; /* Only bottom rounded corners */
+    overflow: hidden;
+    margin: 0; /* Remove any margin that might cause gaps */
+    border-spacing: 0; /* Ensure no spacing between cells */
+}
+
+/* Table headers have NO rounded corners and no gaps */
+.table-container-no-scroll table thead tr:first-child th:first-child {
+    border-top-left-radius: 0 !important;
+    border-radius: 0 !important;
+}
+
+.table-container-no-scroll table thead tr:first-child th:last-child {
+    border-top-right-radius: 0 !important;
+    border-radius: 0 !important;
+}
+
+/* Ensure all header cells have no border radius */
+.table-container-no-scroll table thead th {
+    border-radius: 0 !important;
+    margin: 0;
+    padding: 0.75rem 1rem;
+}
+
+/* Make sure table last row has proper rounded bottom corners */
+.table-container-no-scroll table tbody tr:last-child td:first-child {
+    border-bottom-left-radius: 1rem;
+}
+
+.table-container-no-scroll table tbody tr:last-child td:last-child {
+    border-bottom-right-radius: 1rem;
+}
+
+/* Ensure no extra borders that might interfere with rounding */
+.table-container-no-scroll table {
+    border-collapse: separate;
+    border-spacing: 0;
+    border: none !important; /* Remove all table borders */
+}
+
+/* Remove borders from table cells - More specific selectors */
+.table-container-no-scroll table th,
+.table-container-no-scroll table td,
+.table-wrapper table th,
+.table-wrapper table td,
+.gov-table th,
+.gov-table td {
+    border: none !important;
+    border-right: none !important;
+    border-left: none !important;
+    border-top: none !important;
+    border-bottom: none !important;
+    border-width: 0 !important;
+    border-style: none !important;
+}
+
+/* Remove any default table styling that might add borders */
+.gov-table,
+.table-container-no-scroll table,
+.table-wrapper table {
+    border: none !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+}
+
+/* Remove borders from table rows */
+.gov-table tr,
+.table-container-no-scroll table tr,
+.table-wrapper table tr {
+    border: none !important;
+    border-top: none !important;
+    border-bottom: none !important;
+}
+
+/* Override any Tailwind table utilities */
+.table-auto,
+.table-fixed {
+    border-collapse: separate !important;
+}
+
+/* Ensure tbody and thead don't have borders */
+.gov-table tbody,
+.gov-table thead,
+.table-container-no-scroll tbody,
+.table-container-no-scroll thead {
+    border: none !important;
+}
+
+/* Ensure table takes full width of container */
+.table-container-no-scroll table {
+    width: 100%;
+    margin: 0;
+    background: transparent; /* Remove any table background */
+}
+
+/* Ensure table body rows don't have white backgrounds */
+.table-container-no-scroll tbody tr {
+    background: transparent;
+}
+
+/* Make sure even/odd row styling is properly transparent */
+.gov-table tbody tr:nth-child(even) {
+    background-color: rgba(139, 92, 246, 0.1) !important; /* Light purple for zebra striping */
+}
+
+.gov-table tbody tr:nth-child(odd) {
+    background: transparent !important;
+}
+
+/* Dark mode support for table text */
+body.theme-dark .gov-table {
+    color: #f9fafb !important; /* Light text for dark mode */
+}
+
+body.theme-dark .gov-table tbody tr {
+    color: #f9fafb !important; /* Light text for table rows */
+}
+
+body.theme-dark .gov-table tbody td {
+    color: #f9fafb !important; /* Light text for table cells */
+}
+
+/* Consistent font styling for all table text */
+.gov-table,
+.gov-table th,
+.gov-table td {
+    font-family: inherit;
+    font-size: 0.875rem; /* text-sm equivalent */
+    font-weight: 400; /* normal weight */
+}
+
+/* Consistent font styling for table headers */
+.gov-table thead th {
+    font-size: 0.75rem; /* text-xs equivalent */
+    font-weight: 600; /* semibold */
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+
+/* Make item names consistent with other text */
+.gov-table tbody td {
+    font-size: 0.875rem; /* text-sm equivalent - same as other columns */
+    font-weight: 400; /* normal weight - consistent across all columns */
+}
+
+/* Dark mode zebra striping adjustments */
+body.theme-dark .gov-table tbody tr:nth-child(even) {
+    background-color: rgba(139, 92, 246, 0.15) !important; /* Slightly stronger purple for dark mode */
+}
+
+/* Override specific Tailwind classes for dark mode */
+body.theme-dark .text-gray-600 {
+    color: #f9fafb !important; /* Light text instead of gray */
+}
+
+body.theme-dark .text-center.text-gray-600 {
+    color: #f9fafb !important; /* Light text for centered gray text */
+}
+
+/* Ensure title text adapts to dark mode */
+body.theme-dark .rounded-2xl h2,
+body.theme-dark .rounded-2xl .text-2xl {
+    color: #f9fafb !important; /* Light text for titles */
+}
+
+/* Nuclear option - Remove ALL possible table borders */
+table,
+table *,
+.gov-table,
+.gov-table *,
+.table-container-no-scroll table,
+.table-container-no-scroll table *,
+.table-wrapper table,
+.table-wrapper table * {
+    border: 0 !important;
+    border-width: 0 !important;
+    border-style: none !important;
+    border-color: transparent !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* Override any inherited border styles */
+[class*="border"],
+table [class*="border"],
+.gov-table [class*="border"] {
+    border: none !important;
+    border-width: 0 !important;
+}
+
+/* Remove any possible row separators */
+tr + tr td {
+    border-top: none !important;
+}
+
+/* Override table-auto and other Tailwind table classes */
+.w-full.text-sm.text-center.text-gray-600.gov-table,
+.w-full.text-sm.text-center.text-gray-600.gov-table * {
+    border: none !important;
+    border-collapse: separate !important;
+}
+
+/* Special styling for modal tables with scrolling */
+.table-container-no-scroll[style*="max-height"] {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    background: transparent;
+}
+
+/* Ensure modal table cells don't have sticky positioning */
+.table-container-no-scroll .sticky {
+    position: static !important;
+}
+
+/* Remove any background colors from modal table cells */
+.table-container-no-scroll td,
+.table-container-no-scroll th {
+    background: transparent !important;
+}
+
+/* Ensure modal table headers stay fixed while rows scroll */
+.table-container-no-scroll thead th {
+    background: #9333ea !important; /* Purple-600 */
+    color: white !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 20 !important;
+}
+
+/* Make sure the table container has proper scroll behavior */
+.table-container-no-scroll {
+    position: relative;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+
+/* Ensure table takes full width and headers stick properly */
+.table-container-no-scroll table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+/* Fix sticky header positioning for modal tables */
+.table-container-no-scroll[style*="max-height"] thead th {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 30 !important;
+    background: #9333ea !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Modal table hover effects */
+.table-container-no-scroll tbody tr:hover td {
+    background-color: rgba(139, 92, 246, 0.1) !important;
+}
+
+/* FIXED TABLE HEADER IMPLEMENTATION - Fixed positioning for scrolling */
+.table-container-no-scroll {
+    position: relative;
+    max-height: 82vh; /* Significantly increased to use more screen space */
+    overflow-y: auto; /* Enable vertical scrolling for table body */
+    overflow-x: hidden;
+    border-radius: 0 0 1rem 1rem;
+    margin-top: 0;
+}
+
+/* Fixed header styling - stays in place while content scrolls */
+.gov-table {
+    position: relative;
+}
+
+.gov-table thead {
+    position: relative;
+    z-index: 10;
+    background: #9333ea !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+}
+
+.gov-table thead th {
+    background: #9333ea !important; /* Purple-600 - maintain header color */
+    color: white !important;
+    border-radius: 0 !important; /* Remove any rounded corners */
+    box-shadow: none !important; /* Remove shadow that might cause gaps */
+    margin: 0 !important;
+    padding: 0.75rem 1rem !important;
+    border: none !important;
+    vertical-align: middle !important;
+    text-align: center !important;
+    line-height: 1.2 !important;
+}
+
+/* Scrollable container handles scrolling, tbody uses normal table display for proper alignment */
+
+/* Override Tailwind bg-purple-600 class specifically */
+.bg-purple-600.text-white.text-xs.uppercase.font-semibold.text-center {
+    background: #9333ea !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Ensure first and last header cells have no rounded corners */
+.gov-table thead th:first-child {
+    border-top-left-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+    border-left: none !important;
+}
+
+.gov-table thead th:last-child {
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    border-right: none !important;
+}
+
+/* Make sure table wrapper supports normal flow */
+.table-wrapper {
+    position: relative;
+    overflow: visible;
+}
+
+/* Ensure zebra striping doesn't interfere with sticky header */
+.gov-table tbody tr:nth-child(even) {
+    background-color: rgba(139, 92, 246, 0.1) !important;
+}
+
+.gov-table tbody tr:nth-child(odd) {
+    background: transparent !important;
+}
+
+/* Make sure the table wrapper doesn't create extra scrollbars */
+.table-wrapper {
+    overflow: visible;
+    position: relative;
+    margin-bottom: 1rem;
+}
+
+/* When main content doesn't scroll, ensure proper height calculations */
+#mainContent.overflow-y-visible {
+    height: calc(100vh - 120px); /* Adjust based on your header/nav height */
+}
+
+/* Prevent any container from creating additional scrollbars */
+.max-w-7xl {
+    overflow: visible;
+}
+
+/* Ensure the page content fits properly */
+.min-h-screen {
+    overflow-x: hidden;
+}
+
+/* RESPONSIVE ACTION BUTTONS - Maintain size and layout at all zoom levels */
+.gov-table td .flex.items-center.justify-center.gap-3 {
+    min-width: fit-content;
+    white-space: nowrap;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.5rem !important; /* Reduced gap for better fit */
+    padding: 0.25rem !important;
+    overflow-x: visible !important; /* Ensure buttons don't get cut off */
+}
+
+/* Action button sizing - maintains consistent size at all zoom levels */
+.gov-table td button,
+.gov-table td .h-10.w-10 {
+    min-width: 2.25rem !important; /* Slightly smaller - 36px for better fit */
+    max-width: 2.25rem !important;
+    min-height: 2.25rem !important; /* 36px minimum */
+    max-height: 2.25rem !important;
+    width: 2.25rem !important;
+    height: 2.25rem !important;
+    flex-shrink: 0 !important; /* Prevent shrinking */
+    flex-grow: 0 !important; /* Prevent growing */
+    border-radius: 50% !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+    border: 2px solid rgba(255, 255, 255, 0.2) !important; /* Subtle border for depth */
+}
+
+/* Ensure button icons are properly sized */
+.gov-table td button svg,
+.gov-table td button .heroicon {
+    width: 1rem !important; /* 16px */
+    height: 1rem !important; /* 16px */
+    flex-shrink: 0 !important;
+}
+
+/* Button text should be screen reader only for icon buttons */
+.gov-table td button span:last-child {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+/* Enhanced button colors and variants - unique colors for each action */
+.gov-table td button[class*="bg-blue"] {
+    background-color: #3b82f6 !important; /* Primary blue for Edit */
+}
+
+.gov-table td button[class*="bg-gray"] {
+    background-color: #6b7280 !important; /* Keep gray as fallback */
+}
+
+.gov-table td button[class*="bg-red"] {
+    background-color: #ef4444 !important; /* Danger red for Delete */
+}
+
+/* Specific button type styling based on icons */
+/* View button - Emerald green */
+.gov-table td button[class*="iconName-eye"],
+.gov-table td button svg[data-slot="icon"] use[href*="eye"] {
+    background-color: #10b981 !important; /* Emerald-500 */
+}
+.gov-table td button[class*="iconName-eye"]:hover {
+    background-color: #059669 !important; /* Emerald-600 on hover */
+}
+
+/* Print button - Amber orange */
+.gov-table td button[class*="iconName-printer"],
+.gov-table td button svg[data-slot="icon"] use[href*="printer"] {
+    background-color: #f59e0b !important; /* Amber-500 */
+}
+.gov-table td button[class*="iconName-printer"]:hover {
+    background-color: #d97706 !important; /* Amber-600 on hover */
+}
+
+/* Alternative approach - target by button position in flex container */
+.gov-table td .flex.items-center.justify-center.gap-3 button:nth-child(1) {
+    background-color: #3b82f6 !important; /* Blue for Edit (1st button) */
+}
+.gov-table td .flex.items-center.justify-center.gap-3 button:nth-child(1):hover {
+    background-color: #2563eb !important; /* Blue-600 on hover */
+}
+
+.gov-table td .flex.items-center.justify-center.gap-3 button:nth-child(2) {
+    background-color: #10b981 !important; /* Emerald for View (2nd button) */
+}
+.gov-table td .flex.items-center.justify-center.gap-3 button:nth-child(2):hover {
+    background-color: #059669 !important; /* Emerald-600 on hover */
+}
+
+.gov-table td .flex.items-center.justify-center.gap-3 button:nth-child(3) {
+    background-color: #f59e0b !important; /* Amber for Print (3rd button) */
+}
+.gov-table td .flex.items-center.justify-center.gap-3 button:nth-child(3):hover {
+    background-color: #d97706 !important; /* Amber-600 on hover */
+}
+
+.gov-table td .flex.items-center.justify-center.gap-3 button:nth-child(4) {
+    background-color: #ef4444 !important; /* Red for Delete (4th button) */
+}
+.gov-table td .flex.items-center.justify-center.gap-3 button:nth-child(4):hover {
+    background-color: #dc2626 !important; /* Red-600 on hover */
+}
+
+/* Hover effects for action buttons */
+.gov-table td button:hover {
+    transform: scale(1.05) !important;
+    transition: transform 0.15s ease-in-out !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Focus states for accessibility */
+.gov-table td button:focus {
+    outline: 2px solid var(--gov-accent) !important;
+    outline-offset: 2px !important;
+}
+
+/* Disabled button states */
+.gov-table td button:disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+}
+
+.gov-table td button:disabled:hover {
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* Actions column specific sizing - increased width to fit all buttons */
+.gov-table th:last-child,
+.gov-table td:last-child {
+    min-width: 14rem !important; /* Increased width for all 4 buttons */
+    width: 14rem !important;
+    max-width: 14rem !important;
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+}
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 768px) {
+    .gov-table td .flex.items-center.justify-center.gap-3 {
+        gap: 0.5rem !important;
+        flex-wrap: wrap !important;
+    }
+    
+    .gov-table td button,
+    .gov-table td .h-10.w-10 {
+        min-width: 2rem !important; /* 32px on mobile */
+        max-width: 2rem !important;
+        min-height: 2rem !important;
+        max-height: 2rem !important;
+        width: 2rem !important;
+        height: 2rem !important;
+    }
+    
+    .gov-table td button svg,
+    .gov-table td button .heroicon {
+        width: 0.875rem !important; /* 14px on mobile */
+        height: 0.875rem !important;
+    }
+}
+
+/* High zoom level adjustments (when user zooms in) */
+@media (min-resolution: 2dppx) {
+    .gov-table td button,
+    .gov-table td .h-10.w-10 {
+        border-width: 1px !important;
+        font-weight: 500 !important;
+    }
+}
+
+/* UNIVERSAL PAGE STYLING - Apply Items Management styling to all similar pages */
+
+/* Apply compact title styling to all pages with similar structure */
+.mb-2.rounded-2xl.shadow-lg.bg-white,
+.title-container,
+.card {
+    border-radius: 1rem 1rem 0 0 !important;
+    border-bottom: none !important;
+    margin-bottom: 0 !important;
+    padding: 1rem 1.5rem !important;
+    min-height: auto !important;
+}
+
+/* Manage Users page specific styling */
+#users-table {
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+}
+
+#users-table thead {
+    background: #9333ea !important;
+}
+
+#users-table thead th {
+    background: #9333ea !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 0 !important;
+    text-transform: uppercase !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.025em !important;
+}
+
+/* Apply table wrapper styling to Manage Users */
+.card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 0 0 1rem 1rem !important;
+    border-top: none !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.card .overflow-x-auto {
+    max-height: 82vh !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    border-radius: 0 0 1rem 1rem !important;
+}
+
+/* Universal action button styling for all pages */
+/* Apply to Borrow Requests, Return Items, My Borrowed Items, and Manage Users */
+table tbody td button,
+#users-tbody button,
+#borrowRequestsTableBody button,
+#returnItemsTableBody button,
+#myBorrowedItemsTableBody button,
+button[data-action] {
+    min-width: 2.25rem !important;
+    max-width: 2.25rem !important;
+    min-height: 2.25rem !important;
+    max-height: 2.25rem !important;
+    width: 2.25rem !important;
+    height: 2.25rem !important;
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+    border-radius: 50% !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+    border: 2px solid rgba(255, 255, 255, 0.2) !important;
+    margin: 0 0.25rem !important;
+}
+
+/* Ensure action columns have proper flex layout */
+table tbody td:last-child,
+#users-tbody td:last-child,
+#borrowRequestsTableBody td:last-child,
+#returnItemsTableBody td:last-child,
+#myBorrowedItemsTableBody td:last-child {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.5rem !important;
+    flex-wrap: nowrap !important;
+}
+
+/* Universal button icons */
+table tbody td button svg,
+#users-tbody button svg,
+#borrowRequestsTableBody button svg,
+#returnItemsTableBody button svg,
+#myBorrowedItemsTableBody button svg {
+    width: 1rem !important;
+    height: 1rem !important;
+    flex-shrink: 0 !important;
+}
+
+/* Universal button colors - consistent across all pages */
+/* Edit buttons (pencil/edit icons) - Blue */
+table tbody td button[class*="bg-blue"],
+table tbody td button:nth-of-type(1),
+button[data-action="edit"],
+button[title*="Edit"],
+button[class*="edit"] {
+    background-color: #3b82f6 !important;
+}
+table tbody td button[class*="bg-blue"]:hover,
+table tbody td button:nth-of-type(1):hover,
+button[data-action="edit"]:hover,
+button[title*="Edit"]:hover {
+    background-color: #2563eb !important;
+}
+
+/* View buttons (eye icons) - Emerald Green */
+table tbody td button[data-action="view"],
+table tbody td button[title*="View"],
+table tbody td button[class*="view"],
+button:has(svg[data-slot="icon"]:has(path[d*="M15 12a3 3 0"])) {
+    background-color: #10b981 !important;
+}
+table tbody td button[data-action="view"]:hover,
+table tbody td button[title*="View"]:hover {
+    background-color: #059669 !important;
+}
+
+/* Print buttons (printer icons) - Amber Orange */
+table tbody td button[data-action="print"],
+table tbody td button[title*="Print"],
+table tbody td button[class*="print"],
+button:has(svg[data-slot="icon"]:has(path[d*="M8 5a1 1 0"])) {
+    background-color: #f59e0b !important;
+}
+table tbody td button[data-action="print"]:hover,
+table tbody td button[title*="Print"]:hover {
+    background-color: #d97706 !important;
+}
+
+/* Delete buttons (trash icons) - Red */
+table tbody td button[class*="bg-red"],
+table tbody td button[data-action="delete"],
+table tbody td button[title*="Delete"],
+table tbody td button[class*="delete"],
+button:has(svg[data-slot="icon"]:has(path[d*="M14.74 9l-.346 9"])) {
+    background-color: #ef4444 !important;
+}
+table tbody td button[class*="bg-red"]:hover,
+table tbody td button[data-action="delete"]:hover,
+table tbody td button[title*="Delete"]:hover {
+    background-color: #dc2626 !important;
+}
+
+/* Validate buttons (shield-check icons) - Indigo Purple */
+table tbody td button[data-action="validate"],
+table tbody td button[title*="Validate"],
+table tbody td button[class*="validate"] {
+    background-color: #6366f1 !important;
+}
+table tbody td button[data-action="validate"]:hover,
+table tbody td button[title*="Validate"]:hover {
+    background-color: #4f46e5 !important;
+}
+
+/* Accept/Approve buttons (check-circle icons) - Green */
+table tbody td button[data-action="approve"],
+table tbody td button[data-action="accept"],
+table tbody td button[title*="Approve"],
+table tbody td button[title*="Accept"],
+table tbody td button[class*="approve"],
+table tbody td button[class*="accept"] {
+    background-color: #22c55e !important;
+}
+table tbody td button[data-action="approve"]:hover,
+table tbody td button[data-action="accept"]:hover,
+table tbody td button[title*="Approve"]:hover,
+table tbody td button[title*="Accept"]:hover {
+    background-color: #16a34a !important;
+}
+
+/* Reject buttons (x-circle icons) - Red Orange */
+table tbody td button[data-action="reject"],
+table tbody td button[title*="Reject"],
+table tbody td button[class*="reject"] {
+    background-color: #f97316 !important;
+}
+table tbody td button[data-action="reject"]:hover,
+table tbody td button[title*="Reject"]:hover {
+    background-color: #ea580c !important;
+}
+
+/* Deliver buttons (truck icons) - Blue */
+table tbody td button[data-action="deliver"],
+table tbody td button[title*="Deliver"],
+table tbody td button[class*="deliver"] {
+    background-color: #0ea5e9 !important;
+}
+table tbody td button[data-action="deliver"]:hover,
+table tbody td button[title*="Deliver"]:hover {
+    background-color: #0284c7 !important;
+}
+
+/* Manage buttons (cog/settings icons) - Purple */
+table tbody td button[data-action="manage"],
+table tbody td button[title*="Manage"],
+table tbody td button[class*="manage"] {
+    background-color: #a855f7 !important;
+}
+table tbody td button[data-action="manage"]:hover,
+table tbody td button[title*="Manage"]:hover {
+    background-color: #9333ea !important;
+}
+
+/* Collect/Mark as Collected buttons (clipboard-check icons) - Teal */
+table tbody td button[data-action="collect"],
+table tbody td button[data-action="collected"],
+table tbody td button[title*="Collect"],
+table tbody td button[title*="Mark as Collected"],
+table tbody td button[class*="collect"] {
+    background-color: #14b8a6 !important;
+}
+table tbody td button[data-action="collect"]:hover,
+table tbody td button[data-action="collected"]:hover,
+table tbody td button[title*="Collect"]:hover,
+table tbody td button[title*="Mark as Collected"]:hover {
+    background-color: #0d9488 !important;
+}
+
+/* Universal hover effects */
+table tbody td button:hover,
+#users-tbody button:hover,
+#borrowRequestsTableBody button:hover,
+#returnItemsTableBody button:hover,
+#myBorrowedItemsTableBody button:hover {
+    transform: scale(1.05) !important;
+    transition: transform 0.15s ease-in-out !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Universal focus states */
+table tbody td button:focus,
+#users-tbody button:focus,
+#borrowRequestsTableBody button:focus,
+#returnItemsTableBody button:focus,
+#myBorrowedItemsTableBody button:focus {
+    outline: 2px solid var(--gov-accent) !important;
+    outline-offset: 2px !important;
+}
+
+/* Manage Users page title container fix */
+.px-6.lg\\:px-8 + .py-8 .sm\\:px-6.lg\\:px-8 .card {
+    margin-top: 0 !important;
+}
+
+/* Apply universal table styling to all tables */
+#users-table,
+table.gov-table {
+    width: 100% !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+}
+
+/* Universal zebra striping */
+#users-table tbody tr:nth-child(even),
+table.gov-table tbody tr:nth-child(even) {
+    background-color: rgba(139, 92, 246, 0.1) !important;
+}
+
+#users-table tbody tr:nth-child(odd),
+table.gov-table tbody tr:nth-child(odd) {
+    background: transparent !important;
+}
+
+/* Universal hover effects for rows */
+#users-table tbody tr:hover,
+table.gov-table tbody tr:hover {
+    background-color: rgba(139, 92, 246, 0.15) !important;
+}
+
+/* Ensure action columns have proper width on all pages */
+table th:last-child,
+table td:last-child,
+#users-table th:last-child,
+#users-table td:last-child {
+    min-width: 14rem !important;
+    width: 14rem !important;
+    max-width: 14rem !important;
+    text-align: center !important;
+}
 
 /* End of ui.css */

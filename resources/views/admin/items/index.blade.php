@@ -37,14 +37,12 @@
         }
     }
 @endphp
+
+@php
+    $noMainScroll = false; // Enable main content scrolling since we removed table scrollbar
+@endphp
+
 <x-app-layout>
-    <x-title level="h2"
-                size="2xl"
-                weight="bold"
-                icon="archive-box"
-                variant="s"
-                iconStyle="plain"
-                iconColor="gov-accent"> Items Management </x-title>
     <div
         class="hidden"
         data-items-bootstrap
@@ -52,46 +50,73 @@
         data-items-offices='@json($bootstrapOffices)'
         data-items-category-codes='@json($bootstrapCategoryCodes)'>
     </div>
-  <div class="py-6">
-      <div class="sm:px-6 lg:px-8 space-y-10">
-          @if(session('success'))
-              <x-alert type="success" :message="session('success')" />
-          @endif
-          @if(session('error'))
-              <x-alert type="error" :message="session('error')" />
-          @endif
-          @if($errors->any())
-              <x-alert type="error" :message="$errors->first()" />
-          @endif
-          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-              <form method="GET" action="{{ route('items.index') }}" class="flex items-center gap-2">
-                  <input type="text"
-                         name="search"
-                         value="{{ request('search') }}"
-                         placeholder="Search by name or category..."
-                         class="border rounded-lg px-3 py-2 text-sm w-64 focus:ring focus:ring-blue-200" />
-                  <x-button
-                      variant="secondary"
-                      iconName="magnifying-glass"
-                      type="submit"
-                      class="text-sm px-3 py-2">
-                      Search
-                  </x-button>
-              </form>
-          </div>
-          <div class="overflow-x-auto rounded-2xl shadow-lg table-wrapper">
-              <table class="w-full text-sm text-center text-gray-600 shadow-sm border rounded-lg overflow-hidden gov-table">
-                  <thead class="bg-purple-600 text-white text-xs uppercase font-semibold text-center">
-                      <tr>
-                          <th class="px-6 py-3">Photo</th>
-                          <th class="px-6 py-3">Name</th>
-                          <th class="px-6 py-3">Category</th>
-                          <th class="px-6 py-3">Total Qty</th>
-                          <th class="px-6 py-3">Available</th>
-                          <th class="px-6 py-3">Actions</th>
-                      </tr>
-                  </thead>
-            <tbody class="divide-y bg-white text-center">
+    
+    <!-- Title and Actions Section -->
+    <div class="py-2">
+        <div class="px-2">
+            @if(session('success'))
+                <x-alert type="success" :message="session('success')" />
+            @endif
+            @if(session('error'))
+                <x-alert type="error" :message="session('error')" />
+            @endif
+            @if($errors->any())
+                <x-alert type="error" :message="$errors->first()" />
+            @endif
+            
+            <!-- Title Row with Search Bar - Contained Box -->
+            <div class="rounded-2xl shadow-lg bg-white border border-gray-200 px-6 py-4 mb-2">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <!-- Title -->
+                    <div class="flex-shrink-0 flex items-center">
+                        <x-title level="h2"
+                                size="2xl"
+                                weight="bold"
+                                icon="archive-box"
+                                variant="s"
+                                iconStyle="plain"
+                                iconColor="gov-accent"> Items Management </x-title>
+                    </div>
+                    
+                    <!-- Search Bar -->
+                    <div class="flex-shrink-0">
+                        <form method="GET" action="{{ route('items.index') }}" class="flex items-center gap-2">
+                            <input type="text"
+                                   name="search"
+                                   value="{{ request('search') }}"
+                                   placeholder="Search by name or category..."
+                                   class="border rounded-lg px-3 py-2 text-sm w-64 focus:ring focus:ring-blue-200" />
+                            <x-button
+                                variant="secondary"
+                                iconName="magnifying-glass"
+                                type="submit"
+                                class="text-sm px-3 py-2">
+                                Search
+                            </x-button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table Section -->
+    <div class="pb-2">
+        <div class="px-2">
+          <div class="rounded-2xl shadow-lg border border-gray-200 table-wrapper">
+              <div class="table-container-no-scroll">
+                  <table class="w-full text-sm text-center text-gray-600 gov-table">
+                      <thead class="bg-purple-600 text-white text-xs uppercase font-semibold text-center">
+                          <tr>
+                              <th class="px-6 py-3">Photo</th>
+                              <th class="px-6 py-3">Name</th>
+                              <th class="px-6 py-3">Category</th>
+                              <th class="px-6 py-3">Total Qty</th>
+                              <th class="px-6 py-3">Available</th>
+                              <th class="px-6 py-3">Actions</th>
+                          </tr>
+                      </thead>
+                <tbody class="text-center">
                       @forelse ($items as $item)
                           @php
                               // Determine display name for category: if item->category is numeric id and map exists, use mapped name.
@@ -103,8 +128,8 @@
                                   $displayCategory = $displayCategory ?? '';
                               }
                           @endphp
-                          <tr class="hover:bg-gray-50" data-item-row="{{ $item->id }}">
-                              <td class="px-6 py-4 text-center" data-item-photo>
+                          <tr class="hover:bg-gray-50 text-center" data-item-row="{{ $item->id }}">
+                              <td class="px-6 py-4" data-item-photo>
                                   @php
                                       $photoUrl = null;
                                       if ($item->photo) {
@@ -130,15 +155,15 @@
                                       <img src="{{ $photoUrl }}" data-item-photo-img class="h-12 w-12 object-cover rounded-lg shadow-sm" alt="{{ $item->name }}">
                                   </div>
                               </td>
-                              <td class="px-6 py-4 font-semibold text-gray-900" data-item-name>{{ $item->name }}</td>
-                              <td class="px-6 py-4" data-item-category>{{ $displayCategory }}</td>
-                              <td class="px-6 py-4" data-item-total>{{ $item->total_qty }}</td>
-                              <td class="px-6 py-4" data-item-available>
+                              <td class="px-6 py-4 font-semibold text-gray-900 text-center" data-item-name>{{ $item->name }}</td>
+                              <td class="px-6 py-4 text-center" data-item-category>{{ $displayCategory }}</td>
+                              <td class="px-6 py-4 text-center" data-item-total>{{ $item->total_qty }}</td>
+                              <td class="px-6 py-4 text-center" data-item-available>
                                   <span class="{{ $item->available_qty > 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold' }}">
                                       {{ $item->available_qty }}
                                   </span>
                               </td>
-                              <td class="px-6 py-4">
+                              <td class="px-6 py-4 text-center">
                                   <div class="flex items-center justify-center gap-3">
                                       <x-button
                                           variant="primary"
@@ -266,11 +291,12 @@
                               </td>
                           </tr>
                       @endforelse
-                  </tbody>
-              </table>
+                      </tbody>
+                  </table>
+              </div>
           </div>
-      </div>
-  </div>
+        </div>
+    </div>
   
   <x-modal name="create-item" maxWidth="2xl">
       <div class="w-full shadow-lg overflow-hidden flex flex-col max-h-[85vh] bg-white">

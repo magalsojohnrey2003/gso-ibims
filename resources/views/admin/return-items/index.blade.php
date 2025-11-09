@@ -1,36 +1,56 @@
 <x-app-layout>
-    <div class="p-6 space-y-6">
-        <x-title
-            level="h2"
-            size="2xl"
-            weight="bold"
-            icon="arrow-path-rounded-square"
-            iconStyle="plain"
-            iconColor="gov-accent">
-            Return Items
-        </x-title>
+    @php
+        $noMainScroll = false; // Enable main content scrolling since we removed table scrollbar
+    @endphp
 
-        <div id="alertContainer" class="fixed top-4 right-4 space-y-2 z-[9999]" aria-live="assertive"></div>
-
-        <div class="overflow-x-auto rounded-lg shadow table-wrapper">
-            <table class="w-full text-sm text-gray-600 shadow-sm border rounded-lg overflow-hidden gov-table">
-                <thead class="bg-purple-600 text-white text-xs uppercase font-semibold">
-                    <tr>
-                        <th class="px-6 py-3 text-left">Borrower</th>
-                        <th class="px-6 py-3 text-left">Status</th>
-                        <th class="px-6 py-3 text-left">Condition</th>
-                        <th class="px-6 py-3">Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="returnItemsTableBody" class="divide-y bg-white">
-                    <tr>
-                        <td colspan="4" class="py-4 text-center text-gray-500">Loading...</td>
-                    </tr>
-                </tbody>
-            </table>
+    <!-- Title and Actions Section -->
+    <div class="py-2">
+        <div class="px-2">
+            <div id="alertContainer" class="fixed top-4 right-4 space-y-2 z-[9999]" aria-live="assertive"></div>
+            
+            <!-- Title Row -->
+            <div class="rounded-2xl shadow-lg bg-white border border-gray-200 px-6 py-4 mb-2">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <!-- Title -->
+                    <div class="flex-shrink-0 flex items-center">
+                        <x-title
+                            level="h2"
+                            size="2xl"
+                            weight="bold"
+                            icon="arrow-path-rounded-square"
+                            iconStyle="plain"
+                            iconColor="gov-accent">
+                            Return Items
+                        </x-title>
+                    </div>
+                </div>
+            </div>
         </div>
+    </div>
 
-        <div id="paginationContainer" class="mt-4 flex justify-center gap-2"></div>
+    <!-- Table Section -->
+    <div class="pb-2">
+        <div class="px-2">
+            <div class="rounded-2xl shadow-lg border border-gray-200 table-wrapper">
+                <div class="table-container-no-scroll">
+                <table class="w-full text-sm text-center text-gray-600 gov-table">
+                    <thead class="bg-purple-600 text-white text-xs uppercase font-semibold text-center">
+                        <tr>
+                            <th class="px-6 py-3 text-center">Borrower</th>
+                            <th class="px-6 py-3 text-center">Status</th>
+                            <th class="px-6 py-3 text-center">Condition</th>
+                            <th class="px-6 py-3 text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="returnItemsTableBody" class="text-center">
+                        <tr>
+                            <td colspan="4" class="py-4 text-center text-gray-500">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Templates -->
@@ -89,15 +109,13 @@
     </template>
 
     <template id="action-manage-template">
-        <x-button data-action="manage" variant="secondary" class="px-3 py-1.5 text-xs font-semibold">
-            <i class="fa-solid fa-pen-to-square mr-1"></i>
+        <x-button data-action="manage" variant="secondary" iconName="cog-6-tooth" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only">
             Manage
         </x-button>
     </template>
 
     <template id="action-collect-template">
-        <x-button data-action="collect" variant="primary" class="px-3 py-1.5 text-xs font-semibold">
-            <i class="fa-solid fa-box-archive mr-1"></i>
+        <x-button data-action="collect" variant="primary" iconName="clipboard-document-check" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only">
             Mark as Collected
         </x-button>
     </template>
@@ -219,8 +237,9 @@
                 </div>
 
                 <div class="border border-gray-200 rounded-lg">
-            <div class="max-h-64 overflow-y-auto table-wrapper">
-                <table class="w-full text-sm text-gray-700 gov-table">
+            <div class="table-wrapper">
+                <div class="table-container" style="max-height: 16rem;">
+                    <table class="w-full text-sm text-gray-700 gov-table">
                             <thead class="bg-gray-100 text-xs uppercase text-gray-600 sticky top-0 z-10">
                                 <tr>
                                     <th class="px-4 py-2 text-left w-12" id="manage-checkbox-header" style="display: none;">
@@ -238,6 +257,7 @@
                             </tbody>
                         </table>
                     </div>
+                </div>
                 </div>
             </div>
 

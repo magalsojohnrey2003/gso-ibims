@@ -69,20 +69,83 @@
     // Using global Chart from CDN
     const personalEmptyEl = document.getElementById("personalBorrowEmpty");
     let personalChart;
+    let initialData = {};
+    
+    // Load initial data from script tag
+    try {
+        const dataEl = document.getElementById('user-dashboard-data');
+        if (dataEl && dataEl.textContent) {
+            initialData = JSON.parse(dataEl.textContent || '{}') || {};
+        }
+    } catch (e) {
+        console.warn('Failed to parse user dashboard data', e);
+    }
+
     function initChart() {
         const canvas = document.getElementById("personalBorrowChart");
         if (!canvas) return;
         const ctx = canvas.getContext("2d");
+        
+        // Get initial trend data
+        const myTrends = initialData.myBorrowTrends || {};
+        const labels = Object.keys(myTrends);
+        const values = Object.values(myTrends);
+        
+        // Theme detection
+        const isDark = document.body.classList.contains('theme-dark');
+        const textColor = isDark ? '#f3f4f6' : '#1f2937';
+        const gridColor = isDark ? '#374151' : '#e5e7eb';
+        
         personalChart = new Chart(ctx, {
             type: 'line',
-            data: { labels: [], datasets: [{ label: 'Items borrowed', data: [], borderColor: 'rgba(99,102,241,1)', backgroundColor: 'rgba(99,102,241,0.1)', fill: true, tension: 0.25 }] },
-            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+            data: { 
+                labels: labels, 
+                datasets: [{ 
+                    label: 'Borrow Requests', 
+                    data: values, 
+                    borderColor: 'rgba(99,102,241,1)', 
+                    backgroundColor: 'rgba(99,102,241,0.1)', 
+                    fill: true, 
+                    tension: 0.3,
+                    pointBackgroundColor: 'rgba(99,102,241,1)',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4
+                }] 
+            },
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                scales: { 
+                    y: { 
+                        beginAtZero: true,
+                        ticks: { color: textColor },
+                        grid: { color: gridColor }
+                    },
+                    x: {
+                        ticks: { color: textColor },
+                        grid: { color: gridColor }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        labels: { color: textColor }
+                    }
+                }
+            }
         });
+        
+        // Show/hide empty state
+        if (!labels.length || values.reduce((a,b)=>a+Number(b||0),0) === 0) {
+            personalEmptyEl?.classList.remove('hidden');
+        } else {
+            personalEmptyEl?.classList.add('hidden');
+        }
     }
 
     async function fetchTrends(range) {
         try {
-            const res = await fetch(`${base}/borrow-trends?range=${encodeURIComponent(range)}`);
+            const res = await fetch(`${base}/dashboard/borrow-trends?range=${encodeURIComponent(range)}`);
             if (!res.ok) return;
             const data = await res.json(); // { "2025-09-01": 1, ... } etc.
             const labels = Object.keys(data || {});
@@ -93,14 +156,16 @@
                 personalChart.update();
             }
             if (!labels.length || values.reduce((a,b)=>a+Number(b||0),0) === 0) {
-                personalEmptyEl.classList.remove('hidden');
+                personalEmptyEl?.classList.remove('hidden');
             } else {
-                personalEmptyEl.classList.add('hidden');
+                personalEmptyEl?.classList.add('hidden');
             }
         } catch (err) {
             console.error("Trend fetch error", err);
-            personalEmptyEl.textContent = "Unable to load trend data.";
-            personalEmptyEl.classList.remove("hidden");
+            if (personalEmptyEl) {
+                personalEmptyEl.textContent = "Unable to load trend data.";
+                personalEmptyEl.classList.remove("hidden");
+            }
         }
     }
 
@@ -111,8 +176,8 @@
         });
 
         // initial load
-        Promise.all([ loadRequests(), loadActivity(), fetchTrends("month") ]);
+        if (typeof loadActivity === 'function') loadActivity();
         // keep activity refreshed
-        setInterval(loadActivity, 30000);
+        if (typeof loadActivity === 'function') setInterval(loadActivity, 30000);
     });
 })();

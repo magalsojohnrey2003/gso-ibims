@@ -124,8 +124,9 @@
 
             {{-- Table --}}
             <div class="shadow rounded-2xl p-6" style="background: var(--card-bg); color: var(--text);">
-                <div class="overflow-auto table-wrapper">
-                    <table id="reportTable" class="min-w-full rounded-lg text-sm gov-table" style="border-collapse: collapse; width:100%;">
+                <div class="table-wrapper">
+                    <div class="table-container">
+                        <table id="reportTable" class="min-w-full rounded-lg text-sm gov-table">
                         <thead id="reportTableHead"
                                style="background: rgba(0,0,0,0.03); color: var(--text);">
                             <!-- dynamic headers inserted by JS -->
@@ -133,7 +134,8 @@
                         <tbody id="reportTableBody" class="">
                             <!-- dynamic rows inserted by JS -->
                         </tbody>
-                    </table>
+                        </table>
+                    </div>
                 </div>
             </div>
 
