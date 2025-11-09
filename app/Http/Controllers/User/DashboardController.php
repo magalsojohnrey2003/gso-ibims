@@ -53,10 +53,11 @@ class DashboardController extends Controller
             ->pluck('total', 'day')
             ->toArray();
 
-        // === Available items preview (just 4) ===
+        // === Available items preview (latest 3 recently added with stock) ===
         $availableItemsPreview = Item::where('available_qty', '>', 0)
-            ->take(4)
-            ->get(['id', 'name', 'category', 'photo'])
+            ->orderByDesc('created_at')
+            ->take(3)
+            ->get(['id', 'name', 'category', 'photo', 'available_qty'])
             ->toArray();
 
         // === Recent activity (last 5 requests) ===
@@ -150,8 +151,9 @@ class DashboardController extends Controller
     public function availableItems()
     {
         $items = Item::where('available_qty', '>', 0)
-            ->take(6)
-            ->get(['id', 'name', 'category', 'photo']);
+            ->orderByDesc('created_at')
+            ->take(3)
+            ->get(['id', 'name', 'category', 'photo', 'available_qty']);
 
         return response()->json($items);
     }
