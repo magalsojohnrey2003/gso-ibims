@@ -13,7 +13,7 @@
                 data-edit-url="{{ route('admin.users.edit', $user) }}">
                 Edit
             </x-button>
-            <form class="inline ajax-delete" action="{{ route('admin.users.destroy', $user) }}" method="POST" onsubmit="return confirm('Delete user?');">
+            <form class="inline ajax-delete" action="{{ route('admin.users.destroy', $user) }}" method="POST">
                 @csrf
                 @method('DELETE')
                 <x-button

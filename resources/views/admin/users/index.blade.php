@@ -81,24 +81,40 @@
     </div>
 
     {{-- Create Modal (hidden) --}}
-    <div id="create-modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
-        <div class="bg-white rounded-lg w-full max-w-3xl p-6">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-semibold">Create User</h3>
-                <button data-action="close-modal" class="text-gray-600">✕</button>
+    <div id="create-modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50 p-4">
+        <div class="bg-white rounded-2xl w-full max-w-3xl shadow-2xl transform transition-all">
+            <div class="bg-purple-600 text-white px-6 py-5 rounded-t-2xl relative">
+                <button data-action="close-modal" class="absolute top-1/2 -translate-y-1/2 left-6 text-white hover:text-gray-200 transition-colors focus:outline-none">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+                <h3 class="text-2xl font-bold flex items-center gap-2 justify-center">
+                    <i class="fas fa-plus"></i>
+                    Create New User
+                </h3>
             </div>
-            @include('admin.users._form', ['action' => route('admin.users.store'), 'method' => 'POST'])
+            <div class="px-6 py-6">
+                @include('admin.users._form', ['action' => route('admin.users.store'), 'method' => 'POST'])
+            </div>
         </div>
     </div>
 
     {{-- Edit Modal (content loaded via AJAX) --}}
-    <div id="edit-modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
-        <div id="edit-modal-content" class="bg-white rounded-lg w-full max-w-3xl p-6">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-semibold">Edit User</h3>
-                <button data-action="close-modal" class="text-gray-600">✕</button>
+    <div id="edit-modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50 p-4">
+        <div id="edit-modal-content" class="bg-white rounded-2xl w-full max-w-3xl shadow-2xl transform transition-all">
+            <div class="bg-purple-600 text-white px-6 py-5 rounded-t-2xl relative">
+                <button data-action="close-modal" class="absolute top-1/2 -translate-y-1/2 left-6 text-white hover:text-gray-200 transition-colors focus:outline-none">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+                <h3 class="text-2xl font-bold flex items-center gap-2 justify-center">
+                    <i class="fas fa-pencil-alt"></i>
+                    Edit User
+                </h3>
             </div>
-            <div id="edit-form-container">
+            <div id="edit-form-container" class="px-6 py-6">
                 <p class="text-sm text-gray-500">Loading...</p>
             </div>
         </div>
@@ -133,11 +149,78 @@
             });
         }
 
+        // Password toggle functionality (matching login-register.blade.php)
+        function initPasswordToggles() {
+            document.querySelectorAll('.password-eye').forEach(eye => {
+                // Remove old listeners by cloning
+                const newEye = eye.cloneNode(true);
+                eye.parentNode.replaceChild(newEye, eye);
+                
+                newEye.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const targetSelector = this.getAttribute('data-target');
+                    const input = document.querySelector(targetSelector);
+                    const icon = this.querySelector('i');
+                    
+                    if (input && icon) {
+                        if (input.type === 'password') {
+                            input.type = 'text';
+                            icon.classList.remove('fa-eye');
+                            icon.classList.add('fa-eye-slash');
+                        } else {
+                            input.type = 'password';
+                            icon.classList.remove('fa-eye-slash');
+                            icon.classList.add('fa-eye');
+                        }
+                    }
+                });
+            });
+        }
+
+        // Initialize password toggles on page load
+        initPasswordToggles();
+
         // Simple modal handling
         document.addEventListener('click', function(e) {
             const openCreate = e.target.closest('#open-create-modal');
             if (openCreate) {
-                document.getElementById('create-modal').classList.remove('hidden');
+                const modal = document.getElementById('create-modal');
+                const form = modal.querySelector('form');
+                // Clear form inputs when opening create modal
+                if (form) {
+                    form.reset();
+                    // Clear all validation states
+                    form.querySelectorAll('.user-form-field').forEach(field => {
+                        field.classList.remove('error', 'success');
+                        const input = field.querySelector('input');
+                        if (input) {
+                            input.classList.remove('has-value');
+                            input.removeAttribute('aria-invalid');
+                        }
+                        const errorDiv = field.querySelector('.error');
+                        if (errorDiv) {
+                            errorDiv.textContent = '';
+                            errorDiv.setAttribute('aria-hidden', 'true');
+                        }
+                    });
+                    clearFormErrors(form);
+                    // Reset password field to password type
+                    const pwdField = form.querySelector('#user-password-field');
+                    if (pwdField) pwdField.type = 'password';
+                    // Reset eye icon
+                    const eyeIcon = form.querySelector('.password-eye i');
+                    if (eyeIcon) {
+                        eyeIcon.classList.remove('fa-eye-slash');
+                        eyeIcon.classList.add('fa-eye');
+                    }
+                }
+                modal.classList.remove('hidden');
+                // Focus first input
+                setTimeout(() => {
+                    const firstInput = form?.querySelector('input[name="first_name"]');
+                    if (firstInput) firstInput.focus();
+                }, 100);
             }
 
             const close = e.target.closest('[data-action="close-modal"]');
@@ -151,12 +234,31 @@
             if (openEdit) {
                 const url = openEdit.getAttribute('data-edit-url');
                 const container = document.getElementById('edit-form-container');
-                container.innerHTML = '<p class="text-sm text-gray-500">Loading...</p>';
+                container.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">Loading...</p>';
                 document.getElementById('edit-modal').classList.remove('hidden');
                 fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }})
-                    .then(res => res.text())
-                    .then(html => container.innerHTML = html)
-                    .catch(() => container.innerHTML = '<p class="text-red-600">Failed to load form.</p>');
+                    .then(res => {
+                        if (!res.ok) {
+                            throw new Error('HTTP error! status: ' + res.status);
+                        }
+                        return res.text();
+                    })
+                    .then(html => {
+                        container.innerHTML = html;
+                        // Re-initialize password toggles for edit form after a short delay
+                        setTimeout(() => {
+                            initPasswordToggles();
+                            // Initialize validation for edit form
+                            const editForm = container.querySelector('form');
+                            if (editForm) {
+                                initUserFormValidation(editForm);
+                            }
+                        }, 100);
+                    })
+                    .catch((error) => {
+                        console.error('Error loading edit form:', error);
+                        container.innerHTML = '<div class="text-center py-8"><p class="text-red-600 font-semibold mb-2">Failed to load form.</p><p class="text-sm text-gray-500">Please try again or refresh the page.</p></div>';
+                    });
             }
         });
 
@@ -184,6 +286,14 @@
 
             const url = form.action;
             const formData = new FormData(form);
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalBtnText = submitBtn ? submitBtn.innerHTML : '';
+
+            // Disable submit button and show loading state
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
+            }
 
             // send request
             fetch(url, {
@@ -216,47 +326,90 @@
                     if (modal) modal.classList.add('hidden');
                     // clear any errors
                     clearFormErrors(form);
+                    // clear form (reset inputs)
+                    // Clear all validation states
+                    form.querySelectorAll('.user-form-field').forEach(field => {
+                        field.classList.remove('error', 'success');
+                        const input = field.querySelector('input');
+                        if (input) {
+                            input.classList.remove('has-value');
+                            input.removeAttribute('aria-invalid');
+                        }
+                        const errorDiv = field.querySelector('.error');
+                        if (errorDiv) {
+                            errorDiv.textContent = '';
+                            errorDiv.setAttribute('aria-hidden', 'true');
+                        }
+                    });
+                    form.reset();
+                    // Reset password field visibility
+                    const pwdField = form.querySelector('#user-password-field');
+                    if (pwdField) pwdField.type = 'password';
+                    // Reset eye icon
+                    const eyeIcon = form.querySelector('.password-eye i');
+                    if (eyeIcon) {
+                        eyeIcon.classList.remove('fa-eye-slash');
+                        eyeIcon.classList.add('fa-eye');
+                    }
                     // show success message
                     showSuccess(data.message || 'User saved successfully');
-                    // clear form in case of create
-                    if (!data.id) form.reset();
                 } else {
                     throw new Error(data.message || 'An unexpected error occurred');
                 }
             }).catch(err => {
                 console.error(err);
                 showError(err.message || 'An unexpected error occurred');
+            }).finally(() => {
+                // Re-enable submit button
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalBtnText;
+                }
             });
         });
 
-        // AJAX delete handling
+        // AJAX delete handling with modern single modal confirmation
         document.addEventListener('submit', function(e) {
             const form = e.target.closest('form.ajax-delete');
             if (!form) return;
             e.preventDefault();
 
-            if (!confirm('Delete user?')) return;
+            // Show modern single confirmation modal using SweetAlert2
+            Swal.fire({
+                title: 'Delete User?',
+                text: "This action cannot be undone. Are you sure you want to delete this user?",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Yes, delete',
+                cancelButtonText: 'Cancel',
+                reverseButtons: true
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const url = form.action;
+                    const formData = new FormData(form);
 
-            const url = form.action;
-            const formData = new FormData(form);
-
-            fetch(url, {
-                method: 'POST',
-                headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                body: formData,
-                credentials: 'same-origin'
-            }).then(async res => {
-                if (!res.ok) {
-                    const body = await res.json().catch(() => ({}));
-                    alert(body.message || 'Failed to delete');
-                    return;
+                    fetch(url, {
+                        method: 'POST',
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        body: formData,
+                        credentials: 'same-origin'
+                    }).then(async res => {
+                        if (!res.ok) {
+                            const body = await res.json().catch(() => ({}));
+                            showError(body.message || 'Failed to delete user');
+                            return;
+                        }
+                        const data = await res.json();
+                        if (data.success) {
+                            const tr = document.querySelector(`tr[data-user-id="${data.id}"]`);
+                            if (tr) tr.remove();
+                            showSuccess('User deleted successfully');
+                        }
+                    }).catch(() => showError('Failed to delete user'));
                 }
-                const data = await res.json();
-                if (data.success) {
-                    const tr = document.querySelector(`tr[data-user-id="${data.id}"]`);
-                    if (tr) tr.remove();
-                }
-            }).catch(() => alert('Failed to delete'));
+            });
         });
 
         function showFormErrors(form, errors) {
@@ -265,17 +418,158 @@
             let html = '';
             for (const key in errors) {
                 if (Array.isArray(errors[key])) {
-                    errors[key].forEach(msg => html += `<div>${msg}</div>`);
+                    errors[key].forEach(msg => html += `<div class="flex items-center gap-2"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg><span>${msg}</span></div>`);
                 } else {
-                    html += `<div>${errors[key]}</div>`;
+                    html += `<div class="flex items-center gap-2"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg><span>${errors[key]}</span></div>`;
                 }
             }
             container.innerHTML = html;
+            container.classList.remove('hidden');
         }
 
         function clearFormErrors(form) {
             const container = form.querySelector('#form-errors');
-            if (container) container.innerHTML = '';
+            if (container) {
+                container.innerHTML = '';
+                container.classList.add('hidden');
+
+        // Apply validation to user forms
+        function initUserFormValidation(form) {
+            if (!form) return;
+
+            const inputs = form.querySelectorAll('input:not([type="hidden"])');
+            inputs.forEach(input => {
+                // Add has-value class if input has value
+                if (input.value && input.value.trim() !== '') {
+                    input.classList.add('has-value');
+                }
+
+                // Input event listener
+                input.addEventListener('input', function() {
+                    if (this.value && this.value.trim() !== '') {
+                        this.classList.add('has-value');
+                    } else {
+                        this.classList.remove('has-value');
+                    }
+                    validateUserField(this);
+                });
+
+                // Blur validation
+                input.addEventListener('blur', function() {
+                    validateUserField(this);
+                });
+            });
+        }
+
+        function validateUserField(input) {
+            if (!input) return;
+            const value = input.value ? input.value.trim() : '';
+            const name = input.name;
+            const fieldWrapper = input.closest('.user-form-field');
+
+            if (!fieldWrapper) return;
+
+            const errorDisplay = fieldWrapper.querySelector('.error');
+            
+            const setError = (message) => {
+                if (errorDisplay) {
+                    errorDisplay.textContent = message;
+                    errorDisplay.setAttribute('aria-hidden', 'false');
+                }
+                fieldWrapper.classList.add('error');
+                fieldWrapper.classList.remove('success');
+                input.setAttribute('aria-invalid', 'true');
+            };
+
+            const setSuccess = () => {
+                if (errorDisplay) {
+                    errorDisplay.textContent = '';
+                    errorDisplay.setAttribute('aria-hidden', 'true');
+                }
+                fieldWrapper.classList.remove('error');
+                fieldWrapper.classList.add('success');
+                input.removeAttribute('aria-invalid');
+            };
+
+            const clearState = () => {
+                if (errorDisplay) {
+                    errorDisplay.textContent = '';
+                    errorDisplay.setAttribute('aria-hidden', 'true');
+                }
+                fieldWrapper.classList.remove('error', 'success');
+                input.removeAttribute('aria-invalid');
+            };
+
+            // Validation logic
+            switch(name) {
+                case 'first_name':
+                    if (!value) {
+                        setError('First name is required');
+                    } else if (!/^[A-Za-z\s-]+$/.test(value)) {
+                        setError('Only letters, spaces, and - are allowed');
+                    } else {
+                        setSuccess();
+                    }
+                    break;
+
+                case 'middle_name':
+                    if (value && !/^[A-Za-z\s-]+$/.test(value)) {
+                        setError('Only letters, spaces, and - are allowed');
+                    } else if (value) {
+                        setSuccess();
+                    } else {
+                        clearState();
+                    }
+                    break;
+
+                case 'last_name':
+                    if (!value) {
+                        setError('Last name is required');
+                    } else if (!/^[A-Za-z\s-]+$/.test(value)) {
+                        setError('Only letters, spaces, and - are allowed');
+                    } else {
+                        setSuccess();
+                    }
+                    break;
+
+                case 'email':
+                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    if (!value) {
+                        setError('Email is required');
+                    } else if (!emailRegex.test(value)) {
+                        setError('Provide a valid email address');
+                    } else {
+                        setSuccess();
+                    }
+                    break;
+
+                case 'password':
+                    const form = input.closest('form');
+                    const isEditMode = form && form.querySelector('input[name="_method"]')?.value === 'PATCH';
+                    
+                    if (!isEditMode && !value) {
+                        setError('Password is required');
+                    } else if (value && value.length < 8) {
+                        setError('Password must be at least 8 characters');
+                    } else if (value) {
+                        setSuccess();
+                    } else {
+                        clearState();
+                    }
+                    break;
+
+                default:
+                    if (value) setSuccess();
+                    else clearState();
+            }
+        }
+
+        // Initialize validation for create modal form on page load
+        const createForm = document.querySelector('#create-modal form');
+        if (createForm) {
+            initUserFormValidation(createForm);
+        }
+            }
         }
     </script>
     
