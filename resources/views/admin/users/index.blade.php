@@ -1,53 +1,77 @@
 {{-- resources/views/admin/users/index.blade.php --}}
 <x-app-layout>
-    <div class="px-6 lg:px-8">
-        <x-title
-            level="h2"
-            size="2xl"
-            weight="bold"
-            icon="users"
-            variant="s"
-            iconStyle="circle"
-            iconBg="gov-accent"
-            iconColor="white">
-            Manage Users
-        </x-title>
+    @php
+        $noMainScroll = false; // Enable main content scrolling for consistency
+    @endphp
+
+    <!-- Title and Actions Section -->
+    <div class="py-2">
+        <div class="px-2">
+            <!-- Title Row with Actions -->
+            <div class="rounded-2xl shadow-lg bg-white border border-gray-200 px-6 py-4 mb-2">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <!-- Title -->
+                    <div class="flex-shrink-0 flex items-center">
+                        <x-title level="h2"
+                                size="2xl"
+                                weight="bold"
+                                icon="users"
+                                variant="s"
+                                iconStyle="plain"
+                                iconColor="gov-accent"> Manage Users </x-title>
+                    </div>
+                    
+                    <!-- Actions -->
+                    <div class="flex items-center gap-4">
+                        <form method="GET" action="{{ route('admin.users.index') }}" class="flex items-center gap-2">
+                            <input type="text" 
+                                   name="q" 
+                                   value="{{ request('q') }}" 
+                                   placeholder="Search users..." 
+                                   class="border rounded-lg px-3 py-2 text-sm w-64 focus:ring focus:ring-blue-200" />
+                            <x-button variant="secondary" iconName="magnifying-glass" type="submit" class="text-sm px-3 py-2">
+                                Search
+                            </x-button>
+                        </form>
+                        <button id="open-create-modal" class="btn btn-primary">+ Create User</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <div class="py-8">
-        <div class="sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between mb-6">
-                <form method="GET" action="{{ route('admin.users.index') }}" class="flex items-center gap-2">
-                    <input type="text" name="q" value="{{ request('q') }}" placeholder="Search users..." class="border rounded px-3 py-2" />
-                    <button class="btn btn-sm">Search</button>
-                </form>
+    <!-- Alerts -->
+    @if(session('success'))
+        <div class="mb-4 alert-success">{{ session('success') }}</div>
+    @endif
+    @if(session('error'))
+        <div class="mb-4 alert-error">{{ session('error') }}</div>
+    @endif
 
-                <button id="open-create-modal" class="btn btn-primary">+ Create User</button>
-            </div>
-
-            @if(session('success'))
-                <div class="mb-4 alert-success">{{ session('success') }}</div>
-            @endif
-            @if(session('error'))
-                <div class="mb-4 alert-error">{{ session('error') }}</div>
-            @endif
-
-                <div class="card">
-                <div class="overflow-x-auto">
-                    <table id="users-table" class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
+    <!-- Table Section -->
+    <div class="pb-2">
+        <div class="px-2">
+            <div class="rounded-2xl shadow-lg border border-gray-200 table-wrapper">
+                <div class="table-container-no-scroll">
+                    <table id="users-table" class="w-full text-sm text-center text-gray-600 gov-table">
+                        <thead class="bg-purple-600 text-white text-xs uppercase font-semibold text-center">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registered</th>
-                            <th class="px-6 py-3"></th>
+                            <th class="px-6 py-3">Name</th>
+                            <th class="px-6 py-3">Email</th>
+                            <th class="px-6 py-3">Registered</th>
+                            <th class="px-6 py-3">Actions</th>
                         </tr>
                         </thead>
-                        <tbody id="users-tbody" class="bg-white divide-y divide-gray-200">
+                                                <tbody id="users-tbody" class="text-center">
                         @foreach($users as $user)
                             @include('admin.users._row', ['user' => $user])
                         @endforeach
                         </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
                     </table>
                 </div>
 

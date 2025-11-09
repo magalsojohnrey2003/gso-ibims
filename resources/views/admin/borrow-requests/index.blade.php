@@ -500,19 +500,19 @@
 </x-modal>
     {{-- Button templates (used by JS to create action buttons per-row) --}}
     <template id="btn-view-template">
-        <x-button variant="secondary" iconName="eye" class="px-2 py-1 text-xs" data-action="view">View</x-button>
+        <x-button variant="secondary" iconName="eye" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="view">View</x-button>
     </template>
     <template id="btn-validate-template">
-        <x-button variant="success" iconName="check" class="px-2 py-1 text-xs" data-action="validate">Validate</x-button>
+        <x-button variant="primary" iconName="shield-check" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="validate">Validate</x-button>
     </template>
     <template id="btn-reject-template">
-        <x-button variant="danger" iconName="x-circle" class="px-2 py-1 text-xs" data-action="reject">Reject</x-button>
+        <x-button variant="danger" iconName="x-circle" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="reject">Reject</x-button>
     </template>
     <template id="btn-deliver-template">
-        <x-button variant="info" iconName="truck" class="px-2 py-1 text-xs" data-action="deliver">Deliver Items</x-button>
+        <x-button variant="info" iconName="truck" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="deliver">Deliver Items</x-button>
     </template>
     <template id="btn-accept-template">
-        <x-button variant="success" iconName="check-circle" class="px-2 py-1 text-xs" data-action="approve">Accept</x-button>
+        <x-button variant="success" iconName="check-circle" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="approve">Accept</x-button>
     </template>
 
     {{-- Alert templates --}}

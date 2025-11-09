@@ -176,11 +176,11 @@
 
     <!-- Templates for action buttons -->
     <template id="btn-view-template">
-        <x-button iconName="eye" variant="secondary" class="px-2 py-1 text-xs" data-action="view">View</x-button>
+        <x-button iconName="eye" variant="secondary" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="view">View</x-button>
     </template>
 
     <template id="btn-print-template">
-        <x-button variant="secondary" iconName="printer" class="px-2 py-1 text-xs" data-action="print">Print</x-button>
+        <x-button variant="secondary" iconName="printer" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="print">Print</x-button>
     </template>
 
     <!-- Alert templates -->

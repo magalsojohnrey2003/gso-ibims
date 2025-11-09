@@ -109,15 +109,13 @@
     </template>
 
     <template id="action-manage-template">
-        <x-button data-action="manage" variant="secondary" class="px-3 py-1.5 text-xs font-semibold">
-            <i class="fa-solid fa-pen-to-square mr-1"></i>
+        <x-button data-action="manage" variant="secondary" iconName="cog-6-tooth" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only">
             Manage
         </x-button>
     </template>
 
     <template id="action-collect-template">
-        <x-button data-action="collect" variant="primary" class="px-3 py-1.5 text-xs font-semibold">
-            <i class="fa-solid fa-box-archive mr-1"></i>
+        <x-button data-action="collect" variant="primary" iconName="clipboard-document-check" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only">
             Mark as Collected
         </x-button>
     </template>
