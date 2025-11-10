@@ -1446,6 +1446,14 @@ function handleSuccess(form, elements, result) {
   form.dispatchEvent(new Event('reset'));
   window.dispatchEvent(new CustomEvent('close-modal', { detail: 'create-item' }));
   
+  // Store new item IDs in sessionStorage to highlight after reload
+  if (data.items && Array.isArray(data.items)) {
+    const itemIds = data.items.map(item => item.id).filter(id => id);
+    if (itemIds.length > 0) {
+      sessionStorage.setItem('newItemIds', JSON.stringify(itemIds));
+    }
+  }
+  
   // Delay reload to ensure toast is visible
   setTimeout(() => {
     window.location.reload();
@@ -2359,4 +2367,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll(SELECTOR).forEach(initAddItemsForm);
+  
+  // Highlight newly added items
+  const newItemIds = sessionStorage.getItem('newItemIds');
+  if (newItemIds) {
+    try {
+      const ids = JSON.parse(newItemIds);
+      if (Array.isArray(ids) && ids.length > 0) {
+        ids.forEach(itemId => {
+          const row = document.querySelector(`tr[data-item-row="${itemId}"]`);
+          if (row) {
+            row.classList.add('new-item-highlight');
+            // Remove the class after animation completes (60 seconds)
+            setTimeout(() => {
+              row.classList.remove('new-item-highlight');
+            }, 60000);
+          }
+        });
+      }
+      // Clear the stored IDs
+      sessionStorage.removeItem('newItemIds');
+    } catch (e) {
+      console.error('Failed to parse newItemIds:', e);
+      sessionStorage.removeItem('newItemIds');
+    }
+  }
 });

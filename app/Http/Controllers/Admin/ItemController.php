@@ -758,6 +758,7 @@ public function update(Request $request, Item $item)
     try {
         $item->name = $data['name'];
         $item->category = $data['category'];
+        $item->description = $data['description'] ?? null;
         $item->photo = $photoPath;
 
         if ($request->has('acquisition_date')) {

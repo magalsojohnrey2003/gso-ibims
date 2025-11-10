@@ -5,6 +5,20 @@
 /* fontawesome */
 @import "~@fortawesome/fontawesome-free/css/all.min.css";
 
+/* New item highlight animation */
+@keyframes fadeOutHighlight {
+  0% {
+    background-color: #e9d5ff;
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.new-item-highlight {
+  animation: fadeOutHighlight 60s ease-out forwards;
+}
+
 /* Add to resources/css/app.css - Sidebar shared styles (replace inline partial styles) */
 
 /* Base sidebar surface uses theme variables */

@@ -31,6 +31,13 @@ class BorrowItemsController extends Controller
             })
             ->get();
 
+        // Add is_new flag for items created today
+        $today = now()->startOfDay();
+        foreach ($items as $item) {
+            $item->is_new = $item->created_at && $item->created_at->gte($today);
+            // The category_name will be automatically available via the accessor
+        }
+
         $borrowList = Session::get('borrowList', []);
 
         // Remove deleted items automatically
