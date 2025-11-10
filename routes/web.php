@@ -16,6 +16,8 @@ use App\Http\Controllers\User\DashboardController as UserDashboardController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\Admin\ItemInstanceController;
 use App\Http\Controllers\User\ItemDamageReportController;
+use App\Http\Controllers\Admin\ManpowerRequestController as AdminManpowerRequestController;
+use App\Http\Controllers\User\ManpowerRequestController as UserManpowerRequestController;
 
 
 // ??? Root should redirect to login instead of welcome
@@ -126,6 +128,13 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
         Route::post('reports/data', [ReportController::class, 'data'])->name('reports.data');
         Route::get('reports/export/pdf', [ReportController::class, 'exportPdf'])->name('reports.export.pdf');
         Route::get('reports/export/xlsx', [ReportController::class, 'exportXlsx'])->name('reports.export.xlsx');
+
+        // Manpower Requests (Admin)
+        Route::prefix('manpower-requests')->name('admin.manpower.requests.')->group(function() {
+            Route::get('/', [AdminManpowerRequestController::class, 'index'])->name('index');
+            Route::get('/list', [AdminManpowerRequestController::class, 'list'])->name('list');
+            Route::post('/{request}/status', [AdminManpowerRequestController::class, 'updateStatus'])->name('status');
+        });
         });
     
 
@@ -176,6 +185,13 @@ Route::middleware(['auth', 'role:user', 'nocache'])
         // Report not received (user)
         Route::post('my-borrowed-items/{borrowRequest}/report-not-received', [MyBorrowedItemsController::class, 'reportNotReceived'])
             ->name('user.borrowed.items.report_not_received');
+
+        // Manpower (User)
+        Route::prefix('manpower')->name('user.manpower.')->group(function() {
+            Route::get('/', [UserManpowerRequestController::class, 'index'])->name('index');
+            Route::get('/list', [UserManpowerRequestController::class, 'list'])->name('list');
+            Route::post('/store', [UserManpowerRequestController::class, 'store'])->name('store');
+        });
 
     });
 
