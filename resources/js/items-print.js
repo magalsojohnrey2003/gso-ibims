@@ -56,8 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, width, height);
+    // Removed white background fill to keep canvas transparent
     ctx.restore();
     ctx.beginPath();
     applyPenStyle();
@@ -100,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
   canvas.style.touchAction = 'none';
   canvas.style.cursor = 'crosshair';
   canvas.style.border = '1px solid #d1d5db';
-  canvas.style.backgroundColor = '#ffffff';
+  canvas.style.backgroundColor = 'transparent';
   setCanvasDimensions();
   window.addEventListener('resize', setCanvasDimensions);
 

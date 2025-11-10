@@ -133,7 +133,10 @@ class StickerPdfService
                     $fieldY = $y + ($stickerHeight - $rect['ury']);
                     
                     if (is_string($value) && str_starts_with($value, 'data:image')) {
-                        $this->renderImage($pdf, $value, $fieldX, $fieldY, $width, max($rect['ury'] - $rect['lly'], 4));
+                        // Ensure minimum dimensions for image rendering
+                        $imageHeight = max($rect['ury'] - $rect['lly'], 10);
+                        $imageWidth = max($width, 10);
+                        $this->renderImage($pdf, $value, $fieldX, $fieldY, $imageWidth, $imageHeight);
                         continue;
                     }
                     
@@ -177,13 +180,20 @@ class StickerPdfService
         if ($tmp === false) {
             return;
         }
+        
+        // Rename temp file to have .png extension for better compatibility
+        $tmpPng = $tmp . '.png';
 
         try {
-            file_put_contents($tmp, $binary);
-            $pdf->Image($tmp, $x, $y, $width, $height);
-        } catch (\Throwable) {
-            // ignore rendering issues and continue
+            file_put_contents($tmpPng, $binary);
+            $pdf->Image($tmpPng, $x, $y, $width, $height);
+        } catch (\Throwable $e) {
+            // Log errors silently - signature rendering is optional
+            \Log::warning('Failed to render signature image', [
+                'error' => $e->getMessage(),
+            ]);
         } finally {
+            @unlink($tmpPng);
             @unlink($tmp);
         }
     }
