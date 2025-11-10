@@ -24,16 +24,14 @@
                     
                     <!-- Actions -->
                     <div class="flex items-center gap-4">
-                        <form method="GET" action="{{ route('admin.users.index') }}" class="flex items-center gap-2">
-                            <input type="text" 
-                                   name="q" 
-                                   value="{{ request('q') }}" 
-                                   placeholder="Search users..." 
-                                   class="border rounded-lg px-3 py-2 text-sm w-64 focus:ring focus:ring-blue-200" />
-                            <x-button variant="secondary" iconName="magnifying-glass" type="submit" class="text-sm px-3 py-2">
-                                Search
-                            </x-button>
-                        </form>
+                        <!-- Live Search Bar -->
+                        <div class="flex-shrink-0 relative">
+                            <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                            <input type="text"
+                                   id="users-live-search"
+                                   placeholder="Search users..."
+                                   class="border border-gray-300 rounded-lg pl-12 pr-4 py-2.5 text-sm w-64 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all hover:border-gray-400" />
+                        </div>
                         <button id="open-create-modal" class="btn btn-primary">+ Create User</button>
                     </div>
                 </div>
@@ -60,6 +58,7 @@
                             <th class="px-6 py-3 text-center">Name</th>
                             <th class="px-6 py-3 text-center">Email</th>
                             <th class="px-6 py-3 text-center">Registered</th>
+                            <th class="px-6 py-3 text-center">Last Active</th>
                             <th class="px-6 py-3 text-center">Actions</th>
                         </tr>
                         </thead>
@@ -572,6 +571,154 @@
         }
             }
         }
+    </script>
+
+    <script>
+    // Live search functionality for Manage Users
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('users-live-search');
+        const tableBody = document.getElementById('users-tbody');
+        
+        if (!searchInput || !tableBody) return;
+        
+        function filterTable() {
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            const rows = tableBody.querySelectorAll('tr[data-user-id]');
+            
+            let visibleCount = 0;
+            
+            rows.forEach(row => {
+                const nameCell = row.querySelector('td:nth-child(1)');
+                const emailCell = row.querySelector('td:nth-child(2)');
+                
+                if (!nameCell || !emailCell) return;
+                
+                const nameText = nameCell.textContent.toLowerCase();
+                const emailText = emailCell.textContent.toLowerCase();
+                
+                // Check search match
+                const matches = nameText.includes(searchTerm) || emailText.includes(searchTerm);
+                
+                // Show/hide row
+                if (matches) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            
+            // Handle empty state
+            if (visibleCount === 0 && rows.length > 0) {
+                let noResultsRow = document.getElementById('no-results-row-users');
+                if (!noResultsRow) {
+                    noResultsRow = document.createElement('tr');
+                    noResultsRow.id = 'no-results-row-users';
+                    noResultsRow.innerHTML = `
+                        <td colspan="5" class="px-6 py-8 text-center text-gray-500">
+                            <div class="flex flex-col items-center gap-2">
+                                <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <p class="font-medium">No users found</p>
+                                <p class="text-sm">Try adjusting your search</p>
+                            </div>
+                        </td>
+                    `;
+                    tableBody.appendChild(noResultsRow);
+                }
+            } else {
+                const noResultsRow = document.getElementById('no-results-row-users');
+                if (noResultsRow) {
+                    noResultsRow.remove();
+                }
+            }
+        }
+        
+        // Event listener
+        searchInput.addEventListener('input', filterTable);
+        
+        // Dynamic placeholder change
+        searchInput.addEventListener('focus', function() {
+            this.placeholder = 'Type to Search';
+        });
+        
+        searchInput.addEventListener('blur', function() {
+            this.placeholder = 'Search users...';
+        });
+        
+        // Live update "Last Active" times
+        function updateLastActiveTimes() {
+            const now = Math.floor(Date.now() / 1000); // Current Unix timestamp
+            
+            document.querySelectorAll('[data-last-active]').forEach(element => {
+                const timestamp = parseInt(element.getAttribute('data-last-active'));
+                const textSpan = element.querySelector('.last-active-text');
+                const dotIndicator = element.querySelector('.fa-circle');
+                
+                if (!textSpan || !timestamp) return;
+                
+                const diffSeconds = now - timestamp;
+                const diffMinutes = Math.floor(diffSeconds / 60);
+                const diffHours = Math.floor(diffMinutes / 60);
+                const diffDays = Math.floor(diffHours / 24);
+                const diffWeeks = Math.floor(diffDays / 7);
+                const diffMonths = Math.floor(diffDays / 30);
+                const diffYears = Math.floor(diffDays / 365);
+                
+                let timeText = '';
+                let colorClass = 'text-gray-400';
+                
+                if (diffSeconds < 60) {
+                    timeText = 'Just now';
+                    colorClass = 'text-green-500';
+                } else if (diffMinutes < 60) {
+                    timeText = diffMinutes === 1 ? '1 minute ago' : `${diffMinutes} minutes ago`;
+                    colorClass = 'text-green-500';
+                } else if (diffHours < 24) {
+                    timeText = diffHours === 1 ? '1 hour ago' : `${diffHours} hours ago`;
+                    colorClass = 'text-green-500';
+                } else if (diffDays === 1) {
+                    timeText = '1 day ago';
+                    colorClass = 'text-yellow-500';
+                } else if (diffDays < 7) {
+                    timeText = `${diffDays} days ago`;
+                    colorClass = 'text-yellow-500';
+                } else if (diffWeeks === 1) {
+                    timeText = '1 week ago';
+                    colorClass = 'text-gray-400';
+                } else if (diffWeeks < 4) {
+                    timeText = `${diffWeeks} weeks ago`;
+                    colorClass = 'text-gray-400';
+                } else if (diffMonths === 1) {
+                    timeText = '1 month ago';
+                    colorClass = 'text-gray-400';
+                } else if (diffMonths < 12) {
+                    timeText = `${diffMonths} months ago`;
+                    colorClass = 'text-gray-400';
+                } else if (diffYears === 1) {
+                    timeText = '1 year ago';
+                    colorClass = 'text-gray-400';
+                } else {
+                    timeText = `${diffYears} years ago`;
+                    colorClass = 'text-gray-400';
+                }
+                
+                textSpan.textContent = timeText;
+                
+                // Update dot color indicator
+                if (dotIndicator) {
+                    dotIndicator.className = `fas fa-circle text-xs ${colorClass}`;
+                }
+            });
+        }
+        
+        // Update immediately on page load
+        updateLastActiveTimes();
+        
+        // Update every minute (60000ms)
+        setInterval(updateLastActiveTimes, 60000);
+    });
     </script>
     
 

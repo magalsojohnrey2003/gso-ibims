@@ -14,13 +14,37 @@
                 <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <!-- Title -->
                     <div class="flex-shrink-0 flex items-center">
-            <x-title level="h2"
+                        <x-title level="h2"
                                 size="2xl"
                                 weight="bold"
                                 icon="clipboard-document-check"
                                 iconStyle="plain"
-                iconColor="gov-accent"
-                compact="true"> Borrow Requests </x-title>
+                                iconColor="gov-accent"
+                                compact="true"> Borrow Requests </x-title>
+                    </div>
+                    
+                    <!-- Search Bar and Sort By -->
+                    <div class="flex items-center gap-3">
+                        <!-- Live Search Bar -->
+                        <div class="flex-shrink-0 relative">
+                            <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                            <input type="text"
+                                   id="borrow-requests-live-search"
+                                   placeholder="Search Borrower and Request"
+                                   class="border border-gray-300 rounded-lg pl-12 pr-4 py-2.5 text-sm w-64 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all hover:border-gray-400" />
+                        </div>
+                        
+                        <!-- Sort By Status (no dropdown arrow like Reports) -->
+                        <div class="flex-shrink-0 relative">
+                            <select id="borrow-requests-status-filter"
+                                    class="border border-gray-300 rounded-lg pl-4 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all hover:border-gray-400 appearance-none bg-white">
+                                <option value="">All Status</option>
+                                <option value="pending">Pending</option>
+                                <option value="approved">Approved</option>
+                                <option value="validated">Validated</option>
+                                <option value="rejected">Rejected</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -501,7 +525,7 @@
 </x-modal>
     {{-- Button templates (used by JS to create action buttons per-row) --}}
     <template id="btn-view-template">
-        <x-button variant="secondary" iconName="eye" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="view">View</x-button>
+        <x-button variant="secondary" iconName="eye" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only !bg-emerald-500 hover:!bg-emerald-600 text-white" data-action="view">View</x-button>
     </template>
     <template id="btn-validate-template">
         <x-button variant="primary" iconName="shield-check" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="validate">Validate</x-button>
@@ -542,6 +566,91 @@
     <script>
         window.CSRF_TOKEN = "{{ csrf_token() }}";
         window.LIST_ROUTE = "{{ route('admin.borrow.requests.list') }}";
+    </script>
+
+    <script>
+    // Live search and filter functionality for Borrow Requests
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('borrow-requests-live-search');
+        const statusFilter = document.getElementById('borrow-requests-status-filter');
+        const tableBody = document.getElementById('borrowRequestsTableBody');
+        
+        if (!searchInput || !statusFilter || !tableBody) return;
+        
+        function filterTable() {
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            const statusValue = statusFilter.value.toLowerCase();
+            const rows = tableBody.querySelectorAll('tr[data-request-id]');
+            
+            let visibleCount = 0;
+            
+            rows.forEach(row => {
+                const borrowerCell = row.querySelector('td:nth-child(1)');
+                const requestIdCell = row.querySelector('td:nth-child(2)');
+                const statusCell = row.querySelector('td:nth-child(5)');
+                
+                if (!borrowerCell || !requestIdCell || !statusCell) return;
+                
+                const borrowerText = borrowerCell.textContent.toLowerCase();
+                const requestIdText = requestIdCell.textContent.toLowerCase();
+                const statusText = statusCell.textContent.toLowerCase();
+                
+                // Check search match
+                const searchMatches = borrowerText.includes(searchTerm) || requestIdText.includes(searchTerm);
+                
+                // Check status filter match
+                const statusMatches = !statusValue || statusText.includes(statusValue);
+                
+                // Show/hide row
+                if (searchMatches && statusMatches) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            
+            // Handle empty state
+            const loadingRow = tableBody.querySelector('tr:not([data-request-id])');
+            if (visibleCount === 0 && rows.length > 0 && !loadingRow) {
+                let noResultsRow = document.getElementById('no-results-row-borrow');
+                if (!noResultsRow) {
+                    noResultsRow = document.createElement('tr');
+                    noResultsRow.id = 'no-results-row-borrow';
+                    noResultsRow.innerHTML = `
+                        <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                            <div class="flex flex-col items-center gap-2">
+                                <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <p class="font-medium">No requests found</p>
+                                <p class="text-sm">Try adjusting your search or filter</p>
+                            </div>
+                        </td>
+                    `;
+                    tableBody.appendChild(noResultsRow);
+                }
+            } else {
+                const noResultsRow = document.getElementById('no-results-row-borrow');
+                if (noResultsRow) {
+                    noResultsRow.remove();
+                }
+            }
+        }
+        
+        // Event listeners
+        searchInput.addEventListener('input', filterTable);
+        statusFilter.addEventListener('change', filterTable);
+        
+        // Dynamic placeholder change
+        searchInput.addEventListener('focus', function() {
+            this.placeholder = 'Type to Search';
+        });
+        
+        searchInput.addEventListener('blur', function() {
+            this.placeholder = 'Search Borrower and Request';
+        });
+    });
     </script>
 
     @vite(['resources/js/app.js'])

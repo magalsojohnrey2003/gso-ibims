@@ -2,6 +2,8 @@
 const LIST_ROUTE = window.LIST_ROUTE || '/admin/borrow-requests/list';
 
 let BORROW_CACHE = [];
+let BR_SEARCH_TERM = '';
+let BR_STATUS_FILTER = '';
 const REJECTION_REASONS_ENDPOINT = window.REJECTION_REASONS_ENDPOINT || '/admin/rejection-reasons';
 const OTHER_REJECTION_REASON_KEY = '__other__';
 
@@ -564,14 +566,27 @@ function renderBorrowRequests() {
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    if (!BORROW_CACHE.length) {
+    // Apply filters
+    const normalizedSearch = (BR_SEARCH_TERM || '').toLowerCase().trim();
+    const normalizedStatus = (BR_STATUS_FILTER || '').toLowerCase().trim();
+    const filtered = BORROW_CACHE.filter((req) => {
+        const borrowerName = [req.user?.first_name, req.user?.last_name].filter(Boolean).join(' ').toLowerCase();
+        const idText = String(req.id ?? '').toLowerCase();
+        const statusText = String(req.status ?? '').toLowerCase();
+        const matchesSearch = !normalizedSearch || borrowerName.includes(normalizedSearch) || idText.includes(normalizedSearch);
+        const matchesStatus = !normalizedStatus || statusText.includes(normalizedStatus) || (normalizedStatus === 'approved' && statusText === 'qr_verified');
+        return matchesSearch && matchesStatus;
+    });
+
+    if (!filtered.length) {
         tbody.innerHTML = '<tr><td colspan="6" class="py-4 text-gray-500">No requests found.</td></tr>';
         return;
     }
 
-    BORROW_CACHE.forEach((req) => {
+    filtered.forEach((req) => {
         const tr = document.createElement('tr');
         tr.className = 'transition hover:bg-purple-50 hover:shadow-md';
+        tr.dataset.requestId = String(req.id ?? '');
 
         const borrowerName = [req.user?.first_name, req.user?.last_name].filter(Boolean).join(' ').trim() || 'Unknown';
 
@@ -1488,6 +1503,22 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('borrowRequestsTableBody')) {
         loadBorrowRequests();
         setInterval(loadBorrowRequests, 10000);
+    }
+
+    // Wire up search and status filter
+    const brSearch = document.getElementById('borrow-requests-live-search');
+    if (brSearch) {
+        brSearch.addEventListener('input', (e) => { BR_SEARCH_TERM = e.target.value || ''; renderBorrowRequests(); });
+        brSearch.addEventListener('focus', function(){ this.placeholder = 'Type to Search'; });
+        brSearch.addEventListener('blur', function(){ this.placeholder = 'Search Borrower and Request'; });
+    }
+    const brStatus = document.getElementById('borrow-requests-status-filter');
+    if (brStatus) {
+        // remove native arrow via inline styles as safety (Edge)
+        brStatus.style.appearance = 'none';
+        brStatus.style.webkitAppearance = 'none';
+        brStatus.style.MozAppearance = 'none';
+        brStatus.addEventListener('change', (e) => { BR_STATUS_FILTER = e.target.value || ''; renderBorrowRequests(); });
     }
 });
 

@@ -81,11 +81,11 @@
                     
                     <!-- Live Search Bar -->
                     <div class="flex-shrink-0 relative">
-            <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
-           <input type="text"
-                   id="items-live-search"
-                   placeholder="Search by Name or Category"
-                   class="border border-gray-300 rounded-lg pl-12 pr-4 py-2.5 text-sm w-64 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all hover:border-gray-400" />
+                        <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                        <input type="text"
+                               id="items-live-search"
+                               placeholder="Search by Name or Category"
+                               class="border border-gray-300 rounded-lg pl-12 pr-4 py-2.5 text-sm w-64 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all hover:border-gray-400" />
                     </div>
                 </div>
             </div>

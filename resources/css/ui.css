@@ -261,12 +261,24 @@ main[role="main"],
 
 .mb-2.rounded-2xl.shadow-lg.bg-white input[type="text"] {
     padding: 0.5rem 0.75rem ; /* Reduced padding in search input */
+    padding-left: 3rem ; /* Preserve left padding for icon */
     height: 2.25rem ; /* Fixed height for search input */
+    border: 1px solid #d1d5db !important ; /* Preserve border (gray-300) */
+    border-radius: 0.5rem !important ; /* Preserve rounded-lg */
 }
 
 .mb-2.rounded-2xl.shadow-lg.bg-white button {
     padding: 0.5rem 0.75rem ; /* Reduced button padding */
     height: 2.25rem ; /* Match search input height */
+}
+
+/* Hide native select arrows inside title containers (match Reports) */
+.mb-2.rounded-2xl.shadow-lg.bg-white select {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    background-image: none !important;
+    padding-right: 1rem ;
 }
 
 /* Table wrapper - rounded only on bottom, straight top for connection */

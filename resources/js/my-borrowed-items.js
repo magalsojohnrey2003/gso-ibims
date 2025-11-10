@@ -135,10 +135,23 @@ function renderItems() {
         return;
     }
 
-    ITEMS_CACHE.forEach(req => {
+    // Apply live search if present
+    const searchEl = document.getElementById('my-borrowed-items-live-search');
+    const term = (searchEl?.value || '').toLowerCase().trim();
+    const list = ITEMS_CACHE.filter(req => {
+        const idText = String(req.id ?? '').toLowerCase();
+        return !term || idText.includes(term);
+    });
+
+    if (!list.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="py-4 text-gray-500">No items match your search</td></tr>`;
+        return;
+    }
+
+    list.forEach(req => {
         const tr = document.createElement("tr");
         tr.className = "transition hover:bg-purple-50 hover:shadow-md";
-        tr.dataset.id = req.id;
+        tr.dataset.requestId = String(req.id);
 
         const tdId = `<td class="px-4 py-3">${escapeHtml(String(req.id))}</td>`;
         const tdBorrowDate = `<td class="px-4 py-3">${escapeHtml(formatDate(req.borrow_date))}</td>`;
@@ -453,6 +466,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!document.getElementById('myBorrowedItemsTableBody')) return;
     loadMyBorrowedItems();
     setInterval(loadMyBorrowedItems, 10000);
+
+    const mbiSearch = document.getElementById('my-borrowed-items-live-search');
+    if (mbiSearch) {
+        mbiSearch.addEventListener('input', () => renderItems());
+        mbiSearch.addEventListener('focus', function(){ this.placeholder = 'Type to Search'; });
+        mbiSearch.addEventListener('blur', function(){ this.placeholder = 'Search Request ID'; });
+    }
 });
 
 // Listen for cross-tab dispatch notifications from admin page
