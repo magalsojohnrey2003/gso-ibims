@@ -205,8 +205,18 @@
                           </tr>
                           @push('item-modals')
                               <x-modal name="edit-item-{{ $item->id }}" maxWidth="2xl">
-                                  <div class="w-full bg-white shadow-lg overflow-hidden flex flex-col max-h-[85vh]">
-                                      <div class="bg-purple-600 text-white px-6 py-5 sticky top-0 z-20">
+                                  <div class="w-full bg-white dark:bg-gray-900 shadow-lg overflow-hidden flex flex-col max-h-[85vh]">
+                                      <div class="bg-purple-600 text-white px-6 py-5 sticky top-0 z-20 relative">
+                                          <button 
+                                              type="button"
+                                              data-modal-close-button
+                                              data-modal-name="edit-item-{{ $item->id }}"
+                                              x-on:click="$dispatch('close-modal', 'edit-item-{{ $item->id }}')"
+                                              class="absolute top-4 right-4 text-white hover:text-gray-200 transition-colors p-2 hover:bg-white/10 rounded-lg">
+                                              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                              </svg>
+                                          </button>
                                           <h3 class="text-2xl font-bold flex items-center">
                                               <i class="fas fa-pencil-alt mr-2"></i>
                                               EDIT ITEM
@@ -291,8 +301,16 @@
     </div>
   
   <x-modal name="create-item" maxWidth="2xl">
-      <div class="w-full shadow-lg overflow-hidden flex flex-col max-h-[85vh] bg-white">
-      <div class="bg-purple-600 text-white px-6 py-5 sticky top-0 z-20">
+      <div class="w-full shadow-lg overflow-hidden flex flex-col max-h-[85vh] bg-white dark:bg-gray-900">
+      <div class="bg-purple-600 text-white px-6 py-5 sticky top-0 z-20 relative">
+          <button 
+              type="button"
+              x-on:click="$dispatch('close-modal', 'create-item')"
+              class="absolute top-4 right-4 text-white hover:text-gray-200 transition-colors p-2 hover:bg-white/10 rounded-lg">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+          </button>
           <h3 class="text-2xl font-bold flex items-center">
               <i class="fas fa-plus mr-2"></i>
               Add New Item

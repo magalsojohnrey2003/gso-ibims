@@ -209,35 +209,33 @@
             </div>
 
             <template data-property-row-template>
-                <div class="flex items-center gap-3 per-row-panel" data-property-row>
-                    <div class="flex-none w-10 text-center pt-2">
-                        <div class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-50 text-indigo-700 font-medium" data-row-index>1</div>
+                <div class="flex items-center gap-2 per-row-panel bg-indigo-50 dark:bg-indigo-900/30 rounded-lg px-3 py-3" data-property-row>
+                    <div class="flex-none w-8 text-center">
+                        <div class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-indigo-100 dark:bg-indigo-800 text-indigo-700 dark:text-indigo-200 font-medium text-sm" data-row-index>1</div>
                     </div>
 
-                    <div class="flex-1 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg px-3 py-2 overflow-x-auto">
-                        <div class="flex items-center gap-2 flex-nowrap" data-row-fields>
-                            <input type="text" class="w-16 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" placeholder="Year" data-row-field="year" data-row-name="year" inputmode="numeric" maxlength="4" />
-                            <div class="text-gray-500 dark:text-gray-400 select-none">-</div>
+                    <div class="flex items-center gap-2 flex-1" data-row-fields>
+                        <input type="text" readonly class="w-16 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-300" placeholder="Year" data-row-field="year" data-row-name="year" inputmode="numeric" maxlength="4" />
+                        <span class="text-gray-500 dark:text-gray-400 select-none">-</span>
 
-                            <input type="text" readonly class="w-16 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-300" placeholder="Category" data-row-field="category" data-row-name="category_code" maxlength="4" />
-                            <div class="text-gray-500 dark:text-gray-400 select-none">-</div>
+                        <input type="text" readonly class="w-16 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-300" placeholder="Category" data-row-field="category" data-row-name="category_code" maxlength="4" />
+                        <span class="text-gray-500 dark:text-gray-400 select-none">-</span>
 
-                            <input type="text" class="w-16 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" placeholder="GLA" data-row-field="gla" data-row-name="gla" inputmode="numeric" maxlength="4" />
-                            <div class="text-gray-500 dark:text-gray-400 select-none">-</div>
+                        <input type="text" readonly class="w-16 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-300" placeholder="GLA" data-row-field="gla" data-row-name="gla" inputmode="numeric" maxlength="4" />
+                        <span class="text-gray-500 dark:text-gray-400 select-none">-</span>
 
-                            <input type="text" class="w-16 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" placeholder="Serial" data-row-field="serial" data-row-name="serial" maxlength="5" />
-                            <div class="text-gray-500 dark:text-gray-400 select-none">-</div>
+                        <input type="text" class="w-20 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" placeholder="Serial" data-row-field="serial" data-row-name="serial" maxlength="5" />
+                        <span class="text-gray-500 dark:text-gray-400 select-none">-</span>
 
-                            <input type="text" class="w-16 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" placeholder="Office" data-row-field="office" data-row-name="office" maxlength="4" inputmode="numeric" />
-                            <button 
-                                type="button" 
-                                class="text-red-600 text-sm px-2 py-1 rounded-md hover:bg-red-50" 
-                                data-row-remove>
-                                <i class="fas fa-trash"></i>
-                            </button>
-                            <div class="flex-1"></div>
-                        </div>     
+                        <input type="text" readonly class="w-16 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-300" placeholder="Office" data-row-field="office" data-row-name="office" maxlength="4" inputmode="numeric" />
                     </div>
+                    
+                    <button 
+                        type="button" 
+                        class="flex-none inline-flex items-center justify-center text-red-600 hover:text-red-700 p-2 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" 
+                        data-row-remove>
+                        <i class="fas fa-trash text-sm"></i>
+                    </button>
                 </div>
             </template>
         </div>
@@ -362,16 +360,7 @@
     </div>
 </div>
 
-<div class="mt-4 border-t pt-4 flex justify-end gap-3 sticky bottom-0 bg-white z-20">
-    <x-button
-        variant="secondary"
-        iconName="x-mark"
-        type="button"
-        data-add-cancel
-        x-on:click="$dispatch('close-modal', 'create-item')">
-        Cancel
-    </x-button>
-
+<div class="mt-4 pt-2 flex justify-end gap-3 sticky bottom-0 z-20 pb-2">
     <x-button
         variant="primary"
         iconName="document-check"

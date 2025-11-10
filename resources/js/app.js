@@ -171,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
         closeItem(item, { silent: true });
       }
 
-      trigger.addEventListener('click', (event) => {
+      const handleAccordionClick = (event) => {
         event.preventDefault();
         const expanded = trigger.getAttribute('aria-expanded') === 'true';
         if (expanded) {
@@ -180,9 +180,44 @@ document.addEventListener('DOMContentLoaded', () => {
           items.forEach((other) => {
             if (other !== item) closeItem(other, { silent: true });
           });
+          
+          // Scroll to the accordion section smoothly
+          const accordionItem = trigger.closest('[data-accordion-item]');
+          if (accordionItem) {
+            // Small delay to ensure smooth animation
+            setTimeout(() => {
+              accordionItem.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'start',
+                inline: 'nearest'
+              });
+            }, 50);
+          }
+          
           openItem(item);
         }
-      });
+      };
+
+      trigger.addEventListener('click', handleAccordionClick);
+      
+      // Make the entire accordion container clickable (except the panel itself)
+      const accordionItem = trigger.closest('[data-accordion-item]');
+      if (accordionItem && !accordionItem.__accordionContainerBound) {
+        accordionItem.__accordionContainerBound = true;
+        accordionItem.style.cursor = 'pointer';
+        
+        accordionItem.addEventListener('click', (event) => {
+          // Don't trigger if clicking inside the panel or on interactive elements
+          if (panel.contains(event.target) || 
+              event.target.matches('input, textarea, select, button, a, [tabindex]:not([tabindex="-1"])') ||
+              event.target.closest('input, textarea, select, button, a')) {
+            return;
+          }
+          
+          // Trigger the accordion
+          handleAccordionClick(event);
+        });
+      }
 
       trigger.addEventListener('keydown', (event) => {
         if (event.key === ' ' || event.key === 'Enter') {

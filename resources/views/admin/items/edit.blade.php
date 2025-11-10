@@ -101,11 +101,13 @@
                     id="quantity-{{ $item->id }}"
                     name="quantity_display"
                     type="number"
-                    class="mt-1 block w-full bg-gray-100"
+                    class="mt-1 block w-full"
                     :value="old('quantity_display', $item->instances->count())"
-                    disabled
+                    min="{{ $item->instances->count() }}"
+                    data-quantity-input
+                    data-initial-quantity="{{ $item->instances->count() }}"
                 />
-                <p class="mt-1 text-xs text-gray-500">Quantity reflects the total property number rows linked to this item.</p>
+                <p class="mt-1 text-xs text-gray-500">You can increase quantity to add new property number rows. Decreasing is not allowed.</p>
             </div>
 
             <div>
@@ -163,75 +165,70 @@
                 Fill out Year, Category Code, GLA, Serial, and Office for every row. Inputs with issues turn light red until corrected.
             </p>
 
-            <div id="edit_instances_container" class="w-full space-y-3 max-h-72 overflow-auto p-3 border rounded-lg bg-white" aria-live="polite">
+            <div id="edit_instances_container" class="w-full space-y-3 max-h-72 overflow-auto p-3 border rounded-lg bg-white dark:bg-gray-800" aria-live="polite" data-edit-instances-container>
                 @forelse ($item->instances as $inst)
-                    <div class="flex items-center gap-4 edit-instance-row" data-instance-id="{{ $inst->id }}">
-                        <div class="flex-none w-10 text-center">
-                            <div class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-50 text-indigo-700 font-medium">{{ $loop->iteration }}</div>
+                    <div class="flex items-center gap-2 edit-instance-row bg-indigo-50 dark:bg-indigo-900/30 rounded-lg px-3 py-3" data-instance-id="{{ $inst->id }}">
+                        <div class="flex-none w-8 text-center">
+                            <div class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-indigo-100 dark:bg-indigo-800 text-indigo-700 dark:text-indigo-200 font-medium text-sm">{{ $loop->iteration }}</div>
                         </div>
 
-                        <div class="flex-1 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg px-3 py-2 overflow-x-auto">
-                            <div class="flex items-center gap-2 flex-nowrap">
-                                <input
-                                    type="text"
-                                    class="w-16 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-300 instance-part-year"
-                                    value="{{ $inst->year_procured ?? '' }}"
-                                    placeholder="Year"
-                                    inputmode="numeric"
-                                    maxlength="4"
-                                    readonly>
-                                <div class="text-gray-500 dark:text-gray-400 select-none">-</div>
+                        <div class="flex items-center gap-2 flex-1">
+                            <input
+                                type="text"
+                                class="w-16 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-300 instance-part-year"
+                                value="{{ $inst->year_procured ?? '' }}"
+                                placeholder="Year"
+                                inputmode="numeric"
+                                maxlength="4"
+                                readonly>
+                            <span class="text-gray-500 dark:text-gray-400 select-none">-</span>
 
-                                <input
-                                    type="text"
-                                    class="w-16 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-300 instance-part-category"
-                                    value="{{ $inst->category_code ?? $inst->category_id ?? '' }}"
-                                    placeholder="Category"
-                                    inputmode="numeric"
-                                    maxlength="4"
-                                    readonly>
-                                <div class="text-gray-500 dark:text-gray-400 select-none">-</div>
+                            <input
+                                type="text"
+                                class="w-16 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-300 instance-part-category"
+                                value="{{ $inst->category_code ?? $inst->category_id ?? '' }}"
+                                placeholder="Category"
+                                inputmode="numeric"
+                                maxlength="4"
+                                readonly>
+                            <span class="text-gray-500 dark:text-gray-400 select-none">-</span>
 
-                                <input
-                                    type="text"
-                                    class="w-16 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-300 instance-part-gla"
-                                    value="{{ $inst->gla ?? '' }}"
-                                    placeholder="GLA"
-                                    inputmode="numeric"
-                                    maxlength="4"
-                                    readonly>
-                                <div class="text-gray-500 dark:text-gray-400 select-none">-</div>
+                            <input
+                                type="text"
+                                class="w-16 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-300 instance-part-gla"
+                                value="{{ $inst->gla ?? '' }}"
+                                placeholder="GLA"
+                                inputmode="numeric"
+                                maxlength="4"
+                                readonly>
+                            <span class="text-gray-500 dark:text-gray-400 select-none">-</span>
 
-                                <input
-                                    type="text"
-                                    class="w-16 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 instance-part-serial"
-                                    value="{{ $inst->serial ?? '' }}"
-                                    placeholder="Serial"
-                                    maxlength="5">
-                                <div class="text-gray-500 dark:text-gray-400 select-none">-</div>
+                            <input
+                                type="text"
+                                class="w-20 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 instance-part-serial"
+                                value="{{ $inst->serial ?? '' }}"
+                                placeholder="Serial"
+                                maxlength="5">
+                            <span class="text-gray-500 dark:text-gray-400 select-none">-</span>
 
-                                <input
-                                    type="text"
-                                    class="w-16 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-300 instance-part-office"
-                                    value="{{ $inst->office_code ?? '' }}"
-                                    placeholder="Office"
-                                    inputmode="numeric"
-                                    maxlength="4"
-                                    readonly>
-                            </div>
-
-                            <div class="flex justify-end">
-                                <button
-                                    type="button"
-                                    class="instance-remove-btn inline-flex items-center justify-center text-red-600 p-1 rounded hover:bg-red-50"
-                                    aria-label="Remove instance">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>
+                            <select
+                                class="w-24 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 instance-part-office"
+                                data-office-select
+                                data-sync-office>
+                                <option value="">Office</option>
+                                <option value="{{ $inst->office_code ?? '' }}" selected>{{ $inst->office_code ?? '' }}</option>
+                            </select>
                         </div>
+
+                        <button
+                            type="button"
+                            class="instance-remove-btn flex-none inline-flex items-center justify-center text-red-600 hover:text-red-700 p-2 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                            aria-label="Remove instance">
+                            <i class="fas fa-trash text-sm"></i>
+                        </button>
                     </div>
                 @empty
-                    <p class="text-sm text-gray-600">No property numbers found for this item.</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">No property numbers found for this item.</p>
                 @endforelse
             </div>
         </div>
@@ -299,21 +296,35 @@
     </div>
 
     <!-- Actions -->
-    <div class="mt-4 border-t pt-4 flex justify-end gap-3 sticky bottom-0 bg-white z-20">
+    <div class="mt-4 pt-2 flex justify-end gap-3 sticky bottom-0 z-20 pb-2">
+        <!-- Edit Button (shown in readonly state) -->
+        <x-button
+            variant="primary"
+            iconName="pencil"
+            type="button"
+            data-edit-mode-btn
+            x-on:click="window.dispatchEvent(new CustomEvent('edit-item:enable-edit', { detail: { itemId: '{{ $item->id }}' } }))">
+            Edit
+        </x-button>
+
+        <!-- Cancel Button (hidden in readonly state) -->
         <x-button
             variant="secondary"
             iconName="x-mark"
             type="button"
-            data-edit-cancel
-            x-on:click="$dispatch('close-modal', 'edit-item-{{ $item->id }}')">
+            data-edit-cancel-btn
+            class="hidden"
+            x-on:click="window.dispatchEvent(new CustomEvent('edit-item:cancel-edit', { detail: { itemId: '{{ $item->id }}' } }))">
             Cancel
         </x-button>
 
+        <!-- Update Button (hidden in readonly state) -->
         <x-button
             variant="primary"
             iconName="arrow-path"
             type="submit"
-            data-edit-submit>
+            data-edit-submit
+            class="hidden">
             Update
         </x-button>
     </div>
