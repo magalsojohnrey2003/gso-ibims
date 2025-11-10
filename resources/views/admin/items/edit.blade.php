@@ -62,7 +62,7 @@
     <input type="hidden" name="item_instance_id" value="{{ $primaryInstance->id ?? '' }}">
 
     <!-- Step 1: Item Information -->
-    <div class="bg-gray-50 shadow-md hover:shadow-lg transition rounded-lg mt-6" data-accordion-item>
+    <div class="bg-gray-50 dark:bg-gray-800 shadow-md hover:shadow-lg transition rounded-lg mt-6" data-accordion-item>
         <button
             type="button"
             class="w-full text-left focus:outline-none"
@@ -72,15 +72,15 @@
             <div class="flex items-center justify-between p-4">
                 <div class="flex items-center space-x-3">
                     <div class="bg-blue-100 text-blue-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">1</div>
-                    <h4 class="text-lg font-semibold text-gray-900">Item Information</h4>
+                    <h4 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Item Information</h4>
                 </div>
                 <svg class="w-5 h-5 text-gray-500 transition-transform duration-200" data-accordion-caret xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6" />
                 </svg>
             </div>
         </button>
 
-        <div class="p-4 border-t border-gray-100 space-y-4" id="edit-item-{{ $item->id }}-info" data-accordion-panel>
+        <div class="p-4 border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 space-y-4" id="edit-item-{{ $item->id }}-info" data-accordion-panel>
             <div>
                 <x-input-label for="name-{{ $item->id }}" value="Item Name" />
                 <x-text-input
@@ -114,7 +114,7 @@
                     id="description-{{ $item->id }}"
                     name="description"
                     rows="3"
-                    class="mt-1 block w-full border rounded px-3 py-2"
+                    class="block w-full px-3 py-2 text-sm border-2 border-gray-400 dark:border-gray-500 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-purple-600 dark:focus:border-purple-400 transition-all duration-200 mt-1"
                     data-edit-field="description">{{ old('description', $primaryInstance?->notes) }}</textarea>
                 <x-input-error :messages="$errors->get('description')" class="mt-2" />
             </div>
@@ -140,7 +140,7 @@
     <input type="hidden" name="category_code" value="{{ old('category_code', $categoryCodeForCategory) }}" data-edit-field="category-code">
 
     <!-- Step 2: Existing Property Numbers -->
-    <div class="bg-gray-50 shadow-md hover:shadow-lg transition rounded-lg mt-6" data-accordion-item>
+    <div class="bg-gray-50 dark:bg-gray-800 shadow-md hover:shadow-lg transition rounded-lg mt-6" data-accordion-item>
         <button
             type="button"
             class="w-full text-left focus:outline-none"
@@ -150,15 +150,15 @@
             <div class="flex items-center justify-between p-4">
                 <div class="flex items-center space-x-3">
                     <div class="bg-green-100 text-green-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">2</div>
-                    <h4 class="text-lg font-semibold text-gray-900">Existing Property Numbers</h4>
+                    <h4 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Existing Property Numbers</h4>
                 </div>
                 <svg class="w-5 h-5 text-gray-500 transition-transform duration-200" data-accordion-caret xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6" />
                 </svg>
             </div>
         </button>
 
-        <div id="edit-item-{{ $item->id }}-instances" class="p-4 border-t border-gray-100 space-y-4" data-accordion-panel>
+        <div id="edit-item-{{ $item->id }}-instances" class="p-4 border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 space-y-4" data-accordion-panel>
             <p class="text-sm text-gray-600">
                 Fill out Year, Category Code, GLA, Serial, and Office for every row. Inputs with issues turn light red until corrected.
             </p>
@@ -170,49 +170,49 @@
                             <div class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-50 text-indigo-700 font-medium">{{ $loop->iteration }}</div>
                         </div>
 
-                        <div class="flex-1 bg-indigo-50 rounded-lg px-3 py-2 overflow-x-auto">
+                        <div class="flex-1 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg px-3 py-2 overflow-x-auto">
                             <div class="flex items-center gap-2 flex-nowrap">
                                 <input
                                     type="text"
-                                    class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-gray-100 instance-part-year"
+                                    class="w-16 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-300 instance-part-year"
                                     value="{{ $inst->year_procured ?? '' }}"
                                     placeholder="Year"
                                     inputmode="numeric"
                                     maxlength="4"
                                     readonly>
-                                <div class="text-gray-500 select-none">-</div>
+                                <div class="text-gray-500 dark:text-gray-400 select-none">-</div>
 
                                 <input
                                     type="text"
-                                    class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-gray-100 instance-part-category"
+                                    class="w-16 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-300 instance-part-category"
                                     value="{{ $inst->category_code ?? $inst->category_id ?? '' }}"
                                     placeholder="Category"
                                     inputmode="numeric"
                                     maxlength="4"
                                     readonly>
-                                <div class="text-gray-500 select-none">-</div>
+                                <div class="text-gray-500 dark:text-gray-400 select-none">-</div>
 
                                 <input
                                     type="text"
-                                    class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-gray-100 instance-part-gla"
+                                    class="w-16 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-300 instance-part-gla"
                                     value="{{ $inst->gla ?? '' }}"
                                     placeholder="GLA"
                                     inputmode="numeric"
                                     maxlength="4"
                                     readonly>
-                                <div class="text-gray-500 select-none">-</div>
+                                <div class="text-gray-500 dark:text-gray-400 select-none">-</div>
 
                                 <input
                                     type="text"
-                                    class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-white instance-part-serial"
+                                    class="w-16 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 instance-part-serial"
                                     value="{{ $inst->serial ?? '' }}"
                                     placeholder="Serial"
                                     maxlength="5">
-                                <div class="text-gray-500 select-none">-</div>
+                                <div class="text-gray-500 dark:text-gray-400 select-none">-</div>
 
                                 <input
                                     type="text"
-                                    class="w-16 text-center text-sm rounded-md border px-2 py-1 bg-gray-100 instance-part-office"
+                                    class="w-16 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-300 instance-part-office"
                                     value="{{ $inst->office_code ?? '' }}"
                                     placeholder="Office"
                                     inputmode="numeric"
@@ -238,7 +238,7 @@
     </div>
 
     <!-- Step 3: Serial and Model No. -->
-    <div class="bg-gray-50 shadow-md hover:shadow-lg transition rounded-lg mt-6" data-accordion-item data-edit-serial-section>
+    <div class="bg-gray-50 dark:bg-gray-800 shadow-md hover:shadow-lg transition rounded-lg mt-6" data-accordion-item data-edit-serial-section>
         <button
             type="button"
             class="w-full text-left focus:outline-none"
@@ -249,41 +249,41 @@
             <div class="flex items-center justify-between p-4">
                 <div class="flex items-center space-x-3">
                     <div class="bg-blue-100 text-blue-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">3</div>
-                    <h4 class="text-lg font-semibold text-gray-900">Serial and Model No.</h4>
+                    <h4 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Serial and Model No.</h4>
                 </div>
                 <svg class="w-5 h-5 text-gray-500 transition-transform duration-200" data-accordion-caret xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6" />
                 </svg>
             </div>
         </button>
 
-        <div id="edit-item-{{ $item->id }}-serial-model" class="p-4 border-t border-gray-100 space-y-4" data-accordion-panel data-edit-serial-panel>
+        <div id="edit-item-{{ $item->id }}-serial-model" class="p-4 border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 space-y-4" data-accordion-panel data-edit-serial-panel>
             <p class="text-sm text-gray-600" data-edit-serial-message>
                 Provide serial and model numbers per property number once property number rows are complete.
             </p>
 
-            <div class="w-full space-y-3 max-h-72 overflow-auto p-3 border rounded-lg bg-white" data-edit-serial-container aria-live="polite">
+            <div class="w-full space-y-3 max-h-72 overflow-auto p-3 border rounded-lg bg-white dark:bg-gray-800" data-edit-serial-container aria-live="polite">
                 @forelse ($item->instances as $inst)
-                    <div class="border border-gray-200 rounded-lg p-3 bg-indigo-50 space-y-3 edit-serial-row" data-instance-id="{{ $inst->id }}">
-                        <div class="text-sm font-semibold text-gray-700">{{ $inst->property_number ?? 'N/A' }}</div>
+                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-indigo-50 dark:bg-indigo-900/30 space-y-3 edit-serial-row" data-instance-id="{{ $inst->id }}">
+                        <div class="text-sm font-semibold text-gray-700 dark:text-gray-300">{{ $inst->property_number ?? 'N/A' }}</div>
                         <div class="flex flex-col md:flex-row gap-3">
                             <div class="flex-1">
-                                <label class="block text-xs font-semibold text-gray-600 mb-1">Serial No.</label>
+                                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Serial No.</label>
                                 <input
                                     type="text"
                                     maxlength="4"
-                                    class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm uppercase focus:border-purple-500 focus:ring focus:ring-purple-200 instance-part-serial-no"
+                                    class="w-full px-3 py-2 border-2 border-gray-400 dark:border-gray-500 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-purple-600 dark:focus:border-purple-400 transition-all duration-200 instance-part-serial-no"
                                     value="{{ $inst->serial_no ?? '' }}"
                                     data-serial-model-input="serial_no"
                                     data-instance-id="{{ $inst->id }}"
                                     @unless($hasSerialNo) disabled @endunless>
                             </div>
                             <div class="flex-1">
-                                <label class="block text-xs font-semibold text-gray-600 mb-1">Model No.</label>
+                                <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Model No.</label>
                                 <input
                                     type="text"
                                     maxlength="15"
-                                    class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm uppercase focus:border-purple-500 focus:ring focus:ring-purple-200 instance-part-model-no"
+                                    class="w-full px-3 py-2 border-2 border-gray-400 dark:border-gray-500 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-purple-600 dark:focus:border-purple-400 transition-all duration-200 instance-part-model-no"
                                     value="{{ $inst->model_no ?? '' }}"
                                     data-serial-model-input="model_no"
                                     data-instance-id="{{ $inst->id }}"
@@ -292,7 +292,7 @@
                         </div>
                     </div>
                 @empty
-                    <p class="text-sm text-gray-500">No property numbers available.</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">No property numbers available.</p>
                 @endforelse
             </div>
         </div>

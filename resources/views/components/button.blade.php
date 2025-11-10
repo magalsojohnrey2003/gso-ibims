@@ -13,10 +13,10 @@
 
 @php
     $variantClasses = [
-        'primary'   => 'text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500 hover:shadow-[0_0_10px_#6366f1] border border-transparent',
-        'secondary' => 'text-gray-700 bg-white hover:bg-gray-50 focus:ring-indigo-500 hover:shadow-[0_0_10px_#9ca3af] border',
-        'danger'    => 'text-white bg-red-600 hover:bg-red-700 focus:ring-red-500 hover:shadow-[0_0_10px_#ef4444] border border-transparent',
-        'success'   => 'text-white bg-green-600 hover:bg-green-700 focus:ring-green-500 hover:shadow-[0_0_10px_#22c55e] border border-transparent',
+        'primary'   => 'text-white bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 focus:ring-indigo-500 hover:shadow-[0_0_10px_#6366f1] border border-transparent',
+        'secondary' => 'text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:ring-indigo-500 hover:shadow-[0_0_10px_#9ca3af] border border-gray-300 dark:border-gray-600',
+        'danger'    => 'text-white bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 focus:ring-red-500 hover:shadow-[0_0_10px_#ef4444] border border-transparent',
+        'success'   => 'text-white bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 focus:ring-green-500 hover:shadow-[0_0_10px_#22c55e] border border-transparent',
     ];
 
     $sizeClasses = [

@@ -212,8 +212,7 @@ aside#sidebar {
 /* Prevent gradients or heavy backgrounds by clearing image backgrounds used by previous toast code */
 #toast { background: rgba(20,20,20,0.85); color: #fff; }
 
-/* Keep forms and inputs legible in dark */
-.theme-dark input, .theme-dark select, .theme-dark textarea { background: #0b1220; color: var(--text); border-color: var(--table-border); }
+/* Note: Input styling now handled by Tailwind dark: utilities in components */
 
 /* Fix for redundant scrollbars - ensure main content containers don't create extra scrollbars */
 .main-content, 

@@ -893,11 +893,12 @@ class SerialModelRowsManager {
     this.container = form.querySelector('[data-serial-model-container]');
     this.template = form.querySelector('template[data-serial-model-template]');
     this.messageEl = form.querySelector('[data-serial-model-message]');
-    this.allowSerial = true;
-    this.allowModel = true;
-    this.rows = [];
-    this.rowsComplete = false;
-    this.isLocked = true;
+  this.allowSerial = true;
+  this.allowModel = true;
+  this.rows = [];
+  this.rowsComplete = false;
+  this.isLocked = true;
+  this.hasAutoOpened = false;
     this.lockMessage = '';
     this.invalidReasons = new WeakMap();
 
@@ -1003,7 +1004,12 @@ class SerialModelRowsManager {
     if (!hasRows || !this.rowsComplete) {
       this.isLocked = true;
       this.lockMessage = 'Complete property number rows before adding serial or model numbers.';
+      this.hasAutoOpened = false; // reset flag if relocked
     } else {
+      // If just unlocked, auto-open once
+      if (this.isLocked) {
+        this.hasAutoOpened = false;
+      }
       this.isLocked = false;
       this.lockMessage = '';
     }
@@ -1032,10 +1038,12 @@ class SerialModelRowsManager {
       } else {
         this.trigger.removeAttribute('aria-disabled');
         this.trigger.classList.remove('opacity-60', 'cursor-not-allowed');
-        if (this.trigger.getAttribute('aria-expanded') !== 'true') {
+        // Only auto-open ONCE after unlock
+        if (!this.hasAutoOpened && this.trigger.getAttribute('aria-expanded') !== 'true') {
           window.setTimeout(() => {
             if (this.trigger && this.trigger.getAttribute('aria-expanded') !== 'true') {
               this.trigger.click();
+              this.hasAutoOpened = true;
             }
           }, 0);
         }
@@ -1898,98 +1906,8 @@ function initAddItemsForm(form) {
   let currentActiveSection = 'create-item-info';
   let userInitiatedClose = false;
 
-  // Auto-open next accordion section when current is completed
-  const checkAndOpenNextSection = () => {
-    const base = collectBase(form);
-    const accordionGroup = form.closest('[data-accordion-group]') || form;
-    if (!accordionGroup) return;
-
-    // Section 1: Item Information - Check if name and quantity are filled
-    const nameInput = form.querySelector('[data-add-field="name"]');
-    const quantityInput = form.querySelector('[data-add-field="quantity"]');
-    const section1Complete = nameInput?.value?.trim() && quantityInput?.value?.trim();
-
-    // Section 2: Generate Property Numbers - Check if year and category are filled
-    const yearInput = form.querySelector('[data-add-field="year"]');
-    const categorySelect = form.querySelector('[data-category-select]');
-    const section2Complete = yearInput?.value?.trim() && categorySelect?.value?.trim();
-
-    // Section 3: Serial and Model No. - Optional, so we check if rows are complete
-    const section3Panel = form.querySelector('#create-serial-model');
-    const section3Complete = rowsManager.areRowsComplete() && section3Panel;
-
-    // Section 4: Additional Details - Optional, no auto-open needed
-
-    // Find accordion items
-    const accordionItems = Array.from(accordionGroup.querySelectorAll('[data-accordion-item]'));
-    const section1Item = accordionItems.find(item => item.querySelector('#create-item-info'));
-    const section2Item = accordionItems.find(item => item.querySelector('#create-property-config'));
-    const section3Item = accordionItems.find(item => item.querySelector('#create-serial-model'));
-    const section4Item = accordionItems.find(item => item.querySelector('#create-additional-details'));
-
-    // Track which section the user is currently interacting with
-    const focusedElement = document.activeElement;
-    if (focusedElement) {
-      if (section1Item && section1Item.contains(focusedElement)) {
-        currentActiveSection = 'create-item-info';
-      } else if (section2Item && section2Item.contains(focusedElement)) {
-        currentActiveSection = 'create-property-config';
-      } else if (section3Item && section3Item.contains(focusedElement)) {
-        currentActiveSection = 'create-serial-model';
-      } else if (section4Item && section4Item.contains(focusedElement)) {
-        currentActiveSection = 'create-additional-details';
-      }
-    }
-
-    // Only auto-open if user is not manually closing sections
-    if (userInitiatedClose) {
-      userInitiatedClose = false;
-      return;
-    }
-
-    // Auto-open Section 2 when Section 1 is complete
-    if (section1Complete && section2Item) {
-      const section2Panel = section2Item.querySelector('#create-property-config');
-      if (section2Panel && section2Panel.dataset.accordionExpanded !== 'true') {
-        const section2Trigger = section2Item.querySelector('[data-accordion-trigger]');
-        if (section2Trigger && !section2Trigger.getAttribute('aria-expanded')) {
-          section2Trigger.click();
-        }
-      }
-    }
-
-    // Auto-open Section 3 when Section 2 is complete (only if rows are being used)
-    if (section2Complete && section3Item && rowsManager.hasRows()) {
-      const section3Panel = section3Item.querySelector('#create-serial-model');
-      if (section3Panel && section3Panel.dataset.accordionExpanded !== 'true') {
-        const section3Trigger = section3Item.querySelector('[data-accordion-trigger]');
-        if (section3Trigger && !section3Trigger.getAttribute('aria-expanded')) {
-          // Check if serial/model section is unlocked
-          if (elements.serialManager && !elements.serialManager.isLocked) {
-            section3Trigger.click();
-          }
-        }
-      }
-    }
-
-    // Prevent auto-closing Section 4 (Additional Details) when user is filling it
-    if (section4Item && currentActiveSection === 'create-additional-details') {
-      const section4Panel = section4Item.querySelector('#create-additional-details');
-      if (section4Panel && section4Panel.dataset.accordionExpanded === 'true') {
-        // Keep it open
-        return;
-      }
-    }
-
-    // Prevent rollback from Additional Details to Serial section
-    // If user is in Additional Details, don't auto-close it
-    if (currentActiveSection === 'create-additional-details') {
-      const section4Panel = section4Item?.querySelector('#create-additional-details');
-      if (section4Panel && section4Panel.dataset.accordionExpanded === 'true') {
-        return; // Keep Additional Details open
-      }
-    }
-  };
+  // Disabled auto-open of next accordion section
+  const checkAndOpenNextSection = () => {};
 
   // Listen for accordion close events to track user-initiated closes
   form.addEventListener('accordion:closed', (event) => {
@@ -2006,16 +1924,9 @@ function initAddItemsForm(form) {
   form.querySelectorAll('[data-add-field]').forEach((input) => {
     input.addEventListener('input', () => {
       updateState();
-      // Debounce the accordion check to avoid too many opens
-      if (input._accordionCheckTimer) clearTimeout(input._accordionCheckTimer);
-      input._accordionCheckTimer = setTimeout(() => {
-        checkAndOpenNextSection();
-        input._accordionCheckTimer = null;
-      }, 300);
     });
     input.addEventListener('change', () => {
       updateState();
-      checkAndOpenNextSection();
     });
     input.addEventListener('focus', () => {
       // Update current section when user focuses on a field
@@ -2030,7 +1941,7 @@ function initAddItemsForm(form) {
   const rowsContainer = form.querySelector('[data-property-rows-container]');
   if (rowsContainer) {
     rowsContainer.addEventListener('input', () => {
-      setTimeout(checkAndOpenNextSection, 300);
+      // No auto-open next section
     });
   }
 

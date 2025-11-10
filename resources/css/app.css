@@ -158,6 +158,9 @@ html.dark .gov-hover:hover::before {
 [data-accordion-panel] {
   transition: max-height 300ms ease, opacity 200ms ease;
 }
+
+/* Note: Accordion and element styling now handled by Tailwind dark: utilities in components */
+
 /* Soft purple background for modal header */
 .modal-header {
     background-color: #6B46C1; /* Soft government purple */
@@ -452,27 +455,12 @@ nav, aside, main { color: inherit; }
 .accent-ghost { background-color: var(--gov-accent-ghost); }
 
 /* Inputs (scoped general styles; keep Breeze component usage as usual) */
-.input-field {
-  display: block;
-  width: 100%;
-  padding: .5rem .75rem;
-  border-radius: .375rem;
-  border: 1px solid var(--border);
-  background: var(--card-bg);
-  color: var(--text);
-  font-size: .875rem;
-  line-height: 1.25rem;
-  transition: border-color .12s ease, box-shadow .12s ease, background .12s ease;
-}
-.input-field::placeholder { color: var(--muted); opacity: .9; }
-.input-field:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 6px 18px rgba(2,6,23,0.04);
-}
 
 /* Small helpers for error state */
-.input-field.error { border-color: #ef4444; box-shadow: 0 4px 16px rgba(239,68,68,0.06); }
+.input-field.error, textarea.error {
+  border-color: #ef4444;
+  box-shadow: 0 4px 16px rgba(239,68,68,0.06);
+}
 
 /* Page-level transitions */
 .theme-light, .theme-dark { min-height: 100vh; transition: background-color .25s ease, color .25s ease; }
