@@ -84,6 +84,11 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
         Route::get('api/categories', [\App\Http\Controllers\Admin\CategoryController::class, 'index']);
         Route::post('api/categories', [\App\Http\Controllers\Admin\CategoryController::class, 'store']);
         Route::delete('api/categories/{name}', [\App\Http\Controllers\Admin\CategoryController::class, 'destroy']);
+        
+        // GLA sub-categories management
+        Route::get('api/categories/{category}/glas', [\App\Http\Controllers\Admin\CategoryController::class, 'getGLAs']);
+        Route::post('api/categories/{category}/glas', [\App\Http\Controllers\Admin\CategoryController::class, 'storeGLA']);
+        Route::delete('api/categories/{category}/glas/{gla}', [\App\Http\Controllers\Admin\CategoryController::class, 'destroyGLA']);
 
         Route::get('api/offices', [\App\Http\Controllers\Admin\OfficeController::class, 'index']);
         Route::post('api/offices', [\App\Http\Controllers\Admin\OfficeController::class, 'store']);

@@ -273,7 +273,7 @@ function collectBase(form) {
     year: form.querySelector('[data-add-field="year"]'),
     categoryEl: form.querySelector('[data-category-select]'),
     categoryHidden: form.querySelector('[data-property-segment="category"], input[name="category_code"]'),
-    gla: form.querySelector('[data-add-field="gla"], input[name="gla"]'),
+    gla: form.querySelector('select[data-gla-select], [data-add-field="gla"], input[name="gla"]'),
     office: form.querySelector('[data-add-field="office"]'),
     serial: form.querySelector('[data-add-field="serial"]'),
     quantity: form.querySelector('[data-add-field="quantity"]'),
@@ -499,9 +499,15 @@ class PropertyRowsManager {
           input.dataset.autofill = '1';
           input.dataset.autofillValue = field === 'serial' ? displaySerialValue(baseValue) : baseValue;
         }
-      } else if (input.dataset.autofill === '1') {
-        delete input.dataset.autofill;
-        delete input.dataset.autofillValue;
+      } else {
+        // If GLA base becomes empty and this field was autofilled, clear it to mirror the dropdown reset
+        if (field === 'gla' && (shouldAutofill || input.dataset.autofill === '1')) {
+          input.value = '';
+        }
+        if (input.dataset.autofill === '1') {
+          delete input.dataset.autofill;
+          delete input.dataset.autofillValue;
+        }
       }
     });
     this.validateRow(row);
@@ -1500,7 +1506,8 @@ function populateCategorySelects(form) {
       sel.disabled = true;
       return;
     }
-    sel.appendChild(new Option('- Select Category -', ''));
+    // Short placeholder to avoid widening native dropdown popover
+    sel.appendChild(new Option('- Category -', ''));
     cats.forEach((cat) => {
       if (cat && typeof cat === 'object') {
         const option = new Option(cat.name || '', cat.id ?? cat.code ?? '');
@@ -1527,13 +1534,14 @@ function populateOfficeSelects(form) {
       sel.disabled = true;
       return;
     }
-    sel.appendChild(new Option('- Select Office -', ''));
+    // Short placeholder to avoid widening native dropdown popover
+    sel.appendChild(new Option('- Office -', ''));
     offices.forEach(o => {
       const code = typeof o === 'object' ? (o.code ?? '') : o;
       const sanitized = String(code || '').replace(/\D/g, '').slice(0, 4);
       const finalCode = sanitized ? sanitized.padStart(4, '0') : '';
       const name = typeof o === 'object' ? (o.name ?? '') : '';
-      const label = name ? `${name} (${finalCode})` : finalCode;
+      const label = name || finalCode;
       const option = new Option(label, finalCode);
       option.dataset.officeCode = finalCode;
       option.dataset.officeName = name;
@@ -1596,11 +1604,11 @@ function initCategoryOfficeManagement() {
       if (nameEl) nameEl.textContent = cat.name || 'N/A';
       const codeEl = fragment.querySelector('[data-category-code]');
       if (codeEl) codeEl.textContent = cat.code || 'N/A';
-      const viewBtn = fragment.querySelector('[data-view-cat]');
-      if (viewBtn) {
-        if (cat.id !== undefined && cat.id !== null) viewBtn.setAttribute('data-id', String(cat.id));
-        viewBtn.setAttribute('data-name', cat.name || '');
-        if (cat.code) viewBtn.setAttribute('data-code', cat.code);
+      const manageGlaBtn = fragment.querySelector('[data-manage-gla]');
+      if (manageGlaBtn) {
+        if (cat.id !== undefined && cat.id !== null) manageGlaBtn.setAttribute('data-id', String(cat.id));
+        manageGlaBtn.setAttribute('data-name', cat.name || '');
+        if (cat.code) manageGlaBtn.setAttribute('data-code', cat.code);
       }
       const deleteBtn = fragment.querySelector('[data-delete-cat]');
       if (deleteBtn) {
@@ -1790,10 +1798,13 @@ function initCategoryOfficeManagement() {
       return;
     }
 
-    const viewBtn = target.closest('[data-view-cat]');
-    if (viewBtn) {
-      const nameAttr = viewBtn.getAttribute('data-name') || '';
-      window.alert(`View items in category: ${nameAttr}\n(Implement server-side view to display associated items.)`);
+    const manageGlaBtn = target.closest('[data-manage-gla]');
+    if (manageGlaBtn) {
+      const categoryId = manageGlaBtn.getAttribute('data-id');
+      const categoryName = manageGlaBtn.getAttribute('data-name') || '';
+      if (categoryId) {
+        openManageGLAModal(categoryId, categoryName);
+      }
     }
   });
 
@@ -1824,11 +1835,184 @@ function initCategoryOfficeManagement() {
       window.alert(`View items for office: ${codeAttr}\n(Implement server-side view to display associated items.)`);
     }
   });
+
+  // GLA Management
+  initGLAManagement();
+}
+
+function initGLAManagement() {
+  if (typeof document === 'undefined') return;
+
+  const glaListBody = document.getElementById('gla-list-body');
+  const glaRowTemplate = document.querySelector('template[data-gla-row-template]');
+  const glaEmptyTemplate = document.querySelector('template[data-gla-empty-template]');
+  const glaAddBtn = document.getElementById('gla-add-btn');
+  const newGlaNameInput = document.getElementById('new-gla-name');
+  const newGlaCodeInput = document.getElementById('new-gla-code');
+  const glaParentIdInput = document.getElementById('gla-parent-id');
+  const glaModalTitle = document.getElementById('gla-modal-title');
+  const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+  if (!glaListBody) return;
+
+  let currentParentId = null;
+  let currentGLAs = [];
+
+  const enforceGLADigits = (input) => {
+    if (!input) return;
+    input.value = String(input.value || '').replace(/\D/g, '').slice(0, 4);
+  };
+
+  newGlaCodeInput?.addEventListener('input', () => enforceGLADigits(newGlaCodeInput));
+
+  const renderGLAs = () => {
+    if (!glaListBody) return;
+    while (glaListBody.firstChild) glaListBody.removeChild(glaListBody.firstChild);
+    
+    if (!currentGLAs.length) {
+      if (glaEmptyTemplate) {
+        glaListBody.appendChild(document.importNode(glaEmptyTemplate.content, true));
+      }
+      return;
+    }
+
+    currentGLAs.forEach((gla) => {
+      if (!glaRowTemplate) return;
+      const fragment = document.importNode(glaRowTemplate.content, true);
+      const row = fragment.querySelector('[data-gla-row]');
+      if (row) row.dataset.glaId = gla.id ?? '';
+      
+      const nameEl = fragment.querySelector('[data-gla-name]');
+      if (nameEl) nameEl.textContent = gla.name || 'N/A';
+      
+      const codeEl = fragment.querySelector('[data-gla-code]');
+      if (codeEl) codeEl.textContent = gla.category_code || gla.code || 'N/A';
+      
+      const deleteBtn = fragment.querySelector('[data-delete-gla]');
+      if (deleteBtn) {
+        deleteBtn.setAttribute('data-id', String(gla.id));
+        deleteBtn.setAttribute('data-name', gla.name || '');
+      }
+      
+      glaListBody.appendChild(fragment);
+    });
+  };
+
+  const fetchJSON = async (url, options = {}) => {
+    const response = await fetch(url, options);
+    const contentType = response.headers.get('content-type') || '';
+    if (!response.ok) {
+      let message = `Request failed (${response.status})`;
+      if (contentType.includes('application/json')) {
+        const body = await response.json().catch(() => null);
+        if (body?.message) message = body.message;
+      }
+      throw new Error(message);
+    }
+    if (!contentType.includes('application/json')) return null;
+    return response.json().catch(() => null);
+  };
+
+  const fetchGLAsFromServer = async (parentId) => {
+    try {
+      const data = await fetchJSON(`/admin/api/categories/${parentId}/glas`, {
+        headers: { Accept: 'application/json' }
+      });
+      if (data && Array.isArray(data.data)) {
+        currentGLAs = data.data;
+        renderGLAs();
+      }
+    } catch (error) {
+      console.warn('Failed to load GLAs', error);
+      renderGLAs();
+    }
+  };
+
+  window.openManageGLAModal = async (categoryId, categoryName) => {
+    currentParentId = categoryId;
+    if (glaParentIdInput) glaParentIdInput.value = categoryId;
+    if (glaModalTitle) glaModalTitle.textContent = `Manage GLA for: ${categoryName}`;
+    if (newGlaNameInput) newGlaNameInput.value = '';
+    if (newGlaCodeInput) newGlaCodeInput.value = '';
+    
+    await fetchGLAsFromServer(categoryId);
+    
+    // Open modal using Alpine.js
+    window.dispatchEvent(new CustomEvent('open-modal', { detail: 'manage-gla' }));
+    document.dispatchEvent(new CustomEvent('open-modal', { detail: 'manage-gla' }));
+  };
+
+  glaAddBtn?.addEventListener('click', async () => {
+    const name = (newGlaNameInput?.value || '').trim();
+    const code = (newGlaCodeInput?.value || '').trim().replace(/\D/g, '');
+    
+    if (!name) {
+      showToast('error', 'Please enter a GLA name.');
+      return;
+    }
+    if (code.length < 1 || code.length > 4) {
+      showToast('error', 'GLA code must be 1-4 digits.');
+      return;
+    }
+    if (!currentParentId) {
+      showToast('error', 'No parent category selected.');
+      return;
+    }
+
+    try {
+      await fetchJSON(`/admin/api/categories/${currentParentId}/glas`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': csrf,
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({ name, category_code: code }),
+      });
+      
+      if (newGlaNameInput) newGlaNameInput.value = '';
+      if (newGlaCodeInput) newGlaCodeInput.value = '';
+      await fetchGLAsFromServer(currentParentId);
+      showToast('success', 'GLA added successfully.');
+      
+      // Notify that GLAs were updated so dropdowns can refresh
+      window.dispatchEvent(new Event('server:glas:updated'));
+    } catch (error) {
+      showToast('error', error.message || 'Failed to add GLA. Please try again.');
+    }
+  });
+
+  glaListBody?.addEventListener('click', async (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return;
+
+    const deleteBtn = target.closest('[data-delete-gla]');
+    if (deleteBtn) {
+      const glaId = deleteBtn.getAttribute('data-id');
+      const nameAttr = deleteBtn.getAttribute('data-name') || '';
+      
+      if (!window.confirm(`Delete GLA "${nameAttr}"?`)) return;
+      
+      try {
+        await fetchJSON(`/admin/api/categories/${currentParentId}/glas/${glaId}`, {
+          method: 'DELETE',
+          headers: { 'X-CSRF-TOKEN': csrf, Accept: 'application/json' },
+        });
+        await fetchGLAsFromServer(currentParentId);
+        showToast('success', 'GLA deleted successfully.');
+        
+        // Notify that GLAs were updated
+        window.dispatchEvent(new Event('server:glas:updated'));
+      } catch (error) {
+        showToast('error', error.message || 'Failed to delete GLA. Please try again.');
+      }
+    }
+  });
 }
 
 function attachCategoryListeners(form) {
   form.querySelectorAll('select[data-category-select]').forEach(sel => {
-    sel.addEventListener('change', (e) => {
+    sel.addEventListener('change', async (e) => {
       const selectEl = e.target;
       const chosen = (selectEl?.value ?? '').toString();
       const hidden = form.querySelector('input[data-property-segment="category"], input[name="category_code"]');
@@ -1844,8 +2028,81 @@ function attachCategoryListeners(form) {
         display.value = resolved;
       }
 
+      // Populate GLA dropdown based on selected category
+      await populateGLADropdown(form, selectEl.selectedOptions[0]?.dataset?.categoryId);
+
       form.querySelectorAll('[data-add-field]').forEach(inp => inp.dispatchEvent(new Event('input', { bubbles: true })));
       form.querySelectorAll('[data-add-field="year"], [data-add-field="office"]').forEach(inp => inp.dispatchEvent(new Event('input', { bubbles: true })));
+    });
+  });
+}
+
+async function populateGLADropdown(form, categoryId) {
+  const glaSelect = form.querySelector('select[data-gla-select]');
+  if (!glaSelect) return;
+
+  // Track latest request to avoid race-condition duplicates
+  form.__glaRequestId = (form.__glaRequestId || 0) + 1;
+  const currentReq = form.__glaRequestId;
+
+  if (!categoryId) {
+    glaSelect.disabled = true;
+    glaSelect.value = '';
+    return;
+  }
+
+  try {
+    const response = await fetch(`/admin/api/categories/${categoryId}/glas`, {
+      headers: { Accept: 'application/json' }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch GLAs');
+    }
+
+    const data = await response.json();
+
+    // Ignore if a newer request has been made
+    if (currentReq !== form.__glaRequestId) {
+      return;
+    }
+
+    // Clear existing options just before we append the latest set
+    while (glaSelect.options.length > 1) {
+      glaSelect.remove(1);
+    }
+    const glas = data.data || [];
+
+    if (glas.length === 0) {
+      glaSelect.disabled = true;
+      glaSelect.value = '';
+      return;
+    }
+
+    glas.forEach(gla => {
+      const option = document.createElement('option');
+      option.value = gla.category_code || gla.code || '';
+      option.textContent = gla.name || '';
+      option.dataset.glaId = gla.id;
+      option.dataset.glaCode = gla.category_code || gla.code || '';
+      glaSelect.appendChild(option);
+    });
+
+    glaSelect.disabled = false;
+  } catch (error) {
+    console.error('Error loading GLAs:', error);
+    glaSelect.disabled = true;
+  }
+}
+
+function attachGLAListeners(form) {
+  const glaSelect = form.querySelector('select[data-gla-select]');
+  if (!glaSelect) return;
+
+  glaSelect.addEventListener('change', (e) => {
+    // Trigger input events on form fields to update property number rows
+    form.querySelectorAll('[data-add-field]').forEach(inp => {
+      inp.dispatchEvent(new Event('input', { bubbles: true }));
     });
   });
 }
@@ -1885,8 +2142,18 @@ function initAddItemsForm(form) {
 
   window.addEventListener('server:categories:updated', () => { populateCategorySelects(form); });
   window.addEventListener('server:offices:updated', () => { populateOfficeSelects(form); });
-  populateCategorySelects(form);
-  attachCategoryListeners(form);
+  window.addEventListener('server:glas:updated', () => {
+    // Refresh GLA dropdown for currently selected category
+    const categorySelect = form.querySelector('select[data-category-select]');
+    if (categorySelect && categorySelect.selectedOptions[0]) {
+      const categoryId = categorySelect.selectedOptions[0].dataset.categoryId;
+      if (categoryId) {
+        populateGLADropdown(form, categoryId);
+      }
+    }
+  });
+  // Initial population and listeners are already set above; avoid double-attaching
+  attachGLAListeners(form);
 
   attachOfficeValidation(form);
 

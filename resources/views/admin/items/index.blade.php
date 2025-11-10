@@ -382,6 +382,7 @@
 </div>
 @stack('item-modals')
 @include('admin.items.modals.category')
+@include('admin.items.modals.gla')
 @include('admin.items.modals.office')
 <x-modal name="print-stickers" maxWidth="lg">
     <div class="p-6 space-y-6" data-print-modal>

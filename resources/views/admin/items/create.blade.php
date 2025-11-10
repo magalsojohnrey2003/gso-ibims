@@ -1,4 +1,28 @@
 <!-- resources/views/admin/items/create.blade.php -->
+<style>
+/* Hide native dropdown arrows only inside the Add New Item modal */
+#create-item-form select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: none !important;
+    /* Ensure long labels don't visually overflow */
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+    /* Max width for very long option names */
+    max-width: 100%;
+}
+#create-item-form select::-ms-expand { display: none; }
+
+/* Responsive wrapping for long category/option names in dropdowns */
+#create-item-form select option {
+    white-space: normal;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
+}
+</style>
 <form id="create-item-form" action="{{ route('items.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6" data-property-form data-add-items-form data-accordion-group="create-item">
 @csrf
 
@@ -99,7 +123,7 @@
             class="block w-full px-3 py-2 text-sm border-2 border-gray-400 dark:border-gray-500 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-purple-600 dark:focus:border-purple-400 transition-all duration-200 mt-1"
             data-property-segment="year"
             data-add-field="year">
-                    <option value="">-- Select year --</option>
+                    <option value="">-- Year --</option>
                     @php
                         $start = 2020;
                         $current = date('Y');
@@ -122,18 +146,15 @@
 
             <div class="flex flex-col">
                 <x-input-label for="gla" value="GLA" />
-                <x-text-input
+                <select
                     id="gla"
                     name="gla"
-                    type="text"
-                    maxlength="4"
-                    inputmode="numeric"
-                    pattern="\d{1,4}"
-                    class="input-field mt-1"
-                    :value="old('gla')"
-                    placeholder="digits only (1-4)"
+                    class="block w-full px-3 py-2 text-sm border-2 border-gray-400 dark:border-gray-500 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-purple-600 dark:focus:border-purple-400 transition-all duration-200 mt-1 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    data-gla-select
                     data-add-field="gla"
-                />
+                    disabled>
+                    <option value="">-- GLA --</option>
+                </select>
                 <x-input-error :messages="$errors->get('gla')" class="mt-2" />
             </div>
 
@@ -163,7 +184,7 @@
                     data-add-field="office"
                     data-property-segment="office"
                     data-office-select>
-                    <option value="">- Select Office -</option>
+                    <option value="">- Office -</option>
                 </select>
                 <x-input-error :messages="$errors->get('office')" class="mt-2" />
             </div>

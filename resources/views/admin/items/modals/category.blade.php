@@ -19,7 +19,8 @@
           <tr>
             <th class="px-3 py-2">Name</th>
             <th class="px-3 py-2">Code</th>
-            <th class="px-3 py-2 text-right">Actions</th>
+            <th class="px-3 py-2 text-center">Manage GLA</th>
+            <th class="px-3 py-2 text-center">Actions</th>
           </tr>
         </thead>
         <tbody id="category-list-body" class="divide-y divide-gray-100 bg-white">
@@ -31,9 +32,15 @@
         <tr data-category-row>
           <td class="px-3 py-2" data-category-name></td>
           <td class="px-3 py-2" data-category-code></td>
-          <td class="px-3 py-2 text-right">
-            <button type="button" class="text-blue-600 mr-2" data-view-cat>View</button>
-            <button type="button" class="text-red-600" data-delete-cat>Delete</button>
+          <td class="px-3 py-2 text-center">
+            <button type="button" class="inline-flex items-center justify-center w-8 h-8 text-white bg-purple-600 hover:bg-purple-700 rounded transition-colors" data-manage-gla title="Manage GLA">
+              <i class="fas fa-list"></i>
+            </button>
+          </td>
+          <td class="px-3 py-2 text-center">
+            <button type="button" class="inline-flex items-center justify-center w-8 h-8 text-white bg-red-600 hover:bg-red-700 rounded transition-colors" data-delete-cat title="Delete">
+              <i class="fas fa-trash"></i>
+            </button>
           </td>
         </tr>
       </template>
