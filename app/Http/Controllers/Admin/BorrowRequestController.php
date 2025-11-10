@@ -447,17 +447,20 @@ class BorrowRequestController extends Controller
 
     public function dispatch(Request $request, BorrowRequest $borrowRequest)
     {
+        // Normalize status if QR-verified
         if ($borrowRequest->status === 'qr_verified') {
             $borrowRequest->status = 'approved';
             $borrowRequest->save();
         }
 
+        // Only validated or approved can proceed
         if ($borrowRequest->status !== 'validated' && $borrowRequest->status !== 'approved') {
             return response()->json(['message' => 'Only validated or approved requests can be dispatched.'], 422);
         }
 
-        if ($borrowRequest->delivery_status === 'dispatched') {
-            return response()->json(['message' => 'Already dispatched.'], 200);
+        // If already delivered, make idempotent
+        if ($borrowRequest->delivery_status === 'delivered') {
+            return response()->json(['message' => 'Already delivered.'], 200);
         }
 
         // Validate delivery reason if provided
@@ -469,8 +472,8 @@ class BorrowRequestController extends Controller
 
         DB::beginTransaction();
         try {
-            // ensure we have items loaded
-            $borrowRequest->load('items.item');
+            // ensure we have items and allocated instances loaded
+            $borrowRequest->load('items.item', 'borrowedInstances.instance');
 
             // Only check available quantity if status is not already approved
             // If already approved, items are already allocated, so we can proceed
@@ -502,10 +505,43 @@ class BorrowRequestController extends Controller
                 $this->allocateInstancesForBorrowRequest($borrowRequest);
             }
 
-            // set approved status and delivery meta
+            // At this point, instances should be allocated. Transition them to 'borrowed'
+            // and deduct from available stock, then mark as delivered (single-step flow).
+            foreach ($borrowRequest->items as $requestItem) {
+                $item = $requestItem->item;
+                if (!$item) {
+                    continue;
+                }
+
+                $needed = (int) $requestItem->quantity;
+
+                // Update all allocated instances for this request+item to borrowed
+                $borrowRequest->borrowedInstances()
+                    ->where('item_id', $item->id)
+                    ->whereHas('instance', function ($q) {
+                        $q->where('status', 'allocated');
+                    })
+                    ->get()
+                    ->each(function ($borrowInstance) {
+                        if ($borrowInstance->instance) {
+                            $borrowInstance->instance->status = 'borrowed';
+                            $borrowInstance->instance->save();
+                        }
+                    });
+
+                // Deduct from available stock, clamp at zero
+                $item->available_qty = max(0, (int) ($item->available_qty ?? 0) - $needed);
+                $item->save();
+            }
+
+            // set approved status and delivery meta (delivered directly)
             $borrowRequest->status = 'approved';
-            $borrowRequest->delivery_status = 'dispatched';
-            $borrowRequest->dispatched_at = now();
+            // Ensure dispatched_at is set for audit trail
+            if (!$borrowRequest->dispatched_at) {
+                $borrowRequest->dispatched_at = now();
+            }
+            $borrowRequest->delivery_status = 'delivered';
+            $borrowRequest->delivered_at = now();
             
             // Store delivery reason
             if (!empty($data['delivery_reason_type'])) {
@@ -524,24 +560,25 @@ class BorrowRequestController extends Controller
             
             $borrowRequest->save();
 
-            // notify user
+            // notify user - delivered in one step
             $user = $borrowRequest->user;
             if ($user) {
                 $payload = [
-                    'type' => 'borrow_dispatched',
-                    'message' => "Your borrow request #{$borrowRequest->id} is on its way.",
+                    'type' => 'borrow_delivered',
+                    'message' => "Your borrow request #{$borrowRequest->id} has been delivered.",
                     'borrow_request_id' => $borrowRequest->id,
                     'user_id' => $user->id,
                     'user_name' => trim($user->first_name . ' ' . ($user->last_name ?? '')),
                     'borrow_date' => (string) $borrowRequest->borrow_date,
                     'return_date' => (string) $borrowRequest->return_date,
                     'dispatched_at' => $borrowRequest->dispatched_at ? $borrowRequest->dispatched_at->toDateTimeString() : null,
+                    'delivered_at' => $borrowRequest->delivered_at ? $borrowRequest->delivered_at->toDateTimeString() : null,
                 ];
                 $user->notify(new RequestNotification($payload));
             }
 
             DB::commit();
-            return response()->json(['message' => 'Items dispatched successfully.']);
+            return response()->json(['message' => 'Items delivered successfully.']);
         } catch (\Throwable $e) {
             DB::rollBack();
             return response()->json(['message' => 'Failed to dispatch items. Please try again.', 'error' => $e->getMessage()], 500);
@@ -567,6 +604,11 @@ class BorrowRequestController extends Controller
 
     public function markDelivered(Request $request, BorrowRequest $borrowRequest)
     {
+        // If already delivered, make idempotent for legacy callers
+        if ($borrowRequest->delivery_status === 'delivered') {
+            return response()->json(['message' => 'Already delivered.'], 200);
+        }
+
         if ($borrowRequest->delivery_status !== 'dispatched') {
             return response()->json(['message' => 'Only dispatched items can be marked as delivered.'], 422);
         }
