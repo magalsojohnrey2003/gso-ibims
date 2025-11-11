@@ -75,25 +75,17 @@
                                 icon="archive-box"
                                 variant="s"
                                 iconStyle="plain"
-                                iconColor="gov-accent"> Items Management </x-title>
+                                iconColor="gov-accent"
+                                compact="true"> Items Management </x-title>
                     </div>
                     
-                    <!-- Search Bar -->
-                    <div class="flex-shrink-0">
-                        <form method="GET" action="{{ route('items.index') }}" class="flex items-center gap-2">
-                            <input type="text"
-                                   name="search"
-                                   value="{{ request('search') }}"
-                                   placeholder="Search by name or category..."
-                                   class="border rounded-lg px-3 py-2 text-sm w-64 focus:ring focus:ring-blue-200" />
-                            <x-button
-                                variant="secondary"
-                                iconName="magnifying-glass"
-                                type="submit"
-                                class="text-sm px-3 py-2">
-                                Search
-                            </x-button>
-                        </form>
+                    <!-- Live Search Bar -->
+                    <div class="flex-shrink-0 relative">
+                        <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                        <input type="text"
+                               id="items-live-search"
+                               placeholder="Search by Name or Category"
+                               class="border border-gray-300 rounded-lg pl-12 pr-4 py-2.5 text-sm w-64 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all hover:border-gray-400" />
                     </div>
                 </div>
             </div>
@@ -213,8 +205,18 @@
                           </tr>
                           @push('item-modals')
                               <x-modal name="edit-item-{{ $item->id }}" maxWidth="2xl">
-                                  <div class="w-full bg-white shadow-lg overflow-hidden flex flex-col max-h-[85vh]">
-                                      <div class="bg-purple-600 text-white px-6 py-5 sticky top-0 z-20">
+                                  <div class="w-full bg-white dark:bg-gray-900 shadow-lg overflow-hidden flex flex-col max-h-[85vh]">
+                                      <div class="bg-purple-600 text-white px-6 py-5 sticky top-0 z-20 relative">
+                                          <button 
+                                              type="button"
+                                              data-modal-close-button
+                                              data-modal-name="edit-item-{{ $item->id }}"
+                                              x-on:click="$dispatch('close-modal', 'edit-item-{{ $item->id }}')"
+                                              class="absolute top-4 right-4 text-white hover:text-gray-200 transition-colors p-2 hover:bg-white/10 rounded-lg">
+                                              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                              </svg>
+                                          </button>
                                           <h3 class="text-2xl font-bold flex items-center">
                                               <i class="fas fa-pencil-alt mr-2"></i>
                                               EDIT ITEM
@@ -299,8 +301,16 @@
     </div>
   
   <x-modal name="create-item" maxWidth="2xl">
-      <div class="w-full shadow-lg overflow-hidden flex flex-col max-h-[85vh] bg-white">
-      <div class="bg-purple-600 text-white px-6 py-5 sticky top-0 z-20">
+      <div class="w-full shadow-lg overflow-hidden flex flex-col max-h-[85vh] bg-white dark:bg-gray-900">
+      <div class="bg-purple-600 text-white px-6 py-5 sticky top-0 z-20 relative">
+          <button 
+              type="button"
+              x-on:click="$dispatch('close-modal', 'create-item')"
+              class="absolute top-4 right-4 text-white hover:text-gray-200 transition-colors p-2 hover:bg-white/10 rounded-lg">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+          </button>
           <h3 class="text-2xl font-bold flex items-center">
               <i class="fas fa-plus mr-2"></i>
               Add New Item
@@ -390,6 +400,7 @@
 </div>
 @stack('item-modals')
 @include('admin.items.modals.category')
+@include('admin.items.modals.gla')
 @include('admin.items.modals.office')
 <x-modal name="print-stickers" maxWidth="lg">
     <div class="p-6 space-y-6" data-print-modal>
@@ -439,5 +450,81 @@
         </form>
     </div>
 </x-modal>
+
+<script>
+// Live search functionality for Items Management table
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('items-live-search');
+    const table = document.querySelector('.gov-table tbody');
+    
+    if (!searchInput || !table) return;
+    
+    // Dynamic placeholder change on focus/blur
+    searchInput.addEventListener('focus', function() {
+        this.placeholder = 'Type to Search';
+    });
+    
+    searchInput.addEventListener('blur', function() {
+        this.placeholder = 'Search by Name or Category';
+    });
+    
+    // Live search filtering
+    searchInput.addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase().trim();
+        const rows = table.querySelectorAll('tr[data-item-row]');
+        
+        rows.forEach(row => {
+            // Get item name and category from the row
+            const nameCell = row.querySelector('[data-item-name]');
+            const categoryCell = row.querySelector('[data-item-category]');
+            
+            if (!nameCell || !categoryCell) return;
+            
+            const itemName = nameCell.textContent.toLowerCase();
+            const itemCategory = categoryCell.textContent.toLowerCase();
+            
+            // Check if search term matches name or category
+            const matches = itemName.includes(searchTerm) || itemCategory.includes(searchTerm);
+            
+            // Show/hide row based on match
+            if (matches) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        
+        // Check if any rows are visible
+        const visibleRows = Array.from(rows).filter(row => row.style.display !== 'none');
+        
+        // Handle empty state
+        const emptyRow = table.querySelector('tr:not([data-item-row])');
+        if (visibleRows.length === 0 && !emptyRow) {
+            // Add "no results" message if all filtered out
+            const noResultsRow = document.createElement('tr');
+            noResultsRow.id = 'no-results-row';
+            noResultsRow.innerHTML = `
+                <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                    <div class="flex flex-col items-center gap-2">
+                        <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p class="font-medium">No items found</p>
+                        <p class="text-sm">Try adjusting your search</p>
+                    </div>
+                </td>
+            `;
+            table.appendChild(noResultsRow);
+        } else if (visibleRows.length > 0) {
+            // Remove "no results" message if items are visible
+            const noResultsRow = document.getElementById('no-results-row');
+            if (noResultsRow) {
+                noResultsRow.remove();
+            }
+        }
+    });
+});
+</script>
+
 </x-app-layout>
 @vite(['resources/js/app.js'])

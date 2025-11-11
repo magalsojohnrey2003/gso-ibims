@@ -37,7 +37,7 @@ class ItemInstancePropertyTest extends TestCase
 
         $this->assertSame('2020-05-0660-8831', $instance->property_number);
         $this->assertSame(2020, $instance->year_procured);
-        $this->assertSame('05', $instance->ppe_code);
+    $this->assertSame('05', $instance->category_code);
         $this->assertSame('0660', $instance->serial);
         $this->assertSame(660, $instance->serial_int);
         $this->assertSame('8831', $instance->office_code);

@@ -15,7 +15,7 @@ class PropertyNumberServiceTest extends TestCase
         $result = $service->parse(' 2020-05-0660-8831 ');
 
         $this->assertSame('2020', $result['year']);
-        $this->assertSame('05', $result['ppe']);
+    $this->assertSame('05', $result['category']);
         $this->assertSame('0660', $result['serial']);
         $this->assertSame(660, $result['serial_int']);
         $this->assertSame('8831', $result['office']);
@@ -28,7 +28,7 @@ class PropertyNumberServiceTest extends TestCase
 
         $number = $service->assemble([
             'year' => '2021',
-            'ppe' => '07',
+            'category' => '07',
             'serial' => '0123',
             'office' => '1100',
         ]);

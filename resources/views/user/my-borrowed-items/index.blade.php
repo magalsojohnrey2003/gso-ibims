@@ -20,7 +20,33 @@
                                 icon="clipboard-document-check"
                                 variant="s"
                                 iconStyle="plain"
-                                iconColor="gov-accent"> My Borrowed Items </x-title>
+                                iconColor="gov-accent"
+                                compact="true"> My Borrowed Items </x-title>
+                    </div>
+                    
+                    <!-- Search Bar and Sort By -->
+                    <div class="flex items-center gap-3">
+                        <!-- Live Search Bar -->
+                        <div class="flex-shrink-0 relative">
+                            <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                            <input type="text"
+                                   id="my-borrowed-items-live-search"
+                                   placeholder="Search Request ID"
+                                   class="border border-gray-300 rounded-lg pl-12 pr-4 py-2.5 text-sm w-64 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all hover:border-gray-400" />
+                        </div>
+                        
+                        <!-- Sort By Status -->
+                        <div class="flex-shrink-0 relative">
+                            <select id="my-borrowed-items-status-filter"
+                                    class="border border-gray-300 rounded-lg pl-4 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all hover:border-gray-400 appearance-none bg-white">
+                                <option value="">All Status</option>
+                                <option value="approved">Approved</option>
+                                <option value="pending">Pending</option>
+                                <option value="validated">Validated</option>
+                                <option value="returned">Returned</option>
+                                <option value="rejected">Rejected</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -176,11 +202,14 @@
 
     <!-- Templates for action buttons -->
     <template id="btn-view-template">
-        <x-button iconName="eye" variant="secondary" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="view">View</x-button>
+        <x-button iconName="eye" variant="secondary" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only !bg-emerald-500 hover:!bg-emerald-600 text-white" data-action="view">View</x-button>
     </template>
 
     <template id="btn-print-template">
-        <x-button variant="secondary" iconName="printer" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="print">Print</x-button>
+        <x-button variant="secondary" iconName="printer" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only !bg-amber-500 hover:!bg-amber-600 text-white" data-action="print">Print</x-button>
+    </template>
+    <template id="btn-return-template">
+        <x-button variant="warning" iconName="arrow-uturn-left" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only !bg-indigo-500 hover:!bg-indigo-600 text-white" data-action="return">Return Items</x-button>
     </template>
 
     <!-- Alert templates -->
@@ -207,6 +236,8 @@
         <template data-status="qr_verified"><x-status-badge type="accepted" text="Approved" /></template>
         <template data-status="default"><x-status-badge type="gray" text="—" /></template>
         <template data-status="validated"><x-status-badge type="info" text="Validated" /></template>
+    <template data-status="dispatched"><x-status-badge type="info" text="Dispatched" /></template>
+    <template data-status="delivered"><x-status-badge type="success" text="Delivered" /></template>
 
     </div>
 
@@ -224,6 +255,89 @@
                       || document.querySelector('#statusBadgeTemplates template[data-status="default"]');
             return tpl ? tpl.innerHTML : `<span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700"><i class="fas fa-question-circle text-xs"></i><span>${status || '—'}</span></span>`;
         };
+    </script>
+
+    <script>
+    // Live search and filter functionality for My Borrowed Items
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('my-borrowed-items-live-search');
+        const statusFilter = document.getElementById('my-borrowed-items-status-filter');
+        const tableBody = document.getElementById('myBorrowedItemsTableBody');
+        
+        if (!searchInput || !statusFilter || !tableBody) return;
+        
+        function filterTable() {
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            const statusValue = statusFilter.value.toLowerCase();
+            const rows = tableBody.querySelectorAll('tr[data-request-id]');
+            
+            let visibleCount = 0;
+            
+            rows.forEach(row => {
+                const requestIdCell = row.querySelector('td:nth-child(1)');
+                const statusCell = row.querySelector('td:nth-child(4)');
+                
+                if (!requestIdCell || !statusCell) return;
+                
+                const requestIdText = requestIdCell.textContent.toLowerCase();
+                const statusText = statusCell.textContent.toLowerCase();
+                
+                // Check search match
+                const searchMatches = requestIdText.includes(searchTerm);
+                
+                // Check status filter match
+                const statusMatches = !statusValue || statusText.includes(statusValue);
+                
+                // Show/hide row
+                if (searchMatches && statusMatches) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            
+            // Handle empty state
+            const loadingRow = tableBody.querySelector('tr:not([data-request-id])');
+            if (visibleCount === 0 && rows.length > 0 && !loadingRow) {
+                let noResultsRow = document.getElementById('no-results-row-borrowed');
+                if (!noResultsRow) {
+                    noResultsRow = document.createElement('tr');
+                    noResultsRow.id = 'no-results-row-borrowed';
+                    noResultsRow.innerHTML = `
+                        <td colspan="5" class="px-6 py-8 text-center text-gray-500">
+                            <div class="flex flex-col items-center gap-2">
+                                <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <p class="font-medium">No items found</p>
+                                <p class="text-sm">Try adjusting your search or filter</p>
+                            </div>
+                        </td>
+                    `;
+                    tableBody.appendChild(noResultsRow);
+                }
+            } else {
+                const noResultsRow = document.getElementById('no-results-row-borrowed');
+                if (noResultsRow) {
+                    noResultsRow.remove();
+                }
+            }
+        }
+        
+        // Event listeners
+        searchInput.addEventListener('input', filterTable);
+        statusFilter.addEventListener('change', filterTable);
+        
+        // Dynamic placeholder change
+        searchInput.addEventListener('focus', function() {
+            this.placeholder = 'Type to Search';
+        });
+        
+        searchInput.addEventListener('blur', function() {
+            this.placeholder = 'Search Request ID';
+        });
+    });
     </script>
 
     @vite(['resources/js/app.js'])

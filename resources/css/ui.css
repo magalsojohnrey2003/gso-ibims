@@ -74,16 +74,16 @@ aside#sidebar {
     border: none; /* Remove all borders from header */
     padding: 0.75rem 1rem;
     vertical-align: middle;
-    text-align: center !important; /* Force center alignment */
+    text-align: center ; /* Force center alignment */
     position: static; /* Remove sticky positioning */
-    border-radius: 0 !important; /* Ensure no rounded corners */
+    border-radius: 0 ; /* Ensure no rounded corners */
     margin: 0; /* Remove any margin */
 }
 .gov-table th, .gov-table td {
     padding: 0.75rem 1rem;
     border: none; /* Remove all cell borders */
     vertical-align: middle;
-    text-align: center !important; /* Force center alignment for all cells */
+    text-align: center ; /* Force center alignment for all cells */
 }
 
 /* Zebra striping for table rows */
@@ -94,7 +94,7 @@ aside#sidebar {
     background-color: #ffffff; /* White for odd rows */
 }
 .gov-table tbody tr:hover { 
-    background-color: rgba(168,85,247,0.1) !important; /* Purple hover effect */
+    background-color: rgba(168,85,247,0.1) ; /* Purple hover effect */
 }
 
 /* Rounded corners for table headers when wrapped by .table-wrapper */
@@ -114,7 +114,7 @@ aside#sidebar {
     background-color: var(--card-bg);
 }
 .theme-dark .gov-table tbody tr:hover, .dark .gov-table tbody tr:hover { 
-    background-color: rgba(168,85,247,0.15) !important; 
+    background-color: rgba(168,85,247,0.15) ; 
 }
 
 /* Dark theme scrollbar */
@@ -129,11 +129,11 @@ aside#sidebar {
 
 /* Make tables horizontally scrollable on narrow screens but keep modern connected card look */
 .table-wrapper { 
-    border-radius: 0 0 1rem 1rem !important; /* Only bottom rounded corners */
+    border-radius: 0 0 1rem 1rem ; /* Only bottom rounded corners */
     overflow: visible; /* Changed from hidden to visible to prevent nested scrollbars */
     box-shadow: 0 6px 20px rgba(2,6,23,0.06);
     border: 1px solid #e5e7eb; /* Add border for connection effect */
-    border-top: none !important; /* Remove top border to connect with title */
+    border-top: none ; /* Remove top border to connect with title */
     /* Ensure no additional constraints that might cause scrollbars */
     max-width: 100%;
     width: 100%;
@@ -212,8 +212,7 @@ aside#sidebar {
 /* Prevent gradients or heavy backgrounds by clearing image backgrounds used by previous toast code */
 #toast { background: rgba(20,20,20,0.85); color: #fff; }
 
-/* Keep forms and inputs legible in dark */
-.theme-dark input, .theme-dark select, .theme-dark textarea { background: #0b1220; color: var(--text); border-color: var(--table-border); }
+/* Note: Input styling now handled by Tailwind dark: utilities in components */
 
 /* Fix for redundant scrollbars - ensure main content containers don't create extra scrollbars */
 .main-content, 
@@ -241,95 +240,107 @@ main[role="main"],
 /* Title container - rounded only on top, straight bottom for connection */
 .mb-2.rounded-2xl.shadow-lg.bg-white,
 .title-container {
-    border-radius: 1rem 1rem 0 0 !important; /* Rounded top, straight bottom */
-    border-bottom: none !important; /* Remove bottom border to connect with table */
-    margin-bottom: 0 !important; /* No gap between title and table */
-    padding: 1rem 1.5rem !important; /* Reduced padding from default px-6 py-4 */
-    min-height: auto !important; /* Allow container to shrink */
+    border-radius: 1rem 1rem 0 0 ; /* Rounded top, straight bottom */
+    border-bottom: none ; /* Remove bottom border to connect with table */
+    margin-bottom: 0 ; /* No gap between title and table */
+    padding: 1rem 1.5rem ; /* Reduced padding from default px-6 py-4 */
+    min-height: auto ; /* Allow container to shrink */
 }
 
 /* Optimize title container layout for compactness */
 .mb-2.rounded-2xl.shadow-lg.bg-white .flex.flex-col.md\\:flex-row {
-    gap: 1rem !important; /* Reduced gap between title and search */
-    align-items: center !important;
+    gap: 1rem ; /* Reduced gap between title and search */
+    align-items: center ;
 }
 
 /* Make search bar more compact */
 .mb-2.rounded-2xl.shadow-lg.bg-white .flex.items-center.gap-2 {
-    gap: 0.5rem !important; /* Tighter gap between search input and button */
+    gap: 0.5rem ; /* Tighter gap between search input and button */
 }
 
 .mb-2.rounded-2xl.shadow-lg.bg-white input[type="text"] {
-    padding: 0.5rem 0.75rem !important; /* Reduced padding in search input */
-    height: 2.25rem !important; /* Fixed height for search input */
+    padding: 0.5rem 0.75rem ; /* Reduced padding in search input */
+    padding-left: 3rem ; /* Preserve left padding for icon */
+    height: 2.25rem ; /* Fixed height for search input */
+    border: 1px solid #d1d5db !important ; /* Preserve border (gray-300) */
+    border-radius: 0.5rem !important ; /* Preserve rounded-lg */
 }
 
 .mb-2.rounded-2xl.shadow-lg.bg-white button {
-    padding: 0.5rem 0.75rem !important; /* Reduced button padding */
-    height: 2.25rem !important; /* Match search input height */
+    padding: 0.5rem 0.75rem ; /* Reduced button padding */
+    height: 2.25rem ; /* Match search input height */
+}
+
+/* Hide native select arrows inside title containers (match Reports) */
+.mb-2.rounded-2xl.shadow-lg.bg-white select {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    background-image: none !important;
+    padding-right: 1rem ;
 }
 
 /* Table wrapper - rounded only on bottom, straight top for connection */
 .table-wrapper {
-    margin-top: 0 !important;
+    margin-top: 0 ;
     background: white; /* Match title container background */
     border: 1px solid #e5e7eb;
-    border-radius: 0 0 1rem 1rem !important; /* Straight top, rounded bottom */
-    border-top: none !important; /* Remove top border to connect with title */
-    padding: 0 !important; /* Remove any padding that might cause gaps */
+    border-radius: 0 0 1rem 1rem ; /* Straight top, rounded bottom */
+    border-top: none ; /* Remove top border to connect with title */
+    padding: 0 ; /* Remove any padding that might cause gaps */
 }
 
 /* Ensure proper spacing between connected containers */
 .pb-2 {
-    padding-bottom: 0 !important; /* Remove bottom padding to connect containers */
-    padding-top: 0.25rem !important; /* Minimal top padding */
+    padding-bottom: 0 ; /* Remove bottom padding to connect containers */
+    padding-top: 0.25rem ; /* Minimal top padding */
 }
 
 /* Optimize page container spacing for maximum table space */
 .px-2 {
-    padding-left: 0.5rem !important;
-    padding-right: 0.5rem !important;
+    padding-left: 0.5rem ;
+    padding-right: 0.5rem ;
 }
 
 .py-2 {
-    padding-top: 0.125rem !important; /* Minimal top padding */
-    padding-bottom: 0.125rem !important; /* Minimal bottom padding */
+    padding-top: 0.125rem ; /* Minimal top padding */
+    padding-bottom: 0.125rem ; /* Minimal bottom padding */
 }
 
 /* Ensure main content area uses full available height */
 .min-h-screen {
-    height: 100vh !important; /* Use full viewport height */
-    display: flex !important;
-    flex-direction: column !important;
+    height: 100vh ; /* Use full viewport height */
+    display: flex ;
+    flex-direction: column ;
 }
 
 /* Optimize content wrapper for maximum space utilization */
 .max-w-7xl {
-    height: 100% !important;
-    display: flex !important;
-    flex-direction: column !important;
+    height: 100% ;
+    display: flex ;
+    flex-direction: column ;
 }
 
 /* Remove any margin or padding from table container that could cause gaps */
 .table-container-no-scroll {
-    margin: 0 !important;
-    padding: 0 !important;
-    border-radius: 0 0 1rem 1rem !important;
+    margin: 0 ;
+    padding: 0 ;
+    border-radius: 0 0 1rem 1rem ;
 }
 
 /* Optimize table wrapper for full height utilization */
 .table-wrapper {
-    flex-grow: 1 !important; /* Allow table to expand */
-    display: flex !important;
-    flex-direction: column !important;
-    min-height: 0 !important; /* Allow shrinking */
+    flex-grow: 1 ; /* Allow table to expand */
+    display: flex ;
+    flex-direction: column ;
+    min-height: 0 ; /* Allow shrinking */
 }
 
 /* Ensure table section uses remaining space */
 .pb-2 > .px-2 {
-    flex-grow: 1 !important;
-    display: flex !important;
-    flex-direction: column !important;
+    flex-grow: 1 ;
+    display: flex ;
+    flex-direction: column ;
 }
 
 /* Dark mode support for table wrapper */
@@ -342,9 +353,9 @@ body.theme-dark .table-wrapper {
 body.theme-dark .rounded-2xl.shadow-lg.bg-white,
 body.theme-dark .mb-2.rounded-2xl.shadow-lg.bg-white,
 body.theme-dark .title-container {
-    background-color: #1f2937 !important;
-    border-color: #374151 !important;
-    color: #f9fafb !important;
+    background-color: #1f2937 ;
+    border-color: #374151 ;
+    color: #f9fafb ;
 }
 
 /* Consistent container styling - apply to both title and table */
@@ -380,10 +391,10 @@ body.theme-dark .title-container {
 
 /* Remove the old table-container styles that had scrollbars */
 .table-container {
-    overflow: visible !important;
-    max-height: none !important;
-    border: none !important;
-    border-radius: 0 !important;
+    overflow: visible ;
+    max-height: none ;
+    border: none ;
+    border-radius: 0 ;
 }
 
 /* When main content doesn't scroll, ensure proper height calculations */
@@ -401,18 +412,18 @@ body.theme-dark .title-container {
 
 /* Table headers have NO rounded corners and no gaps */
 .table-container-no-scroll table thead tr:first-child th:first-child {
-    border-top-left-radius: 0 !important;
-    border-radius: 0 !important;
+    border-top-left-radius: 0 ;
+    border-radius: 0 ;
 }
 
 .table-container-no-scroll table thead tr:first-child th:last-child {
-    border-top-right-radius: 0 !important;
-    border-radius: 0 !important;
+    border-top-right-radius: 0 ;
+    border-radius: 0 ;
 }
 
 /* Ensure all header cells have no border radius */
 .table-container-no-scroll table thead th {
-    border-radius: 0 !important;
+    border-radius: 0 ;
     margin: 0;
     padding: 0.75rem 1rem;
 }
@@ -430,7 +441,7 @@ body.theme-dark .title-container {
 .table-container-no-scroll table {
     border-collapse: separate;
     border-spacing: 0;
-    border: none !important; /* Remove all table borders */
+    border: none ; /* Remove all table borders */
 }
 
 /* Remove borders from table cells - More specific selectors */
@@ -440,37 +451,37 @@ body.theme-dark .title-container {
 .table-wrapper table td,
 .gov-table th,
 .gov-table td {
-    border: none !important;
-    border-right: none !important;
-    border-left: none !important;
-    border-top: none !important;
-    border-bottom: none !important;
-    border-width: 0 !important;
-    border-style: none !important;
+    border: none ;
+    border-right: none ;
+    border-left: none ;
+    border-top: none ;
+    border-bottom: none ;
+    border-width: 0 ;
+    border-style: none ;
 }
 
 /* Remove any default table styling that might add borders */
 .gov-table,
 .table-container-no-scroll table,
 .table-wrapper table {
-    border: none !important;
-    border-collapse: separate !important;
-    border-spacing: 0 !important;
+    border: none ;
+    border-collapse: separate ;
+    border-spacing: 0 ;
 }
 
 /* Remove borders from table rows */
 .gov-table tr,
 .table-container-no-scroll table tr,
 .table-wrapper table tr {
-    border: none !important;
-    border-top: none !important;
-    border-bottom: none !important;
+    border: none ;
+    border-top: none ;
+    border-bottom: none ;
 }
 
 /* Override any Tailwind table utilities */
 .table-auto,
 .table-fixed {
-    border-collapse: separate !important;
+    border-collapse: separate ;
 }
 
 /* Ensure tbody and thead don't have borders */
@@ -478,7 +489,7 @@ body.theme-dark .title-container {
 .gov-table thead,
 .table-container-no-scroll tbody,
 .table-container-no-scroll thead {
-    border: none !important;
+    border: none ;
 }
 
 /* Ensure table takes full width of container */
@@ -495,24 +506,24 @@ body.theme-dark .title-container {
 
 /* Make sure even/odd row styling is properly transparent */
 .gov-table tbody tr:nth-child(even) {
-    background-color: rgba(139, 92, 246, 0.1) !important; /* Light purple for zebra striping */
+    background-color: rgba(139, 92, 246, 0.1) ; /* Light purple for zebra striping */
 }
 
 .gov-table tbody tr:nth-child(odd) {
-    background: transparent !important;
+    background: transparent ;
 }
 
 /* Dark mode support for table text */
 body.theme-dark .gov-table {
-    color: #f9fafb !important; /* Light text for dark mode */
+    color: #f9fafb ; /* Light text for dark mode */
 }
 
 body.theme-dark .gov-table tbody tr {
-    color: #f9fafb !important; /* Light text for table rows */
+    color: #f9fafb ; /* Light text for table rows */
 }
 
 body.theme-dark .gov-table tbody td {
-    color: #f9fafb !important; /* Light text for table cells */
+    color: #f9fafb ; /* Light text for table cells */
 }
 
 /* Consistent font styling for all table text */
@@ -540,22 +551,22 @@ body.theme-dark .gov-table tbody td {
 
 /* Dark mode zebra striping adjustments */
 body.theme-dark .gov-table tbody tr:nth-child(even) {
-    background-color: rgba(139, 92, 246, 0.15) !important; /* Slightly stronger purple for dark mode */
+    background-color: rgba(139, 92, 246, 0.15) ; /* Slightly stronger purple for dark mode */
 }
 
 /* Override specific Tailwind classes for dark mode */
 body.theme-dark .text-gray-600 {
-    color: #f9fafb !important; /* Light text instead of gray */
+    color: #f9fafb ; /* Light text instead of gray */
 }
 
 body.theme-dark .text-center.text-gray-600 {
-    color: #f9fafb !important; /* Light text for centered gray text */
+    color: #f9fafb ; /* Light text for centered gray text */
 }
 
 /* Ensure title text adapts to dark mode */
 body.theme-dark .rounded-2xl h2,
 body.theme-dark .rounded-2xl .text-2xl {
-    color: #f9fafb !important; /* Light text for titles */
+    color: #f9fafb ; /* Light text for titles */
 }
 
 /* Nuclear option - Remove ALL possible table borders */
@@ -567,66 +578,66 @@ table *,
 .table-container-no-scroll table *,
 .table-wrapper table,
 .table-wrapper table * {
-    border: 0 !important;
-    border-width: 0 !important;
-    border-style: none !important;
-    border-color: transparent !important;
-    outline: none !important;
-    box-shadow: none !important;
+    border: 0 ;
+    border-width: 0 ;
+    border-style: none ;
+    border-color: transparent ;
+    outline: none ;
+    box-shadow: none ;
 }
 
 /* Override any inherited border styles */
 [class*="border"],
 table [class*="border"],
 .gov-table [class*="border"] {
-    border: none !important;
-    border-width: 0 !important;
+    border: none ;
+    border-width: 0 ;
 }
 
 /* Remove any possible row separators */
 tr + tr td {
-    border-top: none !important;
+    border-top: none ;
 }
 
 /* Override table-auto and other Tailwind table classes */
 .w-full.text-sm.text-center.text-gray-600.gov-table,
 .w-full.text-sm.text-center.text-gray-600.gov-table * {
-    border: none !important;
-    border-collapse: separate !important;
+    border: none ;
+    border-collapse: separate ;
 }
 
 /* Special styling for modal tables with scrolling */
 .table-container-no-scroll[style*="max-height"] {
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
+    overflow-y: auto ;
+    overflow-x: hidden ;
     background: transparent;
 }
 
 /* Ensure modal table cells don't have sticky positioning */
 .table-container-no-scroll .sticky {
-    position: static !important;
+    position: static ;
 }
 
 /* Remove any background colors from modal table cells */
 .table-container-no-scroll td,
 .table-container-no-scroll th {
-    background: transparent !important;
+    background: transparent ;
 }
 
 /* Ensure modal table headers stay fixed while rows scroll */
 .table-container-no-scroll thead th {
-    background: #9333ea !important; /* Purple-600 */
-    color: white !important;
-    position: sticky !important;
-    top: 0 !important;
-    z-index: 20 !important;
+    background: #9333ea ; /* Purple-600 */
+    color: white ;
+    position: sticky ;
+    top: 0 ;
+    z-index: 20 ;
 }
 
 /* Make sure the table container has proper scroll behavior */
 .table-container-no-scroll {
     position: relative;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
+    overflow-y: auto ;
+    overflow-x: hidden ;
 }
 
 /* Ensure table takes full width and headers stick properly */
@@ -638,16 +649,16 @@ tr + tr td {
 
 /* Fix sticky header positioning for modal tables */
 .table-container-no-scroll[style*="max-height"] thead th {
-    position: sticky !important;
-    top: 0 !important;
-    z-index: 30 !important;
-    background: #9333ea !important;
+    position: sticky ;
+    top: 0 ;
+    z-index: 30 ;
+    background: #9333ea ;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 /* Modal table hover effects */
 .table-container-no-scroll tbody tr:hover td {
-    background-color: rgba(139, 92, 246, 0.1) !important;
+    background-color: rgba(139, 92, 246, 0.1) ;
 }
 
 /* FIXED TABLE HEADER IMPLEMENTATION - Fixed positioning for scrolling */
@@ -668,46 +679,46 @@ tr + tr td {
 .gov-table thead {
     position: relative;
     z-index: 10;
-    background: #9333ea !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    border-radius: 0 !important;
+    background: #9333ea ;
+    margin: 0 ;
+    padding: 0 ;
+    border-radius: 0 ;
 }
 
 .gov-table thead th {
-    background: #9333ea !important; /* Purple-600 - maintain header color */
-    color: white !important;
-    border-radius: 0 !important; /* Remove any rounded corners */
-    box-shadow: none !important; /* Remove shadow that might cause gaps */
-    margin: 0 !important;
-    padding: 0.75rem 1rem !important;
-    border: none !important;
-    vertical-align: middle !important;
-    text-align: center !important;
-    line-height: 1.2 !important;
+    background: #9333ea ; /* Purple-600 - maintain header color */
+    color: white ;
+    border-radius: 0 ; /* Remove any rounded corners */
+    box-shadow: none ; /* Remove shadow that might cause gaps */
+    margin: 0 ;
+    padding: 0.75rem 1rem ;
+    border: none ;
+    vertical-align: middle ;
+    text-align: center ;
+    line-height: 1.2 ;
 }
 
 /* Scrollable container handles scrolling, tbody uses normal table display for proper alignment */
 
 /* Override Tailwind bg-purple-600 class specifically */
 .bg-purple-600.text-white.text-xs.uppercase.font-semibold.text-center {
-    background: #9333ea !important;
-    border-radius: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
+    background: #9333ea ;
+    border-radius: 0 ;
+    margin: 0 ;
+    padding: 0 ;
 }
 
 /* Ensure first and last header cells have no rounded corners */
 .gov-table thead th:first-child {
-    border-top-left-radius: 0 !important;
-    border-bottom-left-radius: 0 !important;
-    border-left: none !important;
+    border-top-left-radius: 0 ;
+    border-bottom-left-radius: 0 ;
+    border-left: none ;
 }
 
 .gov-table thead th:last-child {
-    border-top-right-radius: 0 !important;
-    border-bottom-right-radius: 0 !important;
-    border-right: none !important;
+    border-top-right-radius: 0 ;
+    border-bottom-right-radius: 0 ;
+    border-right: none ;
 }
 
 /* Make sure table wrapper supports normal flow */
@@ -718,11 +729,11 @@ tr + tr td {
 
 /* Ensure zebra striping doesn't interfere with sticky header */
 .gov-table tbody tr:nth-child(even) {
-    background-color: rgba(139, 92, 246, 0.1) !important;
+    background-color: rgba(139, 92, 246, 0.1) ;
 }
 
 .gov-table tbody tr:nth-child(odd) {
-    background: transparent !important;
+    background: transparent ;
 }
 
 /* Make sure the table wrapper doesn't create extra scrollbars */
@@ -751,173 +762,173 @@ tr + tr td {
 .gov-table td .flex.items-center.justify-center.gap-3 {
     min-width: fit-content;
     white-space: nowrap;
-    display: flex !important;
-    flex-wrap: nowrap !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: 0.5rem !important; /* Reduced gap for better fit */
-    padding: 0.25rem !important;
-    overflow-x: visible !important; /* Ensure buttons don't get cut off */
+    display: flex ;
+    flex-wrap: nowrap ;
+    align-items: center ;
+    justify-content: center ;
+    gap: 0.5rem ; /* Reduced gap for better fit */
+    padding: 0.25rem ;
+    overflow-x: visible ; /* Ensure buttons don't get cut off */
 }
 
 /* Action button sizing - maintains consistent size at all zoom levels */
 .gov-table td button,
 .gov-table td .h-10.w-10 {
-    min-width: 2.25rem !important; /* Slightly smaller - 36px for better fit */
-    max-width: 2.25rem !important;
-    min-height: 2.25rem !important; /* 36px minimum */
-    max-height: 2.25rem !important;
-    width: 2.25rem !important;
-    height: 2.25rem !important;
-    flex-shrink: 0 !important; /* Prevent shrinking */
-    flex-grow: 0 !important; /* Prevent growing */
-    border-radius: 50% !important;
-    padding: 0 !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    box-sizing: border-box !important;
-    border: 2px solid rgba(255, 255, 255, 0.2) !important; /* Subtle border for depth */
+    min-width: 2.25rem ; /* Slightly smaller - 36px for better fit */
+    max-width: 2.25rem ;
+    min-height: 2.25rem ; /* 36px minimum */
+    max-height: 2.25rem ;
+    width: 2.25rem ;
+    height: 2.25rem ;
+    flex-shrink: 0 ; /* Prevent shrinking */
+    flex-grow: 0 ; /* Prevent growing */
+    border-radius: 50% ;
+    padding: 0 ;
+    display: inline-flex ;
+    align-items: center ;
+    justify-content: center ;
+    box-sizing: border-box ;
+    border: 2px solid rgba(255, 255, 255, 0.2) ; /* Subtle border for depth */
 }
 
 /* Ensure button icons are properly sized */
 .gov-table td button svg,
 .gov-table td button .heroicon {
-    width: 1rem !important; /* 16px */
-    height: 1rem !important; /* 16px */
-    flex-shrink: 0 !important;
+    width: 1rem ; /* 16px */
+    height: 1rem ; /* 16px */
+    flex-shrink: 0 ;
 }
 
 /* Button text should be screen reader only for icon buttons */
 .gov-table td button span:last-child {
-    position: absolute !important;
-    width: 1px !important;
-    height: 1px !important;
-    padding: 0 !important;
-    margin: -1px !important;
-    overflow: hidden !important;
-    clip: rect(0, 0, 0, 0) !important;
-    white-space: nowrap !important;
-    border: 0 !important;
+    position: absolute ;
+    width: 1px ;
+    height: 1px ;
+    padding: 0 ;
+    margin: -1px ;
+    overflow: hidden ;
+    clip: rect(0, 0, 0, 0) ;
+    white-space: nowrap ;
+    border: 0 ;
 }
 
 /* Enhanced button colors and variants - unique colors for each action */
 .gov-table td button[class*="bg-blue"] {
-    background-color: #3b82f6 !important; /* Primary blue for Edit */
+    background-color: #3b82f6 ; /* Primary blue for Edit */
 }
 
 .gov-table td button[class*="bg-gray"] {
-    background-color: #6b7280 !important; /* Keep gray as fallback */
+    background-color: #6b7280 ; /* Keep gray as fallback */
 }
 
 .gov-table td button[class*="bg-red"] {
-    background-color: #ef4444 !important; /* Danger red for Delete */
+    background-color: #ef4444 ; /* Danger red for Delete */
 }
 
 /* Specific button type styling based on icons */
 /* View button - Emerald green */
 .gov-table td button[class*="iconName-eye"],
 .gov-table td button svg[data-slot="icon"] use[href*="eye"] {
-    background-color: #10b981 !important; /* Emerald-500 */
+    background-color: #10b981 ; /* Emerald-500 */
 }
 .gov-table td button[class*="iconName-eye"]:hover {
-    background-color: #059669 !important; /* Emerald-600 on hover */
+    background-color: #059669 ; /* Emerald-600 on hover */
 }
 
 /* Print button - Amber orange */
 .gov-table td button[class*="iconName-printer"],
 .gov-table td button svg[data-slot="icon"] use[href*="printer"] {
-    background-color: #f59e0b !important; /* Amber-500 */
+    background-color: #f59e0b ; /* Amber-500 */
 }
 .gov-table td button[class*="iconName-printer"]:hover {
-    background-color: #d97706 !important; /* Amber-600 on hover */
+    background-color: #d97706 ; /* Amber-600 on hover */
 }
 
 /* Alternative approach - target by button position in flex container */
 .gov-table td .flex.items-center.justify-center.gap-3 button:nth-child(1) {
-    background-color: #3b82f6 !important; /* Blue for Edit (1st button) */
+    background-color: #3b82f6 ; /* Blue for Edit (1st button) */
 }
 .gov-table td .flex.items-center.justify-center.gap-3 button:nth-child(1):hover {
-    background-color: #2563eb !important; /* Blue-600 on hover */
+    background-color: #2563eb ; /* Blue-600 on hover */
 }
 
 .gov-table td .flex.items-center.justify-center.gap-3 button:nth-child(2) {
-    background-color: #10b981 !important; /* Emerald for View (2nd button) */
+    background-color: #10b981 ; /* Emerald for View (2nd button) */
 }
 .gov-table td .flex.items-center.justify-center.gap-3 button:nth-child(2):hover {
-    background-color: #059669 !important; /* Emerald-600 on hover */
+    background-color: #059669 ; /* Emerald-600 on hover */
 }
 
 .gov-table td .flex.items-center.justify-center.gap-3 button:nth-child(3) {
-    background-color: #f59e0b !important; /* Amber for Print (3rd button) */
+    background-color: #f59e0b ; /* Amber for Print (3rd button) */
 }
 .gov-table td .flex.items-center.justify-center.gap-3 button:nth-child(3):hover {
-    background-color: #d97706 !important; /* Amber-600 on hover */
+    background-color: #d97706 ; /* Amber-600 on hover */
 }
 
 .gov-table td .flex.items-center.justify-center.gap-3 button:nth-child(4) {
-    background-color: #ef4444 !important; /* Red for Delete (4th button) */
+    background-color: #ef4444 ; /* Red for Delete (4th button) */
 }
 .gov-table td .flex.items-center.justify-center.gap-3 button:nth-child(4):hover {
-    background-color: #dc2626 !important; /* Red-600 on hover */
+    background-color: #dc2626 ; /* Red-600 on hover */
 }
 
 /* Hover effects for action buttons */
 .gov-table td button:hover {
-    transform: scale(1.05) !important;
-    transition: transform 0.15s ease-in-out !important;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
+    transform: scale(1.05) ;
+    transition: transform 0.15s ease-in-out ;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) ;
 }
 
 /* Focus states for accessibility */
 .gov-table td button:focus {
-    outline: 2px solid var(--gov-accent) !important;
-    outline-offset: 2px !important;
+    outline: 2px solid var(--gov-accent) ;
+    outline-offset: 2px ;
 }
 
 /* Disabled button states */
 .gov-table td button:disabled {
-    opacity: 0.5 !important;
-    cursor: not-allowed !important;
-    transform: none !important;
+    opacity: 0.5 ;
+    cursor: not-allowed ;
+    transform: none ;
 }
 
 .gov-table td button:disabled:hover {
-    transform: none !important;
-    box-shadow: none !important;
+    transform: none ;
+    box-shadow: none ;
 }
 
 /* Actions column specific sizing - increased width to fit all buttons */
 .gov-table th:last-child,
 .gov-table td:last-child {
-    min-width: 14rem !important; /* Increased width for all 4 buttons */
-    width: 14rem !important;
-    max-width: 14rem !important;
-    padding-left: 0.5rem !important;
-    padding-right: 0.5rem !important;
+    min-width: 14rem ; /* Increased width for all 4 buttons */
+    width: 14rem ;
+    max-width: 14rem ;
+    padding-left: 0.5rem ;
+    padding-right: 0.5rem ;
 }
 
 /* Responsive adjustments for smaller screens */
 @media (max-width: 768px) {
     .gov-table td .flex.items-center.justify-center.gap-3 {
-        gap: 0.5rem !important;
-        flex-wrap: wrap !important;
+        gap: 0.5rem ;
+        flex-wrap: wrap ;
     }
     
     .gov-table td button,
     .gov-table td .h-10.w-10 {
-        min-width: 2rem !important; /* 32px on mobile */
-        max-width: 2rem !important;
-        min-height: 2rem !important;
-        max-height: 2rem !important;
-        width: 2rem !important;
-        height: 2rem !important;
+        min-width: 2rem ; /* 32px on mobile */
+        max-width: 2rem ;
+        min-height: 2rem ;
+        max-height: 2rem ;
+        width: 2rem ;
+        height: 2rem ;
     }
     
     .gov-table td button svg,
     .gov-table td button .heroicon {
-        width: 0.875rem !important; /* 14px on mobile */
-        height: 0.875rem !important;
+        width: 0.875rem ; /* 14px on mobile */
+        height: 0.875rem ;
     }
 }
 
@@ -925,8 +936,8 @@ tr + tr td {
 @media (min-resolution: 2dppx) {
     .gov-table td button,
     .gov-table td .h-10.w-10 {
-        border-width: 1px !important;
-        font-weight: 500 !important;
+        border-width: 1px ;
+        font-weight: 500 ;
     }
 }
 
@@ -936,48 +947,48 @@ tr + tr td {
 .mb-2.rounded-2xl.shadow-lg.bg-white,
 .title-container,
 .card {
-    border-radius: 1rem 1rem 0 0 !important;
-    border-bottom: none !important;
-    margin-bottom: 0 !important;
-    padding: 1rem 1.5rem !important;
-    min-height: auto !important;
+    border-radius: 1rem 1rem 0 0 ;
+    border-bottom: none ;
+    margin-bottom: 0 ;
+    padding: 1rem 1.5rem ;
+    min-height: auto ;
 }
 
 /* Manage Users page specific styling */
 #users-table {
-    border-collapse: separate !important;
-    border-spacing: 0 !important;
+    border-collapse: separate ;
+    border-spacing: 0 ;
 }
 
 #users-table thead {
-    background: #9333ea !important;
+    background: #9333ea ;
 }
 
 #users-table thead th {
-    background: #9333ea !important;
-    color: white !important;
-    border: none !important;
-    border-radius: 0 !important;
-    text-transform: uppercase !important;
-    font-size: 0.75rem !important;
-    font-weight: 600 !important;
-    letter-spacing: 0.025em !important;
+    background: #9333ea ;
+    color: white ;
+    border: none ;
+    border-radius: 0 ;
+    text-transform: uppercase ;
+    font-size: 0.75rem ;
+    font-weight: 600 ;
+    letter-spacing: 0.025em ;
 }
 
 /* Apply table wrapper styling to Manage Users */
 .card {
     background: white;
     border: 1px solid #e5e7eb;
-    border-radius: 0 0 1rem 1rem !important;
-    border-top: none !important;
+    border-radius: 0 0 1rem 1rem ;
+    border-top: none ;
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
 .card .overflow-x-auto {
-    max-height: 82vh !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    border-radius: 0 0 1rem 1rem !important;
+    max-height: 82vh ;
+    overflow-y: auto ;
+    overflow-x: hidden ;
+    border-radius: 0 0 1rem 1rem ;
 }
 
 /* Universal action button styling for all pages */
@@ -988,22 +999,22 @@ table tbody td button,
 #returnItemsTableBody button,
 #myBorrowedItemsTableBody button,
 button[data-action] {
-    min-width: 2.25rem !important;
-    max-width: 2.25rem !important;
-    min-height: 2.25rem !important;
-    max-height: 2.25rem !important;
-    width: 2.25rem !important;
-    height: 2.25rem !important;
-    flex-shrink: 0 !important;
-    flex-grow: 0 !important;
-    border-radius: 50% !important;
-    padding: 0 !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    box-sizing: border-box !important;
-    border: 2px solid rgba(255, 255, 255, 0.2) !important;
-    margin: 0 0.25rem !important;
+    min-width: 2.25rem ;
+    max-width: 2.25rem ;
+    min-height: 2.25rem ;
+    max-height: 2.25rem ;
+    width: 2.25rem ;
+    height: 2.25rem ;
+    flex-shrink: 0 ;
+    flex-grow: 0 ;
+    border-radius: 50% ;
+    padding: 0 ;
+    display: inline-flex ;
+    align-items: center ;
+    justify-content: center ;
+    box-sizing: border-box ;
+    border: 2px solid rgba(255, 255, 255, 0.2) ;
+    margin: 0 0.25rem ;
 }
 
 /* Ensure action columns have proper flex layout */
@@ -1012,11 +1023,11 @@ table tbody td:last-child,
 #borrowRequestsTableBody td:last-child,
 #returnItemsTableBody td:last-child,
 #myBorrowedItemsTableBody td:last-child {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: 0.5rem !important;
-    flex-wrap: nowrap !important;
+    display: flex ;
+    align-items: center ;
+    justify-content: center ;
+    gap: 0.5rem ;
+    flex-wrap: nowrap ;
 }
 
 /* Universal button icons */
@@ -1025,9 +1036,9 @@ table tbody td button svg,
 #borrowRequestsTableBody button svg,
 #returnItemsTableBody button svg,
 #myBorrowedItemsTableBody button svg {
-    width: 1rem !important;
-    height: 1rem !important;
-    flex-shrink: 0 !important;
+    width: 1rem ;
+    height: 1rem ;
+    flex-shrink: 0 ;
 }
 
 /* Universal button colors - consistent across all pages */
@@ -1037,13 +1048,13 @@ table tbody td button:nth-of-type(1),
 button[data-action="edit"],
 button[title*="Edit"],
 button[class*="edit"] {
-    background-color: #3b82f6 !important;
+    background-color: #3b82f6 ;
 }
 table tbody td button[class*="bg-blue"]:hover,
 table tbody td button:nth-of-type(1):hover,
 button[data-action="edit"]:hover,
 button[title*="Edit"]:hover {
-    background-color: #2563eb !important;
+    background-color: #2563eb ;
 }
 
 /* View buttons (eye icons) - Emerald Green */
@@ -1051,11 +1062,11 @@ table tbody td button[data-action="view"],
 table tbody td button[title*="View"],
 table tbody td button[class*="view"],
 button:has(svg[data-slot="icon"]:has(path[d*="M15 12a3 3 0"])) {
-    background-color: #10b981 !important;
+    background-color: #10b981 ;
 }
 table tbody td button[data-action="view"]:hover,
 table tbody td button[title*="View"]:hover {
-    background-color: #059669 !important;
+    background-color: #059669 ;
 }
 
 /* Print buttons (printer icons) - Amber Orange */
@@ -1063,11 +1074,11 @@ table tbody td button[data-action="print"],
 table tbody td button[title*="Print"],
 table tbody td button[class*="print"],
 button:has(svg[data-slot="icon"]:has(path[d*="M8 5a1 1 0"])) {
-    background-color: #f59e0b !important;
+    background-color: #f59e0b ;
 }
 table tbody td button[data-action="print"]:hover,
 table tbody td button[title*="Print"]:hover {
-    background-color: #d97706 !important;
+    background-color: #d97706 ;
 }
 
 /* Delete buttons (trash icons) - Red */
@@ -1076,23 +1087,23 @@ table tbody td button[data-action="delete"],
 table tbody td button[title*="Delete"],
 table tbody td button[class*="delete"],
 button:has(svg[data-slot="icon"]:has(path[d*="M14.74 9l-.346 9"])) {
-    background-color: #ef4444 !important;
+    background-color: #ef4444 ;
 }
 table tbody td button[class*="bg-red"]:hover,
 table tbody td button[data-action="delete"]:hover,
 table tbody td button[title*="Delete"]:hover {
-    background-color: #dc2626 !important;
+    background-color: #dc2626 ;
 }
 
 /* Validate buttons (shield-check icons) - Indigo Purple */
 table tbody td button[data-action="validate"],
 table tbody td button[title*="Validate"],
 table tbody td button[class*="validate"] {
-    background-color: #6366f1 !important;
+    background-color: #6366f1 ;
 }
 table tbody td button[data-action="validate"]:hover,
 table tbody td button[title*="Validate"]:hover {
-    background-color: #4f46e5 !important;
+    background-color: #4f46e5 ;
 }
 
 /* Accept/Approve buttons (check-circle icons) - Green */
@@ -1102,46 +1113,46 @@ table tbody td button[title*="Approve"],
 table tbody td button[title*="Accept"],
 table tbody td button[class*="approve"],
 table tbody td button[class*="accept"] {
-    background-color: #22c55e !important;
+    background-color: #22c55e ;
 }
 table tbody td button[data-action="approve"]:hover,
 table tbody td button[data-action="accept"]:hover,
 table tbody td button[title*="Approve"]:hover,
 table tbody td button[title*="Accept"]:hover {
-    background-color: #16a34a !important;
+    background-color: #16a34a ;
 }
 
 /* Reject buttons (x-circle icons) - Red Orange */
 table tbody td button[data-action="reject"],
 table tbody td button[title*="Reject"],
 table tbody td button[class*="reject"] {
-    background-color: #f97316 !important;
+    background-color: #f97316 ;
 }
 table tbody td button[data-action="reject"]:hover,
 table tbody td button[title*="Reject"]:hover {
-    background-color: #ea580c !important;
+    background-color: #ea580c ;
 }
 
 /* Deliver buttons (truck icons) - Blue */
 table tbody td button[data-action="deliver"],
 table tbody td button[title*="Deliver"],
 table tbody td button[class*="deliver"] {
-    background-color: #0ea5e9 !important;
+    background-color: #0ea5e9 ;
 }
 table tbody td button[data-action="deliver"]:hover,
 table tbody td button[title*="Deliver"]:hover {
-    background-color: #0284c7 !important;
+    background-color: #0284c7 ;
 }
 
 /* Manage buttons (cog/settings icons) - Purple */
 table tbody td button[data-action="manage"],
 table tbody td button[title*="Manage"],
 table tbody td button[class*="manage"] {
-    background-color: #a855f7 !important;
+    background-color: #a855f7 ;
 }
 table tbody td button[data-action="manage"]:hover,
 table tbody td button[title*="Manage"]:hover {
-    background-color: #9333ea !important;
+    background-color: #9333ea ;
 }
 
 /* Collect/Mark as Collected buttons (clipboard-check icons) - Teal */
@@ -1150,13 +1161,13 @@ table tbody td button[data-action="collected"],
 table tbody td button[title*="Collect"],
 table tbody td button[title*="Mark as Collected"],
 table tbody td button[class*="collect"] {
-    background-color: #14b8a6 !important;
+    background-color: #14b8a6 ;
 }
 table tbody td button[data-action="collect"]:hover,
 table tbody td button[data-action="collected"]:hover,
 table tbody td button[title*="Collect"]:hover,
 table tbody td button[title*="Mark as Collected"]:hover {
-    background-color: #0d9488 !important;
+    background-color: #0d9488 ;
 }
 
 /* Universal hover effects */
@@ -1165,9 +1176,9 @@ table tbody td button:hover,
 #borrowRequestsTableBody button:hover,
 #returnItemsTableBody button:hover,
 #myBorrowedItemsTableBody button:hover {
-    transform: scale(1.05) !important;
-    transition: transform 0.15s ease-in-out !important;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
+    transform: scale(1.05) ;
+    transition: transform 0.15s ease-in-out ;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) ;
 }
 
 /* Universal focus states */
@@ -1176,38 +1187,38 @@ table tbody td button:focus,
 #borrowRequestsTableBody button:focus,
 #returnItemsTableBody button:focus,
 #myBorrowedItemsTableBody button:focus {
-    outline: 2px solid var(--gov-accent) !important;
-    outline-offset: 2px !important;
+    outline: 2px solid var(--gov-accent) ;
+    outline-offset: 2px ;
 }
 
 /* Manage Users page title container fix */
 .px-6.lg\\:px-8 + .py-8 .sm\\:px-6.lg\\:px-8 .card {
-    margin-top: 0 !important;
+    margin-top: 0 ;
 }
 
 /* Apply universal table styling to all tables */
 #users-table,
 table.gov-table {
-    width: 100% !important;
-    border-collapse: separate !important;
-    border-spacing: 0 !important;
+    width: 100% ;
+    border-collapse: separate ;
+    border-spacing: 0 ;
 }
 
 /* Universal zebra striping */
 #users-table tbody tr:nth-child(even),
 table.gov-table tbody tr:nth-child(even) {
-    background-color: rgba(139, 92, 246, 0.1) !important;
+    background-color: rgba(139, 92, 246, 0.1) ;
 }
 
 #users-table tbody tr:nth-child(odd),
 table.gov-table tbody tr:nth-child(odd) {
-    background: transparent !important;
+    background: transparent ;
 }
 
 /* Universal hover effects for rows */
 #users-table tbody tr:hover,
 table.gov-table tbody tr:hover {
-    background-color: rgba(139, 92, 246, 0.15) !important;
+    background-color: rgba(139, 92, 246, 0.15) ;
 }
 
 /* Ensure action columns have proper width on all pages */
@@ -1215,10 +1226,10 @@ table th:last-child,
 table td:last-child,
 #users-table th:last-child,
 #users-table td:last-child {
-    min-width: 14rem !important;
-    width: 14rem !important;
-    max-width: 14rem !important;
-    text-align: center !important;
+    min-width: 14rem ;
+    width: 14rem ;
+    max-width: 14rem ;
+    text-align: center ;
 }
 
 /* End of ui.css */

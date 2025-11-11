@@ -13,38 +13,59 @@
             <x-alert type="error" />
         @endif
 
-        {{-- Search & Borrow List (side-by-side on md+) --}}
+        {{-- Search Bar with Filters & Borrow List Icon --}}
         <div class="w-full mb-6">
-            <div class="flex flex-col md:flex-row items-center justify-between gap-3">
-                <!-- Search (left) -->
-                <form method="GET" action="{{ route('borrow.items') }}"
-                      class="flex w-full md:flex-1 md:max-w-3xl">
-                    <label for="search" class="sr-only">Search items</label>
-                    <input id="search"
-                           type="text"
-                           name="search"
-                           value="{{ request('search') }}"
-                           placeholder="Search items..."
-                           class="border border-gray-300 rounded-l-lg px-4 py-2 flex-1 focus:outline-none focus:ring-2 focus:ring-purple-300" />
-                    <button type="submit"
-                            class="bg-purple-600 text-white px-4 rounded-r-lg hover:bg-purple-700 focus:ring-2 focus:ring-purple-300">
-                        <i class="fas fa-search"></i>
-                    </button>
-                </form>
+            <div class="flex flex-col md:flex-row items-center gap-3">
+                <!-- Live Search Input -->
+                <div class="relative flex-1 w-full">
+                    <input 
+                        type="text" 
+                        id="liveSearch"
+                        placeholder="Search by Name..." 
+                        class="w-full px-4 py-2.5 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        autocomplete="off"
+                    />
+                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                </div>
 
-                <!-- Borrow List (right) -->
-                <div class="flex-shrink-0 w-full md:w-auto">
-                    {{-- modern purple button + blue circular badge for count --}}
+                <!-- Sort by Category -->
+                <select 
+                    id="categoryFilter" 
+                    class="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 w-full md:w-auto min-w-[180px]"
+                >
+                    <option value="">All Categories</option>
+                    @php
+                        $categories = $items->pluck('category_name')->unique()->sort()->values();
+                    @endphp
+                    @foreach($categories as $category)
+                        <option value="{{ $category }}">{{ $category }}</option>
+                    @endforeach
+                </select>
+
+                <!-- Sort by Availability -->
+                <select 
+                    id="availabilityFilter" 
+                    class="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 w-full md:w-auto min-w-[180px]"
+                >
+                    <option value="">All Items</option>
+                    <option value="available">Available</option>
+                    <option value="unavailable">Unavailable</option>
+                </select>
+
+                <!-- Borrow List Icon Button -->
+                <div class="flex-shrink-0 relative">
                     <a href="{{ route('borrowList.index') }}"
-                        class="inline-flex items-center justify-center whitespace-nowrap px-4 py-2 w-full md:w-auto bg-purple-600 hover:bg-purple-700 text-white rounded-lg">
-                            <i class="fas fa-list-ul mr-2"></i>
-                            <span>Borrow List</span>
-
-                            <span id="borrowListCount"
-                                class="ml-3 inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white text-sm">
+                        class="relative inline-flex items-center justify-center text-purple-600 hover:text-purple-700 transition-all hover:scale-105"
+                        title="View Borrow List">
+                        
+                        <i class="fas fa-box-open text-3xl"></i> 
+                        
+                        @if($borrowListCount > 0)
+                            <span class="absolute -top-2 -right-2 inline-flex items-center justify-center min-w-[24px] h-6 px-1.5 rounded-full bg-blue-500 text-white text-xs font-bold">
                                 {{ $borrowListCount }}
                             </span>
-                        </a>
+                        @endif
+                    </a>
                 </div>
             </div>
         </div>
@@ -63,12 +84,13 @@
         </div>
 
         {{-- Items Grid --}}
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div id="itemsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             @foreach($items as $item)
                 <div
                     class="borrow-item-card bg-white rounded-lg shadow p-4 flex flex-col"
-                    data-name="{{ $item->name }}"
-                    data-category="{{ $item->category }}"
+                    data-name="{{ strtolower($item->name) }}"
+                    data-category="{{ $item->category_name }}"
+                    data-available="{{ $item->available_qty > 0 ? 'true' : 'false' }}"
                 >
 
                     <!-- Item Image -->
@@ -93,13 +115,45 @@
                             $photoUrl = asset($defaultPhoto);
                         }
                     @endphp
-                    <img src="{{ $photoUrl }}"
-                         alt="{{ $item->name }}" 
-                         class="h-32 w-full object-cover rounded border-2 border-purple-500 mb-3">
+                    <div class="relative">
+                        <img src="{{ $photoUrl }}"
+                             alt="{{ $item->name }}" 
+                             class="h-32 w-full object-cover rounded border-2 border-purple-500 mb-3">
+                        @if($item->is_new ?? false)
+                            <span class="absolute top-2 right-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg animate-pulse">
+                                NEW
+                            </span>
+                        @endif
+                    </div>
 
-                    <!-- Name + Category -->
-                    <h3 class="text-lg font-semibold text-gray-900">{{ $item->name }}</h3>
-                    <p class="text-sm text-gray-600 mb-1">Category: {{ ucfirst($item->category) }}</p>
+                    <!-- Name + Info Icon -->
+                    <div class="flex items-center gap-2 mb-2">
+                        <h3 class="text-lg font-semibold text-gray-900">{{ $item->name }}</h3>
+                        <div class="relative group">
+                            <button type="button" class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-purple-100 hover:bg-purple-200 text-purple-600 transition-colors cursor-help">
+                                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                                </svg>
+                            </button>
+                            <!-- Tooltip -->
+                            <div class="invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all duration-200 absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 p-3 bg-gray-900 text-white text-sm rounded-lg shadow-lg z-10 pointer-events-none">
+                                <div class="space-y-2">
+                                    @if($item->description)
+                                        <div>
+                                            <p class="font-semibold text-purple-300">Description:</p>
+                                            <p class="text-gray-200">{{ $item->description }}</p>
+                                        </div>
+                                    @endif
+                                    <div>
+                                        <p class="font-semibold text-purple-300">Category:</p>
+                                        <p class="text-gray-200">{{ $item->category_name }}</p>
+                                    </div>
+                                </div>
+                                <!-- Arrow -->
+                                <div class="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-gray-900"></div>
+                            </div>
+                        </div>
+                    </div>
 
                     <!-- Quantities -->
                     @php
@@ -162,6 +216,77 @@
         document.addEventListener('DOMContentLoaded', () => {
             const QTY_ERROR_CLASSES = ['ring-2', 'ring-red-300', 'border-red-500', 'focus:border-red-500', 'focus:ring-red-300'];
             const QTY_SUCCESS_CLASSES = ['ring-2', 'ring-green-300', 'border-green-500', 'focus:border-green-500', 'focus:ring-green-300'];
+
+            // ===== Live Search and Filtering =====
+            const searchInput = document.getElementById('liveSearch');
+            const categoryFilter = document.getElementById('categoryFilter');
+            const availabilityFilter = document.getElementById('availabilityFilter');
+            const itemCards = document.querySelectorAll('.borrow-item-card');
+            const itemsGrid = document.getElementById('itemsGrid');
+
+            function filterItems() {
+                const searchTerm = searchInput.value.toLowerCase().trim();
+                const selectedCategory = categoryFilter.value;
+                const selectedAvailability = availabilityFilter.value;
+
+                let visibleCount = 0;
+
+                itemCards.forEach(card => {
+                    const itemName = card.getAttribute('data-name') || '';
+                    const itemCategory = card.getAttribute('data-category') || '';
+                    const itemAvailable = card.getAttribute('data-available') === 'true';
+
+                    // Check search term
+                    const matchesSearch = itemName.includes(searchTerm);
+
+                    // Check category filter
+                    const matchesCategory = !selectedCategory || itemCategory === selectedCategory;
+
+                    // Check availability filter
+                    let matchesAvailability = true;
+                    if (selectedAvailability === 'available') {
+                        matchesAvailability = itemAvailable;
+                    } else if (selectedAvailability === 'unavailable') {
+                        matchesAvailability = !itemAvailable;
+                    }
+
+                    // Show or hide card
+                    if (matchesSearch && matchesCategory && matchesAvailability) {
+                        card.style.display = '';
+                        visibleCount++;
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+
+                // Show "no results" message if needed
+                let noResultsMsg = document.getElementById('noResultsMessage');
+                if (visibleCount === 0) {
+                    if (!noResultsMsg) {
+                        noResultsMsg = document.createElement('div');
+                        noResultsMsg.id = 'noResultsMessage';
+                        noResultsMsg.className = 'col-span-full text-center py-12';
+                        noResultsMsg.innerHTML = `
+                            <div class="text-gray-400">
+                                <i class="fas fa-search text-4xl mb-3"></i>
+                                <p class="text-lg font-semibold">No items found</p>
+                                <p class="text-sm">Try adjusting your search or filters</p>
+                            </div>
+                        `;
+                        itemsGrid.appendChild(noResultsMsg);
+                    }
+                    noResultsMsg.style.display = '';
+                } else if (noResultsMsg) {
+                    noResultsMsg.style.display = 'none';
+                }
+            }
+
+            // Add event listeners for live filtering
+            searchInput.addEventListener('input', filterItems);
+            categoryFilter.addEventListener('change', filterItems);
+            availabilityFilter.addEventListener('change', filterItems);
+
+            // ===== Existing Quantity and Form Logic =====
 
             function clearInlineError(form) {
                 const existing = form.querySelector('.inline-availability-error');
@@ -258,7 +383,9 @@
                     qty: String(Math.max(qty, 0)),
                 });
 
-                const response = await fetch(/user/availability/?, {
+                // Build correct availability endpoint for this item
+                const url = `/user/availability/${encodeURIComponent(itemId)}?${params.toString()}`;
+                const response = await fetch(url, {
                     headers: { Accept: 'application/json' },
                     signal,
                 });

@@ -172,6 +172,7 @@ function renderTable() {
     RETURN_ROWS.forEach((row) => {
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-gray-50 transition';
+        tr.dataset.borrowId = String(row.borrow_request_id ?? row.id ?? '');
 
         const borrowId = row.borrow_request_id ?? row.id ?? '--';
 
@@ -674,6 +675,37 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!document.getElementById('returnItemsTableBody')) return;
 
     loadReturnItems();
+
+    // Live search wiring
+    const riSearch = document.getElementById('return-items-live-search');
+    if (riSearch) {
+        riSearch.addEventListener('input', (e) => {
+            const term = (e.target.value || '').toLowerCase().trim();
+            const rows = document.querySelectorAll('#returnItemsTableBody tr[data-borrow-id]');
+            let visible = 0;
+            rows.forEach(r => {
+                const borrowerCell = r.querySelector('td:first-child');
+                const borrowerText = (borrowerCell?.textContent || '').toLowerCase();
+                const borrowId = (r.dataset.borrowId || '').toLowerCase();
+                const match = !term || borrowerText.includes(term) || borrowId.includes(term);
+                r.style.display = match ? '' : 'none';
+                if (match) visible++;
+            });
+            const existing = document.getElementById('no-results-row-return');
+            if (visible === 0) {
+                if (!existing) {
+                    const tr = document.createElement('tr');
+                    tr.id = 'no-results-row-return';
+                    tr.innerHTML = '<td colspan="4" class="px-6 py-8 text-center text-gray-500">No returns found</td>';
+                    document.getElementById('returnItemsTableBody')?.appendChild(tr);
+                }
+            } else if (existing) {
+                existing.remove();
+            }
+        });
+        riSearch.addEventListener('focus', function(){ this.placeholder = 'Type to Search'; });
+        riSearch.addEventListener('blur', function(){ this.placeholder = 'Search Borrower and Borrow ID'; });
+    }
 
     const collectConfirmBtn = document.getElementById('collectConfirmBtn');
     if (collectConfirmBtn) {

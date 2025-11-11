@@ -48,6 +48,19 @@
                 </a>
             </li>
 
+            {{-- Manpower Requests (NEW) --}}
+            <li role="none">
+                <a href="{{ route('admin.manpower.requests.index') }}"
+                   title="Manpower Requests"
+                   role="menuitem"
+                   @if(request()->routeIs('admin.manpower.requests.*')) aria-current="page" @endif
+                   class="flex items-center px-4 py-3 rounded-md gov-hover transition-colors duration-150 group focus:outline-none focus:ring-2 focus:ring-offset-1
+                          {{ request()->routeIs('admin.manpower.requests.*') ? 'gov-active' : '' }}">
+                    <i class="fas fa-users mr-3 sidebar-icon" aria-hidden="true"></i>
+                    <span class="sidebar-text">Manpower Requests</span>
+                </a>
+            </li>
+
             {{-- Return Items --}}
             <li role="none">
                 <a href="{{ route('admin.return-items.index') }}"

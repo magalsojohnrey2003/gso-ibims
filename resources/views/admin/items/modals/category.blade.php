@@ -1,8 +1,22 @@
 <!-- resources/views/admin/items/modals/category.blade.php -->
 <x-modal name="manage-category" maxWidth="2xl">
-  <div class="p-6">
-    <h3 class="text-xl font-bold">Manage Categories</h3>
-    <p class="text-sm text-gray-600 mb-4">Add a category; after saving, categories will appear in dropdowns.</p>
+  <div class="w-full bg-white dark:bg-gray-900 shadow-lg overflow-hidden flex flex-col max-h-[85vh]">
+    <div class="bg-green-600 text-white px-6 py-5 sticky top-0 z-20 relative">
+      <button 
+        type="button"
+        x-on:click="$dispatch('close-modal', 'manage-category')"
+        class="absolute top-4 right-4 text-white hover:text-gray-200 transition-colors p-2 hover:bg-white/10 rounded-lg">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+      <h3 class="text-2xl font-bold flex items-center">
+        <i class="fas fa-list-alt mr-2"></i>
+        MANAGE CATEGORIES
+      </h3>
+      <p class="text-green-100 mt-2 text-sm leading-relaxed">Add a category; after saving, categories will appear in dropdowns.</p>
+    </div>
+    <div class="flex-1 overflow-y-auto relative p-6">
 
     <div id="manage-category-error" class="hidden rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 mb-4"></div>
 
@@ -19,7 +33,8 @@
           <tr>
             <th class="px-3 py-2">Name</th>
             <th class="px-3 py-2">Code</th>
-            <th class="px-3 py-2 text-right">Actions</th>
+            <th class="px-3 py-2 text-center">Manage GLA</th>
+            <th class="px-3 py-2 text-center">Actions</th>
           </tr>
         </thead>
         <tbody id="category-list-body" class="divide-y divide-gray-100 bg-white">
@@ -31,9 +46,15 @@
         <tr data-category-row>
           <td class="px-3 py-2" data-category-name></td>
           <td class="px-3 py-2" data-category-code></td>
-          <td class="px-3 py-2 text-right">
-            <button type="button" class="text-blue-600 mr-2" data-view-cat>View</button>
-            <button type="button" class="text-red-600" data-delete-cat>Delete</button>
+          <td class="px-3 py-2 text-center">
+            <button type="button" class="inline-flex items-center justify-center w-8 h-8 text-white bg-purple-600 hover:bg-purple-700 rounded transition-colors" data-manage-gla title="Manage GLA">
+              <i class="fas fa-list"></i>
+            </button>
+          </td>
+          <td class="px-3 py-2 text-center">
+            <button type="button" class="inline-flex items-center justify-center w-8 h-8 text-white bg-red-600 hover:bg-red-700 rounded transition-colors" data-delete-cat title="Delete">
+              <i class="fas fa-trash"></i>
+            </button>
           </td>
         </tr>
       </template>
@@ -43,9 +64,6 @@
         </tr>
       </template>
     </div>
-
-    <div class="mt-4 text-right">
-      <x-button variant="secondary" x-on:click="$dispatch('close-modal', 'manage-category')">Close</x-button>
     </div>
   </div>
 </x-modal>

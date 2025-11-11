@@ -1,8 +1,22 @@
 <!-- resources/views/admin/items/modals/office.blade.php -->
 <x-modal name="manage-office" maxWidth="2xl">
-  <div class="p-6">
-    <h3 class="text-xl font-bold">Manage Office Codes</h3>
-    <p class="text-sm text-gray-600 mb-4">Add an office code; after saving, office dropdowns will be populated.</p>
+  <div class="w-full bg-white dark:bg-gray-900 shadow-lg overflow-hidden flex flex-col max-h-[85vh]">
+    <div class="bg-yellow-600 text-white px-6 py-5 sticky top-0 z-20 relative">
+      <button 
+        type="button"
+        x-on:click="$dispatch('close-modal', 'manage-office')"
+        class="absolute top-4 right-4 text-white hover:text-gray-200 transition-colors p-2 hover:bg-white/10 rounded-lg">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+      <h3 class="text-2xl font-bold flex items-center">
+        <i class="fas fa-building mr-2"></i>
+        MANAGE OFFICE CODES
+      </h3>
+      <p class="text-yellow-100 mt-2 text-sm leading-relaxed">Add an office code; after saving, office dropdowns will be populated.</p>
+    </div>
+    <div class="flex-1 overflow-y-auto relative p-6">
 
     <div id="manage-office-error" class="hidden rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 mb-4"></div>
 
@@ -51,9 +65,6 @@
         </tr>
       </template>
     </div>
-
-    <div class="mt-4 text-right">
-      <x-button variant="secondary" x-on:click="$dispatch('close-modal', 'manage-office')">Close</x-button>
     </div>
   </div>
 </x-modal>

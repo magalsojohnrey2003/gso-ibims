@@ -44,7 +44,9 @@ class ItemController extends Controller
     protected function getCategories(): array
     {
         try {
-            return \App\Models\Category::orderBy('name')
+            // Only get PPE categories (parent_id is null)
+            return \App\Models\Category::whereNull('parent_id')
+                ->orderBy('name')
                 ->get(['id', 'name', 'category_code'])
                 ->map(function ($category) {
                     $digits = preg_replace('/\D/', '', (string) ($category->category_code ?? ''));
@@ -756,6 +758,7 @@ public function update(Request $request, Item $item)
     try {
         $item->name = $data['name'];
         $item->category = $data['category'];
+        $item->description = $data['description'] ?? null;
         $item->photo = $photoPath;
 
         if ($request->has('acquisition_date')) {
