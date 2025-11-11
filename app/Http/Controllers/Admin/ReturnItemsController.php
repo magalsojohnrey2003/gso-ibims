@@ -18,7 +18,8 @@ class ReturnItemsController extends Controller
     public function list()
     {
         $requests = BorrowRequest::with(['user', 'borrowedInstances'])
-            ->whereIn('delivery_status', ['dispatched', 'returned'])
+            // Include delivered so requests remain visible for return processing after delivery
+            ->whereIn('delivery_status', ['dispatched', 'delivered', 'returned'])
             ->orderByDesc('dispatched_at')
             ->get()
             ->map(function (BorrowRequest $request) {

@@ -107,5 +107,13 @@ class AdminDispatchDeliverFlowTest extends TestCase
             $row->refresh();
             $this->assertEquals('borrowed', $row->instance->status, 'Allocated instance transitioned to borrowed');
         }
+
+        // === Return Items visibility ===
+        // After marking delivered, the request should appear in Return Items list (delivered included in filter)
+        $returnList = $this->getJson('/admin/return-items/list');
+        $returnList->assertStatus(200);
+        $present = collect($returnList->json())->firstWhere('borrow_request_id', $borrowRequest->id);
+        $this->assertNotNull($present, 'Delivered request appears in Return Items module list');
+        $this->assertEquals('delivered', $present['delivery_status'] ?? null, 'Return Items list reflects delivered status');
     }
 }

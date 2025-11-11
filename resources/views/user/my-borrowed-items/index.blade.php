@@ -208,6 +208,9 @@
     <template id="btn-print-template">
         <x-button variant="secondary" iconName="printer" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only !bg-amber-500 hover:!bg-amber-600 text-white" data-action="print">Print</x-button>
     </template>
+    <template id="btn-return-template">
+        <x-button variant="warning" iconName="arrow-uturn-left" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only !bg-indigo-500 hover:!bg-indigo-600 text-white" data-action="return">Return Items</x-button>
+    </template>
 
     <!-- Alert templates -->
     <template id="alert-success-template">
@@ -233,6 +236,8 @@
         <template data-status="qr_verified"><x-status-badge type="accepted" text="Approved" /></template>
         <template data-status="default"><x-status-badge type="gray" text="—" /></template>
         <template data-status="validated"><x-status-badge type="info" text="Validated" /></template>
+    <template data-status="dispatched"><x-status-badge type="info" text="Dispatched" /></template>
+    <template data-status="delivered"><x-status-badge type="success" text="Delivered" /></template>
 
     </div>
 
