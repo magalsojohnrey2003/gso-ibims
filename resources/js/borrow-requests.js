@@ -481,6 +481,8 @@ function createButtonFromTemplate(templateId, id) {
         btn.addEventListener('click', (ev) => { ev.stopPropagation(); openConfirmModal(id, 'rejected'); });
     } else if (['dispatch', 'deliver', 'deliver_items'].includes(action)) {
         btn.addEventListener('click', (ev) => { ev.stopPropagation(); openDeliverItemsModal(id); });
+    } else if (action === 'mark-delivered' || action === 'mark_delivered') {
+        btn.addEventListener('click', async (ev) => { ev.stopPropagation(); await markAsDelivered(id); });
     } else {
         console.warn('Unknown button action in template', templateId, 'action=', action);
     }
@@ -511,10 +513,16 @@ function buildStatusBadge(status, deliveryStatus) {
 
     // Helper to get icon HTML
     const getIcon = (iconClass) => `<i class="fas ${iconClass} text-xs"></i>`;
-
     if (deliveryKey === 'dispatched') {
-        return { 
-            label: 'Delivered', 
+        return {
+            label: 'Dispatched',
+            classes: 'bg-indigo-100 text-indigo-700',
+            icon: getIcon('fa-truck')
+        };
+    }
+    if (deliveryKey === 'delivered') {
+        return {
+            label: 'Delivered',
             classes: 'bg-emerald-100 text-emerald-700',
             icon: getIcon('fa-check-circle')
         };
@@ -613,9 +621,11 @@ function renderBorrowRequests() {
         } else if (statusKey === 'validated') {
             wrapper.appendChild(createButtonFromTemplate('btn-accept-template', req.id));
             wrapper.appendChild(createButtonFromTemplate('btn-reject-template', req.id));
-        } else if (statusKey === 'approved' && deliveryKey !== 'dispatched') {
+        } else if (statusKey === 'approved' && !['dispatched','delivered'].includes(deliveryKey)) {
             wrapper.appendChild(createButtonFromTemplate('btn-deliver-template', req.id));
-        } else if (deliveryKey === 'dispatched' || ['returned', 'rejected'].includes(statusKey)) {
+        } else if (deliveryKey === 'dispatched') {
+            wrapper.appendChild(createButtonFromTemplate('btn-mark-delivered-template', req.id));
+        } else if (deliveryKey === 'delivered' || ['returned', 'rejected'].includes(statusKey)) {
             wrapper.appendChild(createButtonFromTemplate('btn-view-template', req.id));
         } else {
             wrapper.appendChild(createButtonFromTemplate('btn-view-template', req.id));
@@ -941,10 +951,14 @@ function openConfirmModal(id, status) {
         resetRejectionFlow();
         openRejectionFlow(id);
         return;
-    } else if (action === 'delivered') {
-        title = 'Deliver Items';
-        message = 'Confirm that the items have been delivered to the borrower.';
+    } else if (action === 'dispatch' || action === 'dispatched') {
+        title = 'Dispatch Items';
+        message = 'Confirm that the items are now on their way to the borrower.';
         iconClass = 'fas fa-truck text-indigo-600';
+    } else if (action === 'delivered') {
+        title = 'Mark as Delivered';
+        message = 'Confirm that the items have been handed over to the borrower.';
+        iconClass = 'fas fa-check-circle text-emerald-600';
     }
 
     if (iconEl) iconEl.className = iconClass;
@@ -1003,7 +1017,7 @@ async function openDeliverItemsModal(id) {
 
     // If all items are in good condition (available == total, 100%), show simple confirmation modal
     if (!needsReasonModal) {
-        openConfirmModal(id, 'delivered');
+        openConfirmModal(id, 'dispatch');
         return;
     }
 
@@ -1396,7 +1410,7 @@ async function updateRequest(id, status, options = {}) {
             confirmBtn.disabled = true;
             try {
                 // Handle 'delivered' status differently - call dispatch endpoint without reason
-                if (status === 'delivered') {
+                if (status === 'dispatch' || status === 'dispatched') {
                     const res = await fetch(`/admin/borrow-requests/${encodeURIComponent(id)}/dispatch`, {
                         method: 'POST',
                         headers: {
@@ -1410,7 +1424,24 @@ async function updateRequest(id, status, options = {}) {
                     if (!res.ok) {
                         throw new Error(payload?.message || `Failed to dispatch items (status ${res.status})`);
                     }
-                    showSuccess(payload?.message || 'Items dispatched and marked as delivered successfully.');
+                    showSuccess(payload?.message || 'Items dispatched successfully.');
+                    await loadBorrowRequests();
+                    window.dispatchEvent(new CustomEvent('close-modal', { detail: 'confirmActionModal' }));
+                } else if (status === 'delivered') {
+                    const res = await fetch(`/admin/borrow-requests/${encodeURIComponent(id)}/deliver`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': CSRF_TOKEN,
+                            'Content-Type': 'application/json',
+                            Accept: 'application/json',
+                        },
+                        body: JSON.stringify({}),
+                    });
+                    const payload = await res.json().catch(() => null);
+                    if (!res.ok) {
+                        throw new Error(payload?.message || `Failed to mark delivered (status ${res.status})`);
+                    }
+                    showSuccess(payload?.message || 'Items marked as delivered successfully.');
                     await loadBorrowRequests();
                     window.dispatchEvent(new CustomEvent('close-modal', { detail: 'confirmActionModal' }));
                 } else {
@@ -1485,7 +1516,7 @@ async function updateRequest(id, status, options = {}) {
                     if (!res.ok) {
                         throw new Error(payload?.message || `Failed to dispatch items (status ${res.status})`);
                     }
-                    showSuccess(payload?.message || 'Items dispatched and marked as delivered successfully.');
+                    showSuccess(payload?.message || 'Items dispatched successfully.');
                     await loadBorrowRequests();
                 window.dispatchEvent(new CustomEvent('close-modal', { detail: 'deliverItemsModal' }));
             } catch (error) {
@@ -1497,6 +1528,30 @@ async function updateRequest(id, status, options = {}) {
         });
     });
 })();
+
+async function markAsDelivered(id) {
+    if (!id) return;
+    try {
+        const res = await fetch(`/admin/borrow-requests/${encodeURIComponent(id)}/deliver`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': CSRF_TOKEN,
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+            body: JSON.stringify({}),
+        });
+        const payload = await res.json().catch(() => null);
+        if (!res.ok) {
+            throw new Error(payload?.message || `Failed to mark delivered (status ${res.status})`);
+        }
+        showSuccess(payload?.message || 'Items marked as delivered successfully.');
+        await loadBorrowRequests();
+    } catch (error) {
+        console.error('Mark as delivered failed', error);
+        showError(error?.message || 'Failed to mark as delivered.');
+    }
+}
 
 // ---------- boot ----------
 document.addEventListener('DOMContentLoaded', () => {

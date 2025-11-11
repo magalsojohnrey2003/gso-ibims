@@ -55,9 +55,11 @@
                 <!-- Borrow List Icon Button -->
                 <div class="flex-shrink-0 relative">
                     <a href="{{ route('borrowList.index') }}"
-                        class="relative inline-flex items-center justify-center w-12 h-12 bg-purple-600 hover:bg-purple-700 text-white rounded-lg shadow-lg transition-all hover:scale-105"
+                        class="relative inline-flex items-center justify-center text-purple-600 hover:text-purple-700 transition-all hover:scale-105"
                         title="View Borrow List">
-                        <i class="fas fa-list-ul text-lg"></i>
+                        
+                        <i class="fas fa-box-open text-3xl"></i> 
+                        
                         @if($borrowListCount > 0)
                             <span class="absolute -top-2 -right-2 inline-flex items-center justify-center min-w-[24px] h-6 px-1.5 rounded-full bg-blue-500 text-white text-xs font-bold">
                                 {{ $borrowListCount }}

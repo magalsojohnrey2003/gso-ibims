@@ -44,6 +44,8 @@ function getBadgeHtml(status) {
         'rejected': 'fa-times-circle',
         'qr_verified': 'fa-check-circle',
         'validated': 'fa-check-circle',
+        'dispatched': 'fa-truck',
+        'delivered': 'fa-check-circle',
     };
     const statusColors = {
         'approved': 'bg-green-100 text-green-700',
@@ -53,6 +55,8 @@ function getBadgeHtml(status) {
         'rejected': 'bg-red-100 text-red-700',
         'qr_verified': 'bg-green-100 text-green-700',
         'validated': 'bg-blue-100 text-blue-700',
+        'dispatched': 'bg-indigo-100 text-indigo-700',
+        'delivered': 'bg-emerald-100 text-emerald-700',
     };
     const icon = statusIcons[st] || 'fa-question-circle';
     const color = statusColors[st] || 'bg-gray-100 text-gray-700';
@@ -157,7 +161,11 @@ function renderItems() {
         const tdBorrowDate = `<td class="px-4 py-3">${escapeHtml(formatDate(req.borrow_date))}</td>`;
         const tdReturnDate = `<td class="px-4 py-3">${escapeHtml(formatDate(req.return_date))}</td>`;
 
-        const badgeHtml = getBadgeHtml(req.status || '');
+        // Display delivery progression overrides base status when in dispatched/delivered
+        const effectiveStatus = (req.delivery_status && ['dispatched','delivered'].includes(req.delivery_status.toLowerCase()))
+            ? req.delivery_status.toLowerCase()
+            : (req.status || '');
+        const badgeHtml = getBadgeHtml(effectiveStatus);
         const tdStatus = `<td class="px-4 py-3">${badgeHtml}</td>`;
 
         const tdActions = document.createElement("td");
@@ -202,7 +210,8 @@ export function fillBorrowModal(data) {
     // status badge
     const sb = document.getElementById('mbi-status-badge');
     if (sb) {
-        const st = (data.status || '').toLowerCase();
+        const delivery = (data.delivery_status || '').toLowerCase();
+        const st = ['dispatched','delivered'].includes(delivery) ? delivery : (data.status || '').toLowerCase();
         try {
             sb.innerHTML = getBadgeHtml(st);
         } catch (err) {

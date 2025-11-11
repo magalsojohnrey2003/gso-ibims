@@ -12,7 +12,8 @@ return new class extends Migration {
             // serial used for human display/seed — do not enforce unique at base level (property_number is the canonical unique key)
             // make serial nullable to allow tests and seeds that may set property_number without serial
             $table->string('serial')->nullable()->index(); // e.g. CHR-0001
-            $table->enum('status', ['available','borrowed','damaged','under_repair','retired','missing'])
+        // Include 'allocated' to support two-step dispatch (allocated -> borrowed)
+        $table->enum('status', ['available','allocated','borrowed','damaged','under_repair','retired','missing'])
                   ->default('available');
             $table->text('notes')->nullable();
             $table->timestamps();

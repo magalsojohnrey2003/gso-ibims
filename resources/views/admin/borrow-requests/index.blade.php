@@ -536,6 +536,9 @@
     <template id="btn-deliver-template">
         <x-button variant="info" iconName="truck" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="deliver">Deliver Items</x-button>
     </template>
+    <template id="btn-mark-delivered-template">
+        <x-button variant="success" iconName="check-circle" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="mark-delivered">Mark as Delivered</x-button>
+    </template>
     <template id="btn-accept-template">
         <x-button variant="success" iconName="check-circle" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="approve">Accept</x-button>
     </template>

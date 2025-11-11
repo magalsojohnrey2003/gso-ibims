@@ -29,7 +29,9 @@ class RegistrationTest extends TestCase
 
         $response = $this->post('/register', $payload);
 
-        $this->assertAuthenticated();
-        $response->assertRedirect(route('dashboard', absolute: false));
+    // Registration does not log the user in; it redirects to login with success banner
+    $this->assertGuest();
+    $response->assertRedirect(route('login', absolute: false));
+    $response->assertSessionHas('status', 'register-success');
     }
 }

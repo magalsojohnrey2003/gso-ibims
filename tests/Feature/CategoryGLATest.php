@@ -7,6 +7,8 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
+use PHPUnit\Framework\Attributes\Test;
+
 class CategoryGLATest extends TestCase
 {
     use RefreshDatabase;
@@ -22,7 +24,7 @@ class CategoryGLATest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_only_returns_ppe_categories_not_glas()
     {
         // Create a PPE category
@@ -57,7 +59,7 @@ class CategoryGLATest extends TestCase
         $response->assertJsonMissing(['name' => 'Computer Software']);
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_glas_for_specific_ppe()
     {
         // Create a PPE category
@@ -91,7 +93,7 @@ class CategoryGLATest extends TestCase
         $response->assertJsonFragment(['name' => 'Computer Software', 'category_code' => '031']);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_create_gla_under_ppe()
     {
         // Create a PPE category
@@ -119,7 +121,7 @@ class CategoryGLATest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_delete_gla()
     {
         // Create a PPE category
@@ -147,7 +149,7 @@ class CategoryGLATest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_prevents_deleting_ppe_with_glas()
     {
         // Create a PPE category
