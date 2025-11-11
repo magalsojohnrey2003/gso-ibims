@@ -13,9 +13,104 @@ use App\Models\BorrowItemInstance;
 use App\Models\BorrowRequestItem;
 use App\Services\BorrowRequestFormPdf;
 use App\Models\RejectionReason;
+use App\Support\StatusRank;
 
 class BorrowRequestController extends Controller
 {
+    public function walkInIndex()
+    {
+        // List existing walk-in requests (using new tables once created) - placeholder empty collection for now
+        $requests = \Illuminate\Support\Collection::make();
+        return view('admin.walk-in.index', compact('requests'));
+    }
+
+    public function walkInCreate()
+    {
+        $items = \App\Models\Item::orderBy('name')
+            ->get(['id','name','category','total_qty','available_qty','photo']);
+        $defaultPhoto = 'images/item.png';
+        return view('admin.walk-in.create', compact('items','defaultPhoto'));
+    }
+
+    public function walkInList()
+    {
+        $rows = \App\Models\WalkInRequest::query()
+            ->with('items.item')
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(function ($r) {
+                return [
+                    'id' => $r->id,
+                    'borrower_name' => $r->borrower_name,
+                    'office_agency' => $r->office_agency,
+                    'contact_number' => $r->contact_number,
+                    'address' => $r->address,
+                    'purpose' => $r->purpose,
+                    'borrowed_at' => optional($r->borrowed_at)->toDateTimeString(),
+                    'returned_at' => optional($r->returned_at)->toDateTimeString(),
+                    'items' => $r->items->map(function ($ri) {
+                        return [
+                            'id' => $ri->item_id,
+                            'name' => $ri->item?->name,
+                            'quantity' => $ri->quantity,
+                        ];
+                    })->values()->all(),
+                ];
+            });
+        return response()->json($rows);
+    }
+
+    public function walkInStore(Request $request)
+    {
+        $data = $request->validate([
+            'borrower_name' => 'required|string|max:255',
+            'office_agency' => 'nullable|string|max:255',
+            'contact_number' => 'nullable|string|max:50',
+            'address' => 'nullable|string|max:500',
+            'purpose' => 'required|string|max:500',
+            'borrowed_at' => 'required|date',
+            'returned_at' => 'required|date|after_or_equal:borrowed_at',
+            'items' => 'required|array|min:1',
+            'items.*.id' => 'required|integer|exists:items,id',
+            'items.*.quantity' => 'required|integer|min:1',
+        ]);
+        \DB::beginTransaction();
+        try {
+            $walkin = new \App\Models\WalkInRequest();
+            $walkin->fill([
+                'borrower_name' => $data['borrower_name'],
+                'office_agency' => $data['office_agency'] ?? null,
+                'contact_number' => $data['contact_number'] ?? null,
+                'address' => $data['address'] ?? null,
+                'purpose' => $data['purpose'],
+                'borrowed_at' => $data['borrowed_at'],
+                'returned_at' => $data['returned_at'],
+                'created_by' => $request->user()->id,
+            ]);
+            $walkin->save();
+
+            foreach ($data['items'] as $it) {
+                \App\Models\WalkInRequestItem::create([
+                    'walk_in_request_id' => $walkin->id,
+                    'item_id' => $it['id'],
+                    'quantity' => $it['quantity'],
+                ]);
+            }
+
+            \DB::commit();
+
+            return response()->json([
+                'message' => 'Walk-in request created successfully.',
+                'id' => $walkin->id,
+            ], 201);
+        } catch (\Throwable $e) {
+            \DB::rollBack();
+            return response()->json([
+                'message' => 'Failed to create walk-in request.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
     public function index()
     {
         return view('admin.borrow-requests.index');
@@ -80,6 +175,8 @@ class BorrowRequestController extends Controller
         $old = $borrowRequest->status;
         $new = $request->status === 'qr_verified' ? 'approved' : $request->status;
 
+        // Use centralized status rank map
+
         // Guard against nonsensical backward changes when delivery has progressed
         // If items are already delivered, only allow transition to return stages
         if ($borrowRequest->delivery_status === 'delivered' && ! in_array($new, ['returned', 'return_pending'], true)) {
@@ -88,11 +185,15 @@ class BorrowRequestController extends Controller
             ], 422);
         }
 
-        // If items are dispatched (but not yet delivered), prevent downgrading to pre-approved stages
-        if ($borrowRequest->delivery_status === 'dispatched' && in_array($new, ['pending', 'validated'], true)) {
-            return response()->json([
-                'message' => 'Cannot downgrade status after dispatch.',
-            ], 422);
+        // Generic downgrade prevention once dispatched: can't reduce rank below approved
+        if ($borrowRequest->delivery_status === 'dispatched') {
+            $newRank = StatusRank::rank($new);
+            $approvedRank = StatusRank::rank('approved');
+            if ($newRank !== -1 && $newRank < $approvedRank && !in_array($new, ['return_pending','returned'], true)) {
+                return response()->json([
+                    'message' => 'Cannot downgrade status after dispatch.',
+                ], 422);
+            }
         }
 
         if ($old === $new) {
@@ -646,6 +747,59 @@ class BorrowRequestController extends Controller
             return response()->json([
                 'message' => 'Failed to mark items as delivered. Please try again.',
                 'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Cancel a dispatch prior to delivery. Reverts delivery_status and deallocates instances.
+     * Restores instance statuses to 'available' and leaves borrow request in 'approved' (or 'validated' if it was never approved before dispatch logic).
+     */
+    public function cancelDispatch(Request $request, BorrowRequest $borrowRequest)
+    {
+        if ($borrowRequest->delivery_status !== 'dispatched') {
+            return response()->json(['message' => 'Only dispatched requests can be canceled.'], 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            // Load allocated instances
+            $borrowRequest->load('borrowedInstances.instance', 'items.item');
+
+            // Revert each allocated instance back to available and remove BorrowItemInstance rows
+            $allocRows = $borrowRequest->borrowedInstances()->get();
+            foreach ($allocRows as $row) {
+                if ($row->instance && $row->instance->status === 'allocated') {
+                    $row->instance->status = 'available';
+                    $row->instance->save();
+                }
+                $row->delete();
+            }
+
+            // Reset delivery fields
+            $borrowRequest->delivery_status = null;
+            $borrowRequest->dispatched_at = null;
+            // Keep status at approved (we don't automatically downgrade to validated to avoid losing adjustments)
+            $borrowRequest->save();
+
+            // Notify user about cancellation
+            $user = $borrowRequest->user;
+            if ($user) {
+                $payload = [
+                    'type' => 'borrow_dispatch_canceled',
+                    'message' => "Dispatch for borrow request #{$borrowRequest->id} has been canceled.",
+                    'borrow_request_id' => $borrowRequest->id,
+                ];
+                $user->notify(new RequestNotification($payload));
+            }
+
+            DB::commit();
+            return response()->json(['message' => 'Dispatch canceled and allocations rolled back.']);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Failed to cancel dispatch. Please try again.',
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

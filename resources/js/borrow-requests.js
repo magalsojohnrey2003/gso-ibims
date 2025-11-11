@@ -483,6 +483,8 @@ function createButtonFromTemplate(templateId, id) {
         btn.addEventListener('click', (ev) => { ev.stopPropagation(); openDeliverItemsModal(id); });
     } else if (action === 'mark-delivered' || action === 'mark_delivered') {
         btn.addEventListener('click', async (ev) => { ev.stopPropagation(); await markAsDelivered(id); });
+    } else if (action === 'cancel-dispatch' || action === 'cancel_dispatch') {
+        btn.addEventListener('click', async (ev) => { ev.stopPropagation(); await cancelDispatch(id); });
     } else {
         console.warn('Unknown button action in template', templateId, 'action=', action);
     }
@@ -625,6 +627,7 @@ function renderBorrowRequests() {
             wrapper.appendChild(createButtonFromTemplate('btn-deliver-template', req.id));
         } else if (deliveryKey === 'dispatched') {
             wrapper.appendChild(createButtonFromTemplate('btn-mark-delivered-template', req.id));
+            wrapper.appendChild(createButtonFromTemplate('btn-cancel-dispatch-template', req.id));
         } else if (deliveryKey === 'delivered' || ['returned', 'rejected'].includes(statusKey)) {
             wrapper.appendChild(createButtonFromTemplate('btn-view-template', req.id));
         } else {
@@ -1550,6 +1553,30 @@ async function markAsDelivered(id) {
     } catch (error) {
         console.error('Mark as delivered failed', error);
         showError(error?.message || 'Failed to mark as delivered.');
+    }
+}
+
+async function cancelDispatch(id) {
+    if (!id) return;
+    try {
+        const res = await fetch(`/admin/borrow-requests/${encodeURIComponent(id)}/cancel-dispatch`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': CSRF_TOKEN,
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+            body: JSON.stringify({}),
+        });
+        const payload = await res.json().catch(() => null);
+        if (!res.ok) {
+            throw new Error(payload?.message || `Failed to cancel dispatch (status ${res.status})`);
+        }
+        showSuccess(payload?.message || 'Dispatch canceled.');
+        await loadBorrowRequests();
+    } catch (error) {
+        console.error('Cancel dispatch failed', error);
+        showError(error?.message || 'Failed to cancel dispatch.');
     }
 }
 

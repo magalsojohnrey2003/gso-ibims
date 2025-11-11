@@ -104,6 +104,9 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
         // Dispatch action
         Route::post('borrow-requests/{borrowRequest}/dispatch', [BorrowRequestController::class, 'dispatch'])
             ->name('admin.borrow.requests.dispatch');
+        // Cancel dispatch (rollback allocations)
+        Route::post('borrow-requests/{borrowRequest}/cancel-dispatch', [BorrowRequestController::class, 'cancelDispatch'])
+            ->name('admin.borrow.requests.cancel-dispatch');
             
         // Mark items as delivered
         Route::post('borrow-requests/{borrowRequest}/deliver', [BorrowRequestController::class, 'markDelivered'])
@@ -133,6 +136,12 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
         Route::post('reports/data', [ReportController::class, 'data'])->name('reports.data');
         Route::get('reports/export/pdf', [ReportController::class, 'exportPdf'])->name('reports.export.pdf');
         Route::get('reports/export/xlsx', [ReportController::class, 'exportXlsx'])->name('reports.export.xlsx');
+
+    // Walk-in Requests
+    Route::get('walk-in', [BorrowRequestController::class, 'walkInIndex'])->name('admin.walkin.index');
+    Route::get('walk-in/create', [BorrowRequestController::class, 'walkInCreate'])->name('admin.walkin.create');
+    Route::get('walk-in/list', [BorrowRequestController::class, 'walkInList'])->name('admin.walkin.list');
+    Route::post('walk-in/store', [BorrowRequestController::class, 'walkInStore'])->name('admin.walkin.store');
 
         // Manpower Requests (Admin)
         Route::prefix('manpower-requests')->name('admin.manpower.requests.')->group(function() {
