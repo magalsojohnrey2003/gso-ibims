@@ -255,17 +255,7 @@
                                     </div>
 
                                     <div>
-                                        <x-input-label for="manpower_count" value="Number of Manpower (Optional)" />
-                                        <x-text-input
-                                            id="manpower_count"
-                                            name="manpower_count"
-                                            type="number"
-                                            min="1"
-                                            max="99"
-                                            value="{{ old('manpower_count') }}"
-                                            class="mt-1 w-full rounded-lg border border-gray-400 px-3 py-2 text-sm text-gray-800 bg-white focus:border-purple-500 focus:ring-purple-500"
-                                        />
-                                        <p class="mt-2 text-xs text-gray-500">Add manpower if you need personnel to handle items.</p>
+                                        {{-- manpower_count removed: field deprecated and no longer collected at submission --}}
                                     </div>
                                 </div>
                             </div>
@@ -516,7 +506,7 @@
                                 <p><span class="font-medium">Selected Address:</span> <span id="summaryAddress">&mdash;</span></p>
                                 <p><span class="font-medium">Purpose &amp; Office:</span> <span id="summaryPurposeOffice">--</span></p>
                                 <p><span class="font-medium">Purpose:</span> <span id="summaryPurpose">--</span></p>
-                                <p><span class="font-medium">Manpower Requested:</span> <span id="summaryManpower">&mdash;</span></p>
+                                {{-- Removed manpower summary row (deprecated) --}}
                             </div>
 
                             <div>
