@@ -58,8 +58,8 @@
                                     }
                                     if (!$photoUrl) { $photoUrl = asset($defaultPhoto); }
                                 @endphp
-                                <tr data-item-row data-name="{{ strtolower($item->name) }}">
-                                    <td class="px-4 py-3">
+                                <tr data-item-row data-name="{{ strtolower($item->name) }}" class="align-middle">
+                                    <td class="px-4 py-3 align-middle">
                                         <div class="flex items-center gap-3">
                                             <img src="{{ $photoUrl }}" class="h-12 w-12 rounded object-cover" alt="{{ $item->name }}" />
                                             <div>
@@ -68,19 +68,18 @@
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="px-4 py-3">
+                                    <td class="px-4 py-3 align-middle">
                                         <span class="inline-flex items-center rounded-full bg-green-100 text-green-800 text-xs font-semibold px-2 py-1">
                                             {{ (int)($item->available_qty ?? 0) }}
                                         </span>
                                     </td>
-                                    <td class="px-4 py-3">
+                                    <td class="px-4 py-3 align-middle">
                                         @php $max = max(0, (int)($item->available_qty ?? 0)); @endphp
                                         <div class="flex items-center gap-2">
                                             <input type="number" min="0" max="{{ $max }}" value="0"
                                                    data-qty-input data-item-id="{{ $item->id }}"
                                                    class="w-24 rounded-lg border border-gray-300 px-2 py-1 text-sm text-gray-800 focus:ring-purple-500 focus:border-purple-500"
                                                    aria-label="Quantity for {{ $item->name }}" />
-                                            <span class="text-xs text-gray-500">/ {{ $max }}</span>
                                         </div>
                                     </td>
                                 </tr>
@@ -111,7 +110,7 @@
 
                     <div>
                         <x-input-label for="contact_number" value="Contact Number" />
-                        <x-text-input id="contact_number" name="contact_number" type="text" maxlength="50" class="mt-1 w-full" />
+                        <x-text-input id="contact_number" name="contact_number" type="text" maxlength="50" inputmode="numeric" pattern="[0-9]*" class="mt-1 w-full" />
                     </div>
 
                     <div>
@@ -126,13 +125,26 @@
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
-                            <x-input-label for="borrowed_at" value="Borrowed Date & Time" />
-                            <input id="borrowed_at" name="borrowed_at" type="datetime-local" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-purple-500 focus:border-purple-500" />
+                            <x-input-label for="borrowed_date" value="Borrowed Date &amp; Time" />
+                            <div class="mt-1 flex flex-col gap-2">
+                                <input id="borrowed_date" name="borrowed_date" type="date" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-purple-500 focus:border-purple-500" />
+                                <input id="borrowed_time" name="borrowed_time" type="time" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-purple-500 focus:border-purple-500" placeholder="Select time (optional)" />
+                                <p class="text-xs text-gray-500">Time is optional.</p>
+                            </div>
                         </div>
                         <div>
-                            <x-input-label for="returned_at" value="Returned Date & Time" />
-                            <input id="returned_at" name="returned_at" type="datetime-local" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-purple-500 focus:border-purple-500" />
+                            <x-input-label for="returned_date" value="Returned Date &amp; Time" />
+                            <div class="mt-1 flex flex-col gap-2">
+                                <input id="returned_date" name="returned_date" type="date" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-purple-500 focus:border-purple-500" />
+                                <input id="returned_time" name="returned_time" type="time" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-purple-500 focus:border-purple-500" placeholder="Select time (optional)" />
+                                <p class="text-xs text-gray-500">Time is optional.</p>
+                            </div>
                         </div>
+                    </div>
+
+                    <div id="timeUsagePreview" class="hidden rounded-lg border border-purple-100 bg-purple-50 px-3 py-2 text-sm text-purple-700">
+                        <span class="font-medium">Time of Usage Preview:</span>
+                        <span data-preview-range>—</span>
                     </div>
 
                     <div class="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm">

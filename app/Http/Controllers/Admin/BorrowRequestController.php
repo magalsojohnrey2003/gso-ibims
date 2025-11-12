@@ -39,6 +39,26 @@ class BorrowRequestController extends Controller
             ->orderByDesc('created_at')
             ->get()
             ->map(function ($r) {
+                $timezone = config('app.timezone');
+
+                $formatDate = function ($dt) use ($timezone) {
+                    return $dt ? $dt->timezone($timezone)->format('M d, Y') : null;
+                };
+
+                $formatTime = function ($dt) use ($timezone) {
+                    if (! $dt) {
+                        return null;
+                    }
+
+                    return $dt->format('H:i:s') === '00:00:00'
+                        ? null
+                        : $dt->timezone($timezone)->format('g:i A');
+                };
+
+                $iso = function ($dt) use ($timezone) {
+                    return $dt ? $dt->timezone($timezone)->toIso8601String() : null;
+                };
+
                 return [
                     'id' => $r->id,
                     'borrower_name' => $r->borrower_name,
@@ -46,8 +66,12 @@ class BorrowRequestController extends Controller
                     'contact_number' => $r->contact_number,
                     'address' => $r->address,
                     'purpose' => $r->purpose,
-                    'borrowed_at' => optional($r->borrowed_at)->toDateTimeString(),
-                    'returned_at' => optional($r->returned_at)->toDateTimeString(),
+                    'borrowed_at' => $iso($r->borrowed_at),
+                    'returned_at' => $iso($r->returned_at),
+                    'borrowed_date_display' => $formatDate($r->borrowed_at),
+                    'returned_date_display' => $formatDate($r->returned_at),
+                    'borrowed_time_display' => $formatTime($r->borrowed_at),
+                    'returned_time_display' => $formatTime($r->returned_at),
                     'items' => $r->items->map(function ($ri) {
                         return [
                             'id' => $ri->item_id,

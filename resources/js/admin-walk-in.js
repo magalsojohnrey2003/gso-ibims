@@ -26,6 +26,71 @@
     if (countEl) countEl.textContent = String(items.length);
   }
 
+  function enforceDigitsOnly(input, maxLength = 11) {
+    if (!input) return;
+  const controlKeys = new Set(['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'Enter']);
+    const sanitize = () => {
+      const digits = (input.value || '').replace(/[^0-9]/g, '');
+      const trimmed = digits.slice(0, maxLength);
+      if (input.value !== trimmed) {
+        input.value = trimmed;
+      }
+    };
+
+    input.addEventListener('keydown', (event) => {
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      if (controlKeys.has(event.key)) return;
+      if (/^[0-9]$/.test(event.key)) return;
+      event.preventDefault();
+    });
+
+    input.addEventListener('input', sanitize);
+    input.addEventListener('paste', () => {
+      setTimeout(sanitize, 0);
+    });
+  }
+
+  function buildDateTimePayload(dateId, timeId) {
+    const dateValue = document.getElementById(dateId)?.value?.trim();
+    const timeValue = document.getElementById(timeId)?.value?.trim();
+    if (!dateValue) {
+      return '';
+    }
+    if (!timeValue) {
+      return dateValue;
+    }
+    return `${dateValue} ${timeValue}`;
+  }
+
+  function formatTimePreview(value) {
+    if (!value) return '';
+    const [hours, minutes] = value.split(':');
+    const h = Number.parseInt(hours, 10);
+    if (Number.isNaN(h)) return value;
+    const m = Number.parseInt(minutes ?? '0', 10) || 0;
+    const period = h >= 12 ? 'PM' : 'AM';
+    const normalizedHour = ((h + 11) % 12) + 1;
+    const paddedMinutes = m.toString().padStart(2, '0');
+    return `${normalizedHour}:${paddedMinutes} ${period}`;
+  }
+
+  function updateUsagePreview() {
+    const preview = document.getElementById('timeUsagePreview');
+    if (!preview) return;
+    const range = preview.querySelector('[data-preview-range]');
+    const borrowTime = document.getElementById('borrowed_time')?.value?.trim();
+    const returnTime = document.getElementById('returned_time')?.value?.trim();
+    if (borrowTime && returnTime) {
+      const start = formatTimePreview(borrowTime);
+      const end = formatTimePreview(returnTime);
+      range.textContent = `${start} - ${end}`;
+      preview.classList.remove('hidden');
+    } else {
+      range.textContent = '—';
+      preview.classList.add('hidden');
+    }
+  }
+
   function attachQtyHandlers() {
     document.querySelectorAll('[data-qty-input]').forEach((el) => {
       el.addEventListener('input', () => {
@@ -75,8 +140,8 @@
         contact_number: document.getElementById('contact_number')?.value || '',
         address: document.getElementById('address')?.value || '',
         purpose: document.getElementById('purpose')?.value || '',
-        borrowed_at: document.getElementById('borrowed_at')?.value || '',
-        returned_at: document.getElementById('returned_at')?.value || '',
+        borrowed_at: buildDateTimePayload('borrowed_date', 'borrowed_time'),
+        returned_at: buildDateTimePayload('returned_date', 'returned_time'),
         items,
       };
 
@@ -112,7 +177,15 @@
       document.querySelectorAll('[data-qty-input]').forEach((el) => {
         el.value = '0';
       });
+      const dateFields = ['borrowed_date', 'borrowed_time', 'returned_date', 'returned_time'];
+      dateFields.forEach((id) => {
+        const input = document.getElementById(id);
+        if (input) input.value = '';
+      });
+      const contact = document.getElementById('contact_number');
+      if (contact) contact.value = '';
       updateSelectedCount();
+      updateUsagePreview();
     });
   }
 
@@ -121,6 +194,15 @@
     attachSearchHandler();
     attachSubmitHandler();
     attachClearHandler();
+    enforceDigitsOnly(document.getElementById('contact_number'));
+    ['borrowed_time', 'returned_time'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('input', updateUsagePreview);
+        el.addEventListener('change', updateUsagePreview);
+      }
+    });
+    updateUsagePreview();
     updateSelectedCount();
   });
 })();

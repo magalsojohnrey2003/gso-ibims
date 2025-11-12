@@ -30,8 +30,8 @@
                         <tr>
                             <th class="px-6 py-3 text-center">ID</th>
                             <th class="px-6 py-3 text-center">Borrower</th>
-                            <th class="px-6 py-3 text-center">Office/Agency</th>
-                            <th class="px-6 py-3 text-center">Period</th>
+                            <th class="px-6 py-3 text-center">Borrow Date</th>
+                            <th class="px-6 py-3 text-center">Return Date</th>
                             <th class="px-6 py-3 text-center">Action</th>
                         </tr>
                     </thead>
@@ -85,6 +85,20 @@
                     <div>
                         <div class="font-medium text-gray-800">Address</div>
                         <div class="text-gray-600" data-field="address">—</div>
+                    </div>
+                </div>
+                <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
+                    <i class="fas fa-calendar-day text-purple-600 mt-1"></i>
+                    <div>
+                        <div class="font-medium text-gray-800">Borrow Schedule</div>
+                        <div class="text-gray-600" data-field="borrowed_schedule">—</div>
+                    </div>
+                </div>
+                <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
+                    <i class="fas fa-calendar-check text-purple-600 mt-1"></i>
+                    <div>
+                        <div class="font-medium text-gray-800">Return Schedule</div>
+                        <div class="text-gray-600" data-field="returned_schedule">—</div>
                     </div>
                 </div>
                 <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3 sm:col-span-2">
