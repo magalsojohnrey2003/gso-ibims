@@ -127,6 +127,8 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
         // Return Items
         Route::get('return-items', [ReturnItemsController::class, 'index'])->name('admin.return-items.index');
         Route::get('return-items/list', [ReturnItemsController::class, 'list'])->name('admin.return-items.list');
+        Route::get('return-items/walk-in/{id}', [ReturnItemsController::class, 'showWalkIn'])->name('admin.return-items.show-walkin');
+        Route::post('return-items/walk-in/{id}/collect', [ReturnItemsController::class, 'collectWalkIn'])->name('admin.return-items.collect-walkin');
         Route::get('return-items/{borrowRequest}', [ReturnItemsController::class, 'show'])->name('admin.return-items.show');
         Route::post('return-items/{borrowRequest}/collect', [ReturnItemsController::class, 'collect'])->name('admin.return-items.collect');
         Route::patch('return-items/instances/{borrowItemInstance}', [ReturnItemsController::class, 'updateInstance'])->name('admin.return-items.instances.update');
@@ -143,6 +145,8 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
     Route::get('walk-in/list', [BorrowRequestController::class, 'walkInList'])->name('admin.walkin.list');
     Route::get('walk-in/print/{walkInRequest}', [BorrowRequestController::class, 'walkInPrint'])->name('admin.walkin.print');
     Route::post('walk-in/store', [BorrowRequestController::class, 'walkInStore'])->name('admin.walkin.store');
+    Route::get('walk-in/approve-qr/{id}', [BorrowRequestController::class, 'walkInApproveQr'])->name('admin.walkin.approve.qr');
+    Route::post('walk-in/deliver/{id}', [BorrowRequestController::class, 'walkInDeliver'])->name('admin.walkin.deliver');
 
         // Manpower Requests (Admin)
         Route::prefix('manpower-requests')->name('admin.manpower.requests.')->group(function() {

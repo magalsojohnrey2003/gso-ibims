@@ -61,6 +61,56 @@
     return date || '—';
   };
 
+  const getStatusBadge = (status) => {
+    const badges = {
+      pending: '<span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800"><i class="fas fa-clock"></i> Pending</span>',
+      approved: '<span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800"><i class="fas fa-check-circle"></i> Approved</span>',
+      delivered: '<span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800"><i class="fas fa-box-check"></i> Delivered</span>',
+    };
+    return badges[status] || '<span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700"><i class="fas fa-question-circle"></i> Unknown</span>';
+  };
+
+  const getActionButtons = (row) => {
+    const status = row.status || 'pending';
+    const buttons = [];
+
+    // Print button - always visible
+    buttons.push(`
+      <button type="button" data-action="print" class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-purple-600 text-white shadow transition hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
+        <span class="sr-only">Print</span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M16 9V4H8v5" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 14h12v8H6z" />
+        </svg>
+      </button>
+    `);
+
+    // Conditional buttons based on status
+    if (status === 'approved') {
+      buttons.push(`
+        <button type="button" data-action="deliver" class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-indigo-600 text-white shadow transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+          <span class="sr-only">Deliver Items</span>
+          <i class="fas fa-truck"></i>
+        </button>
+      `);
+    }
+
+    if (status === 'delivered') {
+      buttons.push(`
+        <button type="button" data-action="view" class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500 text-white shadow transition hover:bg-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
+          <span class="sr-only">View</span>
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+        </button>
+      `);
+    }
+
+    return buttons.join('');
+  };
+
   const renderRows = (rows) => {
     const tbody = document.getElementById(tableBodyId);
     if (!tbody) return;
@@ -69,7 +119,7 @@
     tbody.innerHTML = '';
 
     if (!rows || rows.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-gray-500">No walk-in requests yet.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="py-4 text-gray-500">No walk-in requests yet.</td></tr>';
       return;
     }
 
@@ -95,23 +145,10 @@
           <div>${returnDate}</div>
           ${returnTime ? `<div class="text-xs text-gray-500">${returnTime}</div>` : ''}
         </td>
+        <td class="px-6 py-3">${getStatusBadge(row.status)}</td>
         <td class="px-6 py-3">
           <div class="flex items-center justify-center gap-2">
-            <button type="button" data-action="view" class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-700 shadow transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
-              <span class="sr-only">View</span>
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-              </svg>
-            </button>
-            <button type="button" data-action="print" class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-700 shadow transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
-              <span class="sr-only">Print</span>
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M16 9V4H8v5" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 14h12v8H6z" />
-              </svg>
-            </button>
+            ${getActionButtons(row)}
           </div>
         </td>
       `;
@@ -157,7 +194,7 @@
   const fetchRows = async () => {
     const tbody = document.getElementById(tableBodyId);
     if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-gray-500">Loading...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="6" class="py-4 text-gray-500">Loading...</td></tr>';
 
     try {
       const res = await fetch(window.WALKIN_LIST_ROUTE, {
@@ -167,9 +204,61 @@
       state.rows = Array.isArray(data) ? data : [];
       renderRows(state.rows);
     } catch (e) {
-  tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-red-600">Failed to load walk-in requests.</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="6" class="py-4 text-red-600">Failed to load walk-in requests.</td></tr>';
       state.rows = [];
       window.__WALKIN_CACHE__ = [];
+    }
+  };
+
+  const handleDeliver = async (row) => {
+    // Build items list for confirmation
+    const itemsList = (row.items || [])
+      .map(item => `  • ${item.name || `Item #${item.item_id}`} (Qty: ${item.quantity})`)
+      .join('\n');
+
+    const confirmMessage = `Deliver Walk-in Request #${row.id}?\n\n` +
+      `Borrower: ${row.borrower_name || 'N/A'}\n` +
+      `Office: ${row.office_agency || 'N/A'}\n\n` +
+      `Items to deliver:\n${itemsList || '  • No items'}\n\n` +
+      `This will:\n` +
+      `  • Mark the request as "Delivered"\n` +
+      `  • Deduct items from inventory\n` +
+      `  • Create borrow instances for return tracking\n\n` +
+      `Continue?`;
+
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    const template = window.WALKIN_DELIVER_ROUTE_TEMPLATE;
+    if (!template || typeof template !== 'string' || !template.includes('__ID__')) {
+      alert('Deliver route not configured properly.');
+      return;
+    }
+
+    const url = template.replace('__ID__', encodeURIComponent(row.id));
+
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-CSRF-TOKEN': window.CSRF_TOKEN || '',
+        },
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        alert(data.message || 'Walk-in request delivered successfully!');
+        fetchRows(); // Refresh the table
+      } else {
+        alert(data.message || 'Failed to deliver the request.');
+      }
+    } catch (e) {
+      console.error('Deliver error:', e);
+      alert('An error occurred while delivering the request.');
     }
   };
 
@@ -198,6 +287,12 @@
           const url = template.replace('__ID__', encodeURIComponent(row.id));
           window.open(url, '_blank', 'noopener');
         }
+        return;
+      }
+
+      if (action === 'deliver') {
+        handleDeliver(row);
+        return;
       }
     });
 

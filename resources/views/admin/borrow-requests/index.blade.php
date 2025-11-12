@@ -373,90 +373,13 @@
         </div>
     </x-modal>
 
-<!-- Deliver Items Modal -->
-<x-modal name="deliverItemsModal" maxWidth="md">
-    <div class="p-6 space-y-4">
-        <!-- Header -->
-        <div class="flex items-center justify-between border-b border-gray-200 pb-3">
-            <div class="flex items-center gap-3">
-                <i class="fas fa-truck text-indigo-600 text-2xl"></i>
-                <h3 class="text-lg font-semibold text-gray-900">Deliver Items</h3>
-            </div>
-            <button
-                type="button"
-                class="text-gray-400 hover:text-gray-600 transition"
-                @click="$dispatch('close-modal', 'deliverItemsModal')"
-            >
-                <i class="fas fa-times text-lg"></i>
-            </button>
-        </div>
-
-        <!-- Item Information -->
-        <div id="deliverItemsInfo" class="space-y-3">
-            <!-- Items will be populated by JavaScript -->
-        </div>
-
-        <!-- Reason Selection -->
-        <div class="space-y-3 border-t border-gray-200 pt-4">
-            <label class="text-sm font-medium text-gray-700">Reason for Delivery</label>
-            <div class="space-y-2">
-                <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="deliveryReason" value="missing" class="text-indigo-600 focus:ring-indigo-500" />
-                    <span class="text-sm text-gray-700">Missing</span>
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="deliveryReason" value="damaged" class="text-indigo-600 focus:ring-indigo-500" />
-                    <span class="text-sm text-gray-700">Damaged</span>
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="deliveryReason" value="others" class="text-indigo-600 focus:ring-indigo-500" />
-                    <span class="text-sm text-gray-700">Others</span>
-                </label>
-            </div>
-
-            <!-- Others Reason Fields (hidden by default) -->
-            <div id="deliverItemsOthersFields" class="hidden space-y-3 pt-2 border-t border-gray-100">
-                <div>
-                    <label for="deliveryReasonSubject" class="block text-sm font-medium text-gray-700 mb-1">Subject</label>
-                    <input
-                        type="text"
-                        id="deliveryReasonSubject"
-                        class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500"
-                        placeholder="Enter subject..."
-                        maxlength="255"
-                    />
-                </div>
-                <div>
-                    <label for="deliveryReasonExplanation" class="block text-sm font-medium text-gray-700 mb-1">Explanation</label>
-                    <textarea
-                        id="deliveryReasonExplanation"
-                        rows="4"
-                        class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500"
-                        placeholder="Enter explanation..."
-                    ></textarea>
-                </div>
-            </div>
-        </div>
-
-        <!-- Footer -->
-        <div class="flex justify-end gap-3 pt-4 border-t border-gray-100">
-            <x-button variant="secondary" class="px-4 py-2 text-sm" @click="$dispatch('close-modal', 'deliverItemsModal')">
-                Cancel
-            </x-button>
-            <x-button id="deliverItemsConfirmBtn" variant="success" class="px-4 py-2 text-sm">
-                Confirm
-            </x-button>
-        </div>
-    </div>
-</x-modal>
-
-<!-- Assign Manpower + Quantity Adjustment Modal -->
+<!-- Validate Request Modal -->
 <x-modal name="assignManpowerModal" maxWidth="2xl">
-    <div class="p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+    <div class="p-6 space-y-5" x-data="{ showLargeImage: false, largeImageSrc: '' }">
         <div class="flex items-start justify-between gap-4">
             <div class="space-y-1">
-                <h3 class="text-xl font-semibold text-gray-900">Assign Manpower & Adjust Quantities</h3>
-                <p class="text-sm text-gray-500">Review the requested resources, adjust where needed, and capture a quick reason whenever reductions are applied.</p>
+                <h3 class="text-xl font-semibold text-gray-900">Validate Request</h3>
+                <p class="text-sm text-gray-500">Review the uploaded letter before validating the request.</p>
             </div>
             <button type="button" class="text-gray-400 hover:text-gray-600 transition" @click="$dispatch('close-modal','assignManpowerModal')">
                 <i class="fas fa-times text-lg"></i>
@@ -466,61 +389,82 @@
         <form id="assignManpowerForm" class="space-y-5" onsubmit="return false;">
             <input type="hidden" id="assignManpowerRequestId" />
 
-            <div class="grid gap-4 md:grid-cols-[2fr,3fr]">
-                <div class="space-y-2">
-                    <label class="text-xs font-semibold tracking-wide text-gray-600 uppercase">Delivery Location</label>
-                    <div id="assignManpowerLocation" class="text-sm text-gray-800 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">--</div>
-                </div>
-                <div class="space-y-2">
-                    <label class="text-xs font-semibold tracking-wide text-gray-600 uppercase">Uploaded Letter</label>
-                    <div id="assignLetterPreviewWrapper" class="flex items-center justify-center border border-dashed border-gray-300 rounded-lg bg-white p-3 min-h-[140px]">
-                        <img id="assignLetterPreview" src="" alt="Uploaded letter" class="max-h-40 object-contain rounded shadow hidden" />
-                        <span id="assignLetterFallback" class="text-sm text-gray-500">No letter uploaded</span>
+            <div class="grid gap-4 md:grid-cols-2">
+                <div class="space-y-4">
+                    <div class="space-y-2">
+                        <label class="text-xs font-semibold tracking-wide text-gray-600 uppercase">Delivery Location</label>
+                        <div id="assignManpowerLocation" class="text-sm text-gray-800 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">--</div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-xs font-semibold tracking-wide text-gray-600 uppercase">Borrow Period</label>
+                        <div class="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                            <div class="grid grid-cols-2 gap-3 text-sm">
+                                <div>
+                                    <span class="font-medium text-gray-600 block mb-1">Borrow Date:</span>
+                                    <span id="assignBorrowDate" class="text-gray-800 font-semibold">--</span>
+                                </div>
+                                <div>
+                                    <span class="font-medium text-gray-600 block mb-1">Return Date:</span>
+                                    <span id="assignReturnDate" class="text-gray-800 font-semibold">--</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-xs font-semibold tracking-wide text-gray-600 uppercase">Requested Items</label>
+                        <div id="assignItemsList" class="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 max-h-40 overflow-y-auto">
+                            <ul class="list-disc pl-4 space-y-1 text-sm text-gray-800">
+                                <!-- Items will be populated by JavaScript -->
+                            </ul>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="grid gap-3 md:grid-cols-[1fr,1fr]">
-                <div class="space-y-1">
-                    <label for="assignManpowerInput" class="text-sm font-medium text-gray-700 flex items-center justify-between">
-                        <span>Manpower Needed</span>
-                        <span class="text-xs text-gray-500">Requested: <span id="assignRequestedTotal">--</span></span>
-                    </label>
-                    <input
-                        id="assignManpowerInput"
-                        type="number"
-                        min="0"
-                        class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500"
-                    />
-                </div>
-                <div id="assignManpowerReasonWrapper" class="space-y-1 hidden">
-                    <label for="assignManpowerReason" class="text-sm font-medium text-gray-700">Reason for manpower reduction</label>
-                    <select
-                        id="assignManpowerReason"
-                        class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500">
-                        <option value="">Select reason</option>
-                        <option value="Task completion">Task completion</option>
-                        <option value="Overestimated need">Overestimated need</option>
-                        <option value="Schedule conflict">Schedule conflict</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="space-y-3">
-                <div class="flex items-center justify-between">
-                    <h4 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Borrowed Items</h4>
-                    <span class="text-xs text-gray-400">Adjust quantities only if necessary.</span>
-                </div>
-                <div id="assignManpowerItemsContainer" class="space-y-3 max-h-72 overflow-auto border border-gray-200 rounded-lg bg-white p-3">
-                    <!-- JS will populate rows -->
+                <div class="space-y-2">
+                    <label class="text-xs font-semibold tracking-wide text-gray-600 uppercase">Uploaded Letter</label>
+                    <div id="assignLetterPreviewWrapper" class="flex items-center justify-center border border-dashed border-gray-300 rounded-lg bg-white p-3 min-h-[200px]">
+                        <img id="assignLetterPreview" 
+                             src="" 
+                             alt="Uploaded letter" 
+                             class="max-w-full max-h-[400px] object-contain rounded shadow hidden cursor-pointer hover:opacity-90 transition-opacity" 
+                             @click="largeImageSrc = $el.src; showLargeImage = true"
+                             title="Click to view full size" />
+                        <span id="assignLetterFallback" class="text-sm text-gray-500">No letter uploaded</span>
+                    </div>
+                    <p class="text-xs text-gray-400 text-center">Click image to view full size</p>
                 </div>
             </div>
 
             <div class="flex justify-end gap-3">
                 <x-button type="button" variant="secondary" @click="$dispatch('close-modal','assignManpowerModal')">Cancel</x-button>
-                <x-button id="assignManpowerConfirmBtn" variant="success">Save &amp; Validate</x-button>
+                <x-button id="assignManpowerConfirmBtn" variant="success">Validate</x-button>
             </div>
         </form>
+
+        <!-- Image Lightbox Overlay -->
+        <div x-show="showLargeImage" 
+             x-cloak
+             @click.self="showLargeImage = false"
+             class="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-75 p-4"
+             style="display: none;">
+            <div class="relative max-w-7xl max-h-full">
+                <!-- Close Button -->
+                <button @click="showLargeImage = false" 
+                        class="absolute -top-12 right-0 bg-white bg-opacity-20 hover:bg-opacity-30 backdrop-blur-sm text-white rounded-full p-2 transition-all hover:scale-110 shadow-lg"
+                        aria-label="Close">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+                <!-- Large Image -->
+                <img :src="largeImageSrc" 
+                     alt="Letter full view" 
+                     class="max-w-full max-h-[90vh] object-contain rounded shadow-2xl"
+                     @click.stop />
+            </div>
+        </div>
     </div>
 </x-modal>
     {{-- Button templates (used by JS to create action buttons per-row) --}}

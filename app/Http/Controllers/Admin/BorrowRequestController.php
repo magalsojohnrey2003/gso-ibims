@@ -68,6 +68,7 @@ class BorrowRequestController extends Controller
                     'contact_number' => $r->contact_number,
                     'address' => $r->address,
                     'purpose' => $r->purpose,
+                    'status' => $r->status,
                     'borrowed_at' => $iso($r->borrowed_at),
                     'returned_at' => $iso($r->returned_at),
                     'borrowed_date_display' => $formatDate($r->borrowed_at),
@@ -111,6 +112,7 @@ class BorrowRequestController extends Controller
                 'purpose' => $data['purpose'],
                 'borrowed_at' => $data['borrowed_at'],
                 'returned_at' => $data['returned_at'],
+                'status' => 'pending',
                 'created_by' => $request->user()->id,
             ]);
             $walkin->save();
@@ -134,6 +136,136 @@ class BorrowRequestController extends Controller
             return response()->json([
                 'message' => 'Failed to create walk-in request.',
                 'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function walkInApproveQr(Request $request, $id)
+    {
+        $walkInRequest = WalkInRequest::findOrFail($id);
+
+        if (!$walkInRequest->isPending()) {
+            return view('admin.walk-in.qr-result', [
+                'success' => false,
+                'message' => 'This request has already been processed.',
+                'request' => $walkInRequest,
+            ]);
+        }
+
+        DB::beginTransaction();
+        try {
+            $walkInRequest->status = 'approved';
+            $walkInRequest->save();
+
+            DB::commit();
+
+            return view('admin.walk-in.qr-result', [
+                'success' => true,
+                'message' => 'Walk-in request approved successfully!',
+                'request' => $walkInRequest,
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Failed to approve walk-in request via QR', [
+                'id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return view('admin.walk-in.qr-result', [
+                'success' => false,
+                'message' => 'Failed to approve the request. Please try again.',
+                'request' => $walkInRequest,
+            ]);
+        }
+    }
+
+    public function walkInDeliver(Request $request, $id)
+    {
+        // Eager load items relationship
+        $walkInRequest = WalkInRequest::with('items')->findOrFail($id);
+
+        if (!$walkInRequest->isApproved()) {
+            return response()->json([
+                'message' => 'Only approved requests can be delivered.',
+            ], 422);
+        }
+
+        // Check if there are items to deliver
+        if ($walkInRequest->items->isEmpty()) {
+            return response()->json([
+                'message' => 'No items found in this request.',
+            ], 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            // Create individual BorrowItemInstance records for each physical item instance
+            foreach ($walkInRequest->items as $walkInItem) {
+                // Validate item exists
+                $item = \App\Models\Item::find($walkInItem->item_id);
+                if (!$item) {
+                    throw new \Exception("Item #{$walkInItem->item_id} not found.");
+                }
+
+                // Check if sufficient quantity available
+                if ($item->available_qty < $walkInItem->quantity) {
+                    throw new \Exception("Insufficient quantity for {$item->name}. Available: {$item->available_qty}, Requested: {$walkInItem->quantity}");
+                }
+
+                // Find available ItemInstance records for this item
+                $availableInstances = \App\Models\ItemInstance::where('item_id', $walkInItem->item_id)
+                    ->where('status', 'available')
+                    ->limit($walkInItem->quantity)
+                    ->get();
+
+                // Verify we have enough available instances
+                if ($availableInstances->count() < $walkInItem->quantity) {
+                    throw new \Exception("Not enough available instances for {$item->name}. Found: {$availableInstances->count()}, Needed: {$walkInItem->quantity}");
+                }
+
+                // For each instance, update status and create borrow record
+                foreach ($availableInstances as $instance) {
+                    // Update ItemInstance status to 'borrowed'
+                    $instance->status = 'borrowed';
+                    $instance->save();
+
+                    // Create individual BorrowItemInstance record
+                    BorrowItemInstance::create([
+                        'borrow_request_id' => null, // No associated borrow request
+                        'item_id' => $walkInItem->item_id,
+                        'item_instance_id' => $instance->id,
+                        'borrowed_qty' => 1, // Each record represents 1 physical instance
+                        'walk_in_request_id' => $walkInRequest->id,
+                        'checked_out_at' => now(),
+                        'returned_at' => null, // Not returned yet
+                        'return_condition' => 'pending',
+                    ]);
+                }
+
+                // Deduct from available quantity
+                $item->available_qty = max(0, $item->available_qty - $walkInItem->quantity);
+                $item->save();
+            }
+
+            // Change status to delivered
+            $walkInRequest->status = 'delivered';
+            $walkInRequest->save();
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Walk-in request marked as delivered. Items deducted from inventory.',
+            ], 200);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Failed to deliver walk-in request', [
+                'id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'message' => $e->getMessage(),
             ], 500);
         }
     }

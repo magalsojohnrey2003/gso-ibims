@@ -32,12 +32,13 @@
                             <th class="px-6 py-3 text-center">Borrower</th>
                             <th class="px-6 py-3 text-center">Borrow Date</th>
                             <th class="px-6 py-3 text-center">Return Date</th>
+                            <th class="px-6 py-3 text-center">Status</th>
                             <th class="px-6 py-3 text-center">Action</th>
                         </tr>
                     </thead>
                     <tbody id="walkinTableBody" class="text-center">
                         <tr>
-                            <td colspan="5" class="py-4 text-gray-500">Loading...</td>
+                            <td colspan="6" class="py-4 text-gray-500">Loading...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -126,6 +127,8 @@
     <script>
         window.WALKIN_LIST_ROUTE = "{{ route('admin.walkin.list') }}";
         window.WALKIN_PRINT_ROUTE_TEMPLATE = "{{ route('admin.walkin.print', ['walkInRequest' => '__ID__']) }}";
+        window.WALKIN_DELIVER_ROUTE_TEMPLATE = "{{ route('admin.walkin.deliver', ['id' => '__ID__']) }}";
+        window.CSRF_TOKEN = "{{ csrf_token() }}";
     </script>
 
     @vite(['resources/js/admin-walk-in-index.js'])

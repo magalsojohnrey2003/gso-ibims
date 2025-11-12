@@ -188,17 +188,21 @@ function renderTable() {
         tdBorrower.appendChild(borrowerId);
         tr.appendChild(tdBorrower);
 
+        // Request Type column
+        const tdRequestType = document.createElement('td');
+        tdRequestType.className = 'px-6 py-3 text-center';
+        const requestType = row.request_type || 'regular';
+        const requestTypeBadge = requestType === 'walk-in' 
+            ? cloneTemplate('badge-request-type-walkin', 'Walk-in')
+            : cloneTemplate('badge-request-type-online', 'Online');
+        tdRequestType.appendChild(requestTypeBadge);
+        tr.appendChild(tdRequestType);
+
         const tdStatus = document.createElement('td');
-        tdStatus.className = 'px-6 py-3 text-left';
+        tdStatus.className = 'px-6 py-3 text-center';
         const statusBadge = renderStatusBadge(row.delivery_status, formatDeliveryStatus(row.delivery_status));
         tdStatus.appendChild(statusBadge);
         tr.appendChild(tdStatus);
-
-        const tdCondition = document.createElement('td');
-        tdCondition.className = 'px-6 py-3 text-left';
-        const conditionBadge = renderConditionBadge(row.condition, row.condition_label);
-        tdCondition.appendChild(conditionBadge);
-        tr.appendChild(tdCondition);
 
         const actionsTd = document.createElement('td');
         actionsTd.className = 'px-6 py-3 text-center';
@@ -206,7 +210,9 @@ function renderTable() {
         wrapper.className = 'flex justify-center gap-2';
 
         const deliveryStatus = String(row.delivery_status || '').toLowerCase();
-        if (deliveryStatus === 'dispatched') {
+        // Show "Mark as Collected" button if items haven't been returned yet
+        // Show "Manage" button only after items have been marked as collected (status = 'returned')
+        if (deliveryStatus !== 'returned') {
             const collectTpl = document.getElementById('action-collect-template');
             if (collectTpl) {
                 const btnFrag = collectTpl.content.cloneNode(true);
@@ -237,7 +243,17 @@ function renderTable() {
 
 async function openManageModal(id) {
     try {
-        const res = await fetch(`${SHOW_BASE}/${encodeURIComponent(id)}`, {
+        // Detect if it's a walk-in request (ID starts with 'W')
+        const idStr = String(id);
+        const isWalkIn = idStr.startsWith('W');
+        const actualId = isWalkIn ? idStr.substring(1) : idStr;
+        
+        // Build the correct URL based on request type
+        const url = isWalkIn 
+            ? `${SHOW_BASE}/walk-in/${encodeURIComponent(actualId)}`
+            : `${SHOW_BASE}/${encodeURIComponent(actualId)}`;
+        
+        const res = await fetch(url, {
             headers: { Accept: 'application/json' },
         });
         if (!res.ok) {
@@ -546,7 +562,17 @@ async function collectBorrowRequest(id, button) {
     if (!id) return;
     if (button) button.disabled = true;
     try {
-        const res = await fetch(`${COLLECT_BASE}/${encodeURIComponent(id)}/collect`, {
+        // Detect if it's a walk-in request (ID starts with 'W')
+        const idStr = String(id);
+        const isWalkIn = idStr.startsWith('W');
+        const actualId = isWalkIn ? idStr.substring(1) : idStr;
+        
+        // Build the correct URL based on request type
+        const url = isWalkIn 
+            ? `${COLLECT_BASE}/walk-in/${encodeURIComponent(actualId)}/collect`
+            : `${COLLECT_BASE}/${encodeURIComponent(actualId)}/collect`;
+        
+        const res = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

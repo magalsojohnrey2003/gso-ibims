@@ -4,9 +4,12 @@ namespace App\Services;
 
 use App\Models\Item;
 use App\Models\WalkInRequest;
+use chillerlan\QRCode\QRCode;
+use chillerlan\QRCode\QROptions;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\URL;
 use RuntimeException;
 use setasign\Fpdi\Fpdi;
 use setasign\Fpdi\PdfParser\PdfParser;
@@ -105,6 +108,13 @@ class WalkInRequestPdfService
 
             foreach ($fields as $field => $value) {
                 $this->writeText($pdf, $size, Arr::get($layout, $field), $value);
+            }
+
+            // Generate and render QR code for approval
+            $qrUrl = $this->generateQrApprovalUrl($walkInRequest);
+            if ($qrUrl) {
+                $qrRect = Arr::get($layout, 'form_qr_code') ?? Arr::get($layout, 'form_qr_code_af_image');
+                $this->renderQrCode($pdf, $size, $qrRect, $qrUrl);
             }
 
             $this->renderItems($pdf, $size, $layout, $walkInRequest);
@@ -524,5 +534,76 @@ class WalkInRequestPdfService
             'stdout' => trim($stdout),
             'stderr' => trim($stderr),
         ];
+    }
+
+    /**
+     * Render QR code image in the PDF
+     */
+    private function renderQrCode(Fpdi $pdf, array $pageSize, ?array $rect, string $url): void
+    {
+        if ($rect === null || $url === '') {
+            return;
+        }
+
+        try {
+            $options = new QROptions([
+                'outputType' => QRCode::OUTPUT_IMAGE_PNG,
+                'eccLevel' => QRCode::ECC_H,
+                'scale' => 8,
+                'imageBase64' => false,
+                'addQuietzone' => true,
+            ]);
+
+            $qrCode = new QRCode($options);
+            $binary = $qrCode->render($url);
+
+            if (!is_string($binary) || $binary === '') {
+                Log::warning('Failed to generate QR code binary');
+                return;
+            }
+
+            // Create temporary file
+            $tmp = tempnam(sys_get_temp_dir(), 'qr');
+            if ($tmp === false) {
+                return;
+            }
+
+            try {
+                file_put_contents($tmp, $binary);
+
+                $width = max($rect['urx'] - $rect['llx'], 24);
+                $height = max($rect['ury'] - $rect['lly'], 24);
+                $x = $rect['llx'];
+                $y = $pageSize['height'] - $rect['ury'];
+
+                $pdf->Image($tmp, $x, $y, $width, $height, 'PNG');
+            } finally {
+                @unlink($tmp);
+            }
+        } catch (Throwable $e) {
+            Log::warning('Failed to render QR code in walk-in PDF', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Generate a temporary signed URL for QR code approval
+     */
+    private function generateQrApprovalUrl(WalkInRequest $walkInRequest): ?string
+    {
+        try {
+            return URL::temporarySignedRoute(
+                'admin.walkin.approve.qr',
+                now()->addDays(30),
+                ['id' => $walkInRequest->id]
+            );
+        } catch (Throwable $e) {
+            Log::warning('Failed to generate QR approval URL', [
+                'walk_in_request_id' => $walkInRequest->id,
+                'error' => $e->getMessage(),
+            ]);
+            return null;
+        }
     }
 }
