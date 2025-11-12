@@ -1,4 +1,4 @@
-﻿const CSRF_TOKEN = window.CSRF_TOKEN || document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+const CSRF_TOKEN = window.CSRF_TOKEN || document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 const LIST_ROUTE = window.LIST_ROUTE || '/admin/borrow-requests/list';
 
 let BORROW_CACHE = [];
@@ -29,25 +29,12 @@ function humanizeStatus(status) {
         .join(' ');
 }
 
-function showAlert(type, message) {
-    const tpl = document.getElementById(`alert-${type}-template`);
-    const container = document.getElementById('adminAlertContainer');
-    if (!tpl || !container) return;
-    const frag = tpl.content.cloneNode(true);
-    const span = frag.querySelector('[data-alert-message]');
-    if (span) span.textContent = message;
-    const node = container.appendChild(frag);
-    setTimeout(() => {
-        if (container.contains(node)) node.remove();
-    }, 5000);
-}
-
 function showError(message) {
-    showAlert('error', message);
+    window.showToast('error', message);
 }
 
 function showSuccess(message) {
-    showAlert('success', message);
+    window.showToast('success', message);
 }
 
 function escapeHtml(unsafe) {
@@ -185,7 +172,7 @@ function renderRejectionReasonList() {
             </label>
             <div class="flex items-center gap-2 shrink-0">
                 <button type="button" class="text-sm text-indigo-600 hover:text-indigo-700" data-action="view" data-reason-id="${escapeHtml(String(reason.id))}">View</button>
-                <button type="button" class="text-sm text-red-500 hover:text-red-600" data-action="remove" data-reason-id="${escapeHtml(String(reason.id))}">✕</button>
+                <button type="button" class="text-sm text-red-500 hover:text-red-600" data-action="remove" data-reason-id="${escapeHtml(String(reason.id))}">?</button>
             </div>
         `;
         container.appendChild(wrapper);
@@ -763,7 +750,7 @@ function openAssignManpowerModal(id) {
                     const li = document.createElement('li');
                     const itemName = item.item?.name || 'Unknown Item';
                     const quantity = item.quantity || 0;
-                    li.textContent = `${itemName} — Qty: ${quantity}`;
+                    li.textContent = `${itemName} � Qty: ${quantity}`;
                     ul.appendChild(li);
                 });
             } else {
@@ -862,15 +849,15 @@ function fillRequestModal(req) {
     const setText = (id, value) => {
         const el = document.getElementById(id);
         if (!el) return;
-        el.textContent = value ?? '—';
+        el.textContent = value ?? '�';
     };
 
     const fullName = [req.user?.first_name, req.user?.last_name].filter(Boolean).join(' ').trim() || 'Unknown';
     setText('requestTitle', 'Borrow Request Details');
     setText('requestShortStatus', `Borrow Request #${req.id}`);
     setText('borrowerName', fullName);
-    setText('manpowerCount', req.manpower_count ?? '—');
-    setText('requestLocation', req.location ?? '—');
+    setText('manpowerCount', req.manpower_count ?? '�');
+    setText('requestLocation', req.location ?? '�');
     setText('borrowDate', formatDate(req.borrow_date));
     setText('returnDate', formatDate(req.return_date));
 

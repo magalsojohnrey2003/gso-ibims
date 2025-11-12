@@ -16,7 +16,7 @@
             </span>
         @endif
     </td>
-    <td class="px-6 py-4">
+    <td class="px-6 py-4">z`
         <div class="flex items-center justify-center gap-3">
             <x-button
                 variant="primary"

@@ -80,7 +80,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   nextBtn?.addEventListener('click', () => {
     const v = validateStep1();
-    if (!v.ok) { alert(v.message); return; }
+    if (!v.ok) { 
+      window.showToast('warning', v.message); 
+      return; 
+    }
     PENDING_PAYLOAD = v.data;
     // switch accordion to step 2
     const triggers = document.querySelectorAll('[data-accordion-trigger]');
@@ -104,7 +107,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   saveBtn?.addEventListener('click', () => {
     const v = validateStep1();
-    if (!v.ok) { alert(v.message); return; }
+    if (!v.ok) { 
+      window.showToast('warning', v.message); 
+      return; 
+    }
     PENDING_PAYLOAD = v.data;
     openModal('userManpowerConfirmModal');
   });
@@ -123,7 +129,9 @@ document.addEventListener('DOMContentLoaded', () => {
       closeModal('userManpowerConfirmModal');
       closeModal('userManpowerCreateModal');
       await fetchRows();
-    } catch(e) { alert(e.message || 'Failed to submit'); }
+    } catch(e) { 
+      window.showToast('error', e.message || 'Failed to submit manpower request.'); 
+    }
   });
 
   search?.addEventListener('input', render);

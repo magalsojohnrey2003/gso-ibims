@@ -269,7 +269,7 @@ class ReturnItemsController extends Controller
                 $instance->return_condition = 'good';
                 $instance->save();
 
-                $instance->loadMissing(['item', 'instance']);
+                // Sync inventory based on condition change
                 $this->syncInventoryForConditionChange($instance, $previousCondition, 'good');
             }
 
@@ -301,9 +301,15 @@ class ReturnItemsController extends Controller
             ]);
         } catch (\Throwable $e) {
             DB::rollBack();
+            \Log::error('Failed to mark walk-in items as collected', [
+                'walk_in_id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             return response()->json([
                 'message' => 'Failed to mark walk-in items as collected.',
                 'error' => $e->getMessage(),
+                'debug' => config('app.debug') ? $e->getTraceAsString() : null,
             ], 500);
         }
     }

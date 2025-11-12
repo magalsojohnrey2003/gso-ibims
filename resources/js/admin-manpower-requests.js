@@ -91,7 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const subj = document.getElementById('rejectSubject').value.trim();
     const det = document.getElementById('rejectDetail').value.trim();
     if (!subj || !det) {
-      alert('Please provide subject and detail.');
+      window.showToast('warning', 'Please provide subject and detail.');
       return;
     }
     updateStatus(REJECT_TARGET_ID, 'rejected', {rejection_reason_subject: subj, rejection_reason_detail: det});
@@ -108,7 +108,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed');
       await fetchRows();
-    } catch (e) { console.error(e); alert(e.message || 'Status update failed'); }
+    } catch (e) { 
+      console.error(e); 
+      window.showToast('error', e.message || 'Status update failed'); 
+    }
   };
 
   search?.addEventListener('input', () => { fetchRows(); });

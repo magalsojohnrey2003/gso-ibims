@@ -141,21 +141,8 @@ async function loadReturnItems() {
         renderTable();
     } catch (err) {
         console.error('Failed to load return items', err);
-        showAlert('error', 'Failed to load return items. Please refresh the page.');
+        window.showToast('Failed to load return items. Please refresh the page.', 'error');
     }
-}
-
-function showAlert(type, message) {
-    const tpl = document.getElementById(type === 'success' ? 'alert-success-template' : 'alert-error-template');
-    const container = document.getElementById('alertContainer');
-    if (!tpl || !container) return;
-    const frag = tpl.content.cloneNode(true);
-    const span = frag.querySelector('[data-alert-message]');
-    if (span) span.textContent = message;
-    const node = container.appendChild(frag);
-    setTimeout(() => {
-        if (container.contains(node)) node.remove();
-    }, 4000);
 }
 
 function renderTable() {
@@ -264,7 +251,7 @@ async function openManageModal(id) {
         window.dispatchEvent(new CustomEvent('open-modal', { detail: 'manageReturnItemsModal' }));
     } catch (error) {
         console.error('Failed to load return details', error);
-        showAlert('error', 'Failed to load return details. Please try again.');
+        window.showToast('Failed to load return details. Please try again.', 'error');
     }
 }
 
@@ -586,12 +573,12 @@ async function collectBorrowRequest(id, button) {
         }
 
         const data = await res.json().catch(() => ({}));
-        showAlert('success', data.message || 'Items marked as returned successfully.');
+        window.showToast(data.message || 'Items marked as returned successfully.', 'success');
         await loadReturnItems(false);
         window.dispatchEvent(new CustomEvent('return-items:collected', { detail: { borrowRequestId: id, response: data } }));
     } catch (error) {
         console.error('Failed to mark as collected', error);
-        showAlert('error', error.message || 'Failed to mark items as collected. Please try again.');
+        window.showToast(error.message || 'Failed to mark items as collected. Please try again.', 'error');
     } finally {
         if (button) button.disabled = false;
     }
@@ -616,7 +603,7 @@ async function bulkUpdateInstances() {
         const results = await Promise.all(instanceIds.map((id) => updateInstance(id, condition, updateOptions)));
         const finalResult = results.length ? results[results.length - 1] : null;
         
-        showAlert('success', `Condition updated successfully for ${instanceIds.length} item(s).`);
+        window.showToast(`Condition updated successfully for ${instanceIds.length} item(s).`, 'success');
         
         // Clear selection
         SELECTED_INSTANCES.clear();
@@ -629,7 +616,7 @@ async function bulkUpdateInstances() {
         }
     } catch (error) {
         console.error('Bulk update failed', error);
-        showAlert('error', 'Failed to update condition for some items. Please try again.');
+        window.showToast('Failed to update condition for some items. Please try again.', 'error');
     } finally {
         bulkUpdateBtn.disabled = false;
         bulkUpdateBtn.textContent = buttonText;
@@ -661,7 +648,7 @@ async function updateInstance(instanceId, condition, options = {}) {
         }
         const data = await res.json().catch(() => ({}));
         if (showToast) {
-            showAlert('success', data.message || 'Item condition updated successfully.');
+            window.showToast(data.message || 'Item condition updated successfully.', 'success');
         }
 
         MANAGE_ITEMS = MANAGE_ITEMS.map((item) => {
@@ -691,7 +678,7 @@ async function updateInstance(instanceId, condition, options = {}) {
     } catch (error) {
         console.error('Failed to update instance condition', error);
         if (showToast) {
-            showAlert('error', error.message || 'Failed to update item condition. Please try again.');
+            window.showToast(error.message || 'Failed to update item condition. Please try again.', 'error');
         }
         throw error;
     }

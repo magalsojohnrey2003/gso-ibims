@@ -64,23 +64,8 @@ function getBadgeHtml(status) {
     return `<span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-full ${color}"><i class="fas ${icon} text-xs"></i><span>${escapeHtml(label)}</span></span>`;
 }
 
-function showAlert(type, msg) {
-    const tpl = document.getElementById(`alert-${type}-template`);
-    const container = document.getElementById('userAlertContainer');
-    if (!tpl || !container) {
-        console[type === 'error' ? 'error' : 'log'](msg);
-        return;
-    }
-    const frag = tpl.content.cloneNode(true);
-    const span = frag.querySelector('[data-alert-message]');
-    if (span) span.textContent = msg;
-    const appended = container.appendChild(frag);
-    setTimeout(() => {
-        if (container.contains(appended)) appended.remove();
-    }, 5000);
-}
-function showError(m){ showAlert('error', m); }
-function showSuccess(m){ showAlert('success', m); }
+function showError(m){ window.showToast('error', m); }
+function showSuccess(m){ window.showToast('success', m); }
 
 // ---------- fetch ----------
 export async function loadMyBorrowedItems() {

@@ -1,4 +1,5 @@
 import './bootstrap';
+import './toast';
 import './item-filepond';
 import './echo';       
 import './notifications';

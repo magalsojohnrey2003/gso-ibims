@@ -129,7 +129,7 @@
     submitBtn.addEventListener('click', async () => {
       const items = collectSelected();
       if (items.length === 0) {
-        alert('Please select at least one item (quantity > 0).');
+        window.showToast('warning', 'Please select at least one item (quantity > 0).');
         return;
       }
 
@@ -158,14 +158,14 @@
 
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          alert(data?.message || 'Failed to submit walk-in request.');
+          window.showToast('error', data?.message || 'Failed to submit walk-in request.');
           return;
         }
-        alert(data?.message || 'Walk-in request submitted.');
+        window.showToast('success', data?.message || 'Walk-in request submitted successfully.');
         // Redirect back to index to show in table
         window.location.href = '/admin/walk-in';
       } catch (e) {
-        alert('Network error. Please try again.');
+        window.showToast('error', 'Network error. Please try again.');
       }
     });
   }
@@ -189,12 +189,137 @@
     });
   }
 
+  function getTodayDateString() {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  function initDateInputs() {
+    const borrowedDate = document.getElementById('borrowed_date');
+    const returnedDate = document.getElementById('returned_date');
+    const today = getTodayDateString();
+    
+    if (borrowedDate) {
+      borrowedDate.setAttribute('min', today);
+      borrowedDate.addEventListener('change', () => {
+        // Update return date min to borrowed date
+        if (returnedDate && borrowedDate.value) {
+          returnedDate.setAttribute('min', borrowedDate.value);
+          // Clear return date if it's before borrowed date
+          if (returnedDate.value && returnedDate.value < borrowedDate.value) {
+            returnedDate.value = '';
+          }
+        }
+        checkAvailability();
+      });
+    }
+    
+    if (returnedDate) {
+      returnedDate.setAttribute('min', today);
+      returnedDate.addEventListener('change', checkAvailability);
+    }
+  }
+
+  let blockedDates = [];
+  let availabilityCheckTimeout = null;
+
+  function checkAvailability() {
+    const borrowedDate = document.getElementById('borrowed_date');
+    const returnedDate = document.getElementById('returned_date');
+    
+    if (!borrowedDate?.value || !returnedDate?.value) {
+      clearAvailabilityWarning();
+      return;
+    }
+
+    // Debounce availability check
+    clearTimeout(availabilityCheckTimeout);
+    availabilityCheckTimeout = setTimeout(async () => {
+      const items = collectSelected();
+      if (items.length === 0) {
+        clearAvailabilityWarning();
+        return;
+      }
+
+      try {
+        const itemsJson = encodeURIComponent(JSON.stringify(items));
+        const res = await fetch(`/user/availability?items=${itemsJson}`);
+        if (!res.ok) throw new Error('Failed to fetch availability');
+        
+        blockedDates = await res.json();
+        validateDateRange(borrowedDate.value, returnedDate.value);
+      } catch (e) {
+        console.error('Availability check failed:', e);
+        clearAvailabilityWarning();
+      }
+    }, 500);
+  }
+
+  function validateDateRange(startDate, endDate) {
+    const dates = getDatesBetween(startDate, endDate);
+    const hasBlockedDate = dates.some(date => blockedDates.includes(date));
+    
+    if (hasBlockedDate) {
+      showAvailabilityWarning('Selected date range includes dates when some items are not available. Please choose another range.');
+    } else {
+      clearAvailabilityWarning();
+    }
+  }
+
+  function getDatesBetween(start, end) {
+    const dates = [];
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    
+    for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      dates.push(`${year}-${month}-${day}`);
+    }
+    
+    return dates;
+  }
+
+  function showAvailabilityWarning(message) {
+    let warning = document.getElementById('availabilityWarning');
+    if (!warning) {
+      const borrowedDate = document.getElementById('borrowed_date');
+      if (!borrowedDate || !borrowedDate.parentElement || !borrowedDate.parentElement.parentElement) return;
+      
+      warning = document.createElement('div');
+      warning.id = 'availabilityWarning';
+      warning.className = 'rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 mt-2';
+      warning.innerHTML = `<strong>⚠ Availability Issue:</strong> <span id="availabilityWarningText"></span>`;
+      
+      // Insert after the date grid
+      borrowedDate.parentElement.parentElement.parentElement.insertBefore(
+        warning,
+        borrowedDate.parentElement.parentElement.nextSibling
+      );
+    }
+    
+    const textEl = document.getElementById('availabilityWarningText');
+    if (textEl) textEl.textContent = message;
+    warning.classList.remove('hidden');
+  }
+
+  function clearAvailabilityWarning() {
+    const warning = document.getElementById('availabilityWarning');
+    if (warning) warning.classList.add('hidden');
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     attachQtyHandlers();
     attachSearchHandler();
     attachSubmitHandler();
     attachClearHandler();
     enforceDigitsOnly(document.getElementById('contact_number'));
+    initDateInputs();
+    
     ['borrowed_time', 'returned_time'].forEach((id) => {
       const el = document.getElementById(id);
       if (el) {
@@ -202,6 +327,14 @@
         el.addEventListener('change', updateUsagePreview);
       }
     });
+    
+    // Check availability when items change
+    document.addEventListener('input', (e) => {
+      if (e.target.matches('[data-qty-input]')) {
+        checkAvailability();
+      }
+    });
+    
     updateUsagePreview();
     updateSelectedCount();
   });

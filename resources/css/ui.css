@@ -209,9 +209,6 @@ aside#sidebar {
 /* Small print / muted */
 .muted { color: var(--muted); }
 
-/* Prevent gradients or heavy backgrounds by clearing image backgrounds used by previous toast code */
-#toast { background: rgba(20,20,20,0.85); color: #fff; }
-
 /* Note: Input styling now handled by Tailwind dark: utilities in components */
 
 /* Fix for redundant scrollbars - ensure main content containers don't create extra scrollbars */

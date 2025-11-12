@@ -2,16 +2,7 @@
 <x-app-layout>
     <div class="p-6">
 
-        {{-- Alerts --}}
-        @if(session('success'))
-            <x-alert type="success" :message="session('success')" />
-        @endif
-        @if(session('error'))
-            <x-alert type="error" :message="session('error')" />
-        @endif
-        @if($errors->any())
-            <x-alert type="error" />
-        @endif
+        {{-- Alerts removed - now handled by global toast system in app.blade.php --}}
 
         {{-- Search Bar with Filters & Borrow List Icon --}}
         <div class="w-full mb-6">

@@ -124,6 +124,57 @@
         </div>
     </x-modal>
 
+    {{-- Deliver Confirmation Modal --}}
+    <x-modal name="walkinDeliverConfirmModal" maxWidth="md">
+        <div class="p-6">
+            <div class="flex items-center gap-3">
+                <i class="fas fa-truck text-purple-600 text-2xl"></i>
+                <h3 class="text-lg font-semibold text-gray-900">Deliver Walk-in Request</h3>
+            </div>
+
+            <div class="mt-4 space-y-3">
+                <p class="text-sm text-gray-600">
+                    Are you sure you want to mark this walk-in request as delivered?
+                </p>
+                
+                <div class="bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
+                    <div class="flex items-start gap-2">
+                        <i class="fas fa-user text-gray-400 mt-0.5"></i>
+                        <div>
+                            <span class="text-gray-500">Borrower:</span>
+                            <span id="confirmBorrowerName" class="font-medium text-gray-900 ml-1">—</span>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <i class="fas fa-building text-gray-400 mt-0.5"></i>
+                        <div>
+                            <span class="text-gray-500">Office:</span>
+                            <span id="confirmOfficeAgency" class="font-medium text-gray-900 ml-1">—</span>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <i class="fas fa-box-open text-gray-400 mt-0.5"></i>
+                        <div class="w-full">
+                            <span class="text-gray-500">Items:</span>
+                            <ul id="confirmItemsList" class="list-disc list-inside text-gray-700 mt-1 ml-1">
+                                <li>Loading...</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-4 border-t border-gray-100 mt-5">
+                <x-button variant="secondary" class="px-4 py-2 text-sm" @click="$dispatch('close-modal', 'walkinDeliverConfirmModal')">
+                    Cancel
+                </x-button>
+                <x-button id="walkinDeliverConfirmBtn" variant="primary" class="px-4 py-2 text-sm">
+                    <i class="fas fa-check-circle mr-1"></i> Confirm Delivery
+                </x-button>
+            </div>
+        </div>
+    </x-modal>
+
     <script>
         window.WALKIN_LIST_ROUTE = "{{ route('admin.walkin.list') }}";
         window.WALKIN_PRINT_ROUTE_TEMPLATE = "{{ route('admin.walkin.print', ['walkInRequest' => '__ID__']) }}";

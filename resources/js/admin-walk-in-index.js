@@ -65,7 +65,7 @@
     const badges = {
       pending: '<span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800"><i class="fas fa-clock"></i> Pending</span>',
       approved: '<span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800"><i class="fas fa-check-circle"></i> Approved</span>',
-      delivered: '<span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800"><i class="fas fa-box-check"></i> Delivered</span>',
+      delivered: '<span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800"><i class="fas fa-check-circle"></i> Delivered</span>',
     };
     return badges[status] || '<span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700"><i class="fas fa-question-circle"></i> Unknown</span>';
   };
@@ -98,7 +98,7 @@
 
     if (status === 'delivered') {
       buttons.push(`
-        <button type="button" data-action="view" class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500 text-white shadow transition hover:bg-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
+        <button type="button" data-action="view" class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white shadow transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
           <span class="sr-only">View</span>
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -210,33 +210,61 @@
     }
   };
 
-  const handleDeliver = async (row) => {
-    // Build items list for confirmation
-    const itemsList = (row.items || [])
-      .map(item => `  • ${item.name || `Item #${item.item_id}`} (Qty: ${item.quantity})`)
-      .join('\n');
+  const handleDeliver = (row) => {
+    // Populate confirmation modal
+    const borrowerNameEl = document.getElementById('confirmBorrowerName');
+    const officeAgencyEl = document.getElementById('confirmOfficeAgency');
+    const itemsListEl = document.getElementById('confirmItemsList');
 
-    const confirmMessage = `Deliver Walk-in Request #${row.id}?\n\n` +
-      `Borrower: ${row.borrower_name || 'N/A'}\n` +
-      `Office: ${row.office_agency || 'N/A'}\n\n` +
-      `Items to deliver:\n${itemsList || '  • No items'}\n\n` +
-      `This will:\n` +
-      `  • Mark the request as "Delivered"\n` +
-      `  • Deduct items from inventory\n` +
-      `  • Create borrow instances for return tracking\n\n` +
-      `Continue?`;
-
-    if (!confirm(confirmMessage)) {
-      return;
+    if (borrowerNameEl) {
+      borrowerNameEl.textContent = row.borrower_name || 'N/A';
     }
+    if (officeAgencyEl) {
+      officeAgencyEl.textContent = row.office_agency || 'N/A';
+    }
+    if (itemsListEl) {
+      itemsListEl.innerHTML = '';
+      if (row.items && row.items.length > 0) {
+        row.items.forEach(item => {
+          const li = document.createElement('li');
+          li.textContent = `${item.name || `Item #${item.item_id}`} (Qty: ${item.quantity})`;
+          itemsListEl.appendChild(li);
+        });
+      } else {
+        const li = document.createElement('li');
+        li.textContent = 'No items';
+        itemsListEl.appendChild(li);
+      }
+    }
+
+    // Store the row ID for confirmation
+    const confirmBtn = document.getElementById('walkinDeliverConfirmBtn');
+    if (confirmBtn) {
+      confirmBtn.dataset.requestId = row.id;
+    }
+
+    // Open the modal
+    window.dispatchEvent(new CustomEvent('open-modal', { detail: 'walkinDeliverConfirmModal' }));
+  };
+
+  const confirmDeliver = async () => {
+    const confirmBtn = document.getElementById('walkinDeliverConfirmBtn');
+    if (!confirmBtn) return;
+
+    const id = confirmBtn.dataset.requestId;
+    if (!id) return;
 
     const template = window.WALKIN_DELIVER_ROUTE_TEMPLATE;
     if (!template || typeof template !== 'string' || !template.includes('__ID__')) {
-      alert('Deliver route not configured properly.');
+      window.showToast('error', 'Deliver route not configured properly.');
       return;
     }
 
-    const url = template.replace('__ID__', encodeURIComponent(row.id));
+    const url = template.replace('__ID__', encodeURIComponent(id));
+
+    confirmBtn.disabled = true;
+    const originalText = confirmBtn.innerHTML;
+    confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Processing...';
 
     try {
       const res = await fetch(url, {
@@ -251,14 +279,19 @@
       const data = await res.json();
 
       if (res.ok) {
-        alert(data.message || 'Walk-in request delivered successfully!');
+        // Close modal
+        window.dispatchEvent(new CustomEvent('close-modal', { detail: 'walkinDeliverConfirmModal' }));
+        window.showToast('success', data.message || 'Walk-in request delivered successfully!');
         fetchRows(); // Refresh the table
       } else {
-        alert(data.message || 'Failed to deliver the request.');
+        window.showToast('error', data.message || 'Failed to deliver the request.');
       }
     } catch (e) {
       console.error('Deliver error:', e);
-      alert('An error occurred while delivering the request.');
+      window.showToast('error', 'An error occurred while delivering the request.');
+    } finally {
+      confirmBtn.disabled = false;
+      confirmBtn.innerHTML = originalText;
     }
   };
 
@@ -315,5 +348,11 @@
   document.addEventListener('DOMContentLoaded', () => {
     fetchRows();
     bindActions();
+
+    // Bind confirm deliver button
+    const confirmBtn = document.getElementById('walkinDeliverConfirmBtn');
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', confirmDeliver);
+    }
   });
 })();

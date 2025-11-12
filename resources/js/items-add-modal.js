@@ -1840,7 +1840,7 @@ function initCategoryOfficeManagement() {
     const viewBtn = target.closest('[data-view-office]');
     if (viewBtn) {
       const codeAttr = viewBtn.getAttribute('data-code') || '';
-      window.alert(`View items for office: ${codeAttr}\n(Implement server-side view to display associated items.)`);
+      window.showToast('info', `View items for office: ${codeAttr}`);
     }
   });
 

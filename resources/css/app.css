@@ -414,32 +414,6 @@ nav, aside, main { color: inherit; }
 .hoverable:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(0,0,0,0.06); }
 
 /* -----------------------------------------------------------------------
-   Toast (solid colour, restrained)
-   ----------------------------------------------------------------------- */
-#toast {
-  position: fixed;
-  z-index: 9999;
-  right: 20px;
-  top: 16px;
-  max-width: 420px;
-  min-width: 160px;
-  padding: 10px 14px;
-  border-radius: 8px;
-  background-color: var(--primary); /* solid, not loud */
-  color: #fff;
-  box-shadow: 0 8px 20px rgba(2,6,23,0.12);
-  transition: opacity 180ms ease, transform 180ms ease;
-  opacity: 0;
-  transform: translateY(-6px);
-  pointer-events: none;
-}
-#toast.show {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
-}
-
-/* -----------------------------------------------------------------------
    Dropdown fade helper (tiny fade/slide) — toggle `.show` in JS when opening
    ----------------------------------------------------------------------- */
 .dropdown-fade {
@@ -484,7 +458,18 @@ nav, aside, main { color: inherit; }
   aside { background: rgba(255,255,255,0.02); }
 }
 
+/* -----------------------------------------------------------------------
+   Toast Shake Animation
+   ----------------------------------------------------------------------- */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-10px); }
+  20%, 40%, 60%, 80% { transform: translateX(10px); }
+}
 
+.shake {
+  animation: shake 0.5s ease-in-out;
+}
 
 /* -----------------------------------------------------------------------
    End of file

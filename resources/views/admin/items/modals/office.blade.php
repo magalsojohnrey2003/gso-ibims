@@ -37,7 +37,6 @@
           </tr>
         </thead>
         <tbody id="office-list-body" class="divide-y divide-gray-100 bg-white">
-          <!-- Filled by JS -->
         </tbody>
         </table>
       </div>
