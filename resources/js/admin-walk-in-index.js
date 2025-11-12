@@ -178,14 +178,26 @@
     if (!tbody) return;
 
     tbody.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-action="view"]');
+      const btn = e.target.closest('[data-action]');
       if (!btn) return;
+      const action = btn.dataset.action;
       const tr = btn.closest('tr');
       const index = tr?.dataset.index ? Number.parseInt(tr.dataset.index, 10) : -1;
       if (Number.isNaN(index) || index < 0) return;
       const row = (window.__WALKIN_CACHE__ || [])[index];
-      if (row) {
+      if (!row) return;
+
+      if (action === 'view') {
         openModal(row);
+        return;
+      }
+
+      if (action === 'print') {
+        const template = window.WALKIN_PRINT_ROUTE_TEMPLATE;
+        if (typeof template === 'string' && template.includes('__ID__')) {
+          const url = template.replace('__ID__', encodeURIComponent(row.id));
+          window.open(url, '_blank', 'noopener');
+        }
       }
     });
 

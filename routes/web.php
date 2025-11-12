@@ -141,6 +141,7 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
     Route::get('walk-in', [BorrowRequestController::class, 'walkInIndex'])->name('admin.walkin.index');
     Route::get('walk-in/create', [BorrowRequestController::class, 'walkInCreate'])->name('admin.walkin.create');
     Route::get('walk-in/list', [BorrowRequestController::class, 'walkInList'])->name('admin.walkin.list');
+    Route::get('walk-in/print/{walkInRequest}', [BorrowRequestController::class, 'walkInPrint'])->name('admin.walkin.print');
     Route::post('walk-in/store', [BorrowRequestController::class, 'walkInStore'])->name('admin.walkin.store');
 
         // Manpower Requests (Admin)

@@ -7,3 +7,6 @@
 - [x] Remove Office/Agency column and update action buttons on walk-in list
 - [x] Ensure walk-in item table rows are vertically centered and remove redundant quantity hint
 - [x] Restrict walk-in contact number input to digits only
+- [x] Add walk-in print route and controller method
+- [x] Implement WalkInRequestPdfService and template filling logic
+- [x] Wire frontend print button to call new route

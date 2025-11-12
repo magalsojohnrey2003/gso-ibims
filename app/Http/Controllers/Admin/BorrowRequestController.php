@@ -11,9 +11,11 @@ use App\Events\BorrowRequestStatusUpdated;
 use App\Notifications\RequestNotification;
 use App\Models\BorrowItemInstance;
 use App\Models\BorrowRequestItem;
+use App\Models\WalkInRequest;
 use App\Services\BorrowRequestFormPdf;
 use App\Models\RejectionReason;
 use App\Support\StatusRank;
+use App\Services\WalkInRequestPdfService;
 
 class BorrowRequestController extends Controller
 {
@@ -134,6 +136,24 @@ class BorrowRequestController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    public function walkInPrint(WalkInRequest $walkInRequest, WalkInRequestPdfService $pdfService)
+    {
+        $walkInRequest->load(['items.item']);
+
+        $result = $pdfService->render($walkInRequest);
+        if (! $result['success']) {
+            return response()->json([
+                'message' => $result['message'] ?? 'Failed to generate walk-in request PDF.',
+            ], 500);
+        }
+
+        return response()->streamDownload(function () use ($result) {
+            echo $result['content'];
+        }, $result['filename'], [
+            'Content-Type' => $result['mime'],
+        ]);
     }
     public function index()
     {

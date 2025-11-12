@@ -125,6 +125,7 @@
 
     <script>
         window.WALKIN_LIST_ROUTE = "{{ route('admin.walkin.list') }}";
+        window.WALKIN_PRINT_ROUTE_TEMPLATE = "{{ route('admin.walkin.print', ['walkInRequest' => '__ID__']) }}";
     </script>
 
     @vite(['resources/js/admin-walk-in-index.js'])
