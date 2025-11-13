@@ -312,7 +312,7 @@ window.handleCalendarClick = function(dateStr, el) {
 
         const daysCount = daysDiffInclusive(borrowPick, dateStr);
         if (daysCount > MAX_BORROW_DAYS) {
-            alert(`Return date must be within ${MAX_BORROW_DAYS} days from borrow date (inclusive).`);
+            window.showToast('warning', `Return date must be within ${MAX_BORROW_DAYS} days from borrow date (inclusive).`);
             return;
         }
 
@@ -320,11 +320,11 @@ window.handleCalendarClick = function(dateStr, el) {
         for (let d of between) {
             const today = new Date(); today.setHours(0, 0, 0, 0);
             if (parseYMD(d) < today) {
-                alert('Selected range includes a past date. Please choose valid dates.');
+                window.showToast('warning', 'Selected range includes a past date. Please choose valid dates.');
                 return;
             }
             if (blockedBorrowDates.includes(d)) {
-                alert('Selected range includes blocked dates. Please choose another range.');
+                window.showToast('warning', 'Selected range includes blocked dates. Please choose another range.');
                 return;
             }
         }

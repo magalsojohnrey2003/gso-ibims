@@ -372,8 +372,8 @@ public function store(Request $request, PropertyNumberService $numbers)
         'property_numbers_components.*.gla' => 'nullable|digits_between:1,4',
         'property_numbers_components.*.serial' => ['nullable', 'regex:/^(?=.*\d)[A-Za-z0-9]{1,5}$/i'],
         'property_numbers_components.*.office' => 'nullable|string|max:4',
-        'property_numbers_components.*.serial_no' => ['nullable', 'string', 'max:4', 'regex:/^[A-Za-z0-9]*$/'],
-        'property_numbers_components.*.model_no' => ['nullable', 'string', 'max:15', 'regex:/^[A-Za-z0-9]*$/'],
+    'property_numbers_components.*.serial_no' => ['nullable', 'string', 'max:100', 'regex:/^[A-Za-z0-9]*$/'],
+    'property_numbers_components.*.model_no' => ['nullable', 'string', 'max:100', 'regex:/^[A-Za-z0-9]*$/'],
     ]);
 
     $categoryId = (string) ($data['category'] ?? '');
@@ -415,9 +415,9 @@ public function store(Request $request, PropertyNumberService $numbers)
                 $serial = isset($row['serial']) ? trim((string) $row['serial']) : null;
                 $office = isset($row['office']) ? trim((string) $row['office']) : null;
                 $serialMeta = isset($row['serial_no']) ? strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) $row['serial_no'])) : '';
-                $serialMeta = $serialMeta !== '' ? substr($serialMeta, 0, 4) : '';
+                $serialMeta = $serialMeta !== '' ? substr($serialMeta, 0, 100) : '';
                 $modelMeta = isset($row['model_no']) ? strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) $row['model_no'])) : '';
-                $modelMeta = $modelMeta !== '' ? substr($modelMeta, 0, 15) : '';
+                $modelMeta = $modelMeta !== '' ? substr($modelMeta, 0, 100) : '';
 
                 // Basic server-side sanity check (rows are expected to be complete per requirements)
                 if (empty($year) || empty($cat) || empty($gla) || empty($serial) || empty($office)) {
@@ -1113,5 +1113,34 @@ public function update(Request $request, Item $item)
         }
     }
 
+    public function instanceHistory(ItemInstance $instance): JsonResponse
+    {
+        try {
+            $events = \App\Models\ItemInstanceEvent::where('item_instance_id', $instance->id)
+                ->orderByDesc('performed_at')
+                ->orderByDesc('created_at')
+                ->get()
+                ->map(function ($e) {
+                    return [
+                        'id' => $e->id,
+                        'action' => strtoupper((string) ($e->action ?? 'INFO')),
+                        'performed_at' => optional($e->performed_at ?? $e->created_at)->toDateTimeString(),
+                        'actor' => $e->actor_name ?? optional($e->actor)->name ?? null,
+                        'payload' => is_array($e->payload) ? $e->payload : (array) ($e->payload ?? []),
+                    ];
+                });
+
+            return response()->json([
+                'property_number' => $instance->property_number,
+                'serial_no' => $instance->serial_no,
+                'model_no' => $instance->model_no,
+                'events' => $events,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json(['message' => 'Failed to load history', 'error' => $e->getMessage()], 500);
+        }
+    }
+
 
 }
+

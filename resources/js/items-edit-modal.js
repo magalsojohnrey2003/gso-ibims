@@ -601,6 +601,22 @@ document.addEventListener('DOMContentLoaded', () => {
     syncOfficeDropdowns(form);
     // Handle trash button clicks
     handleTrashButtonClick(form);
+
+    // Wire up "Generate Model No." input in edit modal
+    const panel = form.querySelector('[data-edit-serial-panel]');
+    const generator = panel ? panel.querySelector('[data-model-generator]') : null;
+    const applyModelToAll = () => {
+      if (!panel || !generator) return;
+      const val = (generator.value || '').toUpperCase();
+      panel.querySelectorAll('.instance-part-model-no,[data-serial-model-input="model_no"]').forEach((input) => {
+        if (input instanceof HTMLInputElement && !input.disabled) {
+          input.value = val;
+        }
+      });
+    };
+    if (generator) {
+      generator.addEventListener('input', applyModelToAll);
+    }
   });
   
   // Handle close button clicks to restore original rows

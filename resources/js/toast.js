@@ -1,82 +1,141 @@
-﻿const DEFAULT_DURATION = 4000;
-const ICONS = {
-    success: '✅',
-    error: '❌',
-    warning: '⚠️',
-    info: '\u2139',
-};
+﻿// Toast notification system using Alpine.js
+// Global Alpine component for toast notifications with progress bar and shake animation
 
-function ensureContainer() {
-    let container = document.getElementById('toast-root');
-    if (!container) {
-        container = document.createElement('div');
-        container.id = 'toast-root';
-        container.className = 'pointer-events-none fixed top-6 right-6 z-[9999] flex flex-col gap-3';
-        document.body.appendChild(container);
-    }
-    return container;
+// Alpine.js Toast Component
+if (typeof window !== 'undefined') {
+    document.addEventListener('alpine:init', () => {
+        window.Alpine.data('globalToast', () => ({
+            show: false,
+            message: '',
+            title: '',
+            type: 'success',
+            timer: null,
+            shakeAnimation: false,
+
+            init() {
+                // Listen for global toast events
+                window.addEventListener('toast', (event) => {
+                    const { message, type, title } = event.detail || {};
+                    this.showToast(message, type, title);
+                });
+            },
+
+            showToast(message, type = 'success', title = null) {
+                // Clear any existing timer
+                if (this.timer) {
+                    clearTimeout(this.timer);
+                    this.timer = null;
+                }
+
+                // Reset shake animation
+                this.shakeAnimation = false;
+
+                // Set message and type
+                const safeType = ['success', 'error', 'warning', 'info'].includes(type) ? type : 'info';
+                this.type = safeType;
+                this.message = String(message || '').trim() || 'Notification';
+                
+                // Default titles based on type
+                const defaultTitles = {
+                    success: 'Success',
+                    error: 'Error',
+                    warning: 'Warning',
+                    info: 'Info'
+                };
+                this.title = title || defaultTitles[safeType] || 'Notification';
+
+                // Show toast
+                this.show = true;
+
+                // Reset and start progress bar animation
+                this.$nextTick(() => {
+                    const progressBar = this.$refs.progressbar;
+                    if (progressBar) {
+                        // Reset progress bar
+                        progressBar.style.transition = 'none';
+                        progressBar.style.width = '100%';
+                        
+                        // Start animation after a small delay
+                        setTimeout(() => {
+                            progressBar.style.transition = 'width 5000ms linear';
+                            progressBar.style.width = '0%';
+                        }, 50);
+                    }
+
+                    // Trigger shake animation for errors
+                    if (safeType === 'error') {
+                        this.shakeAnimation = true;
+                        setTimeout(() => {
+                            this.shakeAnimation = false;
+                        }, 500);
+                    }
+                });
+
+                // Auto-dismiss after 5 seconds
+                this.timer = setTimeout(() => {
+                    this.close();
+                }, 5000);
+            },
+
+            close() {
+                this.show = false;
+                if (this.timer) {
+                    clearTimeout(this.timer);
+                    this.timer = null;
+                }
+            },
+
+            pauseTimer() {
+                if (this.timer) {
+                    clearTimeout(this.timer);
+                    this.timer = null;
+                }
+                // Pause progress bar animation
+                const progressBar = this.$refs.progressbar;
+                if (progressBar) {
+                    const computedStyle = window.getComputedStyle(progressBar);
+                    const currentWidth = computedStyle.width;
+                    progressBar.style.transition = 'none';
+                    progressBar.style.width = currentWidth;
+                }
+            },
+
+            resumeTimer() {
+                const progressBar = this.$refs.progressbar;
+                if (progressBar) {
+                    const currentWidth = parseFloat(progressBar.style.width);
+                    const remainingPercentage = currentWidth;
+                    const remainingTime = (remainingPercentage / 100) * 5000;
+                    
+                    if (remainingTime > 0) {
+                        progressBar.style.transition = `width ${remainingTime}ms linear`;
+                        progressBar.style.width = '0%';
+                        
+                        this.timer = setTimeout(() => {
+                            this.close();
+                        }, remainingTime);
+                    }
+                }
+            }
+        }));
+    });
 }
 
-function createToastElement(type, message) {
-    const container = ensureContainer();
-    const toast = document.createElement('div');
-    toast.className = 'pointer-events-auto w-80 max-w-sm rounded-xl bg-slate-900/95 text-white shadow-lg ring-1 ring-black/5 backdrop-blur px-4 py-3 flex items-start gap-3 transition transform duration-150 ease-out opacity-0 translate-y-2';
-
-    const iconWrap = document.createElement('span');
-    iconWrap.className = 'mt-0.5 text-xl';
-    iconWrap.textContent = ICONS[type] || ICONS.info;
-
-    const textWrap = document.createElement('div');
-    textWrap.className = 'text-sm leading-snug flex-1';
-    textWrap.textContent = message;
-
-    const closeBtn = document.createElement('button');
-    closeBtn.type = 'button';
-    closeBtn.className = 'ml-3 text-white/60 hover:text-white focus:outline-none';
-    closeBtn.setAttribute('aria-label', 'Dismiss notification');
-    closeBtn.innerHTML = '&times;';
-
-    const remove = () => {
-        toast.classList.add('opacity-0', 'translate-y-2');
-        setTimeout(() => toast.remove(), 120);
-    };
-
-    closeBtn.addEventListener('click', remove);
-    toast.addEventListener('mouseenter', () => {
-        if (toast.__timer) {
-            clearTimeout(toast.__timer);
-            toast.__timer = null;
-        }
-    });
-    toast.addEventListener('mouseleave', () => {
-        if (!toast.__timer) {
-            toast.__timer = setTimeout(remove, DEFAULT_DURATION);
-        }
-    });
-
-    toast.appendChild(iconWrap);
-    toast.appendChild(textWrap);
-    toast.appendChild(closeBtn);
-
-    container.appendChild(toast);
-    requestAnimationFrame(() => {
-        toast.classList.remove('opacity-0', 'translate-y-2');
-    });
-    toast.__timer = setTimeout(remove, DEFAULT_DURATION);
-    return toast;
-}
-
-export default function showToast(type = 'info', message = '') {
-    if (typeof document === 'undefined') {
+// Global helper function to trigger toast
+export default function showToast(message = '', type = 'success', title = null) {
+    if (typeof window === 'undefined') {
         return;
     }
-    const safeType = ['success', 'error', 'warning', 'info'].includes(type) ? type : 'info';
-    const trimmed = String(message || '').trim();
-    const displayMessage = trimmed.length ? trimmed : 'Notification';
-    createToastElement(safeType, displayMessage);
+    
+    // Dispatch custom event that Alpine component will listen for
+    window.dispatchEvent(new CustomEvent('toast', {
+        detail: { message, type, title }
+    }));
 }
 
+// Expose to window for global access
 if (typeof window !== 'undefined') {
     window.showToast = showToast;
 }
+
 

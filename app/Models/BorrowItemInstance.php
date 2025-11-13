@@ -5,9 +5,16 @@ use Illuminate\Database\Eloquent\Model;
 class BorrowItemInstance extends Model
 {
     protected $fillable = [
-        'borrow_request_id','item_id','item_instance_id',
-        'checked_out_at','expected_return_at','returned_at',
-        'return_condition','condition_updated_at'
+        'borrow_request_id',
+        'item_id',
+        'item_instance_id',
+        'checked_out_at',
+        'expected_return_at',
+        'returned_at',
+        'return_condition',
+        'condition_updated_at',
+        'walk_in_request_id',
+        'borrowed_qty',
     ];
 
     protected $casts = [
@@ -30,5 +37,10 @@ class BorrowItemInstance extends Model
     public function instance()
     {
         return $this->belongsTo(ItemInstance::class, 'item_instance_id');
+    }
+
+    public function walkInRequest()
+    {
+        return $this->belongsTo(WalkInRequest::class);
     }
 }

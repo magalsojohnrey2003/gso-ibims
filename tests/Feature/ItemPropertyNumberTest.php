@@ -38,15 +38,24 @@ class ItemPropertyNumberTest extends TestCase
     {
         $admin = $this->createAdmin();
 
+        // Create a Category so the category code lookup succeeds
+        \App\Models\Category::create([
+            'name' => 'Laptop',
+            'category_code' => '0005',
+            'parent_id' => null,
+        ]);
+
         $response = $this->actingAs($admin)
             ->postJson('/admin/items', [
                 'name' => 'Dell XPS 13',
                 'category' => 'Laptop',
+                'category_code' => '0005', // Explicit category code to avoid resolution issues
                 'year_procured' => '2020',
                 'office_code' => '8831',
                 'start_serial' => '0660',
                 'quantity' => 3,
                 'description' => 'Thin and light laptop.',
+                'gla' => '1234', // GLA is required for bulk generation
             ]);
 
         $response->assertCreated();
@@ -56,9 +65,9 @@ class ItemPropertyNumberTest extends TestCase
         ]);
 
         $expected = [
-            '2020-05-0660-8831',
-            '2020-05-0661-8831',
-            '2020-05-0662-8831',
+            '2020-0005-1234-0660-8831',
+            '2020-0005-1234-0661-8831',
+            '2020-0005-1234-0662-8831',
         ];
 
         $this->assertSame($expected, ItemInstance::orderBy('serial_int')->pluck('property_number')->toArray());

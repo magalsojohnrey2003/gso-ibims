@@ -308,7 +308,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (step2NextBtn) {
         step2NextBtn.addEventListener('click', () => {
             if (!borrowHidden?.value || !returnHidden?.value) {
-                alert('Please select both borrow and return dates before proceeding.');
+                window.showToast('warning', 'Please select both borrow and return dates before proceeding.');
                 return;
             }
             goToStep(2);
@@ -346,12 +346,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (openConfirmModalBtn) {
         openConfirmModalBtn.addEventListener('click', () => {
             if (!borrowHidden?.value || !returnHidden?.value) {
-                alert('Please select valid borrow and return dates.');
+                window.showToast('warning', 'Please select valid borrow and return dates.');
                 goToStep(1);
                 return;
             }
             if (!locationHidden?.value) {
-                alert('Please complete the address selection before submitting.');
+                window.showToast('warning', 'Please complete the address selection before submitting.');
                 goToStep(0);
                 return;
             }
@@ -361,7 +361,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const hasFile = pond && pond.getFiles().length > 0;
             
             if (!hasFile) {
-                alert('Please upload your letter before submitting.');
+                window.showToast('warning', 'Please upload your letter before submitting.');
                 return;
             }
 
@@ -380,7 +380,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const hasFileInPond = pond && pond.getFiles().length > 0;
             
             if (!hasFileInPond) {
-                alert('Please upload your signed letter before proceeding.');
+                window.showToast('warning', 'Please upload your signed letter before proceeding.');
                 return;
             }
             
@@ -429,13 +429,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         const errorElement = doc.querySelector('.alert-error, .text-red-600, [role="alert"], .error, x-alert[type="error"]');
                         if (errorElement) {
                             const errorText = errorElement.textContent || errorElement.innerText || 'Please check your form and try again.';
-                            alert(errorText);
+                            window.showToast('error', errorText);
                         } else {
-                            alert('Please check your form and try again.');
+                            window.showToast('error', 'Please check your form and try again.');
                         }
                     } catch (e) {
                         // If we can't parse the response, just show generic error
-                        alert('Please check your form and try again.');
+                        window.showToast('error', 'Please check your form and try again.');
                     }
                     // Reload to show errors on page
                     window.location.reload();
@@ -457,7 +457,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (error) {
                 console.error('Form submission error:', error);
-                alert('An error occurred while submitting your request. Please try again.');
+                window.showToast('error', 'An error occurred while submitting your request. Please try again.');
             } finally {
                 confirmBorrowRequestBtn.disabled = false;
                 confirmBorrowRequestBtn.classList.remove('opacity-60', 'cursor-not-allowed');

@@ -1,4 +1,4 @@
-﻿const CSRF_TOKEN = window.CSRF_TOKEN || document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+const CSRF_TOKEN = window.CSRF_TOKEN || document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 const LIST_ROUTE = window.LIST_ROUTE || '/admin/borrow-requests/list';
 
 let BORROW_CACHE = [];
@@ -29,25 +29,12 @@ function humanizeStatus(status) {
         .join(' ');
 }
 
-function showAlert(type, message) {
-    const tpl = document.getElementById(`alert-${type}-template`);
-    const container = document.getElementById('adminAlertContainer');
-    if (!tpl || !container) return;
-    const frag = tpl.content.cloneNode(true);
-    const span = frag.querySelector('[data-alert-message]');
-    if (span) span.textContent = message;
-    const node = container.appendChild(frag);
-    setTimeout(() => {
-        if (container.contains(node)) node.remove();
-    }, 5000);
-}
-
 function showError(message) {
-    showAlert('error', message);
+    window.showToast('error', message);
 }
 
 function showSuccess(message) {
-    showAlert('success', message);
+    window.showToast('success', message);
 }
 
 function escapeHtml(unsafe) {
@@ -185,7 +172,7 @@ function renderRejectionReasonList() {
             </label>
             <div class="flex items-center gap-2 shrink-0">
                 <button type="button" class="text-sm text-indigo-600 hover:text-indigo-700" data-action="view" data-reason-id="${escapeHtml(String(reason.id))}">View</button>
-                <button type="button" class="text-sm text-red-500 hover:text-red-600" data-action="remove" data-reason-id="${escapeHtml(String(reason.id))}">✕</button>
+                <button type="button" class="text-sm text-red-500 hover:text-red-600" data-action="remove" data-reason-id="${escapeHtml(String(reason.id))}">?</button>
             </div>
         `;
         container.appendChild(wrapper);
@@ -483,6 +470,8 @@ function createButtonFromTemplate(templateId, id) {
         btn.addEventListener('click', (ev) => { ev.stopPropagation(); openDeliverItemsModal(id); });
     } else if (action === 'mark-delivered' || action === 'mark_delivered') {
         btn.addEventListener('click', async (ev) => { ev.stopPropagation(); await markAsDelivered(id); });
+    } else if (action === 'cancel-dispatch' || action === 'cancel_dispatch') {
+        btn.addEventListener('click', async (ev) => { ev.stopPropagation(); await cancelDispatch(id); });
     } else {
         console.warn('Unknown button action in template', templateId, 'action=', action);
     }
@@ -625,6 +614,7 @@ function renderBorrowRequests() {
             wrapper.appendChild(createButtonFromTemplate('btn-deliver-template', req.id));
         } else if (deliveryKey === 'dispatched') {
             wrapper.appendChild(createButtonFromTemplate('btn-mark-delivered-template', req.id));
+            wrapper.appendChild(createButtonFromTemplate('btn-cancel-dispatch-template', req.id));
         } else if (deliveryKey === 'delivered' || ['returned', 'rejected'].includes(statusKey)) {
             wrapper.appendChild(createButtonFromTemplate('btn-view-template', req.id));
         } else {
@@ -726,49 +716,75 @@ function openAssignManpowerModal(id) {
         return;
     }
 
-    const container = document.getElementById('assignManpowerItemsContainer');
     const requestIdInput = document.getElementById('assignManpowerRequestId');
-    const requestedTotalEl = document.getElementById('assignRequestedTotal');
-    const manpowerInput = document.getElementById('assignManpowerInput');
-    const manpowerReasonWrapper = document.getElementById('assignManpowerReasonWrapper');
-    const manpowerReasonSelect = document.getElementById('assignManpowerReason');
     const locationEl = document.getElementById('assignManpowerLocation');
     const letterPreview = document.getElementById('assignLetterPreview');
     const letterFallback = document.getElementById('assignLetterFallback');
 
-    if (!container || !requestIdInput || !requestedTotalEl || !manpowerInput) return;
+    if (!requestIdInput) return;
 
-    container.innerHTML = '';
     requestIdInput.value = id;
-
-    const requestedTotal = Number(req.manpower_count ?? 0);
-    requestedTotalEl.textContent = Number.isFinite(requestedTotal) && requestedTotal > 0 ? String(requestedTotal) : '--';
-    requestedTotalEl.dataset.original = String(requestedTotal);
-
-    manpowerInput.value = Number.isFinite(requestedTotal) ? String(requestedTotal) : '0';
-    manpowerInput.dataset.original = String(requestedTotal);
-    manpowerInput.removeEventListener('input', handleManpowerInputChange);
-    manpowerInput.addEventListener('input', handleManpowerInputChange);
-    handleManpowerInputChange({ target: manpowerInput });
-
-    if (manpowerReasonSelect) {
-        manpowerReasonSelect.innerHTML = buildReasonOptions(MANPOWER_REASONS);
-        manpowerReasonSelect.value = '';
-    }
-    if (manpowerReasonWrapper) {
-        manpowerReasonWrapper.classList.add('hidden');
-    }
 
     if (locationEl) {
         locationEl.textContent = req.location && req.location.trim() !== '' ? req.location : '--';
     }
 
+    // Populate borrow dates
+    const borrowDateEl = document.getElementById('assignBorrowDate');
+    const returnDateEl = document.getElementById('assignReturnDate');
+    if (borrowDateEl) {
+        borrowDateEl.textContent = req.borrow_date ? formatDate(req.borrow_date) : '--';
+    }
+    if (returnDateEl) {
+        returnDateEl.textContent = req.return_date ? formatDate(req.return_date) : '--';
+    }
+
+    // Populate items list
+    const itemsListEl = document.getElementById('assignItemsList');
+    if (itemsListEl) {
+        const ul = itemsListEl.querySelector('ul');
+        if (ul) {
+            ul.innerHTML = '';
+            if (req.items && Array.isArray(req.items) && req.items.length > 0) {
+                req.items.forEach(item => {
+                    const li = document.createElement('li');
+                    const itemName = item.item?.name || 'Unknown Item';
+                    const quantity = item.quantity || 0;
+                    li.textContent = `${itemName} � Qty: ${quantity}`;
+                    ul.appendChild(li);
+                });
+            } else {
+                const li = document.createElement('li');
+                li.textContent = 'No items';
+                li.className = 'list-none text-gray-500';
+                ul.appendChild(li);
+            }
+        }
+    }
+
     // Handle letter URL - prioritize letter_url from backend, fallback to letter_path
     let letterUrl = req.letter_url || '';
-    if (!letterUrl && req.letter_path) {
+    
+    // If we have a letter_url, convert it to a relative URL to avoid localhost/port issues
+    if (letterUrl) {
+        // Extract just the path part if it's a full URL
+        if (letterUrl.startsWith('http')) {
+            try {
+                const urlObj = new URL(letterUrl);
+                letterUrl = urlObj.pathname; // Get just the path (e.g., /storage/borrow-letters/file.jpg)
+            } catch (e) {
+                console.warn('Failed to parse letter URL:', letterUrl);
+            }
+        }
+    } else if (req.letter_path) {
         // If we only have a path, construct the storage URL
         if (req.letter_path.startsWith('http')) {
-            letterUrl = req.letter_path;
+            try {
+                const urlObj = new URL(req.letter_path);
+                letterUrl = urlObj.pathname;
+            } catch (e) {
+                letterUrl = req.letter_path;
+            }
         } else {
             // Remove any leading 'storage/' or 'public/' prefixes and construct proper URL
             let cleanPath = req.letter_path.replace(/^(storage\/|public\/)/, '');
@@ -776,24 +792,41 @@ function openAssignManpowerModal(id) {
         }
     }
     
+    // Debug logging
+    console.log('Letter debug info:', {
+        letter_url: req.letter_url,
+        letter_path: req.letter_path,
+        computed_url: letterUrl,
+        request_id: id
+    });
+    
     if (letterPreview && letterFallback) {
         if (letterUrl) {
+            // Reset states first
+            letterPreview.classList.add('hidden');
+            letterFallback.classList.add('hidden');
+            
             // Check if it's an image (by URL extension or type)
-            const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(letterUrl) || /\.(jpg|jpeg|png|webp|gif)$/i.test(req.letter_path || '');
+            const isImage = /\.(jpg|jpeg|png|webp|gif|bmp|svg)$/i.test(letterUrl) || /\.(jpg|jpeg|png|webp|gif|bmp|svg)$/i.test(req.letter_path || '');
+            
+            console.log('Is image?', isImage, 'URL:', letterUrl);
+            
             if (isImage) {
-                letterPreview.src = letterUrl;
                 letterPreview.onerror = () => {
+                    console.error('Failed to load image:', letterUrl);
                     letterPreview.classList.add('hidden');
                     letterFallback.classList.remove('hidden');
                     letterFallback.textContent = 'Letter uploaded (cannot preview)';
                 };
                 letterPreview.onload = () => {
+                    console.log('Image loaded successfully:', letterUrl);
                     letterPreview.classList.remove('hidden');
                     letterFallback.classList.add('hidden');
                 };
-                // Try to load the image
-                letterPreview.classList.remove('hidden');
-                letterFallback.classList.add('hidden');
+                // Set src and show preview (onload will hide fallback if successful)
+                letterFallback.textContent = 'Loading letter...';
+                letterFallback.classList.remove('hidden');
+                letterPreview.src = letterUrl;
             } else {
                 // PDF or other file type
                 letterPreview.classList.add('hidden');
@@ -808,41 +841,6 @@ function openAssignManpowerModal(id) {
         }
     }
 
-    (req.items || []).forEach((item) => {
-        const originalQty = Number(item.quantity ?? 0);
-        const row = document.createElement('div');
-        row.className = 'space-y-2 border border-gray-200 rounded-lg p-3 bg-white';
-        row.dataset.borrowRequestItemId = item.id ?? item.borrow_request_item_id ?? '';
-        row.dataset.originalQty = String(originalQty);
-
-        const reasonOptions = buildReasonOptions(QUANTITY_REASONS);
-
-        row.innerHTML = `
-            <div class="flex items-start justify-between gap-4">
-                <div>
-                    <div class="font-medium text-gray-900">${escapeHtml(item.item?.name ?? 'Unknown')}</div>
-                    <div class="text-xs text-gray-500">Requested: ${escapeHtml(String(originalQty))}</div>
-                </div>
-                <div class="w-28">
-                    <label class="text-xs text-gray-600">Quantity</label>
-                    <input type="number" min="0" max="${escapeHtml(String(originalQty))}" value="${escapeHtml(String(originalQty))}" class="assign-qty-input w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-purple-500 focus:ring-purple-200" />
-                </div>
-            </div>
-            <div class="assign-qty-reason-wrapper hidden">
-                <label class="text-xs font-medium text-gray-600">Reason for reduction</label>
-                <select class="assign-qty-reason mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-xs focus:border-purple-500 focus:ring-purple-200">${reasonOptions}</select>
-            </div>
-        `;
-
-        container.appendChild(row);
-    });
-
-    container.querySelectorAll('.assign-qty-input').forEach((input) => {
-        input.removeEventListener('input', handleQtyInputChange);
-        input.addEventListener('input', handleQtyInputChange);
-        handleQtyInputChange({ target: input });
-    });
-
     window.dispatchEvent(new CustomEvent('open-modal', { detail: 'assignManpowerModal' }));
 }
 
@@ -851,15 +849,15 @@ function fillRequestModal(req) {
     const setText = (id, value) => {
         const el = document.getElementById(id);
         if (!el) return;
-        el.textContent = value ?? '—';
+        el.textContent = value ?? '�';
     };
 
     const fullName = [req.user?.first_name, req.user?.last_name].filter(Boolean).join(' ').trim() || 'Unknown';
     setText('requestTitle', 'Borrow Request Details');
     setText('requestShortStatus', `Borrow Request #${req.id}`);
     setText('borrowerName', fullName);
-    setText('manpowerCount', req.manpower_count ?? '—');
-    setText('requestLocation', req.location ?? '—');
+    setText('manpowerCount', req.manpower_count ?? '�');
+    setText('requestLocation', req.location ?? '�');
     setText('borrowDate', formatDate(req.borrow_date));
     setText('returnDate', formatDate(req.return_date));
 
@@ -985,117 +983,9 @@ async function openDeliverItemsModal(id) {
         return;
     }
 
-    // Validate that available quantity is at least 98% of total quantity for all items
-    let needsReasonModal = false;
-    if (req.items && req.items.length > 0) {
-        for (const item of req.items) {
-            const itemData = item.item;
-            if (!itemData) continue;
-
-            const totalQty = Number(itemData.total_qty ?? 0);
-            const availableQty = Number(itemData.available_qty ?? 0);
-
-            // If total quantity is 0, skip check for this item
-            if (totalQty === 0) continue;
-
-            // Check if available quantity is below 98% threshold
-            const percentage = (totalQty > 0) ? (availableQty / totalQty) * 100 : 0;
-            if (percentage < 98 || availableQty === 0) {
-                showError('Failed to dispatch. Available quantity is below the required threshold.');
-                return;
-            }
-
-            // If available quantity is less than total, some items are missing/damaged - need reason modal
-            if (availableQty < totalQty) {
-                needsReasonModal = true;
-            }
-        }
-    } else {
-        showError('Failed to dispatch. No items found in this request.');
-        return;
-    }
-
-    // If all items are in good condition (available == total, 100%), show simple confirmation modal
-    if (!needsReasonModal) {
-        openConfirmModal(id, 'dispatch');
-        return;
-    }
-
-    const infoContainer = document.getElementById('deliverItemsInfo');
-    const confirmBtn = document.getElementById('deliverItemsConfirmBtn');
-    const othersFields = document.getElementById('deliverItemsOthersFields');
-    const subjectInput = document.getElementById('deliveryReasonSubject');
-    const explanationInput = document.getElementById('deliveryReasonExplanation');
-
-    if (!infoContainer || !confirmBtn) return;
-
-    // Populate item information
-    infoContainer.innerHTML = '';
-    if (req.items && req.items.length > 0) {
-        req.items.forEach((item) => {
-            const itemDiv = document.createElement('div');
-            itemDiv.className = 'bg-gray-50 rounded-lg p-3 border border-gray-200';
-            
-            // Get available quantity from item data
-            const availableQty = item.item?.available_qty ?? '—';
-            const totalQty = item.item?.total_qty ?? '—';
-
-            itemDiv.innerHTML = `
-                <div class="flex items-start justify-between gap-3">
-                    <div>
-                        <div class="font-medium text-gray-900">${escapeHtml(item.item?.name || 'Unknown Item')}</div>
-                        <div class="text-xs text-gray-500 mt-1">
-                            Available Quantity: <span class="font-semibold">${escapeHtml(String(availableQty))}</span>
-                            ${totalQty !== '—' ? ` / ${escapeHtml(String(totalQty))} total` : ''}
-                        </div>
-                    </div>
-                </div>
-            `;
-            infoContainer.appendChild(itemDiv);
-        });
-    } else {
-        infoContainer.innerHTML = '<div class="text-gray-500 text-sm">No items found.</div>';
-    }
-
-    // Reset form
-    const reasonRadios = document.querySelectorAll('input[name="deliveryReason"]');
-    reasonRadios.forEach(radio => {
-        radio.checked = false;
-    });
-    if (subjectInput) subjectInput.value = '';
-    if (explanationInput) explanationInput.value = '';
-    if (othersFields) othersFields.classList.add('hidden');
-
-    // Store request ID for confirmation
-    confirmBtn.dataset.requestId = id;
-
-    // Show modal
-    window.dispatchEvent(new CustomEvent('open-modal', { detail: 'deliverItemsModal' }));
+    // Directly dispatch without modal - removed complex validation logic
+    openConfirmModal(id, 'dispatch');
 }
-
-// Handle reason radio button changes
-(function bindDeliverItemsReasonChange() {
-    document.addEventListener('DOMContentLoaded', () => {
-        const reasonRadios = document.querySelectorAll('input[name="deliveryReason"]');
-        const othersFields = document.getElementById('deliverItemsOthersFields');
-        
-        reasonRadios.forEach(radio => {
-            radio.addEventListener('change', (e) => {
-                if (othersFields) {
-                    if (e.target.value === 'others') {
-                        othersFields.classList.remove('hidden');
-                    } else {
-                        othersFields.classList.add('hidden');
-                        const subjectInput = document.getElementById('deliveryReasonSubject');
-                        const explanationInput = document.getElementById('deliveryReasonExplanation');
-                        if (subjectInput) subjectInput.value = '';
-                        if (explanationInput) explanationInput.value = '';
-                    }
-                }
-            });
-        });
-    });
-})();
 
 async function updateRequest(id, status, options = {}) {
     const {
@@ -1198,44 +1088,8 @@ async function updateRequest(id, status, options = {}) {
                     return;
                 }
 
-                const manpowerInput = document.getElementById('assignManpowerInput');
-                const manpowerReasonSelect = document.getElementById('assignManpowerReason');
-                const requestedTotalEl = document.getElementById('assignRequestedTotal');
-                const requestedTotal = parseInt(requestedTotalEl?.dataset.original || requestedTotalEl?.textContent || '0', 10) || 0;
-
-                let manpowerValue = parseInt(manpowerInput?.value || '0', 10);
-                if (!Number.isFinite(manpowerValue) || manpowerValue < 0) manpowerValue = 0;
-                if (manpowerValue > requestedTotal) {
-                    manpowerValue = requestedTotal;
-                    if (manpowerInput) manpowerInput.value = String(manpowerValue);
-                }
-
-                const manpowerReduced = manpowerValue < requestedTotal;
-                const manpowerReason = manpowerReduced ? (manpowerReasonSelect?.value?.trim() || '') : null;
-                if (manpowerReduced && !manpowerReason) {
-                    showError('Please select a reason for reducing manpower quantity.');
-                    return;
-                }
-
-                const assignments = collectManpowerAssignments();
-                for (const item of assignments) {
-                    const requiresReason = Number.isFinite(item.original_quantity) && item.quantity < item.original_quantity;
-                    if (requiresReason && !item.quantity_reason) {
-                        showError('Please select a reason for each item with reduced quantity.');
-                        return;
-                    }
-                }
-
-                const payloadAssignments = assignments.map(({ borrow_request_item_id, quantity, quantity_reason }) => ({
-                    borrow_request_item_id,
-                    quantity,
-                    quantity_reason,
-                }));
-
+                // Simply validate the request without any item assignments
                 await updateRequest(Number(requestId), 'validated', {
-                    assignments: payloadAssignments,
-                    manpowerTotal: manpowerValue,
-                    manpowerReason,
                     button: submitBtn,
                 });
 
@@ -1458,77 +1312,6 @@ async function updateRequest(id, status, options = {}) {
     });
 })();
 
-(function bindDeliverItemsConfirm() {
-    document.addEventListener('DOMContentLoaded', () => {
-        const confirmBtn = document.getElementById('deliverItemsConfirmBtn');
-        if (!confirmBtn) return;
-
-        confirmBtn.addEventListener('click', async () => {
-            const id = confirmBtn.dataset.requestId;
-                if (!id) {
-                showError('Invalid request ID. Please refresh the page.');
-                return;
-            }
-
-            // Get selected reason
-            const selectedReason = document.querySelector('input[name="deliveryReason"]:checked');
-            const reasonType = selectedReason?.value || null;
-            
-                if (!reasonType) {
-                showError('Please select a delivery reason before dispatching items.');
-                return;
-            }
-
-            // Get subject and explanation if "others" is selected
-            let subject = null;
-            let explanation = null;
-            if (reasonType === 'others') {
-                subject = document.getElementById('deliveryReasonSubject')?.value?.trim() || '';
-                explanation = document.getElementById('deliveryReasonExplanation')?.value?.trim() || '';
-                
-                if (!subject || !explanation) {
-                    showError('Please provide both subject and explanation when selecting "Others" as the delivery reason.');
-                    return;
-                }
-            }
-
-            confirmBtn.disabled = true;
-            try {
-                const body = {
-                    delivery_reason_type: reasonType,
-                };
-                
-                if (reasonType === 'others') {
-                    body.delivery_reason_subject = subject;
-                    body.delivery_reason_explanation = explanation;
-                }
-
-                    const res = await fetch(`/admin/borrow-requests/${encodeURIComponent(id)}/dispatch`, {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRF-TOKEN': CSRF_TOKEN,
-                            'Content-Type': 'application/json',
-                            Accept: 'application/json',
-                        },
-                    body: JSON.stringify(body),
-                    });
-                    const payload = await res.json().catch(() => null);
-                    if (!res.ok) {
-                        throw new Error(payload?.message || `Failed to dispatch items (status ${res.status})`);
-                    }
-                    showSuccess(payload?.message || 'Items dispatched successfully.');
-                    await loadBorrowRequests();
-                window.dispatchEvent(new CustomEvent('close-modal', { detail: 'deliverItemsModal' }));
-            } catch (error) {
-                console.error('Deliver items failed', error);
-                showError(error?.message || 'Failed to dispatch items. Please try again.');
-            } finally {
-                confirmBtn.disabled = false;
-            }
-        });
-    });
-})();
-
 async function markAsDelivered(id) {
     if (!id) return;
     try {
@@ -1550,6 +1333,30 @@ async function markAsDelivered(id) {
     } catch (error) {
         console.error('Mark as delivered failed', error);
         showError(error?.message || 'Failed to mark as delivered.');
+    }
+}
+
+async function cancelDispatch(id) {
+    if (!id) return;
+    try {
+        const res = await fetch(`/admin/borrow-requests/${encodeURIComponent(id)}/cancel-dispatch`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': CSRF_TOKEN,
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+            body: JSON.stringify({}),
+        });
+        const payload = await res.json().catch(() => null);
+        if (!res.ok) {
+            throw new Error(payload?.message || `Failed to cancel dispatch (status ${res.status})`);
+        }
+        showSuccess(payload?.message || 'Dispatch canceled.');
+        await loadBorrowRequests();
+    } catch (error) {
+        console.error('Cancel dispatch failed', error);
+        showError(error?.message || 'Failed to cancel dispatch.');
     }
 }
 

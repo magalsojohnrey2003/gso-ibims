@@ -53,24 +53,7 @@
             box-shadow: var(--elev-shadow, 0 8px 20px rgba(0,0,0,0.06));
         }
 
-        /* Toast fallback positioning & small transition (JS will control visible state) */
-        #toast {
-            position: fixed;
-            z-index: 99999;
-            right: 20px;
-            top: 18px;
-            max-width: 420px;
-            min-width: 160px;
-            padding: 10px 14px;
-            border-radius: 10px;
-            transition: opacity 180ms ease, transform 180ms ease;
-            opacity: 0;
-            transform: translateY(-6px);
-            pointer-events: none;
-        }
-        #toast.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
-
-                /* Ensure html and body fill full height */
+        /* Ensure html and body fill full height */
         html, body {
             height: 100%;
             margin: 0;
@@ -210,141 +193,145 @@
             });
             observer.observe(body, { attributes: true, attributeFilter: ['class'] });
         })();
-
-
-        /* ======================================
-           TOAST HELPERS (positions toast under nav/main or falls back to top-right)
-           - uses the same algorithms your earlier script expects (findPreferredAnchor etc.)
-           ====================================== */
-        function findPreferredAnchor(toast) {
-            var explicit = toast.getAttribute('data-position-target');
-            if (explicit) {
-                try {
-                    var el = document.querySelector(explicit);
-                    if (el) return el;
-                } catch (e) {}
-            }
-
-            var candidates = [
-                '#contentWrapper main',
-                'main',
-                '#contentWrapper',
-                '.page-header',
-                '.dashboard-cards',
-                '.stats-row',
-                '.dashboard-stats',
-                'nav'
-            ];
-
-            for (var i = 0; i < candidates.length; i += 1) {
-                var sel = candidates[i];
-                try {
-                    var node = document.querySelector(sel);
-                    if (node) return node;
-                } catch (e) {}
-            }
-
-            return document.querySelector('nav') || null;
-        }
-
-        function measureToast(toast) {
-            var clone = toast.cloneNode(true);
-            clone.style.position = 'fixed';
-            clone.style.left = '0';
-            clone.style.top = '-9999px';
-            clone.style.visibility = 'hidden';
-            clone.classList.remove('hidden');
-            clone.classList.remove('show');
-            document.body.appendChild(clone);
-            var rect = clone.getBoundingClientRect();
-            document.body.removeChild(clone);
-            return rect;
-        }
-
-        function positionToastUnderAnchor(toast) {
-            try {
-                var anchor = findPreferredAnchor(toast);
-                var scrollX = window.pageXOffset || document.documentElement.scrollLeft;
-                var scrollY = window.pageYOffset || document.documentElement.scrollTop;
-
-                var toastRect = measureToast(toast);
-
-                if (!anchor) {
-                    toast.style.left = 'auto';
-                    toast.style.right = '18px';
-                    toast.style.top = (12 + scrollY) + 'px';
-                    return;
-                }
-
-                var aRect = anchor.getBoundingClientRect();
-                var anchorLeft = Math.round(aRect.left + scrollX);
-                var anchorRight = Math.round(aRect.right + scrollX);
-                var anchorBottom = Math.round(aRect.bottom + scrollY);
-
-                var top = anchorBottom + 8;
-                toast.style.top = top + 'px';
-
-                var viewportWidth = window.innerWidth || document.documentElement.clientWidth;
-                var desiredLeft = anchorRight - toastRect.width - 12;
-                var minLeft = Math.max(12, anchorLeft + 12);
-                var maxLeft = Math.max(minLeft, viewportWidth - toastRect.width - 12);
-
-                var left = Math.min(Math.max(desiredLeft, minLeft), maxLeft);
-                toast.style.left = Math.round(left) + 'px';
-                toast.style.right = 'auto';
-            } catch (e) {
-                try { toast.style.top = '12px'; toast.style.right = '18px'; toast.style.left = 'auto'; } catch (e) {}
-            }
-        }
-
-        function showToast(message, type = 'success') {
-            const toast = document.getElementById('toast');
-            if (!toast) return;
-
-            toast.textContent = message;
-
-            try {
-                const cs = getComputedStyle(document.body);
-                const primary = cs.getPropertyValue('--primary').trim() || '#4f46e5';
-                const primary600 = cs.getPropertyValue('--primary-600').trim() || '#4338ca';
-                const accent = cs.getPropertyValue('--accent').trim() || '#f59e0b';
-
-                if (type === 'success') {
-                    toast.style.background = `linear-gradient(90deg, ${primary}, ${primary600})`;
-                    toast.style.color = '#ffffff';
-                } else if (type === 'error') {
-                    toast.style.background = 'linear-gradient(90deg, #ef4444, #b91c1c)';
-                    toast.style.color = '#ffffff';
-                } else if (type === 'warning') {
-                    toast.style.background = `linear-gradient(90deg, ${accent}, ${primary})`;
-                    toast.style.color = '#ffffff';
-                } else {
-                    toast.style.background = `linear-gradient(90deg, ${primary}, ${primary600})`;
-                    toast.style.color = '#ffffff';
-                }
-            } catch (e) {
-                toast.style.background = '';
-                toast.style.color = '';
-            }
-
-            positionToastUnderAnchor(toast);
-
-            toast.classList.remove('hidden');
-            void toast.offsetWidth;
-            toast.classList.add('show');
-
-            clearTimeout(toast._hideTimeout);
-            toast._hideTimeout = setTimeout(() => {
-                toast.classList.remove('show');
-                setTimeout(function () {
-                    toast.classList.add('hidden');
-                    toast.style.left = '';
-                    toast.style.top = '';
-                    toast.style.background = '';
-                    toast.style.color = '';
-                }, 220);
-            }, 4000);
-        }
     </script>
+
+    {{-- Global Toast Notification Component (Alpine.js) --}}
+    <div x-data="globalToast" 
+         @toast.window="showToast($event.detail.message, $event.detail.type, $event.detail.title)"
+         class="fixed top-6 right-6 z-[9999]">
+        <div 
+            x-show="show"
+            x-transition:enter="transform transition ease-out duration-300"
+            x-transition:enter-start="translate-y-[-100%] opacity-0"
+            x-transition:enter-end="translate-y-0 opacity-100"
+            x-transition:leave="transform transition ease-in duration-200"
+            x-transition:leave-start="translate-y-0 opacity-100"
+            x-transition:leave-end="translate-x-full opacity-0"
+            :class="{ 'shake': shakeAnimation }"
+            @mouseenter="pauseTimer()"
+            @mouseleave="resumeTimer()"
+            class="bg-purple-600 text-white rounded-lg shadow-2xl min-w-[320px] max-w-md overflow-hidden"
+        >
+            {{-- Main Content --}}
+            <div class="p-4">
+                <div class="flex items-start gap-3">
+                    {{-- Success Icon --}}
+                    <template x-if="type === 'success'">
+                        <div class="flex-shrink-0">
+                            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="12" cy="12" r="10" fill="#10B981" stroke="#10B981" stroke-width="2"/>
+                                <path d="M8 12.5L10.5 15L16 9.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                    </template>
+
+                    {{-- Error Icon --}}
+                    <template x-if="type === 'error'">
+                        <div class="flex-shrink-0">
+                            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="12" cy="12" r="10" fill="#EF4444" stroke="#EF4444" stroke-width="2"/>
+                                <path d="M15 9L9 15M9 9L15 15" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                    </template>
+
+                    {{-- Warning Icon --}}
+                    <template x-if="type === 'warning'">
+                        <div class="flex-shrink-0">
+                            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="12" cy="12" r="10" fill="#F59E0B" stroke="#F59E0B" stroke-width="2"/>
+                                <path d="M12 7V13M12 16H12.01" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                    </template>
+
+                    {{-- Info Icon --}}
+                    <template x-if="type === 'info'">
+                        <div class="flex-shrink-0">
+                            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="12" cy="12" r="10" fill="#3B82F6" stroke="#3B82F6" stroke-width="2"/>
+                                <path d="M12 11V17M12 7H12.01" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                    </template>
+
+                    {{-- Content --}}
+                    <div class="flex-1 min-w-0">
+                        <div class="font-semibold text-white mb-1" x-text="title"></div>
+                        <div class="text-sm text-gray-300 leading-relaxed" x-text="message"></div>
+                    </div>
+
+                    {{-- Close Button --}}
+                    <button
+                        type="button"
+                        @click="close()"
+                        class="flex-shrink-0 text-gray-400 hover:text-white transition-colors"
+                        aria-label="Close notification"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            {{-- Progress Bar --}}
+            <div class="h-1 bg-purple-700">
+                <div 
+                    x-ref="progressbar"
+                    class="h-full transition-all"
+                    :class="{
+                        'bg-green-400': type === 'success',
+                        'bg-red-400': type === 'error',
+                        'bg-yellow-400': type === 'warning',
+                        'bg-blue-400': type === 'info'
+                    }"
+                    style="width: 100%;"
+                ></div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Handle Laravel Session Flash Messages --}}
+    @if(session('success'))
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                if (typeof window.showToast === 'function') {
+                    window.showToast(@json(session('success')), 'success');
+                }
+            });
+        </script>
+    @endif
+
+    @if(session('error'))
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                if (typeof window.showToast === 'function') {
+                    window.showToast(@json(session('error')), 'error');
+                }
+            });
+        </script>
+    @endif
+
+    @if(session('warning'))
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                if (typeof window.showToast === 'function') {
+                    window.showToast(@json(session('warning')), 'warning');
+                }
+            });
+        </script>
+    @endif
+
+    @if(session('info'))
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                if (typeof window.showToast === 'function') {
+                    window.showToast(@json(session('info')), 'info');
+                }
+            });
+        </script>
+    @endif
+
 </body>
 </html>

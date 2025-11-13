@@ -69,6 +69,7 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
         Route::get('items/search', [ItemController::class, 'search'])->name('admin.items.search');
         Route::get('items/check-serial', [ItemController::class, 'checkSerial'])->name('admin.items.check-serial');
         Route::match(['get', 'post'], 'items/{item}/stickers', [ItemController::class, 'printStickers'])->name('admin.items.stickers');
+        Route::get('items/instances/{instance}/history', [ItemController::class, 'instanceHistory'])->name('admin.items.instances.history');
         Route::resource('items', ItemController::class);
 
         Route::post('items/validate-pns', [ItemController::class, 'validatePropertyNumbers'])
@@ -104,6 +105,9 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
         // Dispatch action
         Route::post('borrow-requests/{borrowRequest}/dispatch', [BorrowRequestController::class, 'dispatch'])
             ->name('admin.borrow.requests.dispatch');
+        // Cancel dispatch (rollback allocations)
+        Route::post('borrow-requests/{borrowRequest}/cancel-dispatch', [BorrowRequestController::class, 'cancelDispatch'])
+            ->name('admin.borrow.requests.cancel-dispatch');
             
         // Mark items as delivered
         Route::post('borrow-requests/{borrowRequest}/deliver', [BorrowRequestController::class, 'markDelivered'])
@@ -124,6 +128,8 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
         // Return Items
         Route::get('return-items', [ReturnItemsController::class, 'index'])->name('admin.return-items.index');
         Route::get('return-items/list', [ReturnItemsController::class, 'list'])->name('admin.return-items.list');
+        Route::get('return-items/walk-in/{id}', [ReturnItemsController::class, 'showWalkIn'])->name('admin.return-items.show-walkin');
+        Route::post('return-items/walk-in/{id}/collect', [ReturnItemsController::class, 'collectWalkIn'])->name('admin.return-items.collect-walkin');
         Route::get('return-items/{borrowRequest}', [ReturnItemsController::class, 'show'])->name('admin.return-items.show');
         Route::post('return-items/{borrowRequest}/collect', [ReturnItemsController::class, 'collect'])->name('admin.return-items.collect');
         Route::patch('return-items/instances/{borrowItemInstance}', [ReturnItemsController::class, 'updateInstance'])->name('admin.return-items.instances.update');
@@ -133,6 +139,15 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
         Route::post('reports/data', [ReportController::class, 'data'])->name('reports.data');
         Route::get('reports/export/pdf', [ReportController::class, 'exportPdf'])->name('reports.export.pdf');
         Route::get('reports/export/xlsx', [ReportController::class, 'exportXlsx'])->name('reports.export.xlsx');
+
+    // Walk-in Requests
+    Route::get('walk-in', [BorrowRequestController::class, 'walkInIndex'])->name('admin.walkin.index');
+    Route::get('walk-in/create', [BorrowRequestController::class, 'walkInCreate'])->name('admin.walkin.create');
+    Route::get('walk-in/list', [BorrowRequestController::class, 'walkInList'])->name('admin.walkin.list');
+    Route::get('walk-in/print/{walkInRequest}', [BorrowRequestController::class, 'walkInPrint'])->name('admin.walkin.print');
+    Route::post('walk-in/store', [BorrowRequestController::class, 'walkInStore'])->name('admin.walkin.store');
+    Route::get('walk-in/approve-qr/{id}', [BorrowRequestController::class, 'walkInApproveQr'])->name('admin.walkin.approve.qr');
+    Route::post('walk-in/deliver/{id}', [BorrowRequestController::class, 'walkInDeliver'])->name('admin.walkin.deliver');
 
         // Manpower Requests (Admin)
         Route::prefix('manpower-requests')->name('admin.manpower.requests.')->group(function() {

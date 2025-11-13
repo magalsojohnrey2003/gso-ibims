@@ -17,7 +17,8 @@ class ReturnItemsController extends Controller
 
     public function list()
     {
-        $requests = BorrowRequest::with(['user', 'borrowedInstances'])
+        // Get regular borrow requests
+        $borrowRequests = BorrowRequest::with(['user', 'borrowedInstances'])
             // Include delivered so requests remain visible for return processing after delivery
             ->whereIn('delivery_status', ['dispatched', 'delivered', 'returned'])
             ->orderByDesc('dispatched_at')
@@ -28,6 +29,8 @@ class ReturnItemsController extends Controller
                 return [
                     'id' => $request->id,
                     'borrow_request_id' => $request->id,
+                    'walk_in_request_id' => null,
+                    'request_type' => 'regular',
                     'borrower_name' => $this->formatBorrowerName($request),
                     'status' => $request->status ?? 'pending',
                     'delivery_status' => $request->delivery_status ?? 'pending',
@@ -38,6 +41,38 @@ class ReturnItemsController extends Controller
                     'return_timestamp' => $request->delivered_at?->toDateTimeString(),
                 ];
             });
+
+        // Get walk-in requests that have been delivered
+        $walkInRequests = \App\Models\WalkInRequest::with('items')
+            ->whereIn('status', ['delivered', 'returned'])
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(function ($walkIn) {
+                // Get the condition from borrow instances
+                $instances = BorrowItemInstance::where('walk_in_request_id', $walkIn->id)->get();
+                $conditionKey = $this->summarizeConditionForInstances($instances);
+
+                // Determine delivery_status based on walk-in status
+                $deliveryStatus = $walkIn->status === 'returned' ? 'returned' : 'delivered';
+
+                return [
+                    'id' => 'W' . $walkIn->id, // Prefix with W to distinguish from regular requests
+                    'borrow_request_id' => null,
+                    'walk_in_request_id' => $walkIn->id,
+                    'request_type' => 'walk-in',
+                    'borrower_name' => $walkIn->borrower_name ?? 'Walk-in Borrower',
+                    'status' => $walkIn->status,
+                    'delivery_status' => $deliveryStatus,
+                    'condition' => $conditionKey,
+                    'condition_label' => $this->formatConditionLabel($conditionKey),
+                    'borrow_date' => $walkIn->borrowed_at?->toDateString(),
+                    'return_date' => $walkIn->returned_at?->toDateString(),
+                    'return_timestamp' => $walkIn->updated_at?->toDateTimeString(),
+                ];
+            });
+
+        // Merge both collections
+        $requests = $borrowRequests->concat($walkInRequests)->sortByDesc('return_timestamp')->values();
 
         return response()->json($requests);
     }
@@ -94,8 +129,9 @@ class ReturnItemsController extends Controller
 
     public function collect(BorrowRequest $borrowRequest)
     {
-        if ($borrowRequest->delivery_status !== 'dispatched') {
-            return response()->json(['message' => 'Only dispatched requests can be marked as collected.'], 422);
+        // Allow collection for both dispatched and delivered requests
+        if (! in_array($borrowRequest->delivery_status, ['dispatched', 'delivered'], true)) {
+            return response()->json(['message' => 'Only dispatched or delivered requests can be marked as collected.'], 422);
         }
 
         DB::beginTransaction();
@@ -157,6 +193,123 @@ class ReturnItemsController extends Controller
             return response()->json([
                 'message' => 'Failed to mark as collected.',
                 'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function showWalkIn($id)
+    {
+        $walkInRequest = \App\Models\WalkInRequest::findOrFail($id);
+
+        $instances = BorrowItemInstance::with(['instance', 'item'])
+            ->where('walk_in_request_id', $id)
+            ->get();
+
+        $items = $instances->map(function (BorrowItemInstance $instance) {
+            $label = $instance->instance?->property_number
+                ?? $instance->instance?->serial
+                ?? ($instance->item?->name ?? 'Untracked Item');
+
+            $condition = $instance->return_condition ?? 'pending';
+
+            return [
+                'id' => $instance->id,
+                'property_label' => $label,
+                'item_name' => $instance->item?->name ?? 'Unknown Item',
+                'condition' => $condition,
+                'condition_label' => $this->formatConditionLabel($condition),
+                'returned_at' => $instance->returned_at?->toDateTimeString(),
+                'inventory_status' => $instance->instance?->status ?? 'unknown',
+                'inventory_status_label' => $this->formatInventoryStatus($instance->instance?->status),
+            ];
+        })->values();
+
+        $itemOptions = $items
+            ->groupBy('item_name')
+            ->map(fn ($group, $name) => ['name' => $name, 'count' => $group->count()])
+            ->values()
+            ->all();
+
+        return response()->json([
+            'id' => 'W' . $id,
+            'walk_in_request_id' => $id,
+            'request_type' => 'walk-in',
+            'borrower' => $walkInRequest->borrower_name ?? 'Walk-in Borrower',
+            'address' => $walkInRequest->office_agency ?? '',
+            'status' => 'delivered',
+            'delivery_status' => 'delivered',
+            'borrow_date' => $walkInRequest->borrowed_at?->toDateString(),
+            'return_date' => $walkInRequest->returned_at?->toDateString(),
+            'return_timestamp' => $walkInRequest->updated_at?->toDateTimeString(),
+            'items' => $items,
+            'item_options' => $itemOptions,
+            'default_item' => $itemOptions[0]['name'] ?? null,
+            'condition_summary' => $this->formatConditionLabel($this->summarizeConditionForInstances($instances)),
+        ]);
+    }
+
+    public function collectWalkIn($id)
+    {
+        $walkInRequest = \App\Models\WalkInRequest::findOrFail($id);
+
+        DB::beginTransaction();
+        try {
+            $instances = BorrowItemInstance::with(['instance', 'item'])
+                ->where('walk_in_request_id', $id)
+                ->get();
+
+            foreach ($instances as $instance) {
+                $previousCondition = $instance->return_condition ?? 'pending';
+
+                if (! $instance->returned_at) {
+                    $instance->returned_at = now();
+                }
+
+                $instance->condition_updated_at = now();
+                $instance->return_condition = 'good';
+                $instance->save();
+
+                // Sync inventory based on condition change
+                $this->syncInventoryForConditionChange($instance, $previousCondition, 'good');
+            }
+
+            // Update walk-in request status to 'returned'
+            $walkInRequest->status = 'returned';
+            $walkInRequest->returned_at = now();
+            $walkInRequest->save();
+
+            DB::commit();
+
+            $instancesPayload = $instances->map(function (BorrowItemInstance $instance) {
+                return [
+                    'borrow_item_instance_id' => $instance->id,
+                    'item_instance_id' => $instance->item_instance_id,
+                    'item_id' => $instance->item_id,
+                    'status' => $instance->instance?->status,
+                    'inventory_status_label' => $this->formatInventoryStatus($instance->instance?->status),
+                    'condition' => $instance->return_condition ?? 'pending',
+                    'condition_label' => $this->formatConditionLabel($instance->return_condition ?? 'pending'),
+                ];
+            })->values();
+
+            return response()->json([
+                'message' => 'Walk-in items marked as returned successfully.',
+                'walk_in_request_id' => $id,
+                'return_timestamp' => now()->toDateTimeString(),
+                'condition_summary' => $this->formatConditionLabel($this->summarizeConditionForInstances($instances)),
+                'instances' => $instancesPayload,
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            \Log::error('Failed to mark walk-in items as collected', [
+                'walk_in_id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return response()->json([
+                'message' => 'Failed to mark walk-in items as collected.',
+                'error' => $e->getMessage(),
+                'debug' => config('app.debug') ? $e->getTraceAsString() : null,
             ], 500);
         }
     }
@@ -263,6 +416,33 @@ class ReturnItemsController extends Controller
     private function summarizeCondition(BorrowRequest $borrowRequest): string
     {
         $instances = $borrowRequest->borrowedInstances;
+        if ($instances->isEmpty()) {
+            return 'pending';
+        }
+
+        $conditions = $instances->pluck('return_condition')->map(fn ($value) => $value ?: 'pending');
+
+        if ($conditions->contains('missing')) {
+            return 'missing';
+        }
+
+        if ($conditions->contains('damage')) {
+            return 'damage';
+        }
+
+        if ($conditions->contains('minor_damage')) {
+            return 'minor_damage';
+        }
+
+        if ($conditions->every(fn ($condition) => $condition === 'good')) {
+            return 'good';
+        }
+
+        return 'pending';
+    }
+
+    private function summarizeConditionForInstances($instances): string
+    {
         if ($instances->isEmpty()) {
             return 'pending';
         }

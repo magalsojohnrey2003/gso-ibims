@@ -60,8 +60,8 @@
                     <thead class="bg-purple-600 text-white text-xs uppercase font-semibold text-center">
                         <tr>
                             <th class="px-6 py-3 text-center">Borrower</th>
+                            <th class="px-6 py-3 text-center">Request Type</th>
                             <th class="px-6 py-3 text-center">Status</th>
-                            <th class="px-6 py-3 text-center">Condition</th>
                             <th class="px-6 py-3 text-center">Actions</th>
                         </tr>
                     </thead>
@@ -122,6 +122,13 @@
     </template>
     <template id="badge-condition-pending">
         <x-status-badge type="gray" text="Pending" />
+    </template>
+
+    <template id="badge-request-type-walkin">
+        <x-status-badge type="info" text="Walk-in" />
+    </template>
+    <template id="badge-request-type-online">
+        <x-status-badge type="primary" text="Online" />
     </template>
 
     <template id="alert-success-template">

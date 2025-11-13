@@ -11,11 +11,282 @@ use App\Events\BorrowRequestStatusUpdated;
 use App\Notifications\RequestNotification;
 use App\Models\BorrowItemInstance;
 use App\Models\BorrowRequestItem;
+use App\Models\WalkInRequest;
 use App\Services\BorrowRequestFormPdf;
 use App\Models\RejectionReason;
+use App\Support\StatusRank;
+use App\Services\WalkInRequestPdfService;
 
 class BorrowRequestController extends Controller
 {
+    public function walkInIndex()
+    {
+        // List existing walk-in requests (using new tables once created) - placeholder empty collection for now
+        $requests = \Illuminate\Support\Collection::make();
+        return view('admin.walk-in.index', compact('requests'));
+    }
+
+    public function walkInCreate()
+    {
+        $items = \App\Models\Item::orderBy('name')
+            ->get(['id','name','category','total_qty','available_qty','photo']);
+        $defaultPhoto = 'images/item.png';
+        return view('admin.walk-in.create', compact('items','defaultPhoto'));
+    }
+
+    public function walkInList()
+    {
+        $rows = \App\Models\WalkInRequest::query()
+            ->with('items.item')
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(function ($r) {
+                $timezone = config('app.timezone');
+
+                $formatDate = function ($dt) use ($timezone) {
+                    return $dt ? $dt->timezone($timezone)->format('M d, Y') : null;
+                };
+
+                $formatTime = function ($dt) use ($timezone) {
+                    if (! $dt) {
+                        return null;
+                    }
+
+                    return $dt->format('H:i:s') === '00:00:00'
+                        ? null
+                        : $dt->timezone($timezone)->format('g:i A');
+                };
+
+                $iso = function ($dt) use ($timezone) {
+                    return $dt ? $dt->timezone($timezone)->toIso8601String() : null;
+                };
+
+                return [
+                    'id' => $r->id,
+                    'borrower_name' => $r->borrower_name,
+                    'office_agency' => $r->office_agency,
+                    'contact_number' => $r->contact_number,
+                    'address' => $r->address,
+                    'purpose' => $r->purpose,
+                    'status' => $r->status,
+                    'borrowed_at' => $iso($r->borrowed_at),
+                    'returned_at' => $iso($r->returned_at),
+                    'borrowed_date_display' => $formatDate($r->borrowed_at),
+                    'returned_date_display' => $formatDate($r->returned_at),
+                    'borrowed_time_display' => $formatTime($r->borrowed_at),
+                    'returned_time_display' => $formatTime($r->returned_at),
+                    'items' => $r->items->map(function ($ri) {
+                        return [
+                            'id' => $ri->item_id,
+                            'name' => $ri->item?->name,
+                            'quantity' => $ri->quantity,
+                        ];
+                    })->values()->all(),
+                ];
+            });
+        return response()->json($rows);
+    }
+
+    public function walkInStore(Request $request)
+    {
+        $data = $request->validate([
+            'borrower_name' => 'required|string|max:255',
+            'office_agency' => 'nullable|string|max:255',
+            'contact_number' => 'nullable|string|max:50',
+            'address' => 'nullable|string|max:500',
+            'purpose' => 'required|string|max:500',
+            'borrowed_at' => 'required|date',
+            'returned_at' => 'required|date|after_or_equal:borrowed_at',
+            'items' => 'required|array|min:1',
+            'items.*.id' => 'required|integer|exists:items,id',
+            'items.*.quantity' => 'required|integer|min:1',
+        ]);
+        \DB::beginTransaction();
+        try {
+            $walkin = new \App\Models\WalkInRequest();
+            $walkin->fill([
+                'borrower_name' => $data['borrower_name'],
+                'office_agency' => $data['office_agency'] ?? null,
+                'contact_number' => $data['contact_number'] ?? null,
+                'address' => $data['address'] ?? null,
+                'purpose' => $data['purpose'],
+                'borrowed_at' => $data['borrowed_at'],
+                'returned_at' => $data['returned_at'],
+                'status' => 'pending',
+                'created_by' => $request->user()->id,
+            ]);
+            $walkin->save();
+
+            foreach ($data['items'] as $it) {
+                \App\Models\WalkInRequestItem::create([
+                    'walk_in_request_id' => $walkin->id,
+                    'item_id' => $it['id'],
+                    'quantity' => $it['quantity'],
+                ]);
+            }
+
+            \DB::commit();
+
+            return response()->json([
+                'message' => 'Walk-in request created successfully.',
+                'id' => $walkin->id,
+            ], 201);
+        } catch (\Throwable $e) {
+            \DB::rollBack();
+            return response()->json([
+                'message' => 'Failed to create walk-in request.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function walkInApproveQr(Request $request, $id)
+    {
+        $walkInRequest = WalkInRequest::findOrFail($id);
+
+        if (!$walkInRequest->isPending()) {
+            return view('admin.walk-in.qr-result', [
+                'success' => false,
+                'message' => 'This request has already been processed.',
+                'request' => $walkInRequest,
+            ]);
+        }
+
+        DB::beginTransaction();
+        try {
+            $walkInRequest->status = 'approved';
+            $walkInRequest->save();
+
+            DB::commit();
+
+            return view('admin.walk-in.qr-result', [
+                'success' => true,
+                'message' => 'Walk-in request approved successfully!',
+                'request' => $walkInRequest,
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Failed to approve walk-in request via QR', [
+                'id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return view('admin.walk-in.qr-result', [
+                'success' => false,
+                'message' => 'Failed to approve the request. Please try again.',
+                'request' => $walkInRequest,
+            ]);
+        }
+    }
+
+    public function walkInDeliver(Request $request, $id)
+    {
+        // Eager load items relationship
+        $walkInRequest = WalkInRequest::with('items')->findOrFail($id);
+
+        if (!$walkInRequest->isApproved()) {
+            return response()->json([
+                'message' => 'Only approved requests can be delivered.',
+            ], 422);
+        }
+
+        // Check if there are items to deliver
+        if ($walkInRequest->items->isEmpty()) {
+            return response()->json([
+                'message' => 'No items found in this request.',
+            ], 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            // Create individual BorrowItemInstance records for each physical item instance
+            foreach ($walkInRequest->items as $walkInItem) {
+                // Validate item exists
+                $item = \App\Models\Item::find($walkInItem->item_id);
+                if (!$item) {
+                    throw new \Exception("Item #{$walkInItem->item_id} not found.");
+                }
+
+                // Check if sufficient quantity available
+                if ($item->available_qty < $walkInItem->quantity) {
+                    throw new \Exception("Insufficient quantity for {$item->name}. Available: {$item->available_qty}, Requested: {$walkInItem->quantity}");
+                }
+
+                // Find available ItemInstance records for this item
+                $availableInstances = \App\Models\ItemInstance::where('item_id', $walkInItem->item_id)
+                    ->where('status', 'available')
+                    ->limit($walkInItem->quantity)
+                    ->get();
+
+                // Verify we have enough available instances
+                if ($availableInstances->count() < $walkInItem->quantity) {
+                    throw new \Exception("Not enough available instances for {$item->name}. Found: {$availableInstances->count()}, Needed: {$walkInItem->quantity}");
+                }
+
+                // For each instance, update status and create borrow record
+                foreach ($availableInstances as $instance) {
+                    // Update ItemInstance status to 'borrowed'
+                    $instance->status = 'borrowed';
+                    $instance->save();
+
+                    // Create individual BorrowItemInstance record
+                    BorrowItemInstance::create([
+                        'borrow_request_id' => null, // No associated borrow request
+                        'item_id' => $walkInItem->item_id,
+                        'item_instance_id' => $instance->id,
+                        'borrowed_qty' => 1, // Each record represents 1 physical instance
+                        'walk_in_request_id' => $walkInRequest->id,
+                        'checked_out_at' => now(),
+                        'returned_at' => null, // Not returned yet
+                        'return_condition' => 'pending',
+                    ]);
+                }
+
+                // Deduct from available quantity
+                $item->available_qty = max(0, $item->available_qty - $walkInItem->quantity);
+                $item->save();
+            }
+
+            // Change status to delivered
+            $walkInRequest->status = 'delivered';
+            $walkInRequest->save();
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Walk-in request marked as delivered. Items deducted from inventory.',
+            ], 200);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Failed to deliver walk-in request', [
+                'id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function walkInPrint(WalkInRequest $walkInRequest, WalkInRequestPdfService $pdfService)
+    {
+        $walkInRequest->load(['items.item']);
+
+        $result = $pdfService->render($walkInRequest);
+        if (! $result['success']) {
+            return response()->json([
+                'message' => $result['message'] ?? 'Failed to generate walk-in request PDF.',
+            ], 500);
+        }
+
+        return response()->streamDownload(function () use ($result) {
+            echo $result['content'];
+        }, $result['filename'], [
+            'Content-Type' => $result['mime'],
+        ]);
+    }
     public function index()
     {
         return view('admin.borrow-requests.index');
@@ -80,6 +351,8 @@ class BorrowRequestController extends Controller
         $old = $borrowRequest->status;
         $new = $request->status === 'qr_verified' ? 'approved' : $request->status;
 
+        // Use centralized status rank map
+
         // Guard against nonsensical backward changes when delivery has progressed
         // If items are already delivered, only allow transition to return stages
         if ($borrowRequest->delivery_status === 'delivered' && ! in_array($new, ['returned', 'return_pending'], true)) {
@@ -88,11 +361,15 @@ class BorrowRequestController extends Controller
             ], 422);
         }
 
-        // If items are dispatched (but not yet delivered), prevent downgrading to pre-approved stages
-        if ($borrowRequest->delivery_status === 'dispatched' && in_array($new, ['pending', 'validated'], true)) {
-            return response()->json([
-                'message' => 'Cannot downgrade status after dispatch.',
-            ], 422);
+        // Generic downgrade prevention once dispatched: can't reduce rank below approved
+        if ($borrowRequest->delivery_status === 'dispatched') {
+            $newRank = StatusRank::rank($new);
+            $approvedRank = StatusRank::rank('approved');
+            if ($newRank !== -1 && $newRank < $approvedRank && !in_array($new, ['return_pending','returned'], true)) {
+                return response()->json([
+                    'message' => 'Cannot downgrade status after dispatch.',
+                ], 422);
+            }
         }
 
         if ($old === $new) {
@@ -646,6 +923,59 @@ class BorrowRequestController extends Controller
             return response()->json([
                 'message' => 'Failed to mark items as delivered. Please try again.',
                 'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Cancel a dispatch prior to delivery. Reverts delivery_status and deallocates instances.
+     * Restores instance statuses to 'available' and leaves borrow request in 'approved' (or 'validated' if it was never approved before dispatch logic).
+     */
+    public function cancelDispatch(Request $request, BorrowRequest $borrowRequest)
+    {
+        if ($borrowRequest->delivery_status !== 'dispatched') {
+            return response()->json(['message' => 'Only dispatched requests can be canceled.'], 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            // Load allocated instances
+            $borrowRequest->load('borrowedInstances.instance', 'items.item');
+
+            // Revert each allocated instance back to available and remove BorrowItemInstance rows
+            $allocRows = $borrowRequest->borrowedInstances()->get();
+            foreach ($allocRows as $row) {
+                if ($row->instance && $row->instance->status === 'allocated') {
+                    $row->instance->status = 'available';
+                    $row->instance->save();
+                }
+                $row->delete();
+            }
+
+            // Reset delivery fields
+            $borrowRequest->delivery_status = null;
+            $borrowRequest->dispatched_at = null;
+            // Keep status at approved (we don't automatically downgrade to validated to avoid losing adjustments)
+            $borrowRequest->save();
+
+            // Notify user about cancellation
+            $user = $borrowRequest->user;
+            if ($user) {
+                $payload = [
+                    'type' => 'borrow_dispatch_canceled',
+                    'message' => "Dispatch for borrow request #{$borrowRequest->id} has been canceled.",
+                    'borrow_request_id' => $borrowRequest->id,
+                ];
+                $user->notify(new RequestNotification($payload));
+            }
+
+            DB::commit();
+            return response()->json(['message' => 'Dispatch canceled and allocations rolled back.']);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Failed to cancel dispatch. Please try again.',
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
