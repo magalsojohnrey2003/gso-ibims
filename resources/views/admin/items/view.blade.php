@@ -103,18 +103,25 @@
                 <table class="w-full text-sm text-center text-gray-600 gov-table">
                     <thead class="bg-purple-600 text-white text-xs uppercase font-semibold text-center">
                         <tr>
-                            <th class="px-6 py-3">Property Numbers</th>
+                            <th class="px-6 py-3 whitespace-nowrap">Property Numbers</th>
                             <th class="px-6 py-3">Serial No.</th>
                             <th class="px-6 py-3">Model No.</th>
                             <th class="px-6 py-3">Status</th>
+                            <th class="px-6 py-3">History</th>
                         </tr>
                     </thead>
                     <tbody class="text-center">
                         @forelse($item->instances as $instance)
                             <tr class="hover:bg-gray-50" data-item-instance-id="{{ $instance->id }}">
-                                <td class="px-6 py-4">{{ $instance->property_number }}</td>
-                                <td class="px-6 py-4">{{ $instance->serial_no ?? '—' }}</td>
-                                <td class="px-6 py-4">{{ $instance->model_no ?? '—' }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">{{ $instance->property_number }}</td>
+                                <td class="px-6 py-4">
+                                    @php $sn = $instance->serial_no ?? '—'; @endphp
+                                    <span class="inline-block max-w-[3rem] truncate align-middle cursor-help" title="{{ $sn }}">{{ $sn }}</span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    @php $mn = $instance->model_no ?? '—'; @endphp
+                                    <span class="inline-block max-w-[3rem] truncate align-middle cursor-help" title="{{ $mn }}">{{ $mn }}</span>
+                                </td>
                                 <td class="px-6 py-4">
                                     @php
                                         $status = strtolower($instance->status ?? 'unknown');
@@ -146,6 +153,17 @@
                                         <i class="fas {{ $badgeIcon }} text-xs"></i>
                                         <span>{{ $statusLabel }}</span>
                                     </span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <x-button
+                                        variant="secondary"
+                                        size="sm"
+                                        class="h-9 w-9 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
+                                        iconName="clock"
+                                        x-data
+                                        x-on:click.prevent="window.dispatchEvent(new CustomEvent('item-history:open', { detail: { instanceId: {{ $instance->id }}, propertyNumber: '{{ $instance->property_number }}' } }))">
+                                        History
+                                    </x-button>
                                 </td>
                             </tr>
                         @empty

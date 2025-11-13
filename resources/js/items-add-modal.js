@@ -898,7 +898,8 @@ class SerialModelRowsManager {
     this.panel = form.querySelector('[data-serial-model-panel]');
     this.container = form.querySelector('[data-serial-model-container]');
     this.template = form.querySelector('template[data-serial-model-template]');
-    this.messageEl = form.querySelector('[data-serial-model-message]');
+  this.messageEl = form.querySelector('[data-serial-model-message]');
+  this.modelGenerator = form.querySelector('[data-serial-model-panel] [data-model-generator]');
   this.allowSerial = true;
   this.allowModel = true;
   this.rows = [];
@@ -914,6 +915,10 @@ class SerialModelRowsManager {
     if (this.rowsManager && typeof this.rowsManager.onChange === 'function') {
       // no-op, just documenting dependency
     }
+    // Wire up "Generate Model No." input to live-fill all model_no fields
+    if (this.modelGenerator) {
+      this.modelGenerator.addEventListener('input', () => this.applyModelGenerator());
+    }
   }
 
   handleRowsChanged(payload = {}) {
@@ -926,6 +931,7 @@ class SerialModelRowsManager {
     this.buildRows(this.rows);
     this.updateAvailability();
     this.applyOptionState();
+    this.applyModelGenerator();
   }
 
   handleTriggerClick(event) {
@@ -1000,8 +1006,22 @@ class SerialModelRowsManager {
       modelInput.dataset.propertyNumber = rowData.propertyNumber || '';
       if (storedValues && typeof storedValues.model === 'string') {
         modelInput.value = storedValues.model;
+      } else if (this.modelGenerator && this.modelGenerator.value) {
+        modelInput.value = this.modelGenerator.value;
       }
     }
+  }
+
+  applyModelGenerator() {
+    if (!this.container || !this.modelGenerator) return;
+    const val = (this.modelGenerator.value || '').toUpperCase();
+    const rows = Array.from(this.container.querySelectorAll('[data-serial-model-row]'));
+    rows.forEach((rowEl) => {
+      const input = rowEl.querySelector('[data-serial-model-field="model_no"]');
+      if (input && !input.disabled) {
+        input.value = val;
+      }
+    });
   }
 
   updateAvailability() {
@@ -1097,8 +1117,8 @@ class SerialModelRowsManager {
       return { ok: true, fields: errors };
     }
 
-    const serialRegex = /^[A-Za-z0-9]{1,4}$/;
-    const modelRegex = /^[A-Za-z0-9]{1,15}$/;
+  const serialRegex = /^[A-Za-z0-9]{1,100}$/;
+  const modelRegex = /^[A-Za-z0-9]{1,100}$/;
 
     const rows = Array.from(this.container?.querySelectorAll('[data-serial-model-row]') || []);
     rows.forEach((rowEl) => {
@@ -1373,20 +1393,6 @@ async function submitForm(form) {
     body: formData,
   });
 
-async function submitForm(form) {
-  const action = form.getAttribute('action') || window.location.href;
-  const method = (form.getAttribute('method') || 'POST').toUpperCase();
-  const formData = new FormData(form);
-
-  const response = await fetch(action, {
-    method,
-    headers: {
-      Accept: 'application/json',
-      'X-Requested-With': 'XMLHttpRequest',
-    },
-    body: formData,
-  });
-
   const contentType = response.headers.get('content-type') || '';
   const isJson = contentType.includes('application/json');
 
@@ -1430,14 +1436,27 @@ async function submitForm(form) {
 
   throw new Error(`Request failed (${response.status}).`);
 }
-}
 function handleSuccess(form, elements, result) {
   const data = result?.data || {};
+  const createdCount = Number(data.created_count || 0);
   const hasSkipped = Array.isArray(data.skipped_serials) && data.skipped_serials.length > 0;
-  const toastMessage = hasSkipped ? 'Items added successfully. Some property numbers were skipped because they are already in use.' : 'Items added successfully.';
+
+  if (createdCount === 0) {
+    const msg = hasSkipped
+      ? 'No items were created. All property numbers were already in use.'
+      : 'No items were created. Please review your inputs and try again.';
+  showToast(msg, 'error');
+    hideMessage(elements.feedback);
+    showMessage(elements.error, msg);
+    return; // Do not reset/close/reload when nothing was created
+  }
+
+  const toastMessage = hasSkipped
+    ? 'Items added successfully. Some property numbers were skipped because they are already in use.'
+    : 'Items added successfully.';
   
   // Show toast first, then reload after a short delay to ensure toast is visible
-  showToast('success', toastMessage);
+  showToast(toastMessage, 'success');
 
   hideMessage(elements.error);
   hideMessage(elements.feedback);
@@ -1446,12 +1465,11 @@ function handleSuccess(form, elements, result) {
   form.dispatchEvent(new Event('reset'));
   window.dispatchEvent(new CustomEvent('close-modal', { detail: 'create-item' }));
   
-  // Store new item IDs in sessionStorage to highlight after reload
-  if (data.items && Array.isArray(data.items)) {
-    const itemIds = data.items.map(item => item.id).filter(id => id);
-    if (itemIds.length > 0) {
-      sessionStorage.setItem('newItemIds', JSON.stringify(itemIds));
-    }
+  // Optionally store created property numbers for post-reload highlighting if needed
+  if (Array.isArray(data.created_pns) && data.created_pns.length > 0) {
+    try {
+      sessionStorage.setItem('createdPropertyNumbers', JSON.stringify(data.created_pns));
+    } catch (_) {}
   }
   
   // Delay reload to ensure toast is visible
@@ -1463,7 +1481,7 @@ function handleSuccess(form, elements, result) {
 function handleError(elements, error) {
   const fallback = 'Failed to add items. Please check the form and try again.';
   const message = (error && typeof error.message === 'string' && error.message.trim()) ? error.message : fallback;
-  showToast('error', message);
+  showToast(message, 'error');
   hideMessage(elements.feedback);
   showMessage(elements.error, message);
 }
@@ -1732,11 +1750,11 @@ function initCategoryOfficeManagement() {
     const rawCode = (newCategoryCodeInput?.value || '').trim();
     const code = rawCode.replace(/\D/g, '').slice(0, 4);
     if (!name) {
-      showToast('error', 'Please enter a category name.');
+  showToast('Please enter a category name.', 'error');
       return;
     }
     if (code.length !== 4) {
-      showToast('error', 'Category code must be exactly 4 digits.');
+  showToast('Category code must be exactly 4 digits.', 'error');
       return;
     }
     try {
@@ -1752,9 +1770,9 @@ function initCategoryOfficeManagement() {
       if (newCategoryInput) newCategoryInput.value = '';
       if (newCategoryCodeInput) newCategoryCodeInput.value = '';
       await fetchCategoriesFromServer();
-      showToast('success', 'Category added successfully.');
+  showToast('Category added successfully.', 'success');
     } catch (error) {
-      showToast('error', error.message || 'Failed to add category. Please try again.');
+  showToast(error.message || 'Failed to add category. Please try again.', 'error');
     }
   });
 
@@ -1763,7 +1781,7 @@ function initCategoryOfficeManagement() {
     const code = rawCode.replace(/\D/g, '').slice(0, 4);
     const displayName = (newOfficeNameInput?.value || '').trim();
     if (code.length !== 4) {
-      showToast('error', 'Office code must be exactly 4 digits.');
+  showToast('Office code must be exactly 4 digits.', 'error');
       return;
     }
     try {
@@ -1779,9 +1797,9 @@ function initCategoryOfficeManagement() {
       if (newOfficeCodeInput) newOfficeCodeInput.value = '';
       if (newOfficeNameInput) newOfficeNameInput.value = '';
       await fetchOfficesFromServer();
-      showToast('success', 'Office added successfully.');
+  showToast('Office added successfully.', 'success');
     } catch (error) {
-      showToast('error', error.message || 'Failed to add office. Please try again.');
+  showToast(error.message || 'Failed to add office. Please try again.', 'error');
     }
   });
 
@@ -1799,9 +1817,9 @@ function initCategoryOfficeManagement() {
           headers: { 'X-CSRF-TOKEN': csrf, Accept: 'application/json' },
         });
         await fetchCategoriesFromServer();
-        showToast('success', 'Category deleted successfully.');
+  showToast('Category deleted successfully.', 'success');
       } catch (error) {
-        showToast('error', error.message || 'Failed to delete category. Please try again.');
+  showToast(error.message || 'Failed to delete category. Please try again.', 'error');
       }
       return;
     }
@@ -1830,9 +1848,9 @@ function initCategoryOfficeManagement() {
           headers: { 'X-CSRF-TOKEN': csrf, Accept: 'application/json' },
         });
         await fetchOfficesFromServer();
-        showToast('success', 'Office deleted successfully.');
+  showToast('Office deleted successfully.', 'success');
       } catch (error) {
-        showToast('error', error.message || 'Failed to delete office. Please try again.');
+  showToast(error.message || 'Failed to delete office. Please try again.', 'error');
       }
       return;
     }
@@ -1840,7 +1858,7 @@ function initCategoryOfficeManagement() {
     const viewBtn = target.closest('[data-view-office]');
     if (viewBtn) {
       const codeAttr = viewBtn.getAttribute('data-code') || '';
-      window.showToast('info', `View items for office: ${codeAttr}`);
+  window.showToast(`View items for office: ${codeAttr}`, 'info');
     }
   });
 
@@ -1955,15 +1973,15 @@ function initGLAManagement() {
     const code = (newGlaCodeInput?.value || '').trim().replace(/\D/g, '');
     
     if (!name) {
-      showToast('error', 'Please enter a GLA name.');
+  showToast('Please enter a GLA name.', 'error');
       return;
     }
     if (code.length < 1 || code.length > 4) {
-      showToast('error', 'GLA code must be 1-4 digits.');
+  showToast('GLA code must be 1-4 digits.', 'error');
       return;
     }
     if (!currentParentId) {
-      showToast('error', 'No parent category selected.');
+  showToast('No parent category selected.', 'error');
       return;
     }
 
@@ -1981,12 +1999,12 @@ function initGLAManagement() {
       if (newGlaNameInput) newGlaNameInput.value = '';
       if (newGlaCodeInput) newGlaCodeInput.value = '';
       await fetchGLAsFromServer(currentParentId);
-      showToast('success', 'GLA added successfully.');
+  showToast('GLA added successfully.', 'success');
       
       // Notify that GLAs were updated so dropdowns can refresh
       window.dispatchEvent(new Event('server:glas:updated'));
     } catch (error) {
-      showToast('error', error.message || 'Failed to add GLA. Please try again.');
+  showToast(error.message || 'Failed to add GLA. Please try again.', 'error');
     }
   });
 
@@ -2007,12 +2025,12 @@ function initGLAManagement() {
           headers: { 'X-CSRF-TOKEN': csrf, Accept: 'application/json' },
         });
         await fetchGLAsFromServer(currentParentId);
-        showToast('success', 'GLA deleted successfully.');
+  showToast('GLA deleted successfully.', 'success');
         
         // Notify that GLAs were updated
         window.dispatchEvent(new Event('server:glas:updated'));
       } catch (error) {
-        showToast('error', error.message || 'Failed to delete GLA. Please try again.');
+        showToast(error.message || 'Failed to delete GLA. Please try again.', 'error');
       }
     }
   });
@@ -2279,8 +2297,8 @@ function initAddItemsForm(form) {
         summary = buildErrorSummary(errorFields);
       }
       if (summary) {
-        showMessage(elements.error, summary);
-        showToast('error', summary);
+  showMessage(elements.error, summary);
+  showToast(summary, 'error');
       }
       if (rowValidation.fields.size) {
         rowsManager.focusFirstInvalid();
@@ -2312,8 +2330,8 @@ function initAddItemsForm(form) {
     } catch (error) {
       console.error(error);
       const msg = error?.message || 'Unable to validate serial numbers right now.';
-      applySerialState(elements, 'error', msg);
-      showToast('error', msg);
+  applySerialState(elements, 'error', msg);
+  showToast(msg, 'error');
       handleError(elements, error);
     } finally {
       toggleLoading(elements, false);
@@ -2357,7 +2375,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const y = parseInt(inp.value, 10);
         if (isNaN(y) || y < 2020) {
           inp.value = '';
-          showToast('error', 'Year must be 2020 or later.');
+          showToast('Year must be 2020 or later.', 'error');
         }
       }
     });

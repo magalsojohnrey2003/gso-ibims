@@ -3,7 +3,7 @@
 <?php if (isset($component)) { $__componentOriginal643fe1b47aec0b76658e1a0200b34b2c = $component; } ?>
 <?php if (isset($attributes)) { $__attributesOriginal643fe1b47aec0b76658e1a0200b34b2c = $attributes; } ?>
 <?php $component = BladeUI\Icons\Components\Svg::resolve([] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
-<?php $component->withName('heroicon-s-arrow-path-rounded-square'); ?>
+<?php $component->withName('heroicon-o-shield-check'); ?>
 <?php if ($component->shouldRender()): ?>
 <?php $__env->startComponent($component->resolveView(), $component->data()); ?>
 <?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
@@ -22,4 +22,4 @@
 <?php if (isset($__componentOriginal643fe1b47aec0b76658e1a0200b34b2c)): ?>
 <?php $component = $__componentOriginal643fe1b47aec0b76658e1a0200b34b2c; ?>
 <?php unset($__componentOriginal643fe1b47aec0b76658e1a0200b34b2c); ?>
-<?php endif; ?><?php /**PATH C:\Users\magal\Desktop\gso-ibims\storage\framework\views/dc488a1cffdd3d161751fffb49840321.blade.php ENDPATH**/ ?>
+<?php endif; ?><?php /**PATH C:\Users\magal\Desktop\gso-ibims\storage\framework\views/3f3be516f70f19a97fd21d9c12c306ff.blade.php ENDPATH**/ ?>

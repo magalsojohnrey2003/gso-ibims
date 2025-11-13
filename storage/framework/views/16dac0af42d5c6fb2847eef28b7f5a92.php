@@ -3,7 +3,7 @@
 <?php if (isset($component)) { $__componentOriginal643fe1b47aec0b76658e1a0200b34b2c = $component; } ?>
 <?php if (isset($attributes)) { $__attributesOriginal643fe1b47aec0b76658e1a0200b34b2c = $attributes; } ?>
 <?php $component = BladeUI\Icons\Components\Svg::resolve([] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
-<?php $component->withName('heroicon-o-clipboard-document-check'); ?>
+<?php $component->withName('heroicon-o-arrow-right'); ?>
 <?php if ($component->shouldRender()): ?>
 <?php $__env->startComponent($component->resolveView(), $component->data()); ?>
 <?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
@@ -22,4 +22,4 @@
 <?php if (isset($__componentOriginal643fe1b47aec0b76658e1a0200b34b2c)): ?>
 <?php $component = $__componentOriginal643fe1b47aec0b76658e1a0200b34b2c; ?>
 <?php unset($__componentOriginal643fe1b47aec0b76658e1a0200b34b2c); ?>
-<?php endif; ?><?php /**PATH C:\Users\magal\Desktop\gso-ibims\storage\framework\views/0f52e24bcb883d2ff577dcd6d544230e.blade.php ENDPATH**/ ?>
+<?php endif; ?><?php /**PATH C:\Users\magal\Desktop\gso-ibims\storage\framework\views/0ee104405c434203de2ece054faf926c.blade.php ENDPATH**/ ?>

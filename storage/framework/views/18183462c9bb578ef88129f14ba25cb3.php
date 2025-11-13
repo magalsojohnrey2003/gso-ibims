@@ -375,6 +375,20 @@
                 Provide serial and model numbers per property number once property number rows are complete.
             </p>
 
+            <!-- Generate Model No. (for all rows) -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                <div class="md:col-span-2">
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Generate Model No. (for all rows)</label>
+                    <input
+                        type="text"
+                        maxlength="100"
+                        class="w-full px-3 py-2 border-2 border-gray-400 dark:border-gray-500 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-purple-600 dark:focus:border-purple-400 transition-all duration-200"
+                        placeholder="Type a model number to apply to all rows"
+                        data-model-generator>
+                </div>
+                <div class="text-xs text-gray-500 md:text-right">Applies to every Model No. field below.</div>
+            </div>
+
             <div class="w-full space-y-3 max-h-72 overflow-auto p-3 border rounded-lg bg-white dark:bg-gray-800" data-edit-serial-container aria-live="polite">
                 <?php $__empty_1 = true; $__currentLoopData = $item->instances; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $inst): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
                     <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-indigo-50 dark:bg-indigo-900/30 space-y-3 edit-serial-row" data-instance-id="<?php echo e($inst->id); ?>">
@@ -384,7 +398,7 @@
                                 <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Serial No.</label>
                                 <input
                                     type="text"
-                                    maxlength="4"
+                                    maxlength="100"
                                     class="w-full px-3 py-2 border-2 border-gray-400 dark:border-gray-500 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-purple-600 dark:focus:border-purple-400 transition-all duration-200 instance-part-serial-no"
                                     value="<?php echo e($inst->serial_no ?? ''); ?>"
                                     data-serial-model-input="serial_no"
@@ -395,7 +409,7 @@
                                 <label class="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Model No.</label>
                                 <input
                                     type="text"
-                                    maxlength="15"
+                                    maxlength="100"
                                     class="w-full px-3 py-2 border-2 border-gray-400 dark:border-gray-500 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-purple-600 dark:focus:border-purple-400 transition-all duration-200 instance-part-model-no"
                                     value="<?php echo e($inst->model_no ?? ''); ?>"
                                     data-serial-model-input="model_no"

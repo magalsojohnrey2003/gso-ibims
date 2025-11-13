@@ -125,19 +125,19 @@
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
-                            <x-input-label for="borrowed_date" value="Borrowed Date &amp; Time" />
+                            <x-input-label for="borrowed_date" value="Borrowed Date" />
                             <div class="mt-1 flex flex-col gap-2">
                                 <input id="borrowed_date" name="borrowed_date" type="date" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-purple-500 focus:border-purple-500" />
                                 <input id="borrowed_time" name="borrowed_time" type="time" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-purple-500 focus:border-purple-500" placeholder="Select time (optional)" />
-                                <p class="text-xs text-gray-500">Time is optional.</p>
+                                <p class="text-xs text-gray-500">Start Time (optional)</p>
                             </div>
                         </div>
                         <div>
-                            <x-input-label for="returned_date" value="Returned Date &amp; Time" />
+                            <x-input-label for="returned_date" value="Returned Date" />
                             <div class="mt-1 flex flex-col gap-2">
                                 <input id="returned_date" name="returned_date" type="date" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-purple-500 focus:border-purple-500" />
                                 <input id="returned_time" name="returned_time" type="time" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-purple-500 focus:border-purple-500" placeholder="Select time (optional)" />
-                                <p class="text-xs text-gray-500">Time is optional.</p>
+                                <p class="text-xs text-gray-500">End Time (optional)</p>
                             </div>
                         </div>
                     </div>

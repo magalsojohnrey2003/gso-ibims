@@ -10,11 +10,11 @@ return new class extends Migration
     {
         Schema::table('item_instances', function (Blueprint $table) {
             if (! Schema::hasColumn('item_instances', 'serial_no')) {
-                $table->string('serial_no', 4)->nullable()->after('serial_int');
+                $table->string('serial_no', 100)->nullable()->after('serial_int');
             }
 
             if (! Schema::hasColumn('item_instances', 'model_no')) {
-                $table->string('model_no', 15)->nullable()->after('serial_no');
+                $table->string('model_no', 100)->nullable()->after('serial_no');
             }
         });
     }

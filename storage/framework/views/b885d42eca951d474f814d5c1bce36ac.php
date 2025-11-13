@@ -105,18 +105,25 @@
                 <table class="w-full text-sm text-center text-gray-600 gov-table">
                     <thead class="bg-purple-600 text-white text-xs uppercase font-semibold text-center">
                         <tr>
-                            <th class="px-6 py-3">Property Numbers</th>
+                            <th class="px-6 py-3 whitespace-nowrap">Property Numbers</th>
                             <th class="px-6 py-3">Serial No.</th>
                             <th class="px-6 py-3">Model No.</th>
                             <th class="px-6 py-3">Status</th>
+                            <th class="px-6 py-3">History</th>
                         </tr>
                     </thead>
                     <tbody class="text-center">
                         <?php $__empty_1 = true; $__currentLoopData = $item->instances; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $instance): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
                             <tr class="hover:bg-gray-50" data-item-instance-id="<?php echo e($instance->id); ?>">
-                                <td class="px-6 py-4"><?php echo e($instance->property_number); ?></td>
-                                <td class="px-6 py-4"><?php echo e($instance->serial_no ?? '—'); ?></td>
-                                <td class="px-6 py-4"><?php echo e($instance->model_no ?? '—'); ?></td>
+                                <td class="px-6 py-4 whitespace-nowrap"><?php echo e($instance->property_number); ?></td>
+                                <td class="px-6 py-4">
+                                    <?php $sn = $instance->serial_no ?? '—'; ?>
+                                    <span class="inline-block max-w-[3rem] truncate align-middle cursor-help" title="<?php echo e($sn); ?>"><?php echo e($sn); ?></span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <?php $mn = $instance->model_no ?? '—'; ?>
+                                    <span class="inline-block max-w-[3rem] truncate align-middle cursor-help" title="<?php echo e($mn); ?>"><?php echo e($mn); ?></span>
+                                </td>
                                 <td class="px-6 py-4">
                                     <?php
                                         $status = strtolower($instance->status ?? 'unknown');
@@ -148,6 +155,29 @@
                                         <i class="fas <?php echo e($badgeIcon); ?> text-xs"></i>
                                         <span><?php echo e($statusLabel); ?></span>
                                     </span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <?php if (isset($component)) { $__componentOriginald0f1fd2689e4bb7060122a5b91fe8561 = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginald0f1fd2689e4bb7060122a5b91fe8561 = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.button','data' => ['variant' => 'secondary','size' => 'sm','class' => 'h-9 w-9 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only','iconName' => 'clock','xData' => true,'xOn:click.prevent' => 'window.dispatchEvent(new CustomEvent(\'item-history:open\', { detail: { instanceId: '.e($instance->id).', propertyNumber: \''.e($instance->property_number).'\' } }))']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('button'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes(['variant' => 'secondary','size' => 'sm','class' => 'h-9 w-9 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only','iconName' => 'clock','x-data' => true,'x-on:click.prevent' => 'window.dispatchEvent(new CustomEvent(\'item-history:open\', { detail: { instanceId: '.e($instance->id).', propertyNumber: \''.e($instance->property_number).'\' } }))']); ?>
+                                        History
+                                     <?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginald0f1fd2689e4bb7060122a5b91fe8561)): ?>
+<?php $attributes = $__attributesOriginald0f1fd2689e4bb7060122a5b91fe8561; ?>
+<?php unset($__attributesOriginald0f1fd2689e4bb7060122a5b91fe8561); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginald0f1fd2689e4bb7060122a5b91fe8561)): ?>
+<?php $component = $__componentOriginald0f1fd2689e4bb7060122a5b91fe8561; ?>
+<?php unset($__componentOriginald0f1fd2689e4bb7060122a5b91fe8561); ?>
+<?php endif; ?>
                                 </td>
                             </tr>
                         <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>

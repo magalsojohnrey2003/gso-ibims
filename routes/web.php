@@ -69,6 +69,7 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
         Route::get('items/search', [ItemController::class, 'search'])->name('admin.items.search');
         Route::get('items/check-serial', [ItemController::class, 'checkSerial'])->name('admin.items.check-serial');
         Route::match(['get', 'post'], 'items/{item}/stickers', [ItemController::class, 'printStickers'])->name('admin.items.stickers');
+        Route::get('items/instances/{instance}/history', [ItemController::class, 'instanceHistory'])->name('admin.items.instances.history');
         Route::resource('items', ItemController::class);
 
         Route::post('items/validate-pns', [ItemController::class, 'validatePropertyNumbers'])

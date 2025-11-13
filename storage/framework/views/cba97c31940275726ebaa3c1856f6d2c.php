@@ -31,7 +31,20 @@
                    class="flex items-center px-4 py-3 rounded-md gov-hover transition-colors duration-150 group focus:outline-none focus:ring-2 focus:ring-offset-1
                           <?php echo e(request()->routeIs('items.*') ? 'gov-active' : ''); ?>">
                     <i class="fas fa-box-open mr-3 sidebar-icon" aria-hidden="true"></i>
-                    <span class="sidebar-text">Items</span>
+                    <span class="sidebar-text">Items Management</span>
+                </a>
+            </li>
+
+            
+            <li role="none">
+                <a href="<?php echo e(route('admin.walkin.index')); ?>"
+                   title="Walk-in Requests"
+                   role="menuitem"
+                   <?php if(request()->routeIs('admin.walkin.*')): ?> aria-current="page" <?php endif; ?>
+                   class="flex items-center px-4 py-3 rounded-md gov-hover transition-colors duration-150 group focus:outline-none focus:ring-2 focus:ring-offset-1
+                          <?php echo e(request()->routeIs('admin.walkin.*') ? 'gov-active' : ''); ?>">
+                    <i class="fas fa-user-check mr-3 sidebar-icon" aria-hidden="true"></i>
+                    <span class="sidebar-text">Walk-in Requests</span>
                 </a>
             </li>
 
@@ -97,19 +110,6 @@
                           <?php echo e(request()->routeIs('reports.*') ? 'gov-active' : ''); ?>">
                     <i class="fas fa-chart-line mr-3 sidebar-icon" aria-hidden="true"></i>
                     <span class="sidebar-text">Reports</span>
-                </a>
-            </li>
-
-            
-            <li role="none">
-                <a href="<?php echo e(route('admin.walkin.index')); ?>"
-                   title="Walk-in Requests"
-                   role="menuitem"
-                   <?php if(request()->routeIs('admin.walkin.*')): ?> aria-current="page" <?php endif; ?>
-                   class="flex items-center px-4 py-3 rounded-md gov-hover transition-colors duration-150 group focus:outline-none focus:ring-2 focus:ring-offset-1
-                          <?php echo e(request()->routeIs('admin.walkin.*') ? 'gov-active' : ''); ?>">
-                    <i class="fas fa-user-check mr-3 sidebar-icon" aria-hidden="true"></i>
-                    <span class="sidebar-text">Walk-in</span>
                 </a>
             </li>
         </ul>
