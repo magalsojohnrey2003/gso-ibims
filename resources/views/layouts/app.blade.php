@@ -160,7 +160,7 @@
         @endauth
 
         <!-- Main content area: allow vertical scrolling inside this column only -->
-        <main id="mainContent" tabindex="-1" class="flex-1 main-wallpaper {{ isset($noMainScroll) && $noMainScroll ? 'overflow-y-visible' : 'overflow-y-auto' }}">
+        <main id="mainContent" tabindex="-1" class="flex-1 {{ isset($noMainScroll) && $noMainScroll ? 'overflow-y-visible' : 'overflow-y-auto' }}">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                 {{ $slot }}
             </div>
