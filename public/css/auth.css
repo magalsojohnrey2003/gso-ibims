@@ -30,6 +30,34 @@
 html, body {
   height: 100%;
 }
+/* Third soft blob near top-right using html::before */
+html::before {
+  content: "";
+  position: fixed;
+  width: 760px;
+  height: 760px;
+  top: -10%;
+  right: 6%;
+  background: radial-gradient(circle at 50% 50%, rgba(139,92,246,0.50) 0%, rgba(139,92,246,0.28) 32%, transparent 64%);
+  filter: blur(54px);
+  opacity: 0.50;
+  z-index: 0;
+  pointer-events: none;
+  transform: translateZ(0);
+  will-change: transform;
+  /* 4x the logo float (6.5s) */
+  animation: wallpaperFloatC 26s ease-in-out infinite alternate;
+  animation-delay: -1.625s;
+}
+
+@keyframes wallpaperFloatC {
+  0% { transform: translate3d(0,0,0) rotate(0deg); }
+  100% { transform: translate3d(-2%, 3%, 0) rotate(8deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html::before { animation: none; opacity: 0.28; }
+}
 body {
   display: flex;
   align-items: center;
@@ -37,15 +65,65 @@ body {
   min-height: 100vh;
   width: 100%;
   padding: 12px;
-  background: var(--bg-light);
+  /* subtle, modern background with soft radial lighting */
+  background:
+    radial-gradient(1200px 600px at -10% -10%, rgba(168,85,247,0.08), transparent 60%),
+    radial-gradient(1000px 520px at 110% 10%, rgba(59,130,246,0.08), transparent 60%),
+    linear-gradient(180deg, #fafafa 0%, #f6f7fb 100%);
   color: var(--text-dark);
+  position: relative; /* allow pseudo-elements to layer as live wallpaper */
 }
+/* Live wallpaper: floating, blurred gradient blobs (brand purple forward) */
 body::before {
   content: "";
   position: fixed;
-  inset: 0;
-  opacity: 0.04; /* subtle professional overlay */
-  z-index: -1;
+  width: 980px;
+  height: 980px;
+  top: -16%;
+  left: -12%;
+  background: radial-gradient(circle at 40% 40%, rgba(168,85,247,0.60) 0%, rgba(168,85,247,0.36) 32%, transparent 62%);
+  filter: blur(56px);
+  opacity: 0.58;
+  z-index: 0;
+  pointer-events: none;
+  transform: translateZ(0);
+  will-change: transform;
+  /* 2x the logo float (6.5s) for rhythm */
+  animation: wallpaperFloatA 13s ease-in-out infinite alternate;
+  animation-delay: -3.25s;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  width: 1080px;
+  height: 1080px;
+  right: -14%;
+  bottom: -22%;
+  background: radial-gradient(circle at 60% 60%, rgba(126,34,206,0.52) 0%, rgba(126,34,206,0.30) 36%, transparent 64%);
+  filter: blur(64px);
+  opacity: 0.54;
+  z-index: 0;
+  pointer-events: none;
+  transform: translateZ(0);
+  will-change: transform;
+  /* 3x the logo float */
+  animation: wallpaperFloatB 19.5s ease-in-out infinite alternate;
+  animation-delay: -6.5s;
+}
+
+@keyframes wallpaperFloatA {
+  0% { transform: translate3d(0,0,0) rotate(0deg); }
+  100% { transform: translate3d(3%, 2%, 0) rotate(10deg); }
+}
+@keyframes wallpaperFloatB {
+  0% { transform: translate3d(0,0,0) rotate(0deg); }
+  100% { transform: translate3d(-2%, -3%, 0) rotate(-10deg); }
+}
+
+/* Motion accessibility */
+@media (prefers-reduced-motion: reduce) {
+  body::before, body::after { animation: none; opacity: 0.22; }
 }
 
 /* ========================
@@ -456,7 +534,8 @@ input[type="submit"][disabled]:hover {
   height: 100%;
   z-index: 12;
   transition: left 0.45s cubic-bezier(.25,.8,.25,1), transform 0.45s ease;
-  background-color: #1E1E2F;     /* flat dark background */
+  /* vibrant gradient cover — purple-forward */
+  background: linear-gradient(135deg, #1e1b2e 0%, #2a1846 25%, #3a1670 55%, #4c1d95 100%);
   border-radius: 12px;
   display: flex;
   align-items: center;
@@ -475,11 +554,28 @@ input[type="submit"][disabled]:hover {
   content: "";
   position: absolute;
   inset: 0;
+  /* softly animated decorative lights */
   background-image:
-    radial-gradient(circle at 10% 10%, rgba(255,255,255,0.02), transparent 10%),
-    radial-gradient(circle at 90% 90%, rgba(0,0,0,0.02), transparent 12%);
+    radial-gradient(600px 320px at 18% 18%, rgba(255,255,255,0.08), transparent 60%),
+    radial-gradient(520px 280px at 82% 78%, rgba(168,85,247,0.20), transparent 70%),
+    radial-gradient(560px 300px at 92% 10%, rgba(126,34,206,0.20), transparent 70%);
   pointer-events: none;
   z-index: 1;
+}
+
+/* extra, slow-moving glow for depth */
+.auth-cover::after {
+  content: "";
+  position: absolute;
+  width: 420px;
+  height: 420px;
+  filter: blur(60px);
+  background: radial-gradient(circle at center, rgba(168,85,247,0.38), rgba(126,34,206,0.22) 60%, transparent 70%);
+  top: 10%;
+  left: -12%;
+  z-index: 0;
+  opacity: 0.75;
+  transform: translate3d(0,0,0);
 }
 
 .auth-cover .cover-content {
@@ -490,36 +586,76 @@ input[type="submit"][disabled]:hover {
   align-items: center;
   justify-content: flex-start;
   gap: 12px;
-  padding: 22px 18px;
+  padding: 24px 20px;
   text-align: center;
   color: #E6E7EA;
   max-width: 420px;
   width: 100%;
   box-sizing: border-box;
+  /* glass card for improved legibility */
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.35);
+  backdrop-filter: blur(10px);
 }
 
 .auth-cover .cover-logo {
-  width: 150px;
-  max-width: 150px;
+  width: 140px;
+  max-width: 140px;
   height: auto;
   object-fit: contain;
-  border-radius: 8px;
-  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.45));
+  border-radius: 10px;
+  filter: drop-shadow(0 8px 18px rgba(0,0,0,0.45));
+  animation: coverFloat 6.5s ease-in-out infinite;
 }
 
-.auth-cover .cover-text .cover-head {
-  color: #A855F7;
+@keyframes coverFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+/* Respect user motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .auth-cover .cover-logo { animation: none; }
+}
+
+/* refined typography for title/sub/desc/meta */
+.auth-cover .cover-text {
+  padding: 6px 8px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px; /* tighter, more professional spacing */
+}
+.auth-cover .cover-text .cover-title {
+  display: inline-block;
+  margin-top: 8px;
   font-weight: 700;
-  font-size: 1.05rem;
-  line-height: 1.2;
-  margin-top: 2px;
+  letter-spacing: 0.1px;
+  color: #ffffff;
+  font-size: 1.12rem;
+  line-height: 1.28;
 }
-
 .auth-cover .cover-text .cover-sub {
   color: #d7d9dd;
   font-weight: 500;
-  font-size: 0.92rem;
+  font-size: 0.9rem;
   opacity: 0.95;
+}
+.auth-cover .cover-text .cover-desc {
+  color: #cbd5e1;
+  font-weight: 500;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  max-width: 34ch;
+  text-align: center;
+}
+.auth-cover .cover-text .cover-meta {
+  color: #a5b4fc;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  font-size: 0.8rem;
 }
 
 .switch-text {
@@ -555,6 +691,10 @@ input[type="submit"][disabled]:hover {
 
 /* Mobile / stacked behavior */
 @media (max-width: 720px) {
+  /* Scale wallpaper for mobile to keep performance tidy */
+  body::before { width: 600px; height: 600px; top: -22%; left: -30%; filter: blur(48px); opacity: 0.46; }
+  body::after { width: 640px; height: 640px; right: -28%; bottom: -28%; filter: blur(52px); opacity: 0.44; }
+  html::before { width: 460px; height: 460px; top: -18%; right: -10%; filter: blur(42px); opacity: 0.40; }
   .wrapper.larger-form {
     width: 100;
     padding: 14px 16px;
@@ -581,7 +721,7 @@ input[type="submit"][disabled]:hover {
   .auth-cover {
     left: 0 !important;
     width: 100% !important;
-    height: 140px;
+    height: 160px;
     top: 0;
     border-radius: 12px 12px 0 0;
     transition: transform 0.36s cubic-bezier(.2,.9,.2,1);
@@ -589,10 +729,13 @@ input[type="submit"][disabled]:hover {
     box-shadow: inset 0 2px 10px rgba(0,0,0,0.28);
   }
 
-  .auth-cover .cover-content { padding: 12px; gap: 8px; max-width: 100%; }
-  .auth-cover .cover-logo { width: 56px; max-width: 56px; }
-  .auth-cover .cover-text .cover-head { font-size: 1rem; }
+  .auth-cover .cover-content { padding: 10px 12px; gap: 6px; max-width: 100%; background: rgba(255,255,255,0.06); border-radius: 12px; }
+  .auth-cover .cover-logo { width: 54px; max-width: 54px; animation: coverFloatMobile 7s ease-in-out infinite; }
+  @keyframes coverFloatMobile { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
+  .auth-cover .cover-text .cover-title { font-size: 0.98rem; }
   .auth-cover .cover-text .cover-sub { font-size: 0.88rem; }
+  .auth-cover .cover-text .cover-desc { display:none; }
+  .auth-cover .cover-text .cover-meta { font-size: 0.76rem; }
 
   /* name fields: on narrow screens make last name full width below */
   .form-row-3 { grid-template-columns: repeat(2, 1fr); gap: 10px; }

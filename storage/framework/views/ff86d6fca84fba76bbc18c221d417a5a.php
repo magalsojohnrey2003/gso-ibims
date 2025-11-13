@@ -1,7 +1,5 @@
-@extends('layouts.auth')
-
-@section('content')
-@php
+<?php $__env->startSection('content'); ?>
+<?php
     $initial = 'login'; // ✅ Default to login
 
     if (old('auth_form') === 'login') {
@@ -19,117 +17,117 @@
             $initial = 'login';
         }
     }
-@endphp
+?>
 
 <div class="auth-shell">
     <!-- Wrapper: responsive max width so mobile/tablet users get a usable full-width experience -->
-    <div class="wrapper larger-form auth-wrapper {{ $initial === 'login' && ($errors->getBag('login')->any() || $errors->getBag('register')->any()) ? 'shake' : '' }}"
-         id="authWrapper" data-initial="{{ $initial }}" aria-live="polite">
+    <div class="wrapper larger-form auth-wrapper <?php echo e($initial === 'login' && ($errors->getBag('login')->any() || $errors->getBag('register')->any()) ? 'shake' : ''); ?>"
+         id="authWrapper" data-initial="<?php echo e($initial); ?>" aria-live="polite">
 
         <!-- Slider: behaves as a two-column slider on desktop, stacks panels on small screens -->
         <div class="auth-slider" id="authSlider" role="region" aria-label="Authentication forms">
 
             <!-- REGISTER -->
-            <div class="auth-panel register-panel" @if($initial === 'login') hidden inert @endif>
-                <form method="POST" action="{{ route('register') }}" id="registerForm" class="auth-form" novalidate>
-                    @csrf
+            <div class="auth-panel register-panel" <?php if($initial === 'login'): ?> hidden inert <?php endif; ?>>
+                <form method="POST" action="<?php echo e(route('register')); ?>" id="registerForm" class="auth-form" novalidate>
+                    <?php echo csrf_field(); ?>
                     <input type="hidden" name="auth_form" value="register">
 
                     <h2>SIGN UP</h2>
 
                     <div class="form-row form-row-3">
-                        @php $err = $errors->getBag('register')->first('first_name'); @endphp
-                        <div class="input-field {{ $err ? 'error' : '' }}">
-                            <input id="register_first_name" type="text" name="first_name" value="{{ old('auth_form') === 'register' ? old('first_name') : '' }}" required placeholder=" " pattern="[A-Za-z\s-]+">
+                        <?php $err = $errors->getBag('register')->first('first_name'); ?>
+                        <div class="input-field <?php echo e($err ? 'error' : ''); ?>">
+                            <input id="register_first_name" type="text" name="first_name" value="<?php echo e(old('auth_form') === 'register' ? old('first_name') : ''); ?>" required placeholder=" " pattern="[A-Za-z\s-]+">
                             <label for="register_first_name">First Name</label>
-                            @if($err)
-                                <div class="error" data-bag="register" data-full-error="{{ $err }}" tabindex="0">{{ $err }}</div>
-                            @else
+                            <?php if($err): ?>
+                                <div class="error" data-bag="register" data-full-error="<?php echo e($err); ?>" tabindex="0"><?php echo e($err); ?></div>
+                            <?php else: ?>
                                 <div class="error" aria-hidden="true"></div>
-                            @endif
+                            <?php endif; ?>
                         </div>
 
-                        @php $err = $errors->getBag('register')->first('middle_name'); @endphp
-                        <div class="input-field {{ $err ? 'error' : '' }}">
-                            <input id="register_middle_name" type="text" name="middle_name" value="{{ old('auth_form') === 'register' ? old('middle_name') : '' }}" placeholder=" " pattern="[A-Za-z\s-]+">
+                        <?php $err = $errors->getBag('register')->first('middle_name'); ?>
+                        <div class="input-field <?php echo e($err ? 'error' : ''); ?>">
+                            <input id="register_middle_name" type="text" name="middle_name" value="<?php echo e(old('auth_form') === 'register' ? old('middle_name') : ''); ?>" placeholder=" " pattern="[A-Za-z\s-]+">
                             <label for="register_middle_name">Middle Name</label>
-                            @if($err)
-                                <div class="error" data-bag="register" data-full-error="{{ $err }}" tabindex="0">{{ $err }}</div>
-                            @else
+                            <?php if($err): ?>
+                                <div class="error" data-bag="register" data-full-error="<?php echo e($err); ?>" tabindex="0"><?php echo e($err); ?></div>
+                            <?php else: ?>
                                 <div class="error" aria-hidden="true"></div>
-                            @endif
+                            <?php endif; ?>
                         </div>
 
-                        @php $err = $errors->getBag('register')->first('last_name'); @endphp
-                        <div class="input-field {{ $err ? 'error' : '' }}">
-                            <input id="register_last_name" type="text" name="last_name" value="{{ old('auth_form') === 'register' ? old('last_name') : '' }}" required placeholder=" " pattern="[A-Za-z\s-]+">
+                        <?php $err = $errors->getBag('register')->first('last_name'); ?>
+                        <div class="input-field <?php echo e($err ? 'error' : ''); ?>">
+                            <input id="register_last_name" type="text" name="last_name" value="<?php echo e(old('auth_form') === 'register' ? old('last_name') : ''); ?>" required placeholder=" " pattern="[A-Za-z\s-]+">
                             <label for="register_last_name">Last Name</label>
-                            @if($err)
-                                <div class="error" data-bag="register" data-full-error="{{ $err }}" tabindex="0">{{ $err }}</div>
-                            @else
+                            <?php if($err): ?>
+                                <div class="error" data-bag="register" data-full-error="<?php echo e($err); ?>" tabindex="0"><?php echo e($err); ?></div>
+                            <?php else: ?>
                                 <div class="error" aria-hidden="true"></div>
-                            @endif
+                            <?php endif; ?>
                         </div>
                     </div>
 
                     <div class="form-row">
-                        @php $err = $errors->getBag('register')->first('phone'); @endphp
-                        <div class="input-field {{ $err ? 'error' : '' }}">
-                            <input id="register_phone" type="tel" name="phone" value="{{ old('auth_form') === 'register' ? old('phone') : '' }}" placeholder=" "
+                        <?php $err = $errors->getBag('register')->first('phone'); ?>
+                        <div class="input-field <?php echo e($err ? 'error' : ''); ?>">
+                            <input id="register_phone" type="tel" name="phone" value="<?php echo e(old('auth_form') === 'register' ? old('phone') : ''); ?>" placeholder=" "
                                    inputmode="numeric" maxlength="14" autocomplete="tel">
                             <label for="register_phone">Phone</label>
-                            @if($err)
-                                <div class="error" data-bag="register" data-full-error="{{ $err }}" tabindex="0">{{ $err }}</div>
-                            @else
+                            <?php if($err): ?>
+                                <div class="error" data-bag="register" data-full-error="<?php echo e($err); ?>" tabindex="0"><?php echo e($err); ?></div>
+                            <?php else: ?>
                                 <div class="error" aria-hidden="true"></div>
-                            @endif
+                            <?php endif; ?>
                         </div>
 
-                        @php $err = $errors->getBag('register')->first('email'); @endphp
-                        <div class="input-field {{ $err ? 'error' : '' }}">
-                            <input id="register_email" type="text" name="email" value="{{ old('auth_form') === 'register' ? old('email') : '' }}" placeholder=" ">
+                        <?php $err = $errors->getBag('register')->first('email'); ?>
+                        <div class="input-field <?php echo e($err ? 'error' : ''); ?>">
+                            <input id="register_email" type="text" name="email" value="<?php echo e(old('auth_form') === 'register' ? old('email') : ''); ?>" placeholder=" ">
                             <label for="register_email">Email</label>
-                            @if($err)
-                                <div class="error" data-bag="register" data-full-error="{{ $err }}" tabindex="0">{{ $err }}</div>
-                            @else
+                            <?php if($err): ?>
+                                <div class="error" data-bag="register" data-full-error="<?php echo e($err); ?>" tabindex="0"><?php echo e($err); ?></div>
+                            <?php else: ?>
                                 <div class="error" aria-hidden="true"></div>
-                            @endif
+                            <?php endif; ?>
                         </div>
                     </div>
 
-                    @php $err = $errors->getBag('register')->first('address'); @endphp
-                    <div class="input-field {{ $err ? 'error' : '' }}">
-                        <input id="register_address" type="text" name="address" value="{{ old('auth_form') === 'register' ? old('address') : '' }}" placeholder=" ">
+                    <?php $err = $errors->getBag('register')->first('address'); ?>
+                    <div class="input-field <?php echo e($err ? 'error' : ''); ?>">
+                        <input id="register_address" type="text" name="address" value="<?php echo e(old('auth_form') === 'register' ? old('address') : ''); ?>" placeholder=" ">
                         <label for="register_address">Address</label>
-                        @if($err)
-                            <div class="error" data-bag="register" data-full-error="{{ $err }}" tabindex="0">{{ $err }}</div>
-                        @else
+                        <?php if($err): ?>
+                            <div class="error" data-bag="register" data-full-error="<?php echo e($err); ?>" tabindex="0"><?php echo e($err); ?></div>
+                        <?php else: ?>
                             <div class="error" aria-hidden="true"></div>
-                        @endif
+                        <?php endif; ?>
                     </div>
 
-                    @php $err = $errors->getBag('register')->first('password'); @endphp
-                    <div class="input-field {{ $err ? 'error' : '' }}">
+                    <?php $err = $errors->getBag('register')->first('password'); ?>
+                    <div class="input-field <?php echo e($err ? 'error' : ''); ?>">
                         <input id="register_password" type="password" name="password" placeholder=" ">
                         <label for="register_password">Password</label>
                         <span class="password-eye" data-target="#register_password"><i class="fa-solid fa-eye"></i></span>
-                        @if($err)
-                            <div class="error" data-bag="register" data-full-error="{{ $err }}" tabindex="0">{{ $err }}</div>
-                        @else
+                        <?php if($err): ?>
+                            <div class="error" data-bag="register" data-full-error="<?php echo e($err); ?>" tabindex="0"><?php echo e($err); ?></div>
+                        <?php else: ?>
                             <div class="error" aria-hidden="true"></div>
-                        @endif
+                        <?php endif; ?>
                     </div>
 
-                    @php $err = $errors->getBag('register')->first('password_confirmation'); @endphp
-                    <div class="input-field {{ $err ? 'error' : '' }}">
+                    <?php $err = $errors->getBag('register')->first('password_confirmation'); ?>
+                    <div class="input-field <?php echo e($err ? 'error' : ''); ?>">
                         <input id="register_password_confirmation" type="password" name="password_confirmation" placeholder=" ">
                         <label for="register_password_confirmation">Confirm Password</label>
                         <span class="password-eye" data-target="#register_password_confirmation"><i class="fa-solid fa-eye"></i></span>
-                        @if($err)
-                            <div class="error" data-bag="register" data-full-error="{{ $err }}" tabindex="0">{{ $err }}</div>
-                        @else
+                        <?php if($err): ?>
+                            <div class="error" data-bag="register" data-full-error="<?php echo e($err); ?>" tabindex="0"><?php echo e($err); ?></div>
+                        <?php else: ?>
                             <div class="error" aria-hidden="true"></div>
-                        @endif
+                        <?php endif; ?>
                     </div>
 
                     <button type="submit" class="btn-primary w-full mt-3">Register</button>
@@ -141,45 +139,45 @@
             </div>
 
             <!-- LOGIN -->
-            <div class="auth-panel login-panel" @if($initial === 'register') hidden inert @endif>
-                <form method="POST" action="{{ route('login') }}" id="loginForm" class="auth-form" novalidate>
-                    @csrf
+            <div class="auth-panel login-panel" <?php if($initial === 'register'): ?> hidden inert <?php endif; ?>>
+                <form method="POST" action="<?php echo e(route('login')); ?>" id="loginForm" class="auth-form" novalidate>
+                    <?php echo csrf_field(); ?>
                     <input type="hidden" name="auth_form" value="login">
 
                     <h2>LOGIN</h2>
 
-                    @php $err = $errors->getBag('login')->first('email'); @endphp
-                    <div class="input-field {{ $err ? 'error' : '' }}">
-                        <input id="login_email" type="text" name="email" value="{{ old('auth_form') === 'login' ? old('email') : '' }}" placeholder=" " required>
+                    <?php $err = $errors->getBag('login')->first('email'); ?>
+                    <div class="input-field <?php echo e($err ? 'error' : ''); ?>">
+                        <input id="login_email" type="text" name="email" value="<?php echo e(old('auth_form') === 'login' ? old('email') : ''); ?>" placeholder=" " required>
                         <label for="login_email">Email</label>
-                        @if($err)
-                            <div class="error" data-bag="login" data-full-error="{{ $err }}" tabindex="0">{{ $err }}</div>
-                        @else
+                        <?php if($err): ?>
+                            <div class="error" data-bag="login" data-full-error="<?php echo e($err); ?>" tabindex="0"><?php echo e($err); ?></div>
+                        <?php else: ?>
                             <div class="error" aria-hidden="true"></div>
-                        @endif
+                        <?php endif; ?>
                     </div>
 
-                    @php $err = $errors->getBag('login')->first('password'); @endphp
-                    <div class="input-field {{ $err ? 'error' : '' }}">
+                    <?php $err = $errors->getBag('login')->first('password'); ?>
+                    <div class="input-field <?php echo e($err ? 'error' : ''); ?>">
                         <input id="login_password" type="password" name="password" placeholder=" " required>
                         <label for="login_password">Password</label>
                         <span class="password-eye" data-target="#login_password"><i class="fa-solid fa-eye"></i></span>
-                        @if($err)
-                            <div class="error" data-bag="login" data-full-error="{{ $err }}" tabindex="0">{{ $err }}</div>
-                        @else
+                        <?php if($err): ?>
+                            <div class="error" data-bag="login" data-full-error="<?php echo e($err); ?>" tabindex="0"><?php echo e($err); ?></div>
+                        <?php else: ?>
                             <div class="error" aria-hidden="true"></div>
-                        @endif
+                        <?php endif; ?>
                     </div>
 
                     <div class="form-options flex items-center justify-between mt-2">
                         <label class="remember inline-flex items-center">
-                            <input id="login_remember" type="checkbox" name="remember" {{ old('remember') ? 'checked' : '' }}>
+                            <input id="login_remember" type="checkbox" name="remember" <?php echo e(old('remember') ? 'checked' : ''); ?>>
                             <span class="ml-2">Remember me</span>
                         </label>
 
-                        @if (Route::has('password.request'))
-                            <a href="{{ route('password.request') }}" class="forgot-link text-sm">Forgot password?</a>
-                        @endif
+                        <?php if(Route::has('password.request')): ?>
+                            <a href="<?php echo e(route('password.request')); ?>" class="forgot-link text-sm">Forgot password?</a>
+                        <?php endif; ?>
                     </div>
 
                     <button type="submit" class="btn-primary w-full mt-4">Log In</button>
@@ -194,16 +192,16 @@
         <!-- Cover -->
         <div class="auth-cover" id="authCover" aria-hidden="true">
           <div class="cover-content">
-            {{-- register success banner inside cover (slides in then out) --}}
-            @if(session('status') === 'register-success')
+            
+            <?php if(session('status') === 'register-success'): ?>
             <div id="coverRegisterBanner" class="cover-register-banner" role="status" aria-live="polite">
                 <i class="fa-solid fa-circle-check" aria-hidden="true" style="font-size:16px"></i>
-                <span>{{ session('login_message') ?? 'Registration successful!' }}</span>
+                <span><?php echo e(session('login_message') ?? 'Registration successful!'); ?></span>
             </div>
-            @endif
+            <?php endif; ?>
 
                         <div class="cover-content-inner">
-                            <img src="{{ asset('images/logo2.png') }}" alt="Tagoloan Municipal Government — General Services Office logo" class="cover-logo" aria-hidden="false">
+                            <img src="<?php echo e(asset('images/logo2.png')); ?>" alt="Tagoloan Municipal Government — General Services Office logo" class="cover-logo" aria-hidden="false">
                             <div class="cover-text" role="presentation">
                                 <strong class="cover-title">GSO Item Borrowing & Inventory System</strong>
                                 <span class="cover-sub">General Services Office • Tagoloan Municipal Government</span>
@@ -388,5 +386,6 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 
-<script src="{{ asset('js/validation.js') }}"></script>
-@endsection
+<script src="<?php echo e(asset('js/validation.js')); ?>"></script>
+<?php $__env->stopSection(); ?>
+<?php echo $__env->make('layouts.auth', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?><?php /**PATH C:\Users\magal\Desktop\gso-ibims\resources\views/auth/login-register.blade.php ENDPATH**/ ?>
