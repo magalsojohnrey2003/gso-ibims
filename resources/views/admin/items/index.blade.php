@@ -305,7 +305,7 @@
       <div class="bg-purple-600 text-white px-6 py-5 sticky top-0 z-20 relative">
           <button 
               type="button"
-              x-on:click="$dispatch('close-modal', 'create-item')"
+              x-on:click="(() => { const f = document.getElementById('create-item-form'); if (f) { f.reset(); f.dispatchEvent(new Event('reset')); } })(); $dispatch('close-modal', 'create-item')"
               class="absolute top-4 right-4 text-white hover:text-gray-200 transition-colors p-2 hover:bg-white/10 rounded-lg">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />

@@ -297,6 +297,26 @@ document.addEventListener('DOMContentLoaded', () => {
     if (step1NextBtn) {
         step1NextBtn.addEventListener('click', () => {
             if (!locationValid || !hasAtLeastOneItem()) return;
+
+            const office = (purposeOfficeInput?.value || '').trim();
+            const purpose = (purposeInput?.value || '').trim();
+
+            if (!office && !purpose) {
+                window.showToast('Please fill in Request Office/Agency and Purpose before proceeding.', 'warning');
+                try { purposeOfficeInput?.focus(); } catch (_) { /* no-op */ }
+                return;
+            }
+            if (!office) {
+                window.showToast('Please fill in the Request Office/Agency field.', 'warning');
+                try { purposeOfficeInput?.focus(); } catch (_) { /* no-op */ }
+                return;
+            }
+            if (!purpose) {
+                window.showToast('Please fill in the Purpose field.', 'warning');
+                try { purposeInput?.focus(); } catch (_) { /* no-op */ }
+                return;
+            }
+
             goToStep(1);
         });
     }

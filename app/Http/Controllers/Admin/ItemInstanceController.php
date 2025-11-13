@@ -23,7 +23,7 @@ class ItemInstanceController extends Controller
             'year' => 'sometimes|digits:4',
             'category' => 'sometimes|digits:4',
             'gla' => 'sometimes|digits_between:1,4',
-            'serial' => ['sometimes', 'regex:/^(?=.*\d)[A-Za-z0-9]{1,5}$/'],
+            'serial' => ['sometimes', 'regex:/^\d{4}[A-Za-z]?$/'],
             'office' => 'sometimes|digits:4',
             'serial_no' => ['sometimes', 'nullable', 'string', 'max:4', 'regex:/^[A-Za-z0-9]*$/'],
             'model_no' => ['sometimes', 'nullable', 'string', 'max:15', 'regex:/^[A-Za-z0-9]*$/'],

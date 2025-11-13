@@ -21,28 +21,32 @@
     }
 
     $usageKeys = array_keys($usageOptions);
-    // Default to 09:00-17:00 as requested
-    $defaultUsageRange = old('time_of_usage', optional($borrowRequest ?? null)->time_of_usage ?? '09:00-17:00');
-    [$usageStart, $usageEnd] = array_pad(explode('-', $defaultUsageRange), 2, null);
-    $firstUsageKey = $usageKeys[0] ?? '06:00';
-    $lastUsageKey = $usageKeys[count($usageKeys) - 1] ?? '22:00';
-
-    if (! in_array($usageStart, $usageKeys, true)) {
-        $usageStart = '09:00';
+    // Make time optional by default. Use saved value if present; otherwise blank.
+    $savedUsageRange = old('time_of_usage', optional($borrowRequest ?? null)->time_of_usage);
+    $usageStart = null;
+    $usageEnd = null;
+    if ($savedUsageRange && str_contains($savedUsageRange, '-')) {
+        [$tmpStart, $tmpEnd] = array_pad(explode('-', $savedUsageRange), 2, null);
+        if (in_array($tmpStart, $usageKeys, true)) {
+            $usageStart = $tmpStart;
+        }
+        if (in_array($tmpEnd, $usageKeys, true)) {
+            $usageEnd = $tmpEnd;
+        }
+        if ($usageStart && $usageEnd) {
+            $startIndex = array_search($usageStart, $usageKeys, true);
+            $endIndex = array_search($usageEnd, $usageKeys, true);
+            if ($endIndex !== false && $startIndex !== false && $endIndex <= $startIndex) {
+                $endIndex = min($startIndex + 1, count($usageKeys) - 1);
+                $usageEnd = $usageKeys[$endIndex];
+            }
+        }
     }
-    if (! in_array($usageEnd, $usageKeys, true)) {
-        $usageEnd = '17:00';
-    }
 
-    $startIndex = array_search($usageStart, $usageKeys, true) ?: 0;
-    $endIndex = array_search($usageEnd, $usageKeys, true);
-    if ($endIndex === false || $endIndex <= $startIndex) {
-        $endIndex = min($startIndex + 2, count($usageKeys) - 1);
-        $usageEnd = $usageKeys[$endIndex];
-    }
-
-    $defaultUsageRange = "{$usageStart}-{$usageEnd}";
-    $usageCurrentLabel = "{$usageOptions[$usageStart]} - {$usageOptions[$usageEnd]}";
+    $defaultUsageRange = ($usageStart && $usageEnd) ? "{$usageStart}-{$usageEnd}" : '';
+    $usageCurrentLabel = ($usageStart && $usageEnd)
+        ? ("{$usageOptions[$usageStart]} - {$usageOptions[$usageEnd]}")
+        : '--';
 
     $oldBorrowDateValue = old('borrow_date', optional($borrowRequest ?? null)->borrow_date ?? null);
     $oldReturnDateValue = old('return_date', optional($borrowRequest ?? null)->return_date ?? null);
@@ -447,9 +451,6 @@
                                         <p class="mt-1 text-xs text-gray-500">Provide enough context for approvers to understand the request.</p>
                                     </div>
 
-                                    <div>
-                                        
-                                    </div>
                                 </div>
                             </div>
 
@@ -807,6 +808,16 @@
 <?php $component = $__componentOriginal18c21970322f9e5c938bc954620c12bb; ?>
 <?php unset($__componentOriginal18c21970322f9e5c938bc954620c12bb); ?>
 <?php endif; ?>
+                                        <div class="mt-3">
+                                            <select id="usage_start" class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-800">
+                                                <option value="" <?php if(!$usageStart): echo 'selected'; endif; ?>>
+                                                    -- Start Time (optional) --
+                                                </option>
+                                                <?php $__currentLoopData = $usageOptions; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $value => $label): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                                    <option value="<?php echo e($value); ?>" <?php if($value === $usageStart): echo 'selected'; endif; ?>><?php echo e($label); ?></option>
+                                                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                                            </select>
+                                        </div>
                                     </div>
 
                                     <div>
@@ -850,41 +861,19 @@
 <?php $component = $__componentOriginal18c21970322f9e5c938bc954620c12bb; ?>
 <?php unset($__componentOriginal18c21970322f9e5c938bc954620c12bb); ?>
 <?php endif; ?>
-                                    </div>
-
-                                    <div>
-                                        <?php if (isset($component)) { $__componentOriginale3da9d84bb64e4bc2eeebaafabfb2581 = $component; } ?>
-<?php if (isset($attributes)) { $__attributesOriginale3da9d84bb64e4bc2eeebaafabfb2581 = $attributes; } ?>
-<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.input-label','data' => ['for' => 'usage_start','value' => 'Select Usage Hours']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
-<?php $component->withName('input-label'); ?>
-<?php if ($component->shouldRender()): ?>
-<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
-<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
-<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
-<?php endif; ?>
-<?php $component->withAttributes(['for' => 'usage_start','value' => 'Select Usage Hours']); ?>
-<?php echo $__env->renderComponent(); ?>
-<?php endif; ?>
-<?php if (isset($__attributesOriginale3da9d84bb64e4bc2eeebaafabfb2581)): ?>
-<?php $attributes = $__attributesOriginale3da9d84bb64e4bc2eeebaafabfb2581; ?>
-<?php unset($__attributesOriginale3da9d84bb64e4bc2eeebaafabfb2581); ?>
-<?php endif; ?>
-<?php if (isset($__componentOriginale3da9d84bb64e4bc2eeebaafabfb2581)): ?>
-<?php $component = $__componentOriginale3da9d84bb64e4bc2eeebaafabfb2581; ?>
-<?php unset($__componentOriginale3da9d84bb64e4bc2eeebaafabfb2581); ?>
-<?php endif; ?>
-                                        <div class="mt-1 grid grid-cols-2 gap-3">
-                                            <select id="usage_start" class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-800">
-                                                <?php $__currentLoopData = $usageOptions; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $value => $label): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                                                    <option value="<?php echo e($value); ?>" <?php if($value === $usageStart): echo 'selected'; endif; ?>><?php echo e($label); ?></option>
-                                                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
-                                            </select>
+                                        <div class="mt-3">
                                             <select id="usage_end" class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-800">
+                                                <option value="" <?php if(!$usageEnd): echo 'selected'; endif; ?>>
+                                                    -- Estimate End Time --
+                                                </option>
                                                 <?php $__currentLoopData = $usageOptions; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $value => $label): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
                                                     <option value="<?php echo e($value); ?>" <?php if($value === $usageEnd): echo 'selected'; endif; ?>><?php echo e($label); ?></option>
                                                 <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                                             </select>
                                         </div>
+                                    </div>
+
+                                    <div>
                                         <input id="time_of_usage" name="time_of_usage" type="hidden" value="<?php echo e($defaultUsageRange); ?>" />
                                     </div>
 

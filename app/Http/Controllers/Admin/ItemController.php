@@ -370,7 +370,7 @@ public function store(Request $request, PropertyNumberService $numbers)
         'property_numbers_components.*.year' => 'nullable|digits:4',
         'property_numbers_components.*.category_code' => 'nullable|string',
         'property_numbers_components.*.gla' => 'nullable|digits_between:1,4',
-        'property_numbers_components.*.serial' => ['nullable', 'regex:/^(?=.*\d)[A-Za-z0-9]{1,5}$/i'],
+        'property_numbers_components.*.serial' => ['nullable', 'regex:/^\d{4}[A-Za-z]?$/'],
         'property_numbers_components.*.office' => 'nullable|string|max:4',
     'property_numbers_components.*.serial_no' => ['nullable', 'string', 'max:100', 'regex:/^[A-Za-z0-9]*$/'],
     'property_numbers_components.*.model_no' => ['nullable', 'string', 'max:100', 'regex:/^[A-Za-z0-9]*$/'],
@@ -433,8 +433,8 @@ public function store(Request $request, PropertyNumberService $numbers)
                 $serialNorm = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $serial));
                 $officeNorm = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $office));
 
-                if ($serialNorm === '' || !preg_match('/\d/', $serialNorm)) {
-                    $message = 'Serial entries must include at least one number.';
+                if ($serialNorm === '' || !preg_match('/^\d{4}[A-Z]?$/', $serialNorm)) {
+                    $message = 'Serial must be 4 digits, optional 1 letter.';
                     if ($request->wantsJson() || $request->isXmlHttpRequest()) {
                         return response()->json(['message' => $message], 422);
                     }
