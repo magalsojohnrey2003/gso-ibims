@@ -34,37 +34,25 @@ const FIELD_LABELS = {
 
 function sanitizeSerialInput(value) {
   if (!value) return '';
-  return String(value).toUpperCase().replace(/[^A-Za-z0-9]/g, '').slice(0, 5);
+  const raw = String(value).toUpperCase();
+  const digits = raw.replace(/[^0-9]/g, '').slice(0, 4);
+  const letter = raw.replace(/[^A-Z]/g, '').slice(-1);
+  return digits + letter;
 }
 
 function parseSerialSegments(value) {
+  const raw = String(value || '').toUpperCase();
+  const digits = raw.replace(/[^0-9]/g, '').slice(0, 4);
+  const letter = raw.replace(/[^A-Z]/g, '').slice(-1);
   const segments = [];
-  if (!value) return segments;
-  let currentType = null;
-  let currentValue = '';
-  for (const char of value) {
-    const type = /[0-9]/.test(char) ? 'digit' : 'letter';
-    if (type !== currentType) {
-      if (currentValue) {
-        segments.push({ type: currentType, value: currentValue });
-      }
-      currentType = type;
-      currentValue = char;
-    } else {
-      currentValue += char;
-    }
-  }
-  if (currentValue) {
-    segments.push({ type: currentType, value: currentValue });
-  }
+  if (digits) segments.push({ type: 'digit', value: digits });
+  if (letter) segments.push({ type: 'letter', value: letter });
   return segments;
 }
 
 function computeDigitWidth(length, lettersLength = 0) {
-  if (length <= 1) return Math.min(2, Math.max(1, 5 - lettersLength));
-  if (length === 2) return Math.min(2, Math.max(2, 5 - lettersLength));
-  if (length === 3) return Math.min(4, Math.max(3, 5 - lettersLength));
-  return Math.min(length, Math.max(length, 5 - lettersLength));
+  // Fixed width: numeric part is always 4 digits
+  return 4;
 }
 
 function serialContainsDigit(serial) {
@@ -84,28 +72,10 @@ function incrementLetters(value) {
 }
 
 function formatSerialValue(raw) {
-  const sanitized = sanitizeSerialInput(raw);
-  if (!sanitized) return '';
-  const segments = parseSerialSegments(sanitized);
-  const letterLengthTotal = segments
-    .filter((seg) => seg.type === 'letter')
-    .reduce((sum, seg) => sum + seg.value.length, 0);
-
-  const formattedSegments = segments.map((segment) => {
-    if (segment.type === 'digit') {
-      const width = computeDigitWidth(segment.value.length, letterLengthTotal);
-      let padded = segment.value.padStart(width, '0');
-      if (padded.length + letterLengthTotal > 5) {
-        const allowed = Math.max(segment.value.length, 5 - letterLengthTotal);
-        padded = padded.slice(-allowed);
-      }
-      return padded;
-    }
-    return segment.value;
-  });
-
-  const result = formattedSegments.join('').slice(0, 5);
-  return result;
+  const upper = String(raw || '').toUpperCase();
+  const digits = upper.replace(/[^0-9]/g, '').slice(0, 4).padStart(4, '0');
+  const letter = upper.replace(/[^A-Z]/g, '').slice(-1);
+  return digits + letter;
 }
 
 function incrementSerialValue(value) {
@@ -126,22 +96,114 @@ function incrementSerialValue(value) {
 }
 
 function stripSerialPadding(value) {
-  if (!value) return '';
-  const upper = String(value).toUpperCase();
-  const match = upper.match(/^([A-Z]*)(0*)(\d+)$/);
-  if (match) {
-    const prefix = match[1] || '';
-    const digits = match[3] || '';
-    const trimmedDigits = digits.replace(/^0+/, '');
-    const normalizedDigits = trimmedDigits === '' ? (digits ? '0' : '') : trimmedDigits;
-    return prefix + normalizedDigits;
-  }
-  return upper;
+  // Keep display padded; use formatter to normalize
+  return formatSerialValue(value);
 }
 
 function displaySerialValue(value) {
   if (!value) return '';
   return stripSerialPadding(value);
+}
+
+// --- Serial mask helpers: keep 4-digit buffer + optional letter ---
+function parseTypedFromValue(value) {
+  const upper = String(value || '').toUpperCase();
+  const allDigits = upper.replace(/[^0-9]/g, '').slice(0, 4);
+  const typedDigits = allDigits.replace(/^0+/, '');
+  const letter = upper.replace(/[^A-Z]/g, '').slice(-1);
+  return { digits: typedDigits, letter };
+}
+
+function renderSerialFromTyped(typedDigits, letter) {
+  const digits = String(typedDigits || '').replace(/\D/g, '').slice(0, 4);
+  const padded = digits.padStart(4, '0');
+  const suffix = (letter || '').replace(/[^A-Z]/g, '').slice(-1);
+  return padded + suffix;
+}
+
+function attachSerialMaskToInput(input) {
+  if (!(input instanceof HTMLInputElement)) return;
+  if (input.dataset.serialMaskAttached === '1') return;
+  input.dataset.serialMaskAttached = '1';
+
+  // Initialize internal buffers from current value
+  const init = () => {
+    const { digits, letter } = parseTypedFromValue(input.value || '');
+    input.dataset.serialDigits = digits;
+    input.dataset.serialLetter = letter;
+    input.value = renderSerialFromTyped(digits, letter);
+  };
+
+  init();
+
+  const render = () => {
+    const digits = input.dataset.serialDigits || '';
+    const letter = input.dataset.serialLetter || '';
+    input.value = renderSerialFromTyped(digits, letter);
+  };
+  const renderAndEmit = () => {
+    render();
+    try { input.dispatchEvent(new Event('input', { bubbles: true })); } catch (_) { input.dispatchEvent(new Event('input')); }
+  };
+
+  input.addEventListener('keydown', (e) => {
+    const key = e.key;
+    const ctrl = e.ctrlKey || e.metaKey;
+    // Allow navigation and shortcuts
+    if (ctrl || ['Tab', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(key)) return;
+
+    // Handle deletion (remove letter first, then digits)
+    if (key === 'Backspace' || key === 'Delete') {
+      e.preventDefault();
+      if (input.dataset.serialLetter) {
+        input.dataset.serialLetter = '';
+      } else {
+        const cur = input.dataset.serialDigits || '';
+        input.dataset.serialDigits = cur.slice(0, -1);
+      }
+      renderAndEmit();
+      return;
+    }
+
+    // Digits
+    if (/^\d$/.test(key)) {
+      e.preventDefault();
+      const cur = input.dataset.serialDigits || '';
+      if (cur.length < 4) {
+        input.dataset.serialDigits = cur + key;
+        renderAndEmit();
+      }
+      return;
+    }
+
+    // Letters (single suffix)
+    if (/^[a-zA-Z]$/.test(key)) {
+      e.preventDefault();
+      input.dataset.serialLetter = key.toUpperCase();
+      renderAndEmit();
+      return;
+    }
+
+    // Block other printable characters
+    if (key.length === 1) {
+      e.preventDefault();
+    }
+  });
+
+  input.addEventListener('paste', (e) => {
+    const data = (e.clipboardData && e.clipboardData.getData('text')) || '';
+    if (typeof data === 'string') {
+      e.preventDefault();
+      const upper = data.toUpperCase();
+      const digits = upper.replace(/[^0-9]/g, '').slice(0, 4).replace(/^0+/, '');
+      const letter = upper.replace(/[^A-Z]/g, '').slice(-1);
+      input.dataset.serialDigits = digits;
+      input.dataset.serialLetter = letter;
+      renderAndEmit();
+    }
+  });
+
+  input.addEventListener('blur', () => render());
 }
 
 function buildErrorSummary(fields) {
@@ -487,9 +549,8 @@ class PropertyRowsManager {
 
       if (field === 'serial' && !baseValue && !shouldAutofill) {
         const formatted = formatSerialValue(input.value);
-        const display = stripSerialPadding(formatted);
-        if (display !== input.value) {
-          input.value = display;
+        if (formatted !== input.value) {
+          input.value = formatted;
         }
       }
 
@@ -508,6 +569,11 @@ class PropertyRowsManager {
           delete input.dataset.autofill;
           delete input.dataset.autofillValue;
         }
+      }
+
+      // Ensure the custom serial mask is attached to serial inputs
+      if (field === 'serial') {
+        attachSerialMaskToInput(input);
       }
     });
     this.validateRow(row);
@@ -577,9 +643,8 @@ class PropertyRowsManager {
     if (!(target instanceof HTMLInputElement)) return;
     if (target.dataset.rowField !== 'serial') return;
     const formatted = formatSerialValue(target.value || '');
-    const display = stripSerialPadding(formatted);
-    if (display !== target.value) {
-      target.value = display;
+    if (formatted !== target.value) {
+      target.value = formatted;
     }
     const row = target.closest('[data-property-row]');
     if (row) {
@@ -624,7 +689,7 @@ class PropertyRowsManager {
       case 'gla':
         return value.replace(/\D/g, '').slice(0, 4);
       case 'serial':
-        return stripSerialPadding(sanitizeSerialInput(value));
+        return formatSerialValue(value);
       case 'office':
         return value.replace(/\D/g, '').slice(0, 4);
       case 'category':
@@ -719,14 +784,9 @@ class PropertyRowsManager {
         }
         case 'serial': {
           const formatted = formatSerialValue(value);
-          const display = stripSerialPadding(formatted);
-          if (display !== input.value) input.value = display;
-          if (!serialContainsDigit(formatted)) {
-            this.setInvalidReason(input, 'digit');
-            invalidFields.add('serial');
-          } else {
-            this.clearInvalidReason(input, 'digit');
-          }
+          if (formatted !== input.value) input.value = formatted;
+          // Mask guarantees 4 digits; letter optional, so no 'digit' error here
+          this.clearInvalidReason(input, 'digit');
           break;
         }
         case 'office': {
@@ -1437,15 +1497,28 @@ async function submitForm(form) {
   throw new Error(`Request failed (${response.status}).`);
 }
 function handleSuccess(form, elements, result) {
-  const data = result?.data || {};
-  const createdCount = Number(data.created_count || 0);
+  const data = result?.data ?? null;
+  // If server responded with a redirect/HTML (non-JSON) but status is OK, treat as success
+  if (!data || typeof data !== 'object') {
+    const toastMessage = 'Items added successfully.';
+    showToast(toastMessage, 'success');
+    hideMessage(elements.error);
+    hideMessage(elements.feedback);
+    form.reset();
+    form.dispatchEvent(new Event('reset'));
+    window.dispatchEvent(new CustomEvent('close-modal', { detail: 'create-item' }));
+    setTimeout(() => { window.location.reload(); }, 500);
+    return;
+  }
+
+  const createdCount = Number((data && data.created_count != null) ? data.created_count : 1);
   const hasSkipped = Array.isArray(data.skipped_serials) && data.skipped_serials.length > 0;
 
   if (createdCount === 0) {
     const msg = hasSkipped
       ? 'No items were created. All property numbers were already in use.'
       : 'No items were created. Please review your inputs and try again.';
-  showToast(msg, 'error');
+    showToast(msg, 'error');
     hideMessage(elements.feedback);
     showMessage(elements.error, msg);
     return; // Do not reset/close/reload when nothing was created
@@ -2350,12 +2423,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.querySelectorAll('input[name="start_serial"], input[data-add-field="serial"], input[data-edit-field="serial"], input.instance-part-serial').forEach(inp => {
-    inp.addEventListener('input', () => {
-      const sanitized = sanitizeSerialInput(inp.value || '');
-      if (sanitized !== inp.value) {
-        inp.value = sanitized;
-      }
-    });
+    attachSerialMaskToInput(inp);
   });
 
   // GLA sanitizers: digits only, max 4 chars

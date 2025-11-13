@@ -202,18 +202,14 @@
             </div>
             @endif
 
-            <div class="cover-content-inner">
-              <img src="{{ asset('images/logo2.png') }}" alt="Tagoloan Municipal Government — General Services Office logo" class="cover-logo">
-              <div class="cover-text">
-                <strong class="cover-title">GSO Item Borrowing & Inventory System</strong><br>
-                <span class="cover-sub">Tagoloan Municipal Government — General Services Office</span><br><br>
-                <p class="cover-desc">
-                  This secure platform automates item requests, approvals, and inventory tracking for authorized personnel.
-                </p>
-                <br><br><br>
-                <small class="cover-meta">Version 2.0 • May 2025</small>
-              </div>
-            </div>
+                        <div class="cover-content-inner">
+                            <img src="{{ asset('images/logo2.png') }}" alt="Tagoloan Municipal Government — General Services Office logo" class="cover-logo" aria-hidden="false">
+                            <div class="cover-text" role="presentation">
+                                <strong class="cover-title">GSO Item Borrowing & Inventory System</strong>
+                                <span class="cover-sub">General Services Office • Tagoloan Municipal Government</span>
+                                <p class="cover-desc">Streamline borrowing, approvals, and inventory—fast, reliable, and secure.</p>
+                            </div>
+                        </div>
           </div>
         </div>
 

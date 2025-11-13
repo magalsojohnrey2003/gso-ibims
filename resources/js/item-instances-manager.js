@@ -14,23 +14,17 @@ const sanitizeGla = (value) => String(value || '').replace(/\D/g, '').slice(0, 4
 const sanitizeOffice = (value) => String(value || '').replace(/\D/g, '').slice(0, 4);
 const sanitizeCategory = (value) => String(value || '').replace(/\D/g, '').slice(0, 4);
 
-const sanitizeSerialInput = (value) => String(value || '').toUpperCase().replace(/[^A-Za-z0-9]/g, '').slice(0, SERIAL_MAX_LENGTH);
+const sanitizeSerialInput = (value) => {
+  const upper = String(value || '').toUpperCase().replace(/[^A-Za-z0-9]/g, '');
+  const digits = upper.replace(/\D/g, '').slice(0, 4);
+  const letter = upper.replace(/[^A-Z]/g, '').slice(0, 1);
+  const padded = digits.padStart(4, '0');
+  return (letter ? padded + letter : padded).slice(0, SERIAL_MAX_LENGTH);
+};
 const sanitizeSerialNo = (value) => String(value || '').toUpperCase().replace(/[^A-Za-z0-9]/g, '').slice(0, 4);
 const sanitizeModelNo = (value) => String(value || '').toUpperCase().replace(/[^A-Za-z0-9]/g, '').slice(0, 15);
 
-const stripSerialPadding = (value) => {
-  if (!value) return '';
-  const upper = String(value).toUpperCase();
-  const match = upper.match(/^([A-Z]*)(0*)(\d+)$/);
-  if (match) {
-    const prefix = match[1] || '';
-    const digits = match[3] || '';
-    const trimmed = digits.replace(/^0+/, '');
-    const normalized = trimmed === '' ? (digits ? '0' : '') : trimmed;
-    return prefix + normalized;
-  }
-  return upper;
-};
+const stripSerialPadding = (value) => String(value || '').toUpperCase();
 
 function parseSerialSegments(value) {
   const segments = [];
@@ -63,36 +57,18 @@ function computeDigitWidth(length, lettersLength = 0) {
 }
 
 function serialHasDigit(value) {
-  return /\d/.test(value || '');
+  return /^\d{4}([A-Z])?$/.test(String(value || ''));
 }
 
 function formatSerialValue(raw) {
-  const sanitized = sanitizeSerialInput(raw);
-  if (!sanitized) return '';
-  const segments = parseSerialSegments(sanitized);
-  const letterLengthTotal = segments
-    .filter((segment) => segment.type === 'letter')
-    .reduce((sum, segment) => sum + segment.value.length, 0);
-
-  const formattedSegments = segments.map((segment) => {
-    if (segment.type === 'digit') {
-      const width = computeDigitWidth(segment.value.length, letterLengthTotal);
-      let padded = segment.value.padStart(width, '0');
-      if (padded.length + letterLengthTotal > SERIAL_MAX_LENGTH) {
-        const allowed = Math.max(segment.value.length, SERIAL_MAX_LENGTH - letterLengthTotal);
-        padded = padded.slice(-allowed);
-      }
-      return padded;
-    }
-    return segment.value;
-  });
-
-  return formattedSegments.join('').slice(0, SERIAL_MAX_LENGTH);
+  const upper = String(raw || '').toUpperCase().replace(/[^A-Za-z0-9]/g, '');
+  const digits = upper.replace(/\D/g, '').slice(0, 4).padStart(4, '0');
+  const letter = upper.replace(/[^A-Z]/g, '').slice(0, 1);
+  return (letter ? digits + letter : digits).slice(0, SERIAL_MAX_LENGTH);
 }
 
 function sanitizeSerial(value) {
-  const formatted = formatSerialValue(value);
-  return stripSerialPadding(formatted);
+  return formatSerialValue(value);
 }
 
 function readRow(inputs, serialInputs = {}) {

@@ -151,7 +151,8 @@ class BorrowItemsController extends Controller
         $validated = $request->validate([
             'borrow_date'     => 'required|date|after_or_equal:today',
             'return_date'     => 'required|date|after_or_equal:borrow_date',
-            'time_of_usage'   => 'required|string|max:50',
+            // Time of usage is optional
+            'time_of_usage'   => 'nullable|string|max:50',
             'location'        => 'required|string|max:255',
             'purpose_office'  => 'required|string|max:255',
             'purpose'         => 'required|string|max:500',
@@ -189,11 +190,17 @@ class BorrowItemsController extends Controller
             $letterPath = $request->file('support_letter')->store('borrow-letters', 'public');
         }
 
+        // Normalize time_of_usage to null if blank
+        $timeOfUsage = trim((string)($validated['time_of_usage'] ?? $request->input('time_of_usage', '')));
+        if ($timeOfUsage === '') {
+            $timeOfUsage = null;
+        }
+
         $borrowRequest = BorrowRequest::create([
             'user_id'        => Auth::id(),
             'borrow_date'    => $borrowDate,
             'return_date'    => $returnDate,
-            'time_of_usage'  => $validated['time_of_usage'],
+            'time_of_usage'  => $timeOfUsage,
             'purpose_office' => $validated['purpose_office'],
             'purpose'        => $validated['purpose'],
             'location'       => $validated['location'],
@@ -228,7 +235,7 @@ class BorrowItemsController extends Controller
             'borrow_request_id' => $borrowRequest->id,
             'user_id' => $request->user()->id,
             'user_name' => trim($request->user()->first_name . ' ' . ($request->user()->last_name ?? '')),
-            'time_of_usage' => $validated['time_of_usage'],
+            'time_of_usage' => $timeOfUsage,
             'purpose_office' => $validated['purpose_office'],
             'purpose' => $validated['purpose'],
             'items' => $itemsPayload,

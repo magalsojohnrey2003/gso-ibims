@@ -573,7 +573,9 @@ function initializeUsageControls() {
     const ensureOrder = () => {
         const startIndex = optionValues.indexOf(startSelect.value);
         let endIndex = optionValues.indexOf(endSelect.value);
-        if (startIndex === -1) return;
+        // If either blank, don't force order; allow optional selections
+        if (startSelect.value === '' || endSelect.value === '') return;
+        if (startIndex === -1 || endIndex === -1) return;
         if (endIndex <= startIndex) {
             endIndex = Math.min(startIndex + 1, optionValues.length - 1);
             endSelect.value = optionValues[endIndex];
@@ -584,13 +586,17 @@ function initializeUsageControls() {
         ensureOrder();
         const start = startSelect.value;
         const end = endSelect.value;
-        hiddenInput.value = `${start}-${end}`;
-        const label = formatUsageRange(start, end);
+        if (!start || !end) {
+            hiddenInput.value = '';
+        } else {
+            hiddenInput.value = `${start}-${end}`;
+        }
+        const label = (start && end) ? formatUsageRange(start, end) : '--';
         if (display) {
             display.textContent = `Time of Usage: ${label}`;
         }
         window.dispatchEvent(new CustomEvent('borrow:usage-updated', {
-            detail: { start, end, label },
+            detail: { start: start || null, end: end || null, label },
         }));
     };
 
@@ -602,6 +608,10 @@ function initializeUsageControls() {
         if (optionValues.includes(savedEnd)) {
             endSelect.value = savedEnd;
         }
+    } else {
+        // Ensure both are blank initially if no saved value
+        startSelect.value = '';
+        endSelect.value = '';
     }
 
     startSelect.addEventListener('change', updateUsage);

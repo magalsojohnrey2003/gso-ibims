@@ -10,8 +10,30 @@
 <?php endif; ?>
 <?php $component->withAttributes([]); ?>
     <div class="p-6">
-
-        
+     
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 mt-4">
+            <?php if (isset($component)) { $__componentOriginala29c4b6de1220dbc50317dc759b47929 = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginala29c4b6de1220dbc50317dc759b47929 = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.title','data' => ['level' => 'h2','size' => '2xl','weight' => 'bold','icon' => 'archive-box-arrow-down','variant' => 's','iconStyle' => 'plain','iconColor' => 'gov-accent']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('title'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes(['level' => 'h2','size' => '2xl','weight' => 'bold','icon' => 'archive-box-arrow-down','variant' => 's','iconStyle' => 'plain','iconColor' => 'gov-accent']); ?>
+                Borrow Items
+             <?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginala29c4b6de1220dbc50317dc759b47929)): ?>
+<?php $attributes = $__attributesOriginala29c4b6de1220dbc50317dc759b47929; ?>
+<?php unset($__attributesOriginala29c4b6de1220dbc50317dc759b47929); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginala29c4b6de1220dbc50317dc759b47929)): ?>
+<?php $component = $__componentOriginala29c4b6de1220dbc50317dc759b47929; ?>
+<?php unset($__componentOriginala29c4b6de1220dbc50317dc759b47929); ?>
+<?php endif; ?>
+        </div>
 
         
         <div class="w-full mb-6">
@@ -71,30 +93,7 @@
             </div>
         </div>
 
-        
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 mt-4">
-            <?php if (isset($component)) { $__componentOriginala29c4b6de1220dbc50317dc759b47929 = $component; } ?>
-<?php if (isset($attributes)) { $__attributesOriginala29c4b6de1220dbc50317dc759b47929 = $attributes; } ?>
-<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.title','data' => ['level' => 'h2','size' => '2xl','weight' => 'bold','icon' => 'archive-box-arrow-down','variant' => 's','iconStyle' => 'plain','iconColor' => 'gov-accent']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
-<?php $component->withName('title'); ?>
-<?php if ($component->shouldRender()): ?>
-<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
-<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
-<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
-<?php endif; ?>
-<?php $component->withAttributes(['level' => 'h2','size' => '2xl','weight' => 'bold','icon' => 'archive-box-arrow-down','variant' => 's','iconStyle' => 'plain','iconColor' => 'gov-accent']); ?>
-                Borrow Items
-             <?php echo $__env->renderComponent(); ?>
-<?php endif; ?>
-<?php if (isset($__attributesOriginala29c4b6de1220dbc50317dc759b47929)): ?>
-<?php $attributes = $__attributesOriginala29c4b6de1220dbc50317dc759b47929; ?>
-<?php unset($__attributesOriginala29c4b6de1220dbc50317dc759b47929); ?>
-<?php endif; ?>
-<?php if (isset($__componentOriginala29c4b6de1220dbc50317dc759b47929)): ?>
-<?php $component = $__componentOriginala29c4b6de1220dbc50317dc759b47929; ?>
-<?php unset($__componentOriginala29c4b6de1220dbc50317dc759b47929); ?>
-<?php endif; ?>
-        </div>
+       
 
         
         <div id="itemsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">

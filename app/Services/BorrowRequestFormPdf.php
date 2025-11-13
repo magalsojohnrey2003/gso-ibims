@@ -112,7 +112,12 @@ class BorrowRequestFormPdf
         $this->writeText($pdf, $size, Arr::get($layout, 'form_tou'), $this->formatUsageRange($borrowRequest->time_of_usage ?? ''));
         $this->writeText($pdf, $size, Arr::get($layout, 'form_name'), $borrowRequest->user?->full_name ?? $borrowRequest->user?->name ?? '');
 
-        $this->renderRequestDetailsTable($pdf, $size, Arr::get($layout, 'form_rd'), $borrowRequest);
+        // v2: If the 12-slot item fields exist, fill them; otherwise fall back to table (v1)
+        if ($this->hasItemSlots($layout)) {
+            $this->renderItemSlots($pdf, $size, $layout, $borrowRequest);
+        } else {
+            $this->renderRequestDetailsTable($pdf, $size, Arr::get($layout, 'form_rd'), $borrowRequest);
+        }
         $qrRect = Arr::get($layout, 'form_qr_code') ?? Arr::get($layout, 'form_qr_code_af_image');
         $this->renderQrCode($pdf, $size, $qrRect, $borrowRequest);
 
@@ -122,6 +127,85 @@ class BorrowRequestFormPdf
             'filename' => $filename ? $this->sanitizeFilename($filename) : 'borrow-request-' . $borrowRequest->id . '.pdf',
             'content' => $binary,
         ];
+    }
+
+    private function hasItemSlots(array $layout): bool
+    {
+        // Detect the presence of at least item_1 and check_1 in the AcroForm fields
+        return isset($layout['item_1']) || isset($layout['check_1']);
+    }
+
+    private function renderItemSlots(Fpdi $pdf, array $pageSize, array $layout, BorrowRequest $borrowRequest): void
+    {
+        $borrowRequest->loadMissing(['items.item']);
+
+        // Build selected items first
+        $selected = [];
+        foreach ($borrowRequest->items as $reqItem) {
+            $name = $reqItem->item->name ?? ('Item #' . $reqItem->item_id);
+            $qty = (int) ($reqItem->quantity ?? 0);
+            $selected[] = [
+                'label' => $name . ' (Qty: ' . $qty . ')',
+                'checked' => true,
+            ];
+        }
+
+        // Fill remaining slots with other items (random order), unchecked
+        try {
+            $selectedNames = array_map(function ($row) { return strtolower((string) $row['label']); }, $selected);
+            $othersQuery = \App\Models\Item::query();
+            if (!empty($selectedNames)) {
+                $othersQuery->whereNotIn('name', $borrowRequest->items->pluck('item.name')->filter()->values());
+            }
+            $otherItems = $othersQuery->inRandomOrder()->limit(20)->get(['name'])->pluck('name')->all();
+        } catch (\Throwable) {
+            $otherItems = [];
+        }
+
+        foreach ($otherItems as $nm) {
+            if (count($selected) >= 12) break;
+            $selected[] = [
+                'label' => (string) $nm,
+                'checked' => false,
+            ];
+        }
+
+        // Ensure exactly 12 slots (pad with blanks if needed)
+        while (count($selected) < 12) {
+            $selected[] = [ 'label' => '', 'checked' => false ];
+        }
+
+        // Write into item_1..item_12 and mark check_1..check_12
+        for ($i = 1; $i <= 12; $i++) {
+            $itemKey = 'item_' . $i;
+            $checkKey = 'check_' . $i;
+            $data = $selected[$i - 1];
+
+            // Item label text
+            $this->writeText($pdf, $pageSize, Arr::get($layout, $itemKey), $data['label'] ?? '');
+
+            // Checkbox visual mark (draw a check mark if selected)
+            if (!empty($data['checked'])) {
+                $rect = Arr::get($layout, $checkKey);
+                if ($rect) {
+                    $this->drawCheckboxMark($pdf, $pageSize, $rect);
+                }
+            }
+        }
+    }
+
+    private function drawCheckboxMark(Fpdi $pdf, array $pageSize, array $rect): void
+    {
+        // Match Walk-in PDF style: use ZapfDingbats glyph "4" as check mark
+        $width = max($rect['urx'] - $rect['llx'], 8);
+        $height = max($rect['ury'] - $rect['lly'], 8);
+        $box = min($width, $height);
+        $x = $rect['llx'] + (($width - $box) / 2);
+        $y = ($pageSize['height'] - $rect['ury']) + (($height - $box) / 2);
+
+        $pdf->SetTextColor(55, 65, 81); // gray-700 similar tone
+        $pdf->SetFont('ZapfDingbats', '', $box);
+        $pdf->Text($x, $y + $box, '4');
     }
 
     private function writeText(Fpdi $pdf, array $pageSize, ?array $rect, ?string $value, array $options = []): void

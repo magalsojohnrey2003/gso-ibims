@@ -1,8 +1,18 @@
 {{-- resources/views/user/borrow-items/index.blade.php --}}
 <x-app-layout>
     <div class="p-6">
-
-        {{-- Alerts removed - now handled by global toast system in app.blade.php --}}
+     {{-- Header + Borrow List button --}}
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 mt-4">
+            <x-title level="h2"
+                     size="2xl"
+                     weight="bold"
+                     icon="archive-box-arrow-down"
+                     variant="s"
+                     iconStyle="plain"
+                     iconColor="gov-accent">
+                Borrow Items
+            </x-title>
+        </div>
 
         {{-- Search Bar with Filters & Borrow List Icon --}}
         <div class="w-full mb-6">
@@ -61,18 +71,7 @@
             </div>
         </div>
 
-        {{-- Header + Borrow List button --}}
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 mt-4">
-            <x-title level="h2"
-                     size="2xl"
-                     weight="bold"
-                     icon="archive-box-arrow-down"
-                     variant="s"
-                     iconStyle="plain"
-                     iconColor="gov-accent">
-                Borrow Items
-            </x-title>
-        </div>
+       
 
         {{-- Items Grid --}}
         <div id="itemsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">

@@ -86,6 +86,44 @@
             overflow-y: auto;
             height: 100%;
         }
+
+        /* Light, scoped live wallpaper inside page content only */
+        #mainContent.main-wallpaper {
+            position: relative;
+            background: transparent;
+            isolation: isolate; /* ensures pseudo-elements layer beneath content */
+        }
+        #mainContent.main-wallpaper::before,
+        #mainContent.main-wallpaper::after {
+            content: "";
+            position: absolute;
+            z-index: 0;
+            pointer-events: none;
+            filter: blur(40px);
+            opacity: 0.22;
+            transform: translateZ(0);
+            will-change: transform;
+        }
+        /* top-left soft glow */
+        #mainContent.main-wallpaper::before {
+            width: 520px; height: 520px;
+            top: -60px; left: -120px;
+            background: radial-gradient(circle at 40% 40%, rgba(168,85,247,0.35), rgba(168,85,247,0.16) 40%, transparent 70%);
+            animation: mcFloatA 18s ease-in-out infinite alternate;
+        }
+        /* bottom-right soft glow */
+        #mainContent.main-wallpaper::after {
+            width: 580px; height: 580px;
+            right: -160px; bottom: -120px;
+            background: radial-gradient(circle at 60% 60%, rgba(126,34,206,0.30), rgba(126,34,206,0.14) 42%, transparent 72%);
+            animation: mcFloatB 22s ease-in-out infinite alternate;
+        }
+        @keyframes mcFloatA { 0%{ transform: translate3d(0,0,0) } 100%{ transform: translate3d(2%,1%,0) } }
+        @keyframes mcFloatB { 0%{ transform: translate3d(0,0,0) } 100%{ transform: translate3d(-1.5%,-2%,0) } }
+        @media (prefers-reduced-motion: reduce) {
+            #mainContent.main-wallpaper::before,
+            #mainContent.main-wallpaper::after { animation: none; opacity: 0.16; }
+        }
     </style>
 </head>
 
@@ -122,7 +160,7 @@
         @endauth
 
         <!-- Main content area: allow vertical scrolling inside this column only -->
-        <main id="mainContent" tabindex="-1" class="flex-1 {{ isset($noMainScroll) && $noMainScroll ? 'overflow-y-visible' : 'overflow-y-auto' }}">
+        <main id="mainContent" tabindex="-1" class="flex-1 main-wallpaper {{ isset($noMainScroll) && $noMainScroll ? 'overflow-y-visible' : 'overflow-y-auto' }}">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                 {{ $slot }}
             </div>

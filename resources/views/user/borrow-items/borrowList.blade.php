@@ -21,28 +21,32 @@
     }
 
     $usageKeys = array_keys($usageOptions);
-    // Default to 09:00-17:00 as requested
-    $defaultUsageRange = old('time_of_usage', optional($borrowRequest ?? null)->time_of_usage ?? '09:00-17:00');
-    [$usageStart, $usageEnd] = array_pad(explode('-', $defaultUsageRange), 2, null);
-    $firstUsageKey = $usageKeys[0] ?? '06:00';
-    $lastUsageKey = $usageKeys[count($usageKeys) - 1] ?? '22:00';
-
-    if (! in_array($usageStart, $usageKeys, true)) {
-        $usageStart = '09:00';
+    // Make time optional by default. Use saved value if present; otherwise blank.
+    $savedUsageRange = old('time_of_usage', optional($borrowRequest ?? null)->time_of_usage);
+    $usageStart = null;
+    $usageEnd = null;
+    if ($savedUsageRange && str_contains($savedUsageRange, '-')) {
+        [$tmpStart, $tmpEnd] = array_pad(explode('-', $savedUsageRange), 2, null);
+        if (in_array($tmpStart, $usageKeys, true)) {
+            $usageStart = $tmpStart;
+        }
+        if (in_array($tmpEnd, $usageKeys, true)) {
+            $usageEnd = $tmpEnd;
+        }
+        if ($usageStart && $usageEnd) {
+            $startIndex = array_search($usageStart, $usageKeys, true);
+            $endIndex = array_search($usageEnd, $usageKeys, true);
+            if ($endIndex !== false && $startIndex !== false && $endIndex <= $startIndex) {
+                $endIndex = min($startIndex + 1, count($usageKeys) - 1);
+                $usageEnd = $usageKeys[$endIndex];
+            }
+        }
     }
-    if (! in_array($usageEnd, $usageKeys, true)) {
-        $usageEnd = '17:00';
-    }
 
-    $startIndex = array_search($usageStart, $usageKeys, true) ?: 0;
-    $endIndex = array_search($usageEnd, $usageKeys, true);
-    if ($endIndex === false || $endIndex <= $startIndex) {
-        $endIndex = min($startIndex + 2, count($usageKeys) - 1);
-        $usageEnd = $usageKeys[$endIndex];
-    }
-
-    $defaultUsageRange = "{$usageStart}-{$usageEnd}";
-    $usageCurrentLabel = "{$usageOptions[$usageStart]} - {$usageOptions[$usageEnd]}";
+    $defaultUsageRange = ($usageStart && $usageEnd) ? "{$usageStart}-{$usageEnd}" : '';
+    $usageCurrentLabel = ($usageStart && $usageEnd)
+        ? ("{$usageOptions[$usageStart]} - {$usageOptions[$usageEnd]}")
+        : '--';
 
     $oldBorrowDateValue = old('borrow_date', optional($borrowRequest ?? null)->borrow_date ?? null);
     $oldReturnDateValue = old('return_date', optional($borrowRequest ?? null)->return_date ?? null);
@@ -254,9 +258,6 @@
                                         <p class="mt-1 text-xs text-gray-500">Provide enough context for approvers to understand the request.</p>
                                     </div>
 
-                                    <div>
-                                        {{-- manpower_count removed: field deprecated and no longer collected at submission --}}
-                                    </div>
                                 </div>
                             </div>
 
@@ -405,6 +406,16 @@
                                             readonly
                                             value="{{ $usageBorrowDisplayDefault }}"
                                         />
+                                        <div class="mt-3">
+                                            <select id="usage_start" class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-800">
+                                                <option value="" @selected(!$usageStart)>
+                                                    -- Start Time (optional) --
+                                                </option>
+                                                @foreach($usageOptions as $value => $label)
+                                                    <option value="{{ $value }}" @selected($value === $usageStart)>{{ $label }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
                                     </div>
 
                                     <div>
@@ -416,22 +427,19 @@
                                             readonly
                                             value="{{ $usageReturnDisplayDefault }}"
                                         />
-                                    </div>
-
-                                    <div>
-                                        <x-input-label for="usage_start" value="Select Usage Hours" />
-                                        <div class="mt-1 grid grid-cols-2 gap-3">
-                                            <select id="usage_start" class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-800">
-                                                @foreach($usageOptions as $value => $label)
-                                                    <option value="{{ $value }}" @selected($value === $usageStart)>{{ $label }}</option>
-                                                @endforeach
-                                            </select>
+                                        <div class="mt-3">
                                             <select id="usage_end" class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-800">
+                                                <option value="" @selected(!$usageEnd)>
+                                                    -- Estimate End Time --
+                                                </option>
                                                 @foreach($usageOptions as $value => $label)
                                                     <option value="{{ $value }}" @selected($value === $usageEnd)>{{ $label }}</option>
                                                 @endforeach
                                             </select>
                                         </div>
+                                    </div>
+
+                                    <div>
                                         <input id="time_of_usage" name="time_of_usage" type="hidden" value="{{ $defaultUsageRange }}" />
                                     </div>
 
