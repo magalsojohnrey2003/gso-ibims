@@ -4,9 +4,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const tbody = document.getElementById('adminManpowerTableBody');
   const search = document.getElementById('admin-manpower-search');
   const statusFilter = document.getElementById('admin-manpower-status');
-  const rejectModalName = 'adminManpowerRejectModal';
-  let REJECT_TARGET_ID = null;
+  const manageRolesBtn = document.getElementById('openManageRoles');
+  const rolesTableBody = document.getElementById('adminRolesTableBody');
+  const saveRoleBtn = document.getElementById('adminSaveRole');
+  const roleNameInput = document.getElementById('adminRoleName');
+  const approveFields = document.querySelectorAll('[data-approve-field]');
+  const viewFields = document.querySelectorAll('[data-view-field]');
+  const approvedQuantityInput = document.getElementById('adminApprovedQuantity');
+  const confirmApproveBtn = document.getElementById('confirmAdminApproval');
   let CACHE = [];
+  let ACTIVE_REQUEST = null;
 
   const fetchRows = async () => {
     try {
@@ -21,8 +28,26 @@ document.addEventListener('DOMContentLoaded', () => {
       render();
     } catch (e) {
       console.error(e);
-      tbody.innerHTML = `<tr><td colspan="9" class="py-4 text-red-600">Failed to load.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-red-600">Failed to load.</td></tr>`;
     }
+  };
+
+  const pickRow = (id) => CACHE.find(r => String(r.id) === String(id));
+
+  const formatDate = (value) => {
+    if (!value) return null;
+    const safe = value.includes('T') ? value : value.replace(' ', 'T');
+    const date = new Date(safe);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'});
+  };
+
+  const formatSchedule = (row) => {
+    const start = formatDate(row.start_at);
+    const end = formatDate(row.end_at);
+    if (start && end) return `${start} - ${end}`;
+    if (start) return start;
+    return '—';
   };
 
   const badgeHtml = (status) => {
@@ -35,20 +60,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const render = () => {
     if (!CACHE.length) {
-      tbody.innerHTML = `<tr><td colspan="9" class="py-8 text-gray-500">No manpower requests found</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-gray-500">No manpower requests found</td></tr>`;
       return;
     }
     tbody.innerHTML = CACHE.map(r => {
-      const schedule = (r.start_at && r.end_at) ? `${r.start_at}<br class='hidden md:block'/>to ${r.end_at}` : '—';
+      const schedule = formatSchedule(r);
       return `<tr data-manpower-id='${r.id}'>
         <td class='px-6 py-3'>${r.user ? r.user.name : '—'}</td>
+        <td class='px-6 py-3'>${r.role || r.role_type || '—'}</td>
         <td class='px-6 py-3'>${r.quantity}</td>
-        <td class='px-6 py-3'>${r.role}</td>
-        <td class='px-6 py-3 text-left'>${r.purpose}</td>
-        <td class='px-6 py-3'>${r.office_agency || '—'}</td>
-        <td class='px-6 py-3 text-xs'>${schedule}</td>
+        <td class='px-6 py-3 text-sm text-gray-700'>${schedule}</td>
         <td class='px-6 py-3'>${badgeHtml(r.status)}</td>
-        <td class='px-6 py-3'>${r.letter_url ? `<a href='${r.letter_url}' target='_blank' class='text-indigo-600 hover:underline'>View</a>` : '—'}</td>
         <td class='px-6 py-3'>${actionButtons(r)}</td>
       </tr>`;
     }).join('');
@@ -57,17 +79,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const actionButtons = (r) => {
     if (r.status === 'pending') {
       return `<div class='flex items-center justify-center gap-2'>
-        <button data-action='approve' class='h-9 w-9 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center'><i class='fas fa-check'></i></button>
-        <button data-action='reject' class='h-9 w-9 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center'><i class='fas fa-times'></i></button>
+        <button data-action='approve' class='px-3 py-1.5 text-xs rounded-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold'>Approve</button>
+        <button data-action='reject' class='px-3 py-1.5 text-xs rounded-full bg-red-500 hover:bg-red-600 text-white font-semibold'>Reject</button>
       </div>`;
     }
-    if (r.status === 'approved') {
-      return `<span class='text-green-600 font-semibold text-xs'>Approved</span>`;
-    }
-    if (r.status === 'rejected') {
-      return `<span class='text-red-600 font-semibold text-xs' title='${(r.rejection_reason_subject||'')}: ${(r.rejection_reason_detail||'')}' >Rejected</span>`;
-    }
-    return '—';
+    return `<button data-action='view' class='px-3 py-1.5 text-xs rounded-full border border-gray-300 hover:border-gray-400 text-gray-700 font-semibold'>View</button>`;
   };
 
   tbody.addEventListener('click', (e) => {
@@ -75,27 +91,91 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!btn) return;
     const tr = btn.closest('tr[data-manpower-id]');
     if (!tr) return;
-    const id = tr.getAttribute('data-manpower-id');
-    const action = btn.getAttribute('data-action');
+    const id = tr.dataset.manpowerId;
+    const action = btn.dataset.action;
+    const row = pickRow(id);
+    if (!row) return;
+
     if (action === 'approve') {
-      updateStatus(id, 'approved');
+      ACTIVE_REQUEST = row;
+      hydrateApproveModal(row);
+      openModal('adminManpowerApproveModal');
     } else if (action === 'reject') {
-      REJECT_TARGET_ID = id;
-      window.dispatchEvent(new CustomEvent('open-modal', {detail:'adminManpowerRejectModal'}));
-      document.querySelector('[name="adminManpowerRejectModal"]');
+      confirmReject(row);
+    } else if (action === 'view') {
+      hydrateViewModal(row);
+      openModal('adminManpowerViewModal');
     }
   });
 
-  document.getElementById('confirmRejectBtn')?.addEventListener('click', () => {
-    if (!REJECT_TARGET_ID) return;
-    const subj = document.getElementById('rejectSubject').value.trim();
-    const det = document.getElementById('rejectDetail').value.trim();
-    if (!subj || !det) {
-      window.showToast('warning', 'Please provide subject and detail.');
+  const openModal = (name) => window.dispatchEvent(new CustomEvent('open-modal', {detail: name}));
+  const closeModal = (name) => window.dispatchEvent(new CustomEvent('close-modal', {detail: name}));
+
+  const hydrateApproveModal = (row) => {
+    approvedQuantityInput.value = row.quantity;
+    approveFields.forEach(el => {
+      const key = el.dataset.approveField;
+      if (key === 'schedule') {
+        el.textContent = formatSchedule(row);
+      } else if (key === 'letter') {
+        if (row.letter_url) {
+          el.innerHTML = `<a href='${row.letter_url}' target='_blank' class='text-indigo-600 hover:underline'>Open uploaded letter</a>`;
+        } else {
+          el.textContent = 'No letter uploaded.';
+        }
+      } else if (key === 'user') {
+        el.textContent = row.user?.name || '—';
+      } else if (key === 'quantity') {
+        el.textContent = row.quantity;
+      } else {
+        el.textContent = row[key] || '—';
+      }
+    });
+  };
+
+  const hydrateViewModal = (row) => {
+    viewFields.forEach(el => {
+      const key = el.dataset.viewField;
+      if (key === 'schedule') {
+        el.textContent = formatSchedule(row);
+      } else if (key === 'quantity') {
+        const approved = row.approved_quantity ? `${row.approved_quantity} / ` : '';
+        el.textContent = `${approved}${row.quantity}`;
+      } else if (key === 'letter') {
+        if (row.letter_url) {
+          el.innerHTML = `<a href='${row.letter_url}' target='_blank' class='text-indigo-600 hover:underline'>Open uploaded letter</a>`;
+        } else {
+          el.textContent = 'No letter uploaded.';
+        }
+      } else if (key === 'user') {
+        el.textContent = row.user?.name || '—';
+      } else if (key === 'status') {
+        el.textContent = row.status ? row.status.charAt(0).toUpperCase() + row.status.slice(1) : '—';
+      } else {
+        el.textContent = row[key] || '—';
+      }
+    });
+  };
+
+  const confirmReject = async (row) => {
+    if (!window.confirm('Reject this request?')) return;
+    await updateStatus(row.id, 'rejected');
+  };
+
+  confirmApproveBtn?.addEventListener('click', async () => {
+    if (!ACTIVE_REQUEST) return;
+    const qty = parseInt(approvedQuantityInput.value, 10);
+    if (!qty || qty < 1) {
+      window.showToast?.('warning', 'Approved quantity must be at least 1.');
       return;
     }
-    updateStatus(REJECT_TARGET_ID, 'rejected', {rejection_reason_subject: subj, rejection_reason_detail: det});
-    window.dispatchEvent(new CustomEvent('close-modal', {detail:'adminManpowerRejectModal'}));
+    if (qty > ACTIVE_REQUEST.quantity) {
+      window.showToast?.('warning', 'Approved quantity cannot exceed requested quantity.');
+      return;
+    }
+    await updateStatus(ACTIVE_REQUEST.id, 'approved', {approved_quantity: qty});
+    closeModal('adminManpowerApproveModal');
+    ACTIVE_REQUEST = null;
   });
 
   const updateStatus = async (id, status, extra = {}) => {
@@ -107,12 +187,91 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed');
+      window.showToast?.('success', `Request ${status}.`);
       await fetchRows();
     } catch (e) { 
       console.error(e); 
-      window.showToast('error', e.message || 'Status update failed'); 
+      window.showToast?.('error', e.message || 'Status update failed'); 
     }
   };
+
+  // Manage roles
+  const fetchRoles = async () => {
+    if (!rolesTableBody) return;
+    try {
+      const res = await fetch(window.ADMIN_MANPOWER.roles.list, {headers:{'X-Requested-With':'XMLHttpRequest'}});
+      const data = await res.json();
+      renderRoles(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error(e);
+      rolesTableBody.innerHTML = `<tr><td colspan="2" class="px-4 py-4 text-center text-red-500">Failed to load roles.</td></tr>`;
+    }
+  };
+
+  const renderRoles = (roles) => {
+    if (!roles.length) {
+      rolesTableBody.innerHTML = `<tr><td colspan="2" class="px-4 py-4 text-center text-gray-500">No roles available.</td></tr>`;
+      return;
+    }
+    rolesTableBody.innerHTML = roles.map(role => `
+      <tr data-role-id='${role.id}' class="border-t">
+        <td class="px-4 py-3 font-medium">${role.name}</td>
+        <td class="px-4 py-3 text-center">
+          <button data-role-delete class="text-red-500 hover:text-red-600"><i class="fas fa-trash"></i></button>
+        </td>
+      </tr>
+    `).join('');
+  };
+
+  rolesTableBody?.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-role-delete]');
+    if (!btn) return;
+    const tr = btn.closest('tr[data-role-id]');
+    if (!tr) return;
+    const id = tr.dataset.roleId;
+    if (!window.confirm('Delete this role?')) return;
+    try {
+      const res = await fetch(window.ADMIN_MANPOWER.roles.delete(id), {
+        method: 'DELETE',
+        headers: {'X-Requested-With':'XMLHttpRequest','X-CSRF-TOKEN':window.ADMIN_MANPOWER.csrf}
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed');
+      window.showToast?.('success', 'Role deleted.');
+      await fetchRoles();
+    } catch (err) {
+      console.error(err);
+      window.showToast?.('error', err.message || 'Failed to delete role.');
+    }
+  });
+
+  saveRoleBtn?.addEventListener('click', async () => {
+    const name = roleNameInput.value.trim();
+    if (!name) {
+      window.showToast?.('warning', 'Role type is required.');
+      return;
+    }
+    try {
+      const res = await fetch(window.ADMIN_MANPOWER.roles.store, {
+        method: 'POST',
+        headers: {'X-Requested-With':'XMLHttpRequest','X-CSRF-TOKEN':window.ADMIN_MANPOWER.csrf,'Content-Type':'application/json'},
+        body: JSON.stringify({name})
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed');
+      roleNameInput.value = '';
+      window.showToast?.('success', 'Role added.');
+      await fetchRoles();
+    } catch (err) {
+      console.error(err);
+      window.showToast?.('error', err.message || 'Failed to save role.');
+    }
+  });
+
+  manageRolesBtn?.addEventListener('click', () => {
+    fetchRoles();
+    openModal('adminManageRolesModal');
+  });
 
   search?.addEventListener('input', () => { fetchRows(); });
   statusFilter?.addEventListener('change', () => { fetchRows(); });

@@ -1,6 +1,6 @@
 <?php extract((new \Illuminate\Support\Collection($attributes->getAttributes()))->mapWithKeys(function ($value, $key) { return [Illuminate\Support\Str::camel(str_replace([':', '.'], ' ', $key)) => $value]; })->all(), EXTR_SKIP); ?>
 
-<x-heroicon-o-arrow-path  {{ $attributes }}>
+<x-heroicon-o-cog  {{ $attributes }}>
 
 {{ $slot ?? "" }}
-</x-heroicon-o-arrow-path>
+</x-heroicon-o-cog>

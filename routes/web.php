@@ -18,12 +18,17 @@ use App\Http\Controllers\Admin\ItemInstanceController;
 use App\Http\Controllers\User\ItemDamageReportController;
 use App\Http\Controllers\Admin\ManpowerRequestController as AdminManpowerRequestController;
 use App\Http\Controllers\User\ManpowerRequestController as UserManpowerRequestController;
+use App\Http\Controllers\ManpowerRoleController;
+use App\Http\Controllers\PublicManpowerRequestController;
 
 
 // ??? Root should redirect to login instead of welcome
 Route::get('/', function () {
     return view('auth.login-register');
 });
+
+Route::get('/manpower/status/{token}', [PublicManpowerRequestController::class, 'show'])
+    ->name('manpower.requests.public.show');
 
 
 Route::middleware('auth')->group(function () {
@@ -43,6 +48,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/notifications/list', [NotificationController::class, 'list'])->name('notifications.list');
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.readAll');
+
+    Route::get('/manpower-roles', [ManpowerRoleController::class, 'index'])->name('manpower.roles.index');
 });
 
 
@@ -148,6 +155,10 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
     Route::post('walk-in/store', [BorrowRequestController::class, 'walkInStore'])->name('admin.walkin.store');
     Route::get('walk-in/approve-qr/{id}', [BorrowRequestController::class, 'walkInApproveQr'])->name('admin.walkin.approve.qr');
     Route::post('walk-in/deliver/{id}', [BorrowRequestController::class, 'walkInDeliver'])->name('admin.walkin.deliver');
+
+        Route::get('/manpower-roles', [ManpowerRoleController::class, 'index'])->name('admin.manpower.roles.index');
+        Route::post('/manpower-roles', [ManpowerRoleController::class, 'store'])->name('admin.manpower.roles.store');
+        Route::delete('/manpower-roles/{manpowerRole}', [ManpowerRoleController::class, 'destroy'])->name('admin.manpower.roles.destroy');
 
         // Manpower Requests (Admin)
         Route::prefix('manpower-requests')->name('admin.manpower.requests.')->group(function() {

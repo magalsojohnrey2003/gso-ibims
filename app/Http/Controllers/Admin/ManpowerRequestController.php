@@ -15,7 +15,7 @@ class ManpowerRequestController extends Controller
 
     public function list(Request $request)
     {
-        $query = ManpowerRequest::with('user')->latest();
+        $query = ManpowerRequest::with(['user', 'roleType'])->latest();
 
         if ($search = trim((string) $request->query('q', ''))) {
             $query->where(function($q) use ($search) {
@@ -42,7 +42,9 @@ class ManpowerRequestController extends Controller
                     'email' => $row->user->email,
                 ] : null,
                 'quantity' => $row->quantity,
+                'approved_quantity' => $row->approved_quantity,
                 'role' => $row->role,
+                'role_type' => $row->roleType ? $row->roleType->name : null,
                 'purpose' => $row->purpose,
                 'location' => $row->location,
                 'office_agency' => $row->office_agency,
@@ -52,6 +54,8 @@ class ManpowerRequestController extends Controller
                 'status' => $row->status,
                 'rejection_reason_subject' => $row->rejection_reason_subject,
                 'rejection_reason_detail' => $row->rejection_reason_detail,
+                'public_token' => $row->public_token,
+                'public_url' => $row->public_status_url,
             ];
         });
 
@@ -62,24 +66,32 @@ class ManpowerRequestController extends Controller
     {
         $data = $request->validate([
             'status' => 'required|in:approved,rejected',
-            'rejection_reason_subject' => 'nullable|string|max:255',
-            'rejection_reason_detail' => 'nullable|string',
+            'approved_quantity' => 'required_if:status,approved|nullable|integer|min:1',
         ]);
 
-        if ($data['status'] === 'rejected') {
-            if (empty($data['rejection_reason_subject']) || empty($data['rejection_reason_detail'])) {
-                return response()->json(['message' => 'Rejection subject and detail are required.'], 422);
+        if ($data['status'] === 'approved') {
+            $approved = $data['approved_quantity'] ?? $requestModel->quantity;
+            if ($approved > $requestModel->quantity) {
+                return response()->json([
+                    'message' => 'Approved quantity cannot exceed requested quantity.',
+                ], 422);
             }
-            $requestModel->rejection_reason_subject = $data['rejection_reason_subject'];
-            $requestModel->rejection_reason_detail = $data['rejection_reason_detail'];
+            $requestModel->approved_quantity = $approved;
+            $requestModel->status = 'approved';
         } else {
-            $requestModel->rejection_reason_subject = null;
-            $requestModel->rejection_reason_detail = null;
+            $requestModel->status = 'rejected';
+            $requestModel->approved_quantity = null;
         }
 
-        $requestModel->status = $data['status'];
+        $requestModel->rejection_reason_subject = null;
+        $requestModel->rejection_reason_detail = null;
+
         $requestModel->save();
 
-        return response()->json(['message' => 'Status updated.', 'status' => $requestModel->status]);
+        return response()->json([
+            'message' => 'Status updated.',
+            'status' => $requestModel->status,
+            'approved_quantity' => $requestModel->approved_quantity,
+        ]);
     }
 }

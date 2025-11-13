@@ -30,16 +30,15 @@
                         <thead class="bg-purple-600 text-white text-xs uppercase font-semibold text-center">
                             <tr>
                                 <th class="px-6 py-3 text-center">Request ID</th>
-                                <th class="px-6 py-3 text-center">Qty</th>
+                                <th class="px-6 py-3 text-center">Qty (Approved / Requested)</th>
                                 <th class="px-6 py-3 text-center">Role</th>
-                                <th class="px-6 py-3 text-center">Purpose</th>
                                 <th class="px-6 py-3 text-center">Schedule</th>
                                 <th class="px-6 py-3 text-center">Status</th>
-                                <th class="px-6 py-3 text-center">Letter</th>
+                                <th class="px-6 py-3 text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="userManpowerTableBody" class="text-center">
-                            <tr><td colspan="7" class="py-4 text-gray-500">Loading...</td></tr>
+                            <tr><td colspan="6" class="py-4 text-gray-500">Loading...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -69,7 +68,10 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700">Manpower role</label>
-                            <input type="text" id="mp_role" class="mt-1 block w-full rounded-md border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500" placeholder="e.g. Utility, Marshal, Porter" />
+                            <select id="mp_role" class="mt-1 block w-full rounded-md border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed">
+                                <option value="">Loading roles...</option>
+                            </select>
+                            <p id="mp_role_empty" class="text-xs text-red-500 mt-1 hidden">No roles available. Please contact the admin.</p>
                         </div>
                         <div class="md:col-span-2">
                             <label class="block text-sm font-medium text-gray-700">Purpose</label>
@@ -131,6 +133,54 @@
         </div>
     </x-modal>
 
+    <x-modal name="userManpowerViewModal" maxWidth="2xl">
+        <div class="p-6 space-y-5">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-gray-900">Request Details</h3>
+                <button class="text-gray-400 hover:text-gray-600" @click="$dispatch('close-modal','userManpowerViewModal')"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="grid gap-4 md:grid-cols-2 text-sm">
+                <div>
+                    <div class="text-gray-500 uppercase text-xs">Request ID</div>
+                    <div class="font-semibold text-gray-900" data-user-view="id">—</div>
+                </div>
+                <div>
+                    <div class="text-gray-500 uppercase text-xs">Status</div>
+                    <div class="font-semibold text-gray-900" data-user-view="status">—</div>
+                </div>
+                <div>
+                    <div class="text-gray-500 uppercase text-xs">Role</div>
+                    <div class="font-semibold text-gray-900" data-user-view="role">—</div>
+                </div>
+                <div>
+                    <div class="text-gray-500 uppercase text-xs">Qty (Approved / Requested)</div>
+                    <div class="font-semibold text-gray-900" data-user-view="quantity">—</div>
+                </div>
+                <div class="md:col-span-2">
+                    <div class="text-gray-500 uppercase text-xs">Schedule</div>
+                    <div class="font-semibold text-gray-900" data-user-view="schedule">—</div>
+                </div>
+                <div class="md:col-span-2">
+                    <div class="text-gray-500 uppercase text-xs">Purpose</div>
+                    <div class="font-medium text-gray-900" data-user-view="purpose">—</div>
+                </div>
+            </div>
+            <div class="border-t pt-4 flex flex-col md:flex-row gap-6">
+                <div class="flex-1">
+                    <div class="text-sm text-gray-500 uppercase mb-2">Letter</div>
+                    <div data-user-view="letter" class="text-sm text-gray-700">No letter uploaded.</div>
+                </div>
+                <div class="flex-1 text-center">
+                    <div class="text-sm text-gray-500 uppercase mb-2">QR Status</div>
+                    <div id="userManpowerQr" class="flex items-center justify-center" style="min-height: 160px;">
+                        <div class="text-sm text-gray-400">QR code unavailable.</div>
+                    </div>
+                    <a data-user-view="public-url" href="#" target="_blank" class="text-indigo-600 hover:underline text-sm mt-2 hidden">Open status page</a>
+                </div>
+            </div>
+        </div>
+    </x-modal>
+
     <div id="userManpowerBadgeTemplates" class="hidden">
         <template data-status="pending"><x-status-badge type="pending" text="Pending" /></template>
         <template data-status="approved"><x-status-badge type="accepted" text="Approved" /></template>
@@ -142,6 +192,7 @@
         window.USER_MANPOWER = {
             list: "{{ route('user.manpower.list') }}",
             store: "{{ route('user.manpower.store') }}",
+            roles: "{{ route('manpower.roles.index') }}",
             csrf: "{{ csrf_token() }}",
         };
         window.renderUserManpowerBadge = function(status){

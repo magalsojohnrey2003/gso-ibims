@@ -4,9 +4,9 @@ namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
 use App\Models\ManpowerRequest;
+use App\Models\ManpowerRole;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
 
 class ManpowerRequestController extends Controller
 {
@@ -24,6 +24,7 @@ class ManpowerRequestController extends Controller
             return [
                 'id' => $row->id,
                 'quantity' => $row->quantity,
+                'approved_quantity' => $row->approved_quantity,
                 'role' => $row->role,
                 'purpose' => $row->purpose,
                 'location' => $row->location,
@@ -34,6 +35,7 @@ class ManpowerRequestController extends Controller
                 'status' => $row->status,
                 'rejection_reason_subject' => $row->rejection_reason_subject,
                 'rejection_reason_detail' => $row->rejection_reason_detail,
+                'public_url' => $row->public_status_url,
             ];
         });
 
@@ -44,7 +46,7 @@ class ManpowerRequestController extends Controller
     {
         $data = $request->validate([
             'quantity' => 'required|integer|min:1|max:10000',
-            'role' => 'required|string|max:100',
+            'manpower_role_id' => 'required|exists:manpower_roles,id',
             'purpose' => 'required|string|max:255',
             'location' => 'required|string|max:255',
             'office_agency' => 'nullable|string|max:255',
@@ -56,10 +58,16 @@ class ManpowerRequestController extends Controller
         $data['user_id'] = Auth::id();
         $data['status'] = 'pending';
 
+        $role = ManpowerRole::findOrFail($data['manpower_role_id']);
+        $data['role'] = $role->name;
+
         if ($request->hasFile('letter')) {
             $path = $request->file('letter')->store('manpower-letters', 'public');
             $data['letter_path'] = $path;
         }
+
+        $data['public_token'] = (string) \Illuminate\Support\Str::uuid();
+        $data['approved_quantity'] = null;
 
         $model = ManpowerRequest::create($data);
 
