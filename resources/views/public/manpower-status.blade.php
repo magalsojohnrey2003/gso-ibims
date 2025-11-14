@@ -114,7 +114,12 @@
             </div>
             <div>
                 <dt>Location</dt>
-                <dd>{{ $request->location ?? '—' }}</dd>
+                <dd>
+                    {{ trim(($request->municipality ? $request->municipality . ', ' : '') . ($request->barangay ?? '')) ?: '—' }}<br>
+                    @if($request->location)
+                        <small style="color: var(--muted); font-size: 0.85rem;">{{ $request->location }}</small>
+                    @endif
+                </dd>
             </div>
         </dl>
 

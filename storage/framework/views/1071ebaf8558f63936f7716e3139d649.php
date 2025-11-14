@@ -58,6 +58,7 @@
             height: 100%;
             margin: 0;
             padding: 0;
+            overflow-x: hidden;
         }
 
         /* Flex container fills viewport height */
@@ -160,7 +161,7 @@
         <?php endif; ?>
 
         <!-- Main content area: allow vertical scrolling inside this column only -->
-        <main id="mainContent" tabindex="-1" class="flex-1 main-wallpaper <?php echo e(isset($noMainScroll) && $noMainScroll ? 'overflow-y-visible' : 'overflow-y-auto'); ?>">
+        <main id="mainContent" tabindex="-1" class="flex-1 <?php echo e(isset($noMainScroll) && $noMainScroll ? 'overflow-y-visible' : 'overflow-y-auto'); ?>">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                 <?php echo e($slot); ?>
 

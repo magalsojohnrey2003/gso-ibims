@@ -51,11 +51,8 @@ $maxWidth = [
     x-data="{
         show: <?php echo \Illuminate\Support\Js::from($show)->toHtml() ?>,
         focusables() {
-            // All focusable element types...
             let selector = 'a, button, input:not([type=\'hidden\']), textarea, select, details, [tabindex]:not([tabindex=\'-1\'])'
-            return [...$el.querySelectorAll(selector)]
-                // All non-disabled elements...
-                .filter(el => ! el.hasAttribute('disabled'))
+            return [...$el.querySelectorAll(selector)].filter(el => !el.hasAttribute('disabled'))
         },
         firstFocusable() { return this.focusables()[0] },
         lastFocusable() { return this.focusables().slice(-1)[0] },
@@ -80,7 +77,7 @@ $maxWidth = [
     x-on:keydown.tab.prevent="$event.shiftKey || nextFocusable().focus()"
     x-on:keydown.shift.tab.prevent="prevFocusable().focus()"
     x-show="show"
-    class="fixed inset-0 overflow-y-auto px-4 py-6 sm:px-0 z-50"
+    class="fixed inset-0 z-50 flex items-center justify-center"
     style="display: <?php echo e($show ? 'block' : 'none'); ?>;"
 >
     <div
@@ -99,7 +96,7 @@ $maxWidth = [
 
     <div
         x-show="show"
-        class="mb-6 rounded-lg overflow-hidden transform transition-all sm:w-full <?php echo e($maxWidth); ?> sm:mx-auto"
+        class="mb-6 rounded-lg overflow-hidden transform transition-all sm:w-full <?php echo e($maxWidth); ?> sm:mx-auto max-h-[90vh] overflow-y-auto"
         x-transition:enter="ease-out duration-300"
         x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
         x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"

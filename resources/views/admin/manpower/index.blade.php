@@ -112,9 +112,21 @@
                     <div class="text-gray-500 uppercase text-xs">Schedule</div>
                     <div class="font-semibold text-gray-900" data-approve-field="schedule">—</div>
                 </div>
+                <div>
+                    <div class="text-gray-500 uppercase text-xs">Municipality</div>
+                    <div class="font-semibold text-gray-900" data-approve-field="municipality">—</div>
+                </div>
+                <div>
+                    <div class="text-gray-500 uppercase text-xs">Barangay</div>
+                    <div class="font-semibold text-gray-900" data-approve-field="barangay">—</div>
+                </div>
                 <div class="md:col-span-2">
                     <div class="text-gray-500 uppercase text-xs">Purpose</div>
                     <div class="font-medium text-gray-900" data-approve-field="purpose">—</div>
+                </div>
+                <div class="md:col-span-2">
+                    <div class="text-gray-500 uppercase text-xs">Specific Area</div>
+                    <div class="font-medium text-gray-900" data-approve-field="location">—</div>
                 </div>
             </div>
             <div>
@@ -160,9 +172,21 @@
                     <div class="text-gray-500 uppercase text-xs">Schedule</div>
                     <div class="font-semibold text-gray-900" data-view-field="schedule">—</div>
                 </div>
+                <div>
+                    <div class="text-gray-500 uppercase text-xs">Municipality</div>
+                    <div class="font-semibold text-gray-900" data-view-field="municipality">—</div>
+                </div>
+                <div>
+                    <div class="text-gray-500 uppercase text-xs">Barangay</div>
+                    <div class="font-semibold text-gray-900" data-view-field="barangay">—</div>
+                </div>
                 <div class="md:col-span-2">
                     <div class="text-gray-500 uppercase text-xs">Purpose</div>
                     <div class="font-medium text-gray-900" data-view-field="purpose">—</div>
+                </div>
+                <div class="md:col-span-2">
+                    <div class="text-gray-500 uppercase text-xs">Specific Area</div>
+                    <div class="font-medium text-gray-900" data-view-field="location">—</div>
                 </div>
             </div>
             <div class="border-t pt-4">

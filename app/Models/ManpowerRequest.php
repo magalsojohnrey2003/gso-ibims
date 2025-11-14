@@ -25,6 +25,8 @@ class ManpowerRequest extends Model
         'approved_quantity',
         'manpower_role_id',
         'public_token',
+        'municipality',
+        'barangay',
     ];
 
     protected $casts = [

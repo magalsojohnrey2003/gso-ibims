@@ -164,7 +164,7 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
         Route::prefix('manpower-requests')->name('admin.manpower.requests.')->group(function() {
             Route::get('/', [AdminManpowerRequestController::class, 'index'])->name('index');
             Route::get('/list', [AdminManpowerRequestController::class, 'list'])->name('list');
-            Route::post('/{request}/status', [AdminManpowerRequestController::class, 'updateStatus'])->name('status');
+            Route::post('/{manpowerRequest}/status', [AdminManpowerRequestController::class, 'updateStatus'])->name('status');
         });
         });
     

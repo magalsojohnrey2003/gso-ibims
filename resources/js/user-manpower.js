@@ -6,16 +6,24 @@ document.addEventListener('DOMContentLoaded', () => {
   const openBtn = document.getElementById('openManpowerCreate');
   const confirmBtn = document.getElementById('confirmManpowerSubmit');
   const saveBtn = document.getElementById('saveManpowerRequest');
-  const nextBtn = document.getElementById('goToStep2');
-  const backBtn = document.getElementById('backToStep1');
   const form = document.getElementById('userManpowerForm');
-  const preview = document.getElementById('mp_letter_preview');
+  // FilePond instance for letter upload
+  let filePondInstance = null;
   const roleSelect = document.getElementById('mp_role');
   const roleEmptyMessage = document.getElementById('mp_role_empty');
+  const municipalitySelect = document.getElementById('mp_municipality');
+  const barangaySelect = document.getElementById('mp_barangay');
+  const startDateInput = document.getElementById('mp_start_date');
+  const startTimeInput = document.getElementById('mp_start_time');
+  const endDateInput = document.getElementById('mp_end_date');
+  const endTimeInput = document.getElementById('mp_end_time');
   const userViewFields = document.querySelectorAll('[data-user-view]');
   const qrContainer = document.getElementById('userManpowerQr');
   let CACHE = [];
   let PENDING_PAYLOAD = null;
+
+  const openModal = (name) => window.dispatchEvent(new CustomEvent('open-modal', { detail: name }));
+  const closeModal = (name) => window.dispatchEvent(new CustomEvent('close-modal', { detail: name }));
 
   const fetchRows = async () => {
     try {
@@ -37,28 +45,71 @@ document.addEventListener('DOMContentLoaded', () => {
       const res = await fetch(window.USER_MANPOWER.roles, { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
       const data = await res.json();
       const roles = Array.isArray(data) ? data : [];
-      renderRoleOptions(roles);
+      if (!roles.length) {
+        roleSelect.innerHTML = `<option value="">No roles available</option>`;
+        roleSelect.disabled = true;
+        roleEmptyMessage?.classList.remove('hidden');
+        return;
+      }
+      roleEmptyMessage?.classList.add('hidden');
+      roleSelect.disabled = false;
+      roleSelect.innerHTML = [
+        `<option value="">Select a role</option>`,
+        ...roles.map(role => `<option value="${role.id}">${role.name}</option>`)
+      ].join('');
     } catch (e) {
       console.error(e);
       roleSelect.innerHTML = `<option value="">Failed to load roles</option>`;
     }
   };
 
-  const renderRoleOptions = (roles) => {
-    if (!roleSelect) return;
-    if (!roles.length) {
-      roleSelect.innerHTML = `<option value="">No roles available</option>`;
-      roleSelect.disabled = true;
-      roleEmptyMessage?.classList.remove('hidden');
+  const loadMunicipalities = async () => {
+    if (!municipalitySelect) return;
+    municipalitySelect.disabled = true;
+    municipalitySelect.innerHTML = `<option value="">Loading municipalities...</option>`;
+    try {
+      const res = await fetch(window.USER_MANPOWER.locations.municipalities, { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
+      const json = await res.json();
+      const municipalities = Array.isArray(json?.data) ? json.data : [];
+      municipalitySelect.innerHTML = [
+        `<option value="">Select municipality</option>`,
+        ...municipalities.map(m => `<option value="${m.id}">${m.name}</option>`)
+      ].join('');
+      municipalitySelect.disabled = false;
+      barangaySelect.innerHTML = `<option value="">Select barangay</option>`;
+      barangaySelect.disabled = true;
+    } catch (e) {
+      console.error(e);
+      municipalitySelect.innerHTML = `<option value="">Failed to load municipalities</option>`;
+    }
+  };
+
+  const loadBarangays = async (municipalityId) => {
+    if (!barangaySelect) return;
+    if (!municipalityId) {
+      barangaySelect.innerHTML = `<option value="">Select barangay</option>`;
+      barangaySelect.disabled = true;
       return;
     }
-    roleEmptyMessage?.classList.add('hidden');
-    roleSelect.disabled = false;
-    roleSelect.innerHTML = [
-      `<option value="">Select a role</option>`,
-      ...roles.map(role => `<option value="${role.id}">${role.name}</option>`)
-    ].join('');
+    barangaySelect.disabled = true;
+    barangaySelect.innerHTML = `<option value="">Loading barangays...</option>`;
+    try {
+      const url = `${window.USER_MANPOWER.locations.barangays}/${municipalityId}`;
+      const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
+      const json = await res.json();
+      const barangays = Array.isArray(json?.data) ? json.data : [];
+      barangaySelect.innerHTML = [
+        `<option value="">Select barangay</option>`,
+        ...barangays.map(b => `<option value="${b.id}">${b.name}</option>`)
+      ].join('');
+      barangaySelect.disabled = false;
+    } catch (e) {
+      console.error(e);
+      barangaySelect.innerHTML = `<option value="">Failed to load barangays</option>`;
+    }
   };
+
+  municipalitySelect?.addEventListener('change', (e) => loadBarangays(e.target.value));
 
   const badgeHtml = (status) => window.renderUserManpowerBadge ? window.renderUserManpowerBadge(status) : (status||'—');
 
@@ -104,66 +155,85 @@ document.addEventListener('DOMContentLoaded', () => {
     }).join('');
   };
 
-  const validateStep1 = () => {
+  const buildDateTimeString = (dateValue, timeValue, fallback) => {
+    if (!dateValue) return null;
+    const time = timeValue || fallback;
+    return `${dateValue}T${time}:00`;
+  };
+
+  const collectFormData = () => {
     const quantity = parseInt(document.getElementById('mp_quantity').value, 10);
-    const manpower_role_id = document.getElementById('mp_role').value.trim();
+    const manpower_role_id = roleSelect.value.trim();
     const purpose = document.getElementById('mp_purpose').value.trim();
     const location = document.getElementById('mp_location').value.trim();
     const office_agency = document.getElementById('mp_office').value.trim();
-    const start_at = document.getElementById('mp_start').value;
-    const end_at = document.getElementById('mp_end').value;
-    if (!quantity || quantity < 1) return { ok:false, message:'Quantity must be at least 1' };
+    const municipality_id = municipalitySelect.value.trim();
+    const barangay_id = barangaySelect.value.trim();
+    const start_date = startDateInput.value;
+    const end_date = endDateInput.value;
+    const start_time = startTimeInput.value;
+    const end_time = endTimeInput.value;
+
+    if (!Number.isInteger(quantity) || quantity < 1) return { ok:false, message:'Quantity must be at least 1' };
+    if (quantity > 999) return { ok:false, message:'Maximum of 999 personnel only' };
     if (!manpower_role_id) return { ok:false, message:'Please select a manpower role' };
+    if (!municipality_id) return { ok:false, message:'Please select a municipality/city' };
+    if (!barangay_id) return { ok:false, message:'Please select a barangay' };
+    if (!location) return { ok:false, message:'Specific area is required' };
     if (!purpose) return { ok:false, message:'Purpose is required' };
-    if (!location) return { ok:false, message:'Location is required' };
-    if (!start_at) return { ok:false, message:'Start date/time is required' };
-    if (!end_at) return { ok:false, message:'End date/time is required' };
-    if (new Date(end_at) <= new Date(start_at)) return { ok:false, message:'End must be after start' };
-    return { ok:true, data: { quantity, manpower_role_id, purpose, location, office_agency, start_at, end_at } };
+    if (!start_date) return { ok:false, message:'Start date is required' };
+    if (!end_date) return { ok:false, message:'End date is required' };
+
+    const startAtValue = buildDateTimeString(start_date, start_time || '00:00', '00:00');
+    const endAtValue = buildDateTimeString(end_date, end_time || '23:59', '23:59');
+
+    if (new Date(endAtValue) < new Date(startAtValue)) {
+      return { ok:false, message:'End schedule must be on or after the start schedule.' };
+    }
+
+    return {
+      ok: true,
+      data: {
+        quantity,
+        manpower_role_id,
+        purpose,
+        location,
+        office_agency,
+        municipality_id,
+        barangay_id,
+        start_date,
+        start_time,
+        end_date,
+        end_time,
+      }
+    };
   };
 
-  const openModal = (name) => window.dispatchEvent(new CustomEvent('open-modal', { detail: name }));
-  const closeModal = (name) => window.dispatchEvent(new CustomEvent('close-modal', { detail: name }));
-
   openBtn?.addEventListener('click', () => {
-    fetchRoles();
     form?.reset();
-    preview?.classList.add('hidden');
+    if (filePondInstance && typeof filePondInstance.removeFiles === 'function') filePondInstance.removeFiles();
     PENDING_PAYLOAD = null;
+    fetchRoles();
+    loadMunicipalities();
     openModal('userManpowerCreateModal');
   });
 
-  nextBtn?.addEventListener('click', () => {
-    const v = validateStep1();
-    if (!v.ok) { 
-      window.showToast('warning', v.message); 
-      return; 
-    }
-    PENDING_PAYLOAD = v.data;
-    const triggers = document.querySelectorAll('[data-accordion-trigger]');
-    if (triggers[0]) triggers[0].click();
-    if (triggers[1]) triggers[1].click();
-  });
-
-  backBtn?.addEventListener('click', () => {
-    const triggers = document.querySelectorAll('[data-accordion-trigger]');
-    if (triggers[1]) triggers[1].click();
-    if (triggers[0]) triggers[0].click();
-  });
-
-  document.getElementById('mp_letter')?.addEventListener('change', (e) => {
-    const file = e.target.files && e.target.files[0];
-    if (!file) { preview.classList.add('hidden'); preview.innerHTML = ''; return; }
-    preview.classList.remove('hidden');
-    const sizeKB = Math.round(file.size/1024);
-    preview.innerHTML = `<div class='text-sm'><b>Selected:</b> ${file.name} <span class='text-gray-500'>(${sizeKB} KB)</span></div>`;
-  });
+  // FilePond initialization (if present)
+  if (window.FilePond && document.getElementById('mp_letter')) {
+    filePondInstance = FilePond.create(document.getElementById('mp_letter'), {
+      acceptedFileTypes: ['application/pdf', 'image/png', 'image/jpeg'],
+      maxFileSize: '5MB',
+      allowMultiple: false,
+      name: 'letter_file',
+      credits: false
+    });
+  }
 
   saveBtn?.addEventListener('click', () => {
-    const v = validateStep1();
-    if (!v.ok) { 
-      window.showToast('warning', v.message); 
-      return; 
+    const v = collectFormData();
+    if (!v.ok) {
+      window.showToast('warning', v.message);
+      return;
     }
     PENDING_PAYLOAD = v.data;
     openModal('userManpowerConfirmModal');
@@ -173,9 +243,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!PENDING_PAYLOAD) return;
     try {
       const fd = new FormData();
-      Object.entries(PENDING_PAYLOAD).forEach(([k,v]) => fd.append(k, v));
-      const file = document.getElementById('mp_letter').files?.[0];
-      if (file) fd.append('letter', file);
+      Object.entries(PENDING_PAYLOAD).forEach(([k,v]) => fd.append(k, v ?? ''));
+      // FilePond file (if present)
+      if (filePondInstance && filePondInstance.getFiles().length > 0) {
+        const fileObj = filePondInstance.getFiles()[0].file;
+        fd.append('letter_file', fileObj);
+      }
       fd.append('_token', window.USER_MANPOWER.csrf);
       const res = await fetch(window.USER_MANPOWER.store, { method:'POST', body: fd, headers:{'X-Requested-With':'XMLHttpRequest'} });
       const data = await res.json();
@@ -183,8 +256,8 @@ document.addEventListener('DOMContentLoaded', () => {
       closeModal('userManpowerConfirmModal');
       closeModal('userManpowerCreateModal');
       await fetchRows();
-    } catch(e) { 
-      window.showToast('error', e.message || 'Failed to submit manpower request.'); 
+    } catch(e) {
+      window.showToast('error', e.message || 'Failed to submit manpower request.');
     }
   });
 
@@ -218,6 +291,12 @@ document.addEventListener('DOMContentLoaded', () => {
         el.textContent = row.status ? row.status.charAt(0).toUpperCase() + row.status.slice(1) : '—';
       } else if (key === 'id') {
         el.textContent = `#${row.id}`;
+      } else if (key === 'location') {
+        el.textContent = row.location || '—';
+      } else if (key === 'municipality') {
+        el.textContent = row.municipality || '—';
+      } else if (key === 'barangay') {
+        el.textContent = row.barangay || '—';
       } else {
         el.textContent = row[key] || '—';
       }
@@ -243,5 +322,6 @@ document.addEventListener('DOMContentLoaded', () => {
   search?.addEventListener('input', render);
 
   fetchRoles();
+  loadMunicipalities();
   fetchRows();
 });

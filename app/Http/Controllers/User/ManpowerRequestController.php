@@ -5,6 +5,8 @@ namespace App\Http\Controllers\User;
 use App\Http\Controllers\Controller;
 use App\Models\ManpowerRequest;
 use App\Models\ManpowerRole;
+use App\Support\MisOrLocations;
+use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -28,6 +30,8 @@ class ManpowerRequestController extends Controller
                 'role' => $row->role,
                 'purpose' => $row->purpose,
                 'location' => $row->location,
+                'municipality' => $row->municipality,
+                'barangay' => $row->barangay,
                 'office_agency' => $row->office_agency,
                 'start_at' => optional($row->start_at)->toDateTimeString(),
                 'end_at' => optional($row->end_at)->toDateTimeString(),
@@ -45,13 +49,17 @@ class ManpowerRequestController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'quantity' => 'required|integer|min:1|max:10000',
+            'quantity' => 'required|integer|min:1|max:999',
             'manpower_role_id' => 'required|exists:manpower_roles,id',
             'purpose' => 'required|string|max:255',
             'location' => 'required|string|max:255',
+            'municipality_id' => 'required|string',
+            'barangay_id' => 'required|string',
             'office_agency' => 'nullable|string|max:255',
-            'start_at' => 'required|date|after_or_equal:today',
-            'end_at' => 'required|date|after:start_at',
+            'start_date' => 'required|date',
+            'start_time' => 'nullable|date_format:H:i',
+            'end_date' => 'required|date|after_or_equal:start_date',
+            'end_time' => 'nullable|date_format:H:i',
             'letter' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
         ]);
 
@@ -61,6 +69,29 @@ class ManpowerRequestController extends Controller
         $role = ManpowerRole::findOrFail($data['manpower_role_id']);
         $data['role'] = $role->name;
 
+        $municipality = MisOrLocations::findMunicipality($data['municipality_id']);
+        $barangay = MisOrLocations::findBarangay($data['municipality_id'], $data['barangay_id']);
+
+        if (! $municipality || ! $barangay) {
+            return response()->json([
+                'message' => 'Please select a valid municipality and barangay.',
+            ], 422);
+        }
+
+        $startDate = Carbon::parse($data['start_date'].' '.($data['start_time'] ?: '00:00'));
+        $endDate = Carbon::parse($data['end_date'].' '.($data['end_time'] ?: '23:59'));
+
+        if ($endDate->lt($startDate)) {
+            return response()->json([
+                'message' => 'End schedule must be the same day or after the start schedule.',
+            ], 422);
+        }
+
+        $data['start_at'] = $startDate;
+        $data['end_at'] = $endDate;
+        $data['municipality'] = $municipality['name'];
+        $data['barangay'] = $barangay['name'];
+
         if ($request->hasFile('letter')) {
             $path = $request->file('letter')->store('manpower-letters', 'public');
             $data['letter_path'] = $path;
@@ -68,6 +99,8 @@ class ManpowerRequestController extends Controller
 
         $data['public_token'] = (string) \Illuminate\Support\Str::uuid();
         $data['approved_quantity'] = null;
+
+        unset($data['start_date'], $data['start_time'], $data['end_date'], $data['end_time'], $data['municipality_id'], $data['barangay_id']);
 
         $model = ManpowerRequest::create($data);
 
