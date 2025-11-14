@@ -1733,12 +1733,14 @@ function initCategoryOfficeManagement() {
       const fragment = document.importNode(officeRowTemplate.content, true);
       const row = fragment.querySelector('[data-office-row]');
       if (row) {
-        row.dataset.officeCode = office.code || '';
+        row.dataset.officeCodeValue = office.code || '';
+        row.dataset.officeNameValue = office.name || '';
         row.dataset.index = String(idx);
       }
-      const codeEl = fragment.querySelector('[data-office-code]');
+      const target = row ?? fragment;
+      const codeEl = target.querySelector('[data-office-code]');
       if (codeEl) codeEl.textContent = office.code || 'N/A';
-      const nameEl = fragment.querySelector('[data-office-name]');
+      const nameEl = target.querySelector('[data-office-name]');
       if (nameEl) nameEl.textContent = office.name || 'N/A';
       const viewBtn = fragment.querySelector('[data-view-office]');
       if (viewBtn) {
