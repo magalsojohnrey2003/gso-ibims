@@ -42,7 +42,7 @@ public function update(ProfileUpdateRequest $request): RedirectResponse
 
     $user->save();
 
-    return Redirect::route('profile.info')->with('status', 'profile-updated');
+    return Redirect::to('/profile')->with('status', 'profile-updated');
 }
 
     /**

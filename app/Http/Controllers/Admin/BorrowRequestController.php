@@ -835,6 +835,11 @@ class BorrowRequestController extends Controller
             return response()->json(['message' => 'Items dispatched successfully.']);
         } catch (\Throwable $e) {
             DB::rollBack();
+            Log::error('borrow.dispatch_failed', [
+                'borrow_request_id' => $borrowRequest->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             return response()->json(['message' => 'Failed to dispatch items. Please try again.', 'error' => $e->getMessage()], 500);
         }
     }
@@ -920,6 +925,11 @@ class BorrowRequestController extends Controller
             return response()->json(['message' => 'Items marked as delivered successfully.']);
         } catch (\Throwable $e) {
             DB::rollBack();
+            Log::error('borrow.mark_delivered_failed', [
+                'borrow_request_id' => $borrowRequest->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             return response()->json([
                 'message' => 'Failed to mark items as delivered. Please try again.',
                 'error' => $e->getMessage()

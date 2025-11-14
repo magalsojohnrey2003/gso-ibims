@@ -274,55 +274,11 @@
                                 </div>
 
                                 <div class="space-y-4">
-                                    <div>
-                                        <x-input-label for="location_municipality" value="Municipality" />
-                                        <select id="location_municipality"
-                                                class="mt-1 w-full rounded-md border border-gray-600 bg-white px-3 py-2 text-gray-800"
-                                                data-initial="{{ $oldMunicipalityKey ?? '' }}">
-                                            <option value="" disabled selected>Select municipality</option>
-                                            @foreach($municipalities as $key => $definition)
-                                                <option value="{{ $key }}"
-                                                        data-label="{{ $definition['label'] ?? $key }}"
-                                                        @selected(($oldMunicipalityKey ?? '') === $key)>
-                                                    {{ $definition['label'] ?? $key }}
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-
-                                    <div>
-                                        <x-input-label for="location_barangay" value="Barangay" />
-                                        <select id="location_barangay"
-                                                class="mt-1 w-full rounded-md border border-gray-600 bg-white px-3 py-2 text-gray-800"
-                                                data-initial="{{ $oldBarangay ?? '' }}"
-                                                disabled>
-                                            <option value="">Select barangay</option>
-                                        </select>
-                                    </div>
-
-                                    <div>
-                                        <x-input-label for="location_purok" value="Purok / Zone / Sitio" />
-                                        <select id="location_purok"
-                                                class="mt-1 w-full rounded-md border border-gray-600 bg-white px-3 py-2 text-gray-800"
-                                                data-initial="{{ $oldPurok ?? '' }}"
-                                                disabled>
-                                            <option value="">Select purok / zone / sitio</option>
-                                        </select>
-                                    </div>
-
-                                    <div id="locationDisplayWrapper" class="{{ $oldLocation ? '' : 'hidden' }}">
-                                        <x-input-label for="location_display" value="Selected Address" />
-                                        <x-text-input
-                                            id="location_display"
-                                            type="text"
-                                            class="mt-1 w-full border border-gray-600 bg-gray-100 text-gray-800"
-                                            readonly
-                                            value="{{ $oldLocation }}"
-                                        />
-                                    </div>
-
-                                    <input type="hidden" id="location" name="location" value="{{ $oldLocation }}">
-                                    <x-input-error :messages="$errors->get('location')" class="mt-1" />
+                                    <livewire:location-selector
+                                        :initial-municipality-key="$oldMunicipalityKey"
+                                        :initial-barangay="$oldBarangay"
+                                        :initial-purok="$oldPurok"
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -616,13 +572,6 @@
             </div>
         </div>
     </x-modal>
-
-    <script>
-        window.LOCATION_ENDPOINTS = {
-            barangays: "{{ route('user.locations.barangays') }}",
-            puroks: "{{ route('user.locations.puroks') }}"
-        };
-    </script>
 
     @vite(['resources/js/app.js'])
 </x-app-layout>

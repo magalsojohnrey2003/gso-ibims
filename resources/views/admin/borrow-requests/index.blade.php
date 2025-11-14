@@ -113,15 +113,6 @@
                     </div>
                 </div>
 
-                <!-- Manpower (NEW) -->
-                <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
-                    <i class="fas fa-users text-purple-600 mt-1"></i>
-                    <div>
-                        <div class="font-medium text-gray-800">Number of Manpower</div>
-                        <div class="text-gray-600" id="manpowerCount">—</div>
-                    </div>
-                </div>
-
                 <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
                     <i class="fas fa-map-marker-alt text-purple-600 mt-1"></i>
                     <div>

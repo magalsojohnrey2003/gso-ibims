@@ -1,5 +1,3 @@
-import initLocationSelector from './location-selector';
-
 function formatSummaryDate(value) {
     if (!value) return '--';
     const parsed = new Date(value);
@@ -91,11 +89,6 @@ document.addEventListener('DOMContentLoaded', () => {
         usageStartSelect?.value || null,
         usageEndSelect?.value || null,
     ) || '--';
-
-    initLocationSelector({
-        barangaysUrl: window.LOCATION_ENDPOINTS?.barangays,
-        puroksUrl: window.LOCATION_ENDPOINTS?.puroks,
-    });
 
     const setIndicatorState = (index) => {
         indicatorItems.forEach((item) => {
@@ -485,7 +478,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    window.addEventListener('location:updated', (event) => {
+    window.addEventListener('location-updated', (event) => {
         locationValid = !!event.detail?.valid;
         updateStep1NextState();
         updateSummary();

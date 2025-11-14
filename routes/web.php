@@ -33,6 +33,7 @@ Route::get('/manpower/status/{token}', [PublicManpowerRequestController::class, 
 
 Route::middleware('auth')->group(function () {
     // Profile pages
+    Route::get('/profile', [ProfileController::class, 'editInfo'])->name('profile.show');
     Route::get('/profile/info', [ProfileController::class, 'editInfo'])->name('profile.info');
     Route::get('/profile/password', [ProfileController::class, 'editPassword'])->name('profile.password');
     Route::get('/profile/delete', [ProfileController::class, 'editDelete'])->name('profile.delete');
