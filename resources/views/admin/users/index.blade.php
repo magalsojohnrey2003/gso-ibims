@@ -23,7 +23,7 @@
                     </div>
                     
                     <!-- Actions -->
-                    <div class="flex items-center gap-4">
+                    <div class="flex flex-wrap items-center justify-end gap-4">
                         <!-- Live Search Bar -->
                         <div class="flex-shrink-0 relative">
                             <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
@@ -31,6 +31,27 @@
                                    id="users-live-search"
                                    placeholder="Search users..."
                                    class="border border-gray-300 rounded-lg pl-12 pr-4 py-2.5 text-sm w-64 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all hover:border-gray-400" />
+                        </div>
+                        <!-- Last Active Filter -->
+                        <div class="flex items-center gap-3">
+                            <span class="text-sm font-semibold text-gray-600">Sort by:</span>
+                            <div class="inline-flex items-center gap-2 bg-gray-100 rounded-full p-1 border border-gray-200">
+                                <button type="button"
+                                        class="last-active-filter-btn px-3 py-1 text-xs font-semibold rounded-full text-gray-600 transition-all"
+                                        data-last-active-filter="week">
+                                    Week
+                                </button>
+                                <button type="button"
+                                        class="last-active-filter-btn px-3 py-1 text-xs font-semibold rounded-full text-gray-600 transition-all"
+                                        data-last-active-filter="month">
+                                    Month
+                                </button>
+                                <button type="button"
+                                        class="last-active-filter-btn px-3 py-1 text-xs font-semibold rounded-full text-gray-600 transition-all"
+                                        data-last-active-filter="year">
+                                    Year
+                                </button>
+                            </div>
                         </div>
                         <button id="open-create-modal" class="btn btn-primary">+ Create User</button>
                     </div>
@@ -57,6 +78,7 @@
                         <tr>
                             <th class="px-6 py-3 text-center">Name</th>
                             <th class="px-6 py-3 text-center">Email</th>
+                            <th class="px-6 py-3 text-center">Created By</th>
                             <th class="px-6 py-3 text-center">Registered</th>
                             <th class="px-6 py-3 text-center">Last Active</th>
                             <th class="px-6 py-3 text-center">Actions</th>
@@ -574,15 +596,39 @@
     </script>
 
     <script>
-    // Live search functionality for Manage Users
+    // Live search and "Last Active" filtering for Manage Users
     document.addEventListener('DOMContentLoaded', function() {
         const searchInput = document.getElementById('users-live-search');
         const tableBody = document.getElementById('users-tbody');
+        const filterButtons = document.querySelectorAll('[data-last-active-filter]');
+        const columnCount = document.querySelectorAll('#users-table thead th').length || 6;
         
-        if (!searchInput || !tableBody) return;
+        if (!tableBody) return;
+
+        const filterWindows = {
+            week: 7 * 24 * 60 * 60,
+            month: 30 * 24 * 60 * 60,
+            year: 365 * 24 * 60 * 60,
+        };
+        let activeLastActiveFilter = null;
+
+        function passesLastActiveFilter(row) {
+            if (!activeLastActiveFilter) return true;
+            const windowSeconds = filterWindows[activeLastActiveFilter];
+            if (!windowSeconds) return true;
+
+            const lastActiveEl = row.querySelector('[data-last-active]');
+            if (!lastActiveEl) return false;
+
+            const timestamp = parseInt(lastActiveEl.getAttribute('data-last-active'), 10);
+            if (!timestamp) return false;
+
+            const now = Math.floor(Date.now() / 1000);
+            return now - timestamp <= windowSeconds;
+        }
         
         function filterTable() {
-            const searchTerm = searchInput.value.toLowerCase().trim();
+            const searchTerm = (searchInput?.value || '').toLowerCase().trim();
             const rows = tableBody.querySelectorAll('tr[data-user-id]');
             
             let visibleCount = 0;
@@ -596,32 +642,30 @@
                 const nameText = nameCell.textContent.toLowerCase();
                 const emailText = emailCell.textContent.toLowerCase();
                 
-                // Check search match
-                const matches = nameText.includes(searchTerm) || emailText.includes(searchTerm);
+                const matchesSearch = !searchTerm || nameText.includes(searchTerm) || emailText.includes(searchTerm);
+                const matchesLastActive = passesLastActiveFilter(row);
+
+                const shouldShow = matchesSearch && matchesLastActive;
                 
-                // Show/hide row
-                if (matches) {
-                    row.style.display = '';
+                row.style.display = shouldShow ? '' : 'none';
+                if (shouldShow) {
                     visibleCount++;
-                } else {
-                    row.style.display = 'none';
                 }
             });
             
-            // Handle empty state
             if (visibleCount === 0 && rows.length > 0) {
                 let noResultsRow = document.getElementById('no-results-row-users');
                 if (!noResultsRow) {
                     noResultsRow = document.createElement('tr');
                     noResultsRow.id = 'no-results-row-users';
                     noResultsRow.innerHTML = `
-                        <td colspan="5" class="px-6 py-8 text-center text-gray-500">
+                        <td colspan="${columnCount}" class="px-6 py-8 text-center text-gray-500">
                             <div class="flex flex-col items-center gap-2">
                                 <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                                 <p class="font-medium">No users found</p>
-                                <p class="text-sm">Try adjusting your search</p>
+                                <p class="text-sm">Try adjusting your search or filters</p>
                             </div>
                         </td>
                     `;
@@ -635,17 +679,41 @@
             }
         }
         
-        // Event listener
-        searchInput.addEventListener('input', filterTable);
-        
-        // Dynamic placeholder change
-        searchInput.addEventListener('focus', function() {
-            this.placeholder = 'Type to Search';
+        if (searchInput) {
+            searchInput.addEventListener('input', filterTable);
+            
+            searchInput.addEventListener('focus', function() {
+                this.placeholder = 'Type to Search';
+            });
+            
+            searchInput.addEventListener('blur', function() {
+                this.placeholder = 'Search users...';
+            });
+        }
+
+        filterButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const filter = button.dataset.lastActiveFilter;
+                const isActive = activeLastActiveFilter === filter;
+                
+                activeLastActiveFilter = isActive ? null : filter;
+
+                filterButtons.forEach(btn => {
+                    btn.classList.remove('bg-purple-600', 'text-white', 'shadow');
+                    btn.setAttribute('aria-pressed', 'false');
+                });
+
+                if (!isActive) {
+                    button.classList.add('bg-purple-600', 'text-white', 'shadow');
+                    button.setAttribute('aria-pressed', 'true');
+                }
+
+                filterTable();
+            });
         });
-        
-        searchInput.addEventListener('blur', function() {
-            this.placeholder = 'Search users...';
-        });
+
+        // Initial filter state
+        filterTable();
         
         // Live update "Last Active" times
         function updateLastActiveTimes() {

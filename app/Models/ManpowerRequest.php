@@ -22,6 +22,11 @@ class ManpowerRequest extends Model
         'status',
         'rejection_reason_subject',
         'rejection_reason_detail',
+        'approved_quantity',
+        'manpower_role_id',
+        'public_token',
+        'municipality',
+        'barangay',
     ];
 
     protected $casts = [
@@ -32,6 +37,11 @@ class ManpowerRequest extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function roleType()
+    {
+        return $this->belongsTo(ManpowerRole::class, 'manpower_role_id');
     }
 
     public function getLetterUrlAttribute(): ?string
@@ -45,5 +55,15 @@ class ManpowerRequest extends Model
             if (filter_var($path, FILTER_VALIDATE_URL)) return $path;
         } catch (\Throwable $e) {}
         return null;
+    }
+
+    public function getPublicStatusUrlAttribute(): ?string
+    {
+        if (! $this->public_token) return null;
+        try {
+            return route('manpower.requests.public.show', $this->public_token);
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 }

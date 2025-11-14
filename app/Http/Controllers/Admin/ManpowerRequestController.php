@@ -15,7 +15,7 @@ class ManpowerRequestController extends Controller
 
     public function list(Request $request)
     {
-        $query = ManpowerRequest::with('user')->latest();
+        $query = ManpowerRequest::with(['user', 'roleType'])->latest();
 
         if ($search = trim((string) $request->query('q', ''))) {
             $query->where(function($q) use ($search) {
@@ -42,9 +42,13 @@ class ManpowerRequestController extends Controller
                     'email' => $row->user->email,
                 ] : null,
                 'quantity' => $row->quantity,
+                'approved_quantity' => $row->approved_quantity,
                 'role' => $row->role,
+                'role_type' => $row->roleType ? $row->roleType->name : null,
                 'purpose' => $row->purpose,
                 'location' => $row->location,
+                'municipality' => $row->municipality,
+                'barangay' => $row->barangay,
                 'office_agency' => $row->office_agency,
                 'start_at' => optional($row->start_at)->toDateTimeString(),
                 'end_at' => optional($row->end_at)->toDateTimeString(),
@@ -52,34 +56,44 @@ class ManpowerRequestController extends Controller
                 'status' => $row->status,
                 'rejection_reason_subject' => $row->rejection_reason_subject,
                 'rejection_reason_detail' => $row->rejection_reason_detail,
+                'public_token' => $row->public_token,
+                'public_url' => $row->public_status_url,
             ];
         });
 
         return response()->json($rows);
     }
 
-    public function updateStatus(Request $request, ManpowerRequest $requestModel)
+    public function updateStatus(Request $request, ManpowerRequest $manpowerRequest)
     {
         $data = $request->validate([
             'status' => 'required|in:approved,rejected',
-            'rejection_reason_subject' => 'nullable|string|max:255',
-            'rejection_reason_detail' => 'nullable|string',
+            'approved_quantity' => 'nullable|integer|min:1',
         ]);
 
-        if ($data['status'] === 'rejected') {
-            if (empty($data['rejection_reason_subject']) || empty($data['rejection_reason_detail'])) {
-                return response()->json(['message' => 'Rejection subject and detail are required.'], 422);
+        if ($data['status'] === 'approved') {
+            $approved = $data['approved_quantity'] ?? $manpowerRequest->quantity;
+            if ($approved > $manpowerRequest->quantity) {
+                return response()->json([
+                    'message' => 'Approved quantity cannot exceed requested quantity.',
+                ], 422);
             }
-            $requestModel->rejection_reason_subject = $data['rejection_reason_subject'];
-            $requestModel->rejection_reason_detail = $data['rejection_reason_detail'];
+            $manpowerRequest->approved_quantity = $approved;
+            $manpowerRequest->status = 'approved';
         } else {
-            $requestModel->rejection_reason_subject = null;
-            $requestModel->rejection_reason_detail = null;
+            $manpowerRequest->status = 'rejected';
+            $manpowerRequest->approved_quantity = null;
         }
 
-        $requestModel->status = $data['status'];
-        $requestModel->save();
+        $manpowerRequest->rejection_reason_subject = null;
+        $manpowerRequest->rejection_reason_detail = null;
 
-        return response()->json(['message' => 'Status updated.', 'status' => $requestModel->status]);
+        $manpowerRequest->save();
+
+        return response()->json([
+            'message' => 'Status updated.',
+            'status' => $manpowerRequest->status,
+            'approved_quantity' => $manpowerRequest->approved_quantity,
+        ]);
     }
 }

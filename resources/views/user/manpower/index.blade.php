@@ -30,16 +30,15 @@
                         <thead class="bg-purple-600 text-white text-xs uppercase font-semibold text-center">
                             <tr>
                                 <th class="px-6 py-3 text-center">Request ID</th>
-                                <th class="px-6 py-3 text-center">Qty</th>
+                                <th class="px-6 py-3 text-center">Qty (Approved / Requested)</th>
                                 <th class="px-6 py-3 text-center">Role</th>
-                                <th class="px-6 py-3 text-center">Purpose</th>
                                 <th class="px-6 py-3 text-center">Schedule</th>
                                 <th class="px-6 py-3 text-center">Status</th>
-                                <th class="px-6 py-3 text-center">Letter</th>
+                                <th class="px-6 py-3 text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="userManpowerTableBody" class="text-center">
-                            <tr><td colspan="7" class="py-4 text-gray-500">Loading...</td></tr>
+                            <tr><td colspan="6" class="py-4 text-gray-500">Loading...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -47,75 +46,186 @@
         </div>
     </div>
 
-    <!-- Create / Wizard Modal -->
-    <x-modal name="userManpowerCreateModal" maxWidth="2xl">
-        <div class="p-6 space-y-5">
-            <div class="flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-gray-900">Request Manpower</h3>
-                <button class="text-gray-400 hover:text-gray-600" @click="$dispatch('close-modal','userManpowerCreateModal')"><i class="fas fa-times"></i></button>
+    <!-- Create Modal -->
+    <x-modal name="userManpowerCreateModal" maxWidth="3xl">
+        <div x-data="{
+            openSection: 1,
+            setSection(idx) {
+                this.openSection = (this.openSection === idx) ? null : idx;
+            },
+        }" class="relative h-full">
+            <!-- Sticky Header -->
+            <div class="sticky top-0 z-10 bg-purple-600 text-white px-6 py-4 flex items-center justify-between rounded-t-lg shadow">
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-users text-2xl"></i>
+                    <span class="text-xl font-bold">Request Manpower</span>
+                </div>
+                <button class="text-white hover:text-gray-200 text-2xl" @click="$dispatch('close-modal','userManpowerCreateModal')"><i class="fas fa-times"></i></button>
             </div>
 
-            <div class="border rounded-lg overflow-hidden" data-accordion-group>
-                <!-- Step 1 -->
-                <button type="button" class="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 text-left" data-accordion-trigger aria-expanded="true">
-                    <span class="font-semibold text-gray-800">Step 1: Details</span>
-                    <i class="fas fa-chevron-down text-gray-500" data-accordion-caret></i>
-                </button>
-                <div class="px-4 py-4" data-accordion-panel data-accordion-open>
-                    <form id="userManpowerForm" onsubmit="return false;" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Manpower quantity</label>
-                            <input type="number" min="1" id="mp_quantity" class="mt-1 block w-full rounded-md border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500" />
+            <div class="overflow-y-auto max-h-[calc(90vh-120px)] px-0">
+            <form id="userManpowerForm" onsubmit="return false;" class="space-y-6 pt-4">
+                <!-- Accordion 1: Personnel Requirements & Context -->
+                <div class="border rounded-lg mb-2">
+                    <button type="button" @click="setSection(1)" class="w-full flex justify-between items-center px-4 py-3 text-left text-lg font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-t-lg">
+                        Personnel Requirements & Context
+                        <span x-text="openSection === 1 ? '-' : '+'"></span>
+                    </button>
+                    <div x-show="openSection === 1" class="p-4 space-y-4 border-t">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Manpower quantity</label>
+                                <input type="number" min="1" max="999" id="mp_quantity" class="mt-1 block w-full rounded-md border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500" oninput="if(this.value.length>3)this.value=this.value.slice(0,3);" placeholder="Max 999" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Manpower role</label>
+                                <select id="mp_role" class="mt-1 block w-full rounded-md border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed">
+                                    <option value="">Loading roles...</option>
+                                </select>
+                                <p id="mp_role_empty" class="text-xs text-red-500 mt-1 hidden">No roles available. Please contact the admin.</p>
+                            </div>
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Manpower role</label>
-                            <input type="text" id="mp_role" class="mt-1 block w-full rounded-md border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500" placeholder="e.g. Utility, Marshal, Porter" />
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Purpose</label>
+                                <input type="text" id="mp_purpose" class="mt-1 block w-full rounded-md border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500" placeholder="Brief purpose of the request" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Request Office/Agency</label>
+                                <input type="text" id="mp_office" class="mt-1 block w-full rounded-md border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500" placeholder="Optional" />
+                            </div>
                         </div>
-                        <div class="md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700">Purpose</label>
-                            <input type="text" id="mp_purpose" class="mt-1 block w-full rounded-md border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500" placeholder="Brief purpose of the request" />
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Location</label>
-                            <input type="text" id="mp_location" class="mt-1 block w-full rounded-md border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500" />
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Request Office/Agency</label>
-                            <input type="text" id="mp_office" class="mt-1 block w-full rounded-md border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500" placeholder="Optional" />
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Start Date & Time</label>
-                            <input type="datetime-local" id="mp_start" class="mt-1 block w-full rounded-md border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500" />
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">End Date & Time</label>
-                            <input type="datetime-local" id="mp_end" class="mt-1 block w-full rounded-md border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500" />
-                        </div>
-                    </form>
-                    <div class="flex justify-end mt-3">
-                        <x-button id="goToStep2" variant="primary">Next</x-button>
                     </div>
                 </div>
 
-                <!-- Step 2 -->
-                <button type="button" class="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 text-left" data-accordion-trigger aria-expanded="false">
-                    <span class="font-semibold text-gray-800">Step 2: Upload Letter</span>
-                    <i class="fas fa-chevron-down text-gray-500" data-accordion-caret></i>
-                </button>
-                <div class="px-4 py-4" data-accordion-panel>
-                    <div class="space-y-3">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Letter (PDF/JPG/PNG, max 5MB)</label>
-                            <input type="file" id="mp_letter" accept="application/pdf,image/*" class="mt-1 block w-full text-sm" />
+                <!-- Accordion 2: Location and Schedule -->
+                <div class="border rounded-lg mb-2">
+                    <button type="button" @click="setSection(2)" class="w-full flex justify-between items-center px-4 py-3 text-left text-lg font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-t-lg">
+                        Location and Schedule
+                        <span x-text="openSection === 2 ? '-' : '+'"></span>
+                    </button>
+                    <div x-show="openSection === 2" class="p-4 space-y-4 border-t">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Municipality / City</label>
+                                <select id="mp_municipality" class="mt-1 block w-full rounded-md border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed">
+                                    <option value="">Select municipality</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Barangay</label>
+                                <select id="mp_barangay" class="mt-1 block w-full rounded-md border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed">
+                                    <option value="">Select barangay</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Specific area (Purok/Zone/Sitio)</label>
+                                <input type="text" id="mp_location" class="mt-1 block w-full rounded-md border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500" placeholder="e.g. Purok 3, Zone 2" />
+                            </div>
                         </div>
-                        <div id="mp_letter_preview" class="hidden border rounded p-3 text-sm text-gray-600"></div>
-                    </div>
-                    <div class="flex justify-between mt-3">
-                        <x-button id="backToStep1" variant="secondary">Back</x-button>
-                        <x-button id="saveManpowerRequest" variant="success">Save</x-button>
+                        <div class="mt-2 mb-4">
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Location Preview</label>
+                            <div id="locationPreview" class="text-sm text-gray-700 bg-gray-100 rounded px-3 py-2"></div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="p-4 border rounded-xl">
+                                <h4 class="font-semibold text-gray-900 text-sm mb-3">Start Schedule</h4>
+                                <label class="block text-xs font-semibold text-gray-600">Date</label>
+                                <input type="date" id="mp_start_date" class="mt-1 mb-3 block w-full rounded-md border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500" />
+                                <label class="block text-xs font-semibold text-gray-600">Time (optional)</label>
+                                <input type="time" id="mp_start_time" class="mt-1 block w-full rounded-md border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500" />
+                            </div>
+                            <div class="p-4 border rounded-xl">
+                                <h4 class="font-semibold text-gray-900 text-sm mb-3">End Schedule</h4>
+                                <label class="block text-xs font-semibold text-gray-600">Date</label>
+                                <input type="date" id="mp_end_date" class="mt-1 mb-3 block w-full rounded-md border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500" />
+                                <label class="block text-xs font-semibold text-gray-600">Time (optional)</label>
+                                <input type="time" id="mp_end_time" class="mt-1 block w-full rounded-md border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-purple-500" />
+                            </div>
+                        </div>
+                        <div class="mt-2 mb-4">
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Schedule Preview</label>
+                            <div id="schedulePreview" class="text-sm text-gray-700 bg-gray-100 rounded px-3 py-2"></div>
+                        </div>
                     </div>
                 </div>
+
+                <!-- Accordion 3: Supporting Documents -->
+                <div class="border rounded-lg mb-2">
+                    <button type="button" @click="setSection(3)" class="w-full flex justify-between items-center px-4 py-3 text-left text-lg font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-t-lg">
+                        Supporting Documents
+                        <span x-text="openSection === 3 ? '-' : '+'"></span>
+                    </button>
+                    <div x-show="openSection === 3" class="p-4 space-y-4 border-t">
+                        <label class="block text-sm font-medium text-gray-700">Letter (PDF/JPG/PNG, max 5MB)</label>
+                        <input type="file" id="mp_letter" name="letter_file" accept="application/pdf,image/png,image/jpeg" class="filepond mt-1 block w-full text-sm" />
+                        <div class="text-xs text-gray-500 mt-1">Accepted: PDF, JPG, PNG. Max size: 5MB.</div>
+                    </div>
+                </div>
+
+                <!-- Sticky Footer -->
+                <div class="sticky bottom-0 left-0 right-0 z-10 bg-white border-t px-6 py-4 flex justify-end gap-3 rounded-b-lg shadow">
+                    <x-button id="saveManpowerRequest" variant="success">Review & Submit</x-button>
+                </div>
+            </form>
             </div>
+            <!-- FilePond CSS/JS -->
+            <link href="https://unpkg.com/filepond@^4/dist/filepond.min.css" rel="stylesheet" />
+            <script src="https://unpkg.com/filepond@^4/dist/filepond.min.js"></script>
+            <script src="https://unpkg.com/filepond-plugin-file-validate-type@^1/dist/filepond-plugin-file-validate-type.min.js"></script>
+            <script src="https://unpkg.com/filepond-plugin-file-validate-size@^2/dist/filepond-plugin-file-validate-size.min.js"></script>
+            <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                // Restrict date pickers to today or future
+                var today = new Date().toISOString().split('T')[0];
+                document.getElementById('mp_start_date').setAttribute('min', today);
+                document.getElementById('mp_end_date').setAttribute('min', today);
+
+                // FilePond setup
+                FilePond.registerPlugin(FilePondPluginFileValidateType, FilePondPluginFileValidateSize);
+                FilePond.create(document.getElementById('mp_letter'), {
+                    labelIdle: 'Drag & Drop your letter or <span class="filepond--label-action">Browse</span>',
+                    acceptedFileTypes: ['application/pdf', 'image/png', 'image/jpeg'],
+                    maxFileSize: '5MB',
+                    allowMultiple: false,
+                    name: 'letter_file',
+                    credits: false
+                });
+
+                // Location Preview logic
+                function updateLocationPreview() {
+                    var muni = document.getElementById('mp_municipality');
+                    var brgy = document.getElementById('mp_barangay');
+                    var area = document.getElementById('mp_location');
+                    var txt = '';
+                    if (muni && muni.value) txt += muni.options[muni.selectedIndex].text;
+                    if (brgy && brgy.value) txt += (txt ? ', ' : '') + brgy.options[brgy.selectedIndex].text;
+                    if (area && area.value) txt += (txt ? ', ' : '') + area.value;
+                    document.getElementById('locationPreview').textContent = txt || '—';
+                }
+                document.getElementById('mp_municipality').addEventListener('change', updateLocationPreview);
+                document.getElementById('mp_barangay').addEventListener('change', updateLocationPreview);
+                document.getElementById('mp_location').addEventListener('input', updateLocationPreview);
+                updateLocationPreview();
+
+                // Schedule Preview logic
+                function updateSchedulePreview() {
+                    var sd = document.getElementById('mp_start_date').value;
+                    var st = document.getElementById('mp_start_time').value;
+                    var ed = document.getElementById('mp_end_date').value;
+                    var et = document.getElementById('mp_end_time').value;
+                    var txt = '';
+                    if (sd) txt += 'Start: ' + sd + (st ? (' ' + st) : '');
+                    if (ed) txt += (txt ? ' | ' : '') + 'End: ' + ed + (et ? (' ' + et) : '');
+                    document.getElementById('schedulePreview').textContent = txt || '—';
+                }
+                document.getElementById('mp_start_date').addEventListener('change', updateSchedulePreview);
+                document.getElementById('mp_start_time').addEventListener('input', updateSchedulePreview);
+                document.getElementById('mp_end_date').addEventListener('change', updateSchedulePreview);
+                document.getElementById('mp_end_time').addEventListener('input', updateSchedulePreview);
+                updateSchedulePreview();
+            });
+            </script>
         </div>
     </x-modal>
 
@@ -131,6 +241,66 @@
         </div>
     </x-modal>
 
+    <x-modal name="userManpowerViewModal" maxWidth="2xl">
+        <div class="p-6 space-y-5">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-gray-900">Request Details</h3>
+                <button class="text-gray-400 hover:text-gray-600" @click="$dispatch('close-modal','userManpowerViewModal')"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="grid gap-4 md:grid-cols-2 text-sm">
+                <div>
+                    <div class="text-gray-500 uppercase text-xs">Request ID</div>
+                    <div class="font-semibold text-gray-900" data-user-view="id">—</div>
+                </div>
+                <div>
+                    <div class="text-gray-500 uppercase text-xs">Status</div>
+                    <div class="font-semibold text-gray-900" data-user-view="status">—</div>
+                </div>
+                <div>
+                    <div class="text-gray-500 uppercase text-xs">Role</div>
+                    <div class="font-semibold text-gray-900" data-user-view="role">—</div>
+                </div>
+                <div>
+                    <div class="text-gray-500 uppercase text-xs">Qty (Approved / Requested)</div>
+                    <div class="font-semibold text-gray-900" data-user-view="quantity">—</div>
+                </div>
+                <div>
+                    <div class="text-gray-500 uppercase text-xs">Municipality</div>
+                    <div class="font-semibold text-gray-900" data-user-view="municipality">—</div>
+                </div>
+                <div>
+                    <div class="text-gray-500 uppercase text-xs">Barangay</div>
+                    <div class="font-semibold text-gray-900" data-user-view="barangay">—</div>
+                </div>
+                <div class="md:col-span-2">
+                    <div class="text-gray-500 uppercase text-xs">Schedule</div>
+                    <div class="font-semibold text-gray-900" data-user-view="schedule">—</div>
+                </div>
+                <div class="md:col-span-2">
+                    <div class="text-gray-500 uppercase text-xs">Purpose</div>
+                    <div class="font-medium text-gray-900" data-user-view="purpose">—</div>
+                </div>
+                <div class="md:col-span-2">
+                    <div class="text-gray-500 uppercase text-xs">Specific Area</div>
+                    <div class="font-medium text-gray-900" data-user-view="location">—</div>
+                </div>
+            </div>
+            <div class="border-t pt-4 flex flex-col md:flex-row gap-6">
+                <div class="flex-1">
+                    <div class="text-sm text-gray-500 uppercase mb-2">Letter</div>
+                    <div data-user-view="letter" class="text-sm text-gray-700">No letter uploaded.</div>
+                </div>
+                <div class="flex-1 text-center">
+                    <div class="text-sm text-gray-500 uppercase mb-2">QR Status</div>
+                    <div id="userManpowerQr" class="flex items-center justify-center" style="min-height: 160px;">
+                        <div class="text-sm text-gray-400">QR code unavailable.</div>
+                    </div>
+                    <a data-user-view="public-url" href="#" target="_blank" class="text-indigo-600 hover:underline text-sm mt-2 hidden">Open status page</a>
+                </div>
+            </div>
+        </div>
+    </x-modal>
+
     <div id="userManpowerBadgeTemplates" class="hidden">
         <template data-status="pending"><x-status-badge type="pending" text="Pending" /></template>
         <template data-status="approved"><x-status-badge type="accepted" text="Approved" /></template>
@@ -142,6 +312,11 @@
         window.USER_MANPOWER = {
             list: "{{ route('user.manpower.list') }}",
             store: "{{ route('user.manpower.store') }}",
+            roles: "{{ route('manpower.roles.index') }}",
+            locations: {
+                municipalities: "{{ route('api.locations.municipalities') }}",
+                barangays: "{{ url('api/locations/barangays') }}",
+            },
             csrf: "{{ csrf_token() }}",
         };
         window.renderUserManpowerBadge = function(status){
