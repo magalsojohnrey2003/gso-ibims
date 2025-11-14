@@ -177,6 +177,8 @@ Route::middleware(['auth', 'role:user', 'nocache'])
     ->group(function () {
 
         Route::get('/dashboard', [UserDashboardController::class, 'index'])->name('user.dashboard');
+        Route::get('/terms', [UserDashboardController::class, 'showTerms'])->name('user.terms');
+        Route::post('/accept-terms', [UserDashboardController::class, 'acceptTerms'])->name('user.terms.accept');
          // API endpoints
     Route::get('/dashboard/my-requests', [UserDashboardController::class, 'myRequests']);
     Route::post('/dashboard/requests/{id}/cancel', [UserDashboardController::class, 'cancelRequest']);

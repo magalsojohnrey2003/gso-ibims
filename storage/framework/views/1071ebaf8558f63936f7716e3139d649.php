@@ -1,18 +1,18 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html lang="<?php echo e(str_replace('_', '-', app()->getLocale())); ?>">
 <head>
-    <link rel="icon" type="image/png" href="{{ asset('images/logo2.png') }}">
+    <link rel="icon" type="image/png" href="<?php echo e(asset('images/logo2.png')); ?>">
 
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="csrf-token" content="<?php echo e(csrf_token()); ?>">
 
-    <meta name="user-id" content="{{ auth()->id() ?? '' }}">
-    <meta name="user-role" content="{{ auth()->user()->role ?? '' }}">
-    <meta name="terms-accepted" content="{{ auth()->check() && auth()->user()->terms_accepted_at ? 'true' : 'false' }}">
-    <meta name="terms-accept-url" content="{{ auth()->check() ? route('user.terms.accept') : '' }}">
+    <meta name="user-id" content="<?php echo e(auth()->id() ?? ''); ?>">
+    <meta name="user-role" content="<?php echo e(auth()->user()->role ?? ''); ?>">
+    <meta name="terms-accepted" content="<?php echo e(auth()->check() && auth()->user()->terms_accepted_at ? 'true' : 'false'); ?>">
+    <meta name="terms-accept-url" content="<?php echo e(auth()->check() ? route('user.terms.accept') : ''); ?>">
 
-    <title>{{ config('app.name', 'Laravel') }}</title>
+    <title><?php echo e(config('app.name', 'Laravel')); ?></title>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.bunny.net">
@@ -22,7 +22,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <!-- Scripts / Vite -->
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <?php echo app('Illuminate\Foundation\Vite')(['resources/css/app.css', 'resources/js/app.js']); ?>
 
     <!-- Minimal fallbacks & small layout helpers so the page looks correct until Tailwind rebuild runs -->
     <style>
@@ -131,7 +131,7 @@
 </head>
 
 <body class="font-sans antialiased transition-all duration-300" data-theme="original">
-    @php
+    <?php
         $loginMessage = null;
         if (session()->has('login_message')) {
             $loginMessage = session('login_message');
@@ -141,31 +141,32 @@
             $loginMessage = session('login_message') ?? 'Login successful!';
         }
         $loginMessage = $loginMessage ? (string) $loginMessage : '';
-    @endphp
+    ?>
 
 <div class="min-h-screen flex flex-col">
     <!-- Navigation (fixed) -->
-    @include('layouts.navigation')
+    <?php echo $__env->make('layouts.navigation', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
 
     <!-- Page container: give top padding equal to nav height so content sits below fixed nav -->
     <div id="pageContainer" class="flex flex-1 pt-16 overflow-hidden">
         <!-- Sidebar: role-based includes (keeps same classes) -->
-        @auth
-            @if(request()->routeIs('profile.*'))
-                @include('layouts.sidebar-profile')
-            @else
-                @if(auth()->user()->role === 'admin')
-                    @include('layouts.sidebar-admin')
-                @else
-                    @include('layouts.sidebar-user')
-                @endif
-            @endif
-        @endauth
+        <?php if(auth()->guard()->check()): ?>
+            <?php if(request()->routeIs('profile.*')): ?>
+                <?php echo $__env->make('layouts.sidebar-profile', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
+            <?php else: ?>
+                <?php if(auth()->user()->role === 'admin'): ?>
+                    <?php echo $__env->make('layouts.sidebar-admin', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
+                <?php else: ?>
+                    <?php echo $__env->make('layouts.sidebar-user', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
+                <?php endif; ?>
+            <?php endif; ?>
+        <?php endif; ?>
 
         <!-- Main content area: allow vertical scrolling inside this column only -->
-        <main id="mainContent" tabindex="-1" class="flex-1 {{ isset($noMainScroll) && $noMainScroll ? 'overflow-y-visible' : 'overflow-y-auto' }}">
+        <main id="mainContent" tabindex="-1" class="flex-1 <?php echo e(isset($noMainScroll) && $noMainScroll ? 'overflow-y-visible' : 'overflow-y-auto'); ?>">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                {{ $slot }}
+                <?php echo e($slot); ?>
+
             </div>
         </main>
     </div>
@@ -236,7 +237,7 @@
         })();
     </script>
 
-    {{-- Global Toast Notification Component (Alpine.js) --}}
+    
     <div x-data="globalToast" 
          @toast.window="showToast($event.detail.message, $event.detail.type, $event.detail.title)"
          class="fixed top-6 right-6 z-[9999]">
@@ -253,10 +254,10 @@
             @mouseleave="resumeTimer()"
             class="bg-purple-600 text-white rounded-lg shadow-2xl min-w-[320px] max-w-md overflow-hidden"
         >
-            {{-- Main Content --}}
+            
             <div class="p-4">
                 <div class="flex items-start gap-3">
-                    {{-- Success Icon --}}
+                    
                     <template x-if="type === 'success'">
                         <div class="flex-shrink-0">
                             <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -266,7 +267,7 @@
                         </div>
                     </template>
 
-                    {{-- Error Icon --}}
+                    
                     <template x-if="type === 'error'">
                         <div class="flex-shrink-0">
                             <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -276,7 +277,7 @@
                         </div>
                     </template>
 
-                    {{-- Warning Icon --}}
+                    
                     <template x-if="type === 'warning'">
                         <div class="flex-shrink-0">
                             <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -286,7 +287,7 @@
                         </div>
                     </template>
 
-                    {{-- Info Icon --}}
+                    
                     <template x-if="type === 'info'">
                         <div class="flex-shrink-0">
                             <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -296,13 +297,13 @@
                         </div>
                     </template>
 
-                    {{-- Content --}}
+                    
                     <div class="flex-1 min-w-0">
                         <div class="font-semibold text-white mb-1" x-text="title"></div>
                         <div class="text-sm text-gray-300 leading-relaxed" x-text="message"></div>
                     </div>
 
-                    {{-- Close Button --}}
+                    
                     <button
                         type="button"
                         @click="close()"
@@ -316,7 +317,7 @@
                 </div>
             </div>
 
-            {{-- Progress Bar --}}
+            
             <div class="h-1 bg-purple-700">
                 <div 
                     x-ref="progressbar"
@@ -333,48 +334,48 @@
         </div>
     </div>
 
-    {{-- Handle Laravel Session Flash Messages --}}
-    @if(session('success'))
+    
+    <?php if(session('success')): ?>
         <script>
             document.addEventListener('DOMContentLoaded', function() {
                 if (typeof window.showToast === 'function') {
-                    window.showToast(@json(session('success')), 'success');
+                    window.showToast(<?php echo json_encode(session('success'), 15, 512) ?>, 'success');
                 }
             });
         </script>
-    @endif
+    <?php endif; ?>
 
-    @if(session('error'))
+    <?php if(session('error')): ?>
         <script>
             document.addEventListener('DOMContentLoaded', function() {
                 if (typeof window.showToast === 'function') {
-                    window.showToast(@json(session('error')), 'error');
+                    window.showToast(<?php echo json_encode(session('error'), 15, 512) ?>, 'error');
                 }
             });
         </script>
-    @endif
+    <?php endif; ?>
 
-    @if(session('warning'))
+    <?php if(session('warning')): ?>
         <script>
             document.addEventListener('DOMContentLoaded', function() {
                 if (typeof window.showToast === 'function') {
-                    window.showToast(@json(session('warning')), 'warning');
+                    window.showToast(<?php echo json_encode(session('warning'), 15, 512) ?>, 'warning');
                 }
             });
         </script>
-    @endif
+    <?php endif; ?>
 
-    @if(session('info'))
+    <?php if(session('info')): ?>
         <script>
             document.addEventListener('DOMContentLoaded', function() {
                 if (typeof window.showToast === 'function') {
-                    window.showToast(@json(session('info')), 'info');
+                    window.showToast(<?php echo json_encode(session('info'), 15, 512) ?>, 'info');
                 }
             });
         </script>
-    @endif
+    <?php endif; ?>
 
-    {{-- Terms & Conditions modal --}}
+    
     <div id="terms-modal"
          class="fixed inset-0 z-[70] hidden items-center justify-center bg-black/60 backdrop-blur-sm px-4"
          aria-hidden="true"
@@ -398,7 +399,7 @@
                 <div class="space-y-3 text-gray-700">
                     <p class="leading-relaxed">By using this service, you agree to be fully responsible for all items you borrow. You must report any damage immediately and ensure every item is returned on the agreed date.</p>
                     <p class="text-sm">By continuing, you agree to our full
-                        <a href="{{ route('user.terms') }}" target="_blank" class="text-blue-600 underline font-semibold hover:text-blue-800">Terms &amp; Conditions</a>.
+                        <a href="<?php echo e(route('user.terms')); ?>" target="_blank" class="text-blue-600 underline font-semibold hover:text-blue-800">Terms &amp; Conditions</a>.
                     </p>
                     <p id="terms-modal-error" class="text-sm text-red-500 hidden"></p>
                 </div>
@@ -420,3 +421,4 @@
 
 </body>
 </html>
+<?php /**PATH C:\Users\magal\Desktop\gso-ibims\resources\views/layouts/app.blade.php ENDPATH**/ ?>

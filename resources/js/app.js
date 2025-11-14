@@ -322,3 +322,125 @@ document.addEventListener('DOMContentLoaded', () => {
 
   fields.forEach(bindCurrencyField);
 });
+
+document.addEventListener('DOMContentLoaded', () => {
+  const termsMeta = document.querySelector('meta[name="terms-accepted"]');
+  const acceptUrlMeta = document.querySelector('meta[name="terms-accept-url"]');
+  const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+  const modal = document.getElementById('terms-modal');
+  const acceptBtn = document.getElementById('accept-terms-btn');
+  const declineBtn = document.getElementById('decline-terms-btn');
+  const secondaryDeclineBtn = document.getElementById('terms-modal-cancel');
+  const errorBox = document.getElementById('terms-modal-error');
+  const links = Array.from(document.querySelectorAll('[data-requires-terms="true"]'));
+
+  if (!termsMeta || !acceptUrlMeta || !modal || !acceptBtn || links.length === 0) {
+    return;
+  }
+
+  let hasAcceptedTerms = termsMeta.content === 'true';
+  const acceptTermsUrl = acceptUrlMeta.content;
+  const csrfToken = csrfMeta?.content || '';
+  let destinationUrl = null;
+
+  if (!acceptTermsUrl || hasAcceptedTerms) {
+    return;
+  }
+
+  const showModal = () => {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body?.classList.add('overflow-hidden');
+  };
+
+  const hideModal = () => {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body?.classList.remove('overflow-hidden');
+    if (errorBox) {
+      errorBox.classList.add('hidden');
+      errorBox.textContent = '';
+    }
+  };
+
+  links.forEach((link) => {
+    if (!(link instanceof HTMLAnchorElement)) {
+      return;
+    }
+    link.addEventListener('click', (event) => {
+      if (hasAcceptedTerms) {
+        return;
+      }
+      event.preventDefault();
+      destinationUrl = link.href;
+      showModal();
+    });
+  });
+
+  const handleDecline = () => {
+    destinationUrl = null;
+    hideModal();
+  };
+
+  declineBtn?.addEventListener('click', handleDecline);
+  secondaryDeclineBtn?.addEventListener('click', handleDecline);
+  modal.addEventListener('click', (event) => {
+    if (event.target === modal) {
+      handleDecline();
+    }
+  });
+
+  acceptBtn.addEventListener('click', async () => {
+    if (acceptBtn.disabled) {
+      return;
+    }
+
+    if (errorBox) {
+      errorBox.classList.add('hidden');
+      errorBox.textContent = '';
+    }
+
+    const originalText = acceptBtn.textContent;
+    acceptBtn.disabled = true;
+    acceptBtn.textContent = 'Saving...';
+
+    try {
+      const response = await fetch(acceptTermsUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          'X-CSRF-TOKEN': csrfToken,
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({}),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to accept terms');
+      }
+
+      hasAcceptedTerms = true;
+      termsMeta.content = 'true';
+      const target = destinationUrl;
+      hideModal();
+      destinationUrl = null;
+
+      if (target) {
+        window.location.href = target;
+      }
+    } catch (error) {
+      console.error(error);
+      if (errorBox) {
+        errorBox.textContent = 'Unable to save your acceptance. Please try again.';
+        errorBox.classList.remove('hidden');
+      }
+    } finally {
+      acceptBtn.disabled = false;
+      acceptBtn.textContent = originalText || 'Accept & Continue';
+    }
+  });
+});

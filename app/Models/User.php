@@ -30,6 +30,7 @@ class User extends Authenticatable
         'password',
         'last_login_at',
         'creation_source',
+        'terms_accepted_at',
     ];
 
     /**
@@ -53,6 +54,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'last_login_at' => 'datetime',
+            'terms_accepted_at' => 'datetime',
         ];
     }
      public function getFullNameAttribute()
