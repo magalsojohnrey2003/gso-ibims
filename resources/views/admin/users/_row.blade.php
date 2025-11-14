@@ -2,6 +2,11 @@
 <tr data-user-id="{{ $user->id }}">
     <td class="px-6 py-4 whitespace-nowrap">{{ $user->full_name ?? ($user->first_name . ' ' . $user->last_name) }}</td>
     <td class="px-6 py-4 whitespace-nowrap">{{ $user->email }}</td>
+    <td class="px-6 py-4 whitespace-nowrap">
+        <span class="inline-flex items-center justify-center text-xs font-semibold px-3 py-1 rounded-full bg-gray-100 text-gray-700">
+            {{ $user->creation_source ?? 'Borrower-Registered' }}
+        </span>
+    </td>
     <td class="px-6 py-4 whitespace-nowrap">{{ $user->created_at->format('Y-m-d') }}</td>
     <td class="px-6 py-4 whitespace-nowrap">
         @if($user->last_login_at)
@@ -16,7 +21,7 @@
             </span>
         @endif
     </td>
-    <td class="px-6 py-4">z`
+    <td class="px-6 py-4">
         <div class="flex items-center justify-center gap-3">
             <x-button
                 variant="primary"

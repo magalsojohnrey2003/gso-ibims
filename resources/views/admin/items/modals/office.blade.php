@@ -33,7 +33,7 @@
           <tr>
             <th class="px-3 py-2">Code</th>
             <th class="px-3 py-2">Name</th>
-            <th class="px-3 py-2 text-right">Actions</th>
+            <th class="px-3 py-2 text-center">Actions</th>
           </tr>
         </thead>
         <tbody id="office-list-body" class="divide-y divide-gray-100 bg-white">
@@ -44,17 +44,15 @@
         <tr data-office-row>
           <td class="px-3 py-2" data-office-code></td>
           <td class="px-3 py-2" data-office-name></td>
-          <td class="px-3 py-2 text-right">
-            <div class="inline-flex items-center gap-2">
-              <button type="button" class="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-600 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-200" data-view-office>
-                <i class="fas fa-eye"></i>
-                <span>View</span>
-              </button>
-              <button type="button" class="inline-flex items-center gap-1 rounded-lg bg-red-50 px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-200" data-delete-office>
-                <i class="fas fa-trash"></i>
-                <span>Delete</span>
-              </button>
-            </div>
+          <td class="px-3 py-2 text-center">
+            <button
+              type="button"
+              class="inline-flex items-center justify-center w-8 h-8 text-white bg-red-600 hover:bg-red-700 rounded transition-colors"
+              data-delete-office
+              title="Delete"
+            >
+              <i class="fas fa-trash"></i>
+            </button>
           </td>
         </tr>
       </template>

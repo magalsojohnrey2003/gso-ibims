@@ -1742,12 +1742,7 @@ function initCategoryOfficeManagement() {
       if (codeEl) codeEl.textContent = office.code || 'N/A';
       const nameEl = target.querySelector('[data-office-name]');
       if (nameEl) nameEl.textContent = office.name || 'N/A';
-      const viewBtn = fragment.querySelector('[data-view-office]');
-      if (viewBtn) {
-        viewBtn.setAttribute('data-code', office.code || '');
-        if (office.name) viewBtn.setAttribute('data-name', office.name);
-      }
-      const deleteBtn = fragment.querySelector('[data-delete-office]');
+      const deleteBtn = target.querySelector('[data-delete-office]');
       if (deleteBtn) deleteBtn.setAttribute('data-code', office.code || '');
       officeListBody.appendChild(fragment);
     });
@@ -1930,11 +1925,6 @@ function initCategoryOfficeManagement() {
       return;
     }
 
-    const viewBtn = target.closest('[data-view-office]');
-    if (viewBtn) {
-      const codeAttr = viewBtn.getAttribute('data-code') || '';
-  window.showToast(`View items for office: ${codeAttr}`, 'info');
-    }
   });
 
   // GLA Management

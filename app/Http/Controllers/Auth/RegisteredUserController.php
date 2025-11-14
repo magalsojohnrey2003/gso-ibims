@@ -64,6 +64,7 @@ class RegisteredUserController extends Controller
             'email'       => $request->input('email'),
             'password'    => Hash::make($request->input('password')),
             'role'        => 'user', // default role
+            'creation_source' => 'Borrower-Registered',
         ]);
 
         event(new Registered($user));

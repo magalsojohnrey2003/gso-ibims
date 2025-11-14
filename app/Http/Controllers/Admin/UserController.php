@@ -60,6 +60,7 @@ class UserController extends Controller
             ]);
 
             $data['password'] = Hash::make($data['password']);
+            $data['creation_source'] = 'Admin-Created';
 
             $user = User::create($data);
             // ensure created accounts are regular users

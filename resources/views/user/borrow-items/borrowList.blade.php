@@ -409,7 +409,7 @@
                                         <div class="mt-3">
                                             <select id="usage_start" class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-800">
                                                 <option value="" @selected(!$usageStart)>
-                                                    -- Start Time (optional) --
+                                                    -- Estimate Start Time --
                                                 </option>
                                                 @foreach($usageOptions as $value => $label)
                                                     <option value="{{ $value }}" @selected($value === $usageStart)>{{ $label }}</option>
