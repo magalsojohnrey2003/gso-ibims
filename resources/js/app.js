@@ -33,6 +33,136 @@ window.Alpine = Alpine;
 
 Alpine.start();
 
+const SpinnerManager = (() => {
+  const attr = 'data-loading';
+
+  const setBusy = (el, state) => {
+    if (!el) return;
+    const tag = (el.tagName || '').toLowerCase();
+    if (state) {
+      if (window.getComputedStyle) {
+        const color = getComputedStyle(el).color;
+        if (color) {
+          el.style.setProperty('--spinner-foreground', color);
+        }
+      }
+      el.setAttribute(attr, 'true');
+      if (tag === 'button' || tag === 'input') {
+        el.dataset.spinnerWasDisabled = el.disabled ? 'true' : 'false';
+        el.disabled = true;
+      } else {
+        el.dataset.spinnerWasDisabled = el.getAttribute('aria-disabled') === 'true' ? 'true' : 'false';
+        el.setAttribute('aria-disabled', 'true');
+      }
+    } else {
+      el.removeAttribute(attr);
+      el.style.removeProperty('--spinner-foreground');
+      if ((tag === 'button' || tag === 'input') && el.dataset.spinnerWasDisabled !== 'true') {
+        el.disabled = false;
+      }
+      if (tag !== 'button' && tag !== 'input' && el.dataset.spinnerWasDisabled !== 'true') {
+        el.removeAttribute('aria-disabled');
+      }
+      delete el.dataset.spinnerWasDisabled;
+    }
+  };
+
+  const toggle = (el, state) => {
+    if (!el) return;
+    if (state) {
+      if (el.hasAttribute(attr)) return;
+      setBusy(el, true);
+    } else if (el.hasAttribute(attr)) {
+      setBusy(el, false);
+    }
+  };
+
+  const handleFormSubmit = (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement)) return;
+    const method = (form.getAttribute('method') || form.method || 'get').toLowerCase();
+    if (method === 'get') return;
+
+    const submitter = (event.submitter && event.submitter.matches?.('button, input'))
+      ? event.submitter
+      : form.querySelector('button[type="submit"], input[type="submit"]');
+
+    if (!submitter) return;
+    if (!submitter.hasAttribute('data-spinner')) {
+      submitter.setAttribute('data-spinner', 'true');
+    }
+    if (submitter.hasAttribute(attr)) {
+      event.preventDefault();
+      return;
+    }
+
+    toggle(submitter, true);
+
+    // Failsafe in case submission is aborted client-side
+    setTimeout(() => {
+      if (submitter.hasAttribute(attr)) {
+        toggle(submitter, false);
+      }
+    }, 15000);
+  };
+
+  const initForms = () => {
+    document.addEventListener('submit', handleFormSubmit, true);
+  };
+
+  const patchFetch = () => {
+    if (typeof window.fetch !== 'function') return;
+    const nativeFetch = window.fetch.bind(window);
+    let pendingButton = null;
+    let pendingTimer = null;
+
+    document.addEventListener(
+      'click',
+      (event) => {
+        const btn = event.target.closest?.('[data-spinner]');
+        if (!btn) return;
+        if (!btn.hasAttribute('data-spinner')) {
+          btn.setAttribute('data-spinner', 'true');
+        }
+        pendingButton = btn;
+        if (pendingTimer) clearTimeout(pendingTimer);
+        pendingTimer = window.setTimeout(() => {
+          pendingButton = null;
+          pendingTimer = null;
+        }, 1500);
+      },
+      true
+    );
+
+    window.fetch = async (...args) => {
+      const btn = pendingButton;
+      pendingButton = null;
+      if (pendingTimer) {
+        clearTimeout(pendingTimer);
+        pendingTimer = null;
+      }
+      if (btn) toggle(btn, true);
+      try {
+        return await nativeFetch(...args);
+      } finally {
+        if (btn) toggle(btn, false);
+      }
+    };
+  };
+
+  return {
+    toggle,
+    initForms,
+    patchFetch,
+  };
+})();
+
+SpinnerManager.patchFetch();
+document.addEventListener('DOMContentLoaded', () => {
+  SpinnerManager.initForms();
+});
+window.SpinnerManager = SpinnerManager;
+
 // --- Real-time admin events helper ---
 // Dispatches custom DOM events so individual modules can react (refresh, highlight rows, etc.)
 document.addEventListener('DOMContentLoaded', () => {

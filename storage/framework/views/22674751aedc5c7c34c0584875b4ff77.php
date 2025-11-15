@@ -83,7 +83,10 @@ unset($__defined_vars, $__key, $__value); ?>
     <?php if($tag === 'a'): ?> href="<?php echo e($href); ?>" <?php else: ?> type="<?php echo e($type); ?>" <?php endif; ?>
     <?php echo e($disabled ? 'disabled' : ''); ?>
 
-    <?php echo e($attributes->merge(['class' => $classes])); ?>
+    <?php echo e($attributes->merge([
+        'class' => $classes,
+        'data-spinner' => $attributes->get('data-spinner', 'true'),
+    ])); ?>
 
 >
     
