@@ -202,17 +202,17 @@
             </div>
             @endif
 
-                        <div class="cover-content-inner">
-                            <img src="{{ asset('images/logo2.png') }}" alt="Tagoloan Municipal Government — General Services Office logo" class="cover-logo" aria-hidden="false">
-                            <div class="cover-text" role="presentation">
-                                <strong class="cover-title">GSO Item Borrowing & Inventory System</strong>
-                                <span class="cover-sub">General Services Office • Tagoloan Municipal Government</span>
-                                <p class="cover-desc">Streamline borrowing, approvals, and inventory—fast, reliable, and secure.</p>
-                            </div>
-                        </div>
-          </div>
-        </div>
+            <div class="cover-content-inner">
+                <img src="{{ asset('images/logo2.png') }}" alt="Tagoloan Municipal Government — General Services Office logo" class="cover-logo" aria-hidden="false">
+                <div class="cover-text" role="presentation">
+                    <strong class="cover-title">GSO Item Borrowing and Inventory Management System</strong>
+                    <span class="cover-sub" style="margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.2); display: inline-block;">
+                        General Services Office • Tagoloan Municipal Government
+                    </span>
+                </div>
+            </div>
 
+        </div>
     </div>
 </div>
 
