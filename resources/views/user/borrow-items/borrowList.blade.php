@@ -150,25 +150,9 @@
                                             data-item-quantity="{{ $currentQty }}">
                                             <div class="flex items-center gap-3">
                                                 @php
-                                                    $photoUrl = null;
-                                                    if (!empty($item['photo'])) {
-                                                        // Check if photo is in storage (public disk)
-                                                        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($item['photo'])) {
-                                                            $photoUrl = \Illuminate\Support\Facades\Storage::disk('public')->url($item['photo']);
-                                                        } 
-                                                        // Check if it's a full HTTP URL
-                                                        elseif (str_starts_with($item['photo'], 'http')) {
-                                                            $photoUrl = $item['photo'];
-                                                        } 
-                                                        // Check if it's in public directory (default photo or legacy path)
-                                                        elseif (file_exists(public_path($item['photo']))) {
-                                                            $photoUrl = asset($item['photo']);
-                                                        }
-                                                    }
-                                                    // Use default photo if no photo found or photo column is empty
-                                                    if (!$photoUrl) {
-                                                        $photoUrl = asset($defaultPhoto);
-                                                    }
+                                                    $photoUrl = \App\Models\Item::make([
+                                                        'photo' => $item['photo'] ?? null,
+                                                    ])->photo_url;
                                                 @endphp
                                                 <img
                                                     src="{{ $photoUrl }}"

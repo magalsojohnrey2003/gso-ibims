@@ -21,23 +21,10 @@
         $categoryCodeForCategory = $raw ? substr(preg_replace('/\D/', '', strtoupper($raw)), 0, 4) : '';
     }
 
-    // Get existing photo URL - photos are stored in items table, not instances
     $existingPath = $item->photo ?? '';
-    $existingUrl = '';
-    if ($existingPath) {
-        // Check if photo is in storage (public disk)
-        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($existingPath)) {
-            $existingUrl = \Illuminate\Support\Facades\Storage::disk('public')->url($existingPath);
-        } 
-        // Check if it's a full HTTP URL
-        elseif (str_starts_with($existingPath, 'http')) {
-            $existingUrl = $existingPath;
-        } 
-        // Check if it's in public directory (default photo or legacy path)
-        elseif (file_exists(public_path($existingPath))) {
-            $existingUrl = asset($existingPath);
-        }
-    }
+    $hasCustomPhoto = filled($existingPath);
+    $currentPhotoUrl = $item->photo_url;
+    $defaultPhotoUrl = asset('images/item.png');
 
     $hasModelNo = $item->instances->contains(fn ($inst) => filled($inst->model_no ?? null));
     $hasSerialNo = $item->instances->contains(fn ($inst) => filled($inst->serial_no ?? null));
@@ -52,7 +39,10 @@
     data-property-form
     data-edit-item-form
     data-accordion-group="edit-item-<?php echo e($item->id); ?>"
-    data-modal-name="edit-item-<?php echo e($item->id); ?>">
+    data-modal-name="edit-item-<?php echo e($item->id); ?>"
+    data-photo-url="<?php echo e($currentPhotoUrl); ?>"
+    data-photo-default="<?php echo e($defaultPhotoUrl); ?>"
+    data-photo-custom="<?php echo e($hasCustomPhoto ? 'true' : 'false'); ?>">
     <?php echo csrf_field(); ?>
     <?php echo method_field('PUT'); ?>
 
@@ -239,13 +229,24 @@
 
             <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Photo Upload</label>
+                <div class="mb-3 flex items-center gap-4">
+                    <img
+                        id="edit-item-photo-preview-<?php echo e($item->id); ?>"
+                        src="<?php echo e($currentPhotoUrl); ?>"
+                        alt="Current photo for <?php echo e($item->name); ?>"
+                        class="h-24 w-24 rounded-lg border border-gray-200 object-cover shadow-sm"
+                        data-edit-photo-preview
+                        data-default-photo="<?php echo e($defaultPhotoUrl); ?>">
+                    <p class="text-xs text-gray-500 leading-4">
+                        This thumbnail is used in the Items table and overview cards.
+                    </p>
+                </div>
                 <input
                     id="photo-<?php echo e($item->id); ?>"
                     name="photo"
                     type="file"
                     accept="image/*"
                     data-filepond="true"
-                    <?php if($existingUrl): ?> data-initial-url="<?php echo e($existingUrl); ?>" <?php endif; ?>
                     data-preview-height="120"
                     data-thumb-width="160" />
                 <input type="hidden" name="existing_photo" value="<?php echo e($existingPath); ?>">
@@ -497,5 +498,4 @@
 <?php endif; ?>
     </div>
 </form>
-
 <?php /**PATH C:\Users\magal\Desktop\gso-ibims\resources\views/admin/items/edit.blade.php ENDPATH**/ ?>

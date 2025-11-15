@@ -3,6 +3,8 @@
 namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class Item extends Model
 {
@@ -55,6 +57,30 @@ class Item extends Model
             return $category ? $category->name : $this->category;
         }
         return $this->category;
+    }
+
+    /**
+     * Resolve the public URL of the item's photo or return the default placeholder.
+     */
+    public function getPhotoUrlAttribute(): string
+    {
+        $photo = is_scalar($this->photo) ? (string) $this->photo : '';
+
+        if ($photo !== '') {
+            if (Str::startsWith($photo, ['http://', 'https://'])) {
+                return $photo;
+            }
+
+            if (Storage::disk('public')->exists($photo)) {
+                return url('storage/' . ltrim($photo, '/'));
+            }
+
+            if (file_exists(public_path($photo))) {
+                return url($photo);
+            }
+        }
+
+        return asset('images/item.png');
     }
 
 }

@@ -3,6 +3,7 @@ const FEEDBACK_SELECTOR = '[data-edit-feedback]';
 const ERROR_SELECTOR = '[data-edit-error]';
 const SUBMIT_SELECTOR = '[data-edit-submit]';
 const CANCEL_SELECTOR = '[data-edit-cancel]';
+const PHOTO_PREVIEW_SELECTOR = '[data-edit-photo-preview]';
 
 const FIELD_LABELS = {
   year: 'Year',
@@ -18,6 +19,68 @@ const showToast = (typeof window !== 'undefined' && typeof window.showToast === 
       if (type === 'error') console.error(message);
       else console.log(message);
     };
+
+function getFilePondInstance(input) {
+  if (!input) return null;
+  if (input._filepondInstance) {
+    return input._filepondInstance;
+  }
+  if (window.FilePond && typeof window.FilePond.find === 'function') {
+    const result = window.FilePond.find(input);
+    if (Array.isArray(result)) {
+      return result[0] || null;
+    }
+    return result || null;
+  }
+  return null;
+}
+
+function hydratePhotoDisplay(form) {
+  if (!form) return;
+  const preview = form.querySelector(PHOTO_PREVIEW_SELECTOR);
+  const defaultPhoto = form.dataset.photoDefault || preview?.dataset?.defaultPhoto || '';
+  const storedUrl = form.dataset.photoUrl || defaultPhoto;
+  const hasCustom = form.dataset.photoCustom === 'true';
+
+  if (preview) {
+    preview.src = storedUrl || defaultPhoto || preview.src;
+  }
+
+  const fileInput = form.querySelector('input[name="photo"]');
+  const pond = getFilePondInstance(fileInput);
+  if (!pond) {
+    if (!hasCustom && fileInput) {
+      fileInput.value = '';
+    }
+    return;
+  }
+
+  if (!hasCustom || !storedUrl || storedUrl === defaultPhoto) {
+    if (pond.getFiles().length) {
+      pond.removeFiles();
+    }
+    return;
+  }
+
+  const currentFile = pond.getFiles()[0];
+  if (currentFile && currentFile.source === storedUrl) {
+    return;
+  }
+
+  pond.removeFiles();
+  pond.addFile(storedUrl, { type: 'local' }).catch(() => {});
+}
+
+function updateFormPhotoState(form, { photoUrl, hasCustom } = {}) {
+  if (!form) return;
+  if (photoUrl !== undefined) {
+    form.dataset.photoUrl = photoUrl || '';
+  }
+  if (typeof hasCustom === 'boolean') {
+    form.dataset.photoCustom = hasCustom ? 'true' : 'false';
+  }
+  hydratePhotoDisplay(form);
+}
 
 function buildErrorSummary(fields) {
   if (!fields || !fields.size) return '';
@@ -100,6 +163,7 @@ function wireEditForm(form) {
   cancelBtn?.addEventListener('click', () => {
     clearMessages();
     form.reset();
+    hydratePhotoDisplay(form);
     if (manager && typeof manager.resetAll === 'function') {
       manager.resetAll();
     }
@@ -221,6 +285,7 @@ window.addEventListener('edit-item:cancel-edit', (event) => {
   if (form) {
     // Reset form to original values
     form.reset();
+    hydratePhotoDisplay(form);
     
     // Clear any messages
     const feedbackEl = form.querySelector(FEEDBACK_SELECTOR);
@@ -240,6 +305,17 @@ window.addEventListener('edit-item:cancel-edit', (event) => {
     // Set back to readonly
     setFormReadonly(form, true);
   }
+});
+
+window.addEventListener('edit-item:update-photo', (event) => {
+  const itemId = event.detail?.itemId;
+  if (!itemId) return;
+  const form = document.querySelector(`[data-edit-item-form][data-modal-name="edit-item-${itemId}"]`);
+  if (!form) return;
+  updateFormPhotoState(form, {
+    photoUrl: event.detail?.photoUrl,
+    hasCustom: typeof event.detail?.hasCustom === 'boolean' ? event.detail.hasCustom : undefined,
+  });
 });
 
 // Initialize forms in readonly state when modal opens
@@ -589,6 +665,7 @@ function addEmptyPropertyRows(form, count) {
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll(SELECTOR).forEach((form) => {
     wireEditForm(form);
+    hydratePhotoDisplay(form);
     // Store original rows state
     storeOriginalRows(form);
     // Set initial readonly state
@@ -629,6 +706,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (form) {
           restoreOriginalRows(form);
           setFormReadonly(form, true);
+          hydratePhotoDisplay(form);
         }
       }
     }

@@ -1,14 +1,7 @@
 @php
     $primaryInstance = $item->instances->first();
-    $photoPath = $item->photo ?? $primaryInstance?->photo ?? null;
-    $photoUrl = '';
-    if ($photoPath) {
-        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($photoPath)) {
-            $photoUrl = \Illuminate\Support\Facades\Storage::disk('public')->url($photoPath);
-        } elseif (str_starts_with($photoPath, 'http')) {
-            $photoUrl = $photoPath;
-        }
-    }
+    $photoUrl = $item->photo_url;
+    $hasUploadedPhoto = filled($item->photo ?? $primaryInstance?->photo);
 
     $description = $primaryInstance?->notes;
     $categoryLabel = $displayCategory ?? ($item->category ?? '');
@@ -70,16 +63,15 @@
 
             <div class="flex justify-center items-center">
                 <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 w-full max-w-[240px]">
-                    @if($photoUrl)
-                        <img
-                            src="{{ $photoUrl }}"
-                            alt="{{ $item->name }} photo"
-                            class="w-full h-40 object-cover rounded-lg shadow-md">
-                    @else
-                        <div class="w-full h-40 rounded-lg bg-white border border-dashed border-gray-300 flex items-center justify-center">
-                            <span class="text-sm text-gray-500">No photo uploaded</span>
-                        </div>
-                    @endif
+                <div class="w-full h-40 rounded-lg bg-white border border-gray-200 flex flex-col items-center justify-center overflow-hidden shadow">
+                    <img
+                        src="{{ $photoUrl }}"
+                        alt="{{ $item->name }} photo"
+                        class="w-full h-full object-cover">
+                    @unless($hasUploadedPhoto)
+                        <span class="text-xs text-gray-500 py-1 bg-white/80 w-full text-center">Default placeholder shown</span>
+                    @endunless
+                </div>
                 </div>
             </div>
         </div>

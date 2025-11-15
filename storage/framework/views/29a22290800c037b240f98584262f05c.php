@@ -107,25 +107,7 @@
 
                     <!-- Item Image -->
                     <?php
-                        $photoUrl = null;
-                        if ($item->photo) {
-                            // Check if photo is in storage (public disk)
-                            if (\Illuminate\Support\Facades\Storage::disk('public')->exists($item->photo)) {
-                                $photoUrl = \Illuminate\Support\Facades\Storage::disk('public')->url($item->photo);
-                            } 
-                            // Check if it's a full HTTP URL
-                            elseif (str_starts_with($item->photo, 'http')) {
-                                $photoUrl = $item->photo;
-                            } 
-                            // Check if it's in public directory (default photo or legacy path)
-                            elseif (file_exists(public_path($item->photo))) {
-                                $photoUrl = asset($item->photo);
-                            }
-                        }
-                        // Use default photo if no photo found or photo column is empty
-                        if (!$photoUrl) {
-                            $photoUrl = asset($defaultPhoto);
-                        }
+                        $photoUrl = $item->photo_url;
                     ?>
                     <div class="relative">
                         <img src="<?php echo e($photoUrl); ?>"
@@ -666,7 +648,6 @@
 <?php $component = $__componentOriginal9ac128a9029c0e4701924bd2d73d7f54; ?>
 <?php unset($__componentOriginal9ac128a9029c0e4701924bd2d73d7f54); ?>
 <?php endif; ?>
-
 
 
 

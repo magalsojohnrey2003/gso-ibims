@@ -123,29 +123,8 @@
                           @endphp
                           <tr class="hover:bg-gray-50 text-center" data-item-row="{{ $item->id }}">
                               <td class="px-6 py-4" data-item-photo>
-                                  @php
-                                      $photoUrl = null;
-                                      if ($item->photo) {
-                                          // Check if photo is in storage (public disk)
-                                          if (Storage::disk('public')->exists($item->photo)) {
-                                              $photoUrl = Storage::disk('public')->url($item->photo);
-                                          } 
-                                          // Check if it's a full HTTP URL
-                                          elseif (str_starts_with($item->photo, 'http')) {
-                                              $photoUrl = $item->photo;
-                                          } 
-                                          // Check if it's in public directory (default photo or legacy path)
-                                          elseif (file_exists(public_path($item->photo))) {
-                                              $photoUrl = asset($item->photo);
-                                          }
-                                      }
-                                      // Use default photo if no photo found or photo column is empty
-                                      if (!$photoUrl) {
-                                          $photoUrl = asset($defaultPhoto);
-                                      }
-                                  @endphp
                                   <div class="flex justify-center">
-                                      <img src="{{ $photoUrl }}" data-item-photo-img class="h-12 w-12 object-cover rounded-lg shadow-sm" alt="{{ $item->name }}">
+                                      <img src="{{ $item->photo_url }}" data-item-photo-img class="h-12 w-12 object-cover rounded-lg shadow-sm" alt="{{ $item->name }}">
                                   </div>
                               </td>
                               <td class="px-6 py-4 font-semibold text-gray-900 text-center" data-item-name>{{ $item->name }}</td>
