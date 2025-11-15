@@ -105,9 +105,50 @@
                         </tr>
                         </thead>
                         <tbody id="users-tbody" class="text-center">
-                        <?php $__currentLoopData = $users; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $user): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                        <?php if (isset($component)) { $__componentOriginal112d5e476c92fff12a90a4ecc845ba67 = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginal112d5e476c92fff12a90a4ecc845ba67 = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.table-loading-state','data' => ['colspan' => '6','class' => 'hidden','wire:loading.class.remove' => 'hidden']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('table-loading-state'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes(['colspan' => '6','class' => 'hidden','wire:loading.class.remove' => 'hidden']); ?>
+<?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginal112d5e476c92fff12a90a4ecc845ba67)): ?>
+<?php $attributes = $__attributesOriginal112d5e476c92fff12a90a4ecc845ba67; ?>
+<?php unset($__attributesOriginal112d5e476c92fff12a90a4ecc845ba67); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginal112d5e476c92fff12a90a4ecc845ba67)): ?>
+<?php $component = $__componentOriginal112d5e476c92fff12a90a4ecc845ba67; ?>
+<?php unset($__componentOriginal112d5e476c92fff12a90a4ecc845ba67); ?>
+<?php endif; ?>
+                        <?php $__empty_1 = true; $__currentLoopData = $users; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $user): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
                             <?php echo $__env->make('admin.users._row', ['user' => $user], array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
-                        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                            <?php if (isset($component)) { $__componentOriginal4ffe5ef1be9b37746eb81577fa92d603 = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginal4ffe5ef1be9b37746eb81577fa92d603 = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.table-empty-state','data' => ['colspan' => '6']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('table-empty-state'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes(['colspan' => '6']); ?>
+<?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginal4ffe5ef1be9b37746eb81577fa92d603)): ?>
+<?php $attributes = $__attributesOriginal4ffe5ef1be9b37746eb81577fa92d603; ?>
+<?php unset($__attributesOriginal4ffe5ef1be9b37746eb81577fa92d603); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginal4ffe5ef1be9b37746eb81577fa92d603)): ?>
+<?php $component = $__componentOriginal4ffe5ef1be9b37746eb81577fa92d603; ?>
+<?php unset($__componentOriginal4ffe5ef1be9b37746eb81577fa92d603); ?>
+<?php endif; ?>
+                        <?php endif; ?>
                         </tbody>
                     </table>
                 </div>

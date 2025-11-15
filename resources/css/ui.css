@@ -86,6 +86,17 @@ aside#sidebar {
     text-align: center ; /* Force center alignment for all cells */
 }
 
+/* Ensure shared table empty/loading states stay centered even when tables add utility classes */
+td.table-state-cell {
+    text-align: center !important;
+}
+
+td.table-state-cell > .flex {
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
 /* Zebra striping for table rows */
 .gov-table tbody tr:nth-child(even) {
     background-color: rgba(168,85,247,0.05); /* Light purple for even rows */
@@ -897,7 +908,7 @@ tr + tr td {
 
 /* Actions column specific sizing - increased width to fit all buttons */
 .gov-table th:last-child,
-.gov-table td:last-child {
+.gov-table td:last-child:not([colspan]) {
     min-width: 14rem ; /* Increased width for all 4 buttons */
     width: 14rem ;
     max-width: 14rem ;
@@ -1015,11 +1026,11 @@ button[data-action] {
 }
 
 /* Ensure action columns have proper flex layout */
-table tbody td:last-child,
-#users-tbody td:last-child,
-#borrowRequestsTableBody td:last-child,
-#returnItemsTableBody td:last-child,
-#myBorrowedItemsTableBody td:last-child {
+table tbody td:last-child:not([colspan]),
+#users-tbody td:last-child:not([colspan]),
+#borrowRequestsTableBody td:last-child:not([colspan]),
+#returnItemsTableBody td:last-child:not([colspan]),
+#myBorrowedItemsTableBody td:last-child:not([colspan]) {
     display: flex ;
     align-items: center ;
     justify-content: center ;
@@ -1220,9 +1231,9 @@ table.gov-table tbody tr:hover {
 
 /* Ensure action columns have proper width on all pages */
 table th:last-child,
-table td:last-child,
+table td:last-child:not([colspan]),
 #users-table th:last-child,
-#users-table td:last-child {
+#users-table td:last-child:not([colspan]) {
     min-width: 14rem ;
     width: 14rem ;
     max-width: 14rem ;

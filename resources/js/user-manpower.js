@@ -129,6 +129,16 @@ document.addEventListener('DOMContentLoaded', () => {
     return '—';
   };
 
+  const appendEmptyStateRow = (fallback = 'No requests found') => {
+    const template = document.getElementById('user-manpower-empty-state-template');
+    tbody.innerHTML = '';
+    if (template?.content?.firstElementChild) {
+      tbody.appendChild(template.content.firstElementChild.cloneNode(true));
+    } else {
+      tbody.innerHTML = `<tr><td colspan="6" class="py-10 text-center text-gray-500">${fallback}</td></tr>`;
+    }
+  };
+
   const render = () => {
     let rows = CACHE;
     const term = (search?.value || '').toLowerCase().trim();
@@ -136,7 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
       rows = rows.filter(r => (r.role||'').toLowerCase().includes(term) || (r.purpose||'').toLowerCase().includes(term));
     }
     if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-gray-500">No requests found</td></tr>`;
+      appendEmptyStateRow();
       return;
     }
     tbody.innerHTML = rows.map(r => {

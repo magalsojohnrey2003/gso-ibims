@@ -46,13 +46,17 @@
                             </tr>
                         </thead>
                         <tbody id="adminManpowerTableBody" class="text-center">
-                            <tr><td colspan="6" class="py-4 text-gray-500">Loading...</td></tr>
+                            <x-table-loading-state colspan="6" />
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
     </div>
+
+    <template id="admin-manpower-empty-state-template">
+        <x-table-empty-state colspan="6" />
+    </template>
 
     <template id="badge-status-pending"><x-status-badge type="pending" text="Pending" /></template>
     <template id="badge-status-approved"><x-status-badge type="accepted" text="Approved" /></template>
@@ -80,7 +84,7 @@
                                 </tr>
                             </thead>
                             <tbody id="adminRolesTableBody">
-                                <tr><td colspan="2" class="px-4 py-4 text-center text-gray-500">Loading...</td></tr>
+                                <x-table-loading-state colspan="2" />
                             </tbody>
                         </table>
                     </div>

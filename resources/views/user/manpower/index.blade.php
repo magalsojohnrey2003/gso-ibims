@@ -38,13 +38,17 @@
                             </tr>
                         </thead>
                         <tbody id="userManpowerTableBody" class="text-center">
-                            <tr><td colspan="6" class="py-4 text-gray-500">Loading...</td></tr>
+                            <x-table-loading-state colspan="6" />
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
     </div>
+
+    <template id="user-manpower-empty-state-template">
+        <x-table-empty-state colspan="6" />
+    </template>
 
     <!-- Create Modal -->
     <x-modal name="userManpowerCreateModal" maxWidth="3xl">

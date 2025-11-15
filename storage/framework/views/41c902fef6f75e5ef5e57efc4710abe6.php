@@ -89,15 +89,55 @@
                         </tr>
                     </thead>
                     <tbody id="myBorrowedItemsTableBody" class="text-center">
-                        <tr>
-                            <td colspan="5" class="py-4 text-gray-500">Loading...</td>
-                        </tr>
+                        <?php if (isset($component)) { $__componentOriginal112d5e476c92fff12a90a4ecc845ba67 = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginal112d5e476c92fff12a90a4ecc845ba67 = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.table-loading-state','data' => ['colspan' => '5']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('table-loading-state'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes(['colspan' => '5']); ?>
+<?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginal112d5e476c92fff12a90a4ecc845ba67)): ?>
+<?php $attributes = $__attributesOriginal112d5e476c92fff12a90a4ecc845ba67; ?>
+<?php unset($__attributesOriginal112d5e476c92fff12a90a4ecc845ba67); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginal112d5e476c92fff12a90a4ecc845ba67)): ?>
+<?php $component = $__componentOriginal112d5e476c92fff12a90a4ecc845ba67; ?>
+<?php unset($__componentOriginal112d5e476c92fff12a90a4ecc845ba67); ?>
+<?php endif; ?>
                     </tbody>
                 </table>
                 </div>
             </div>
         </div>
     </div>
+
+    <template id="my-borrowed-items-empty-state-template">
+        <?php if (isset($component)) { $__componentOriginal4ffe5ef1be9b37746eb81577fa92d603 = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginal4ffe5ef1be9b37746eb81577fa92d603 = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.table-empty-state','data' => ['colspan' => '5']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('table-empty-state'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes(['colspan' => '5']); ?>
+<?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginal4ffe5ef1be9b37746eb81577fa92d603)): ?>
+<?php $attributes = $__attributesOriginal4ffe5ef1be9b37746eb81577fa92d603; ?>
+<?php unset($__attributesOriginal4ffe5ef1be9b37746eb81577fa92d603); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginal4ffe5ef1be9b37746eb81577fa92d603)): ?>
+<?php $component = $__componentOriginal4ffe5ef1be9b37746eb81577fa92d603; ?>
+<?php unset($__componentOriginal4ffe5ef1be9b37746eb81577fa92d603); ?>
+<?php endif; ?>
+    </template>
 
     <!-- Modal (same visual style as borrow-requests) -->
     <?php if (isset($component)) { $__componentOriginal9f64f32e90b9102968f2bc548315018c = $component; } ?>

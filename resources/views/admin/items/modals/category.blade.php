@@ -38,6 +38,7 @@
           </tr>
         </thead>
         <tbody id="category-list-body" class="divide-y divide-gray-100 bg-white">
+          <x-table-loading-state colspan="4" />
           <!-- Filled by JS -->
         </tbody>
         </table>
@@ -59,12 +60,9 @@
         </tr>
       </template>
       <template data-category-empty-template>
-        <tr data-empty-state>
-          <td colspan="3" class="px-3 py-2 text-gray-500">No categories</td>
-        </tr>
+        <x-table-empty-state colspan="4" data-empty-state />
       </template>
     </div>
     </div>
   </div>
 </x-modal>
-

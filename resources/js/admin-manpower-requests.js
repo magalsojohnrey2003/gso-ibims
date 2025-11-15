@@ -60,7 +60,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const render = () => {
     if (!CACHE.length) {
-      tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-gray-500">No manpower requests found</td></tr>`;
+      const template = document.getElementById('admin-manpower-empty-state-template');
+      tbody.innerHTML = '';
+      if (template?.content?.firstElementChild) {
+        tbody.appendChild(template.content.firstElementChild.cloneNode(true));
+      } else {
+        tbody.innerHTML = `<tr><td colspan="6" class="py-10 text-center text-gray-500">No manpower requests found</td></tr>`;
+      }
       return;
     }
     tbody.innerHTML = CACHE.map(r => {

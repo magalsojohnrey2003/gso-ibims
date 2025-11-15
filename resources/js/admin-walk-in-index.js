@@ -5,6 +5,7 @@
   const state = {
     rows: [],
   };
+  let loadingMarkup = null;
 
   const dateFormatter = new Intl.DateTimeFormat(undefined, {
     month: 'short',
@@ -119,7 +120,13 @@
     tbody.innerHTML = '';
 
     if (!rows || rows.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="py-4 text-gray-500">No walk-in requests yet.</td></tr>';
+      const template = document.getElementById('walkin-empty-state-template');
+      tbody.innerHTML = '';
+      if (template?.content?.firstElementChild) {
+        tbody.appendChild(template.content.firstElementChild.cloneNode(true));
+      } else {
+        tbody.innerHTML = '<tr><td colspan="6" class="py-10 text-center text-gray-500">No walk-in requests yet.</td></tr>';
+      }
       return;
     }
 
@@ -194,7 +201,19 @@
   const fetchRows = async () => {
     const tbody = document.getElementById(tableBodyId);
     if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="6" class="py-4 text-gray-500">Loading...</td></tr>';
+
+    if (!loadingMarkup) {
+      const existingLoadingRow = tbody.querySelector('[data-walkin-loading-row]');
+      if (existingLoadingRow) {
+        loadingMarkup = existingLoadingRow.outerHTML;
+      }
+    }
+
+    if (loadingMarkup) {
+      tbody.innerHTML = loadingMarkup;
+    } else {
+      tbody.innerHTML = '<tr><td colspan="6" class="py-4 text-gray-500">Loading...</td></tr>';
+    }
 
     try {
       const res = await fetch(window.WALKIN_LIST_ROUTE, {

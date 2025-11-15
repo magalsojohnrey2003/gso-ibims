@@ -67,6 +67,16 @@ function getBadgeHtml(status) {
 function showError(m){ window.showToast('error', m); }
 function showSuccess(m){ window.showToast('success', m); }
 
+function appendEmptyState(tbody, templateId, colspan, fallbackText) {
+    const template = document.getElementById(templateId);
+    tbody.innerHTML = '';
+    if (template?.content?.firstElementChild) {
+        tbody.appendChild(template.content.firstElementChild.cloneNode(true));
+    } else {
+        tbody.innerHTML = `<tr><td colspan="${colspan}" class="py-10 text-center text-gray-500">${fallbackText}</td></tr>`;
+    }
+}
+
 // ---------- fetch ----------
 export async function loadMyBorrowedItems() {
     try {
@@ -120,7 +130,7 @@ function renderItems() {
     tbody.innerHTML = "";
 
     if (!ITEMS_CACHE.length) {
-        tbody.innerHTML = `<tr><td colspan="5" class="py-4 text-gray-500">No borrowed items</td></tr>`;
+        appendEmptyState(tbody, 'my-borrowed-items-empty-state-template', 5, 'No borrowed items');
         return;
     }
 
@@ -133,7 +143,7 @@ function renderItems() {
     });
 
     if (!list.length) {
-        tbody.innerHTML = `<tr><td colspan="5" class="py-4 text-gray-500">No items match your search</td></tr>`;
+        appendEmptyState(tbody, 'my-borrowed-items-empty-state-template', 5, 'No items match your search');
         return;
     }
 

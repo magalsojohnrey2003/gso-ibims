@@ -68,15 +68,17 @@
                         </tr>
                     </thead>
                     <tbody id="borrowRequestsTableBody" class="text-center">
-                        <tr>
-                            <td colspan="6" class="py-4 text-gray-500">Loading...</td>
-                        </tr>
+                        <x-table-loading-state colspan="6" />
                     </tbody>
                 </table>
                 </div>
             </div>
         </div>
     </div>
+
+    <template id="borrow-requests-empty-state-template">
+        <x-table-empty-state colspan="6" />
+    </template>
 
     <!-- Modal (modern design) -->
     <x-modal name="requestDetailsModal" maxWidth="lg">
@@ -597,5 +599,3 @@
     @vite(['resources/js/app.js'])
 
 </x-app-layout>
-
-
