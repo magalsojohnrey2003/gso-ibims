@@ -20,12 +20,11 @@ use App\Http\Controllers\Admin\ManpowerRequestController as AdminManpowerRequest
 use App\Http\Controllers\User\ManpowerRequestController as UserManpowerRequestController;
 use App\Http\Controllers\ManpowerRoleController;
 use App\Http\Controllers\PublicManpowerRequestController;
+use App\Http\Controllers\WelcomeController;
 
 
-// ??? Root should redirect to login instead of welcome
-Route::get('/', function () {
-    return view('auth.login-register');
-});
+Route::get('/', [WelcomeController::class, 'landing'])->name('landing');
+Route::get('/features/borrow-items', [WelcomeController::class, 'publicBorrowItems'])->name('public.borrow-items');
 
 Route::get('/manpower/status/{token}', [PublicManpowerRequestController::class, 'show'])
     ->name('manpower.requests.public.show');
