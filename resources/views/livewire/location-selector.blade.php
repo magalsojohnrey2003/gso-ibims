@@ -29,16 +29,21 @@
 
     <div>
         <x-input-label for="location_purok" value="Purok / Zone / Sitio" />
-        <select id="location_purok"
-                wire:model.live="selectedPurok"
-                class="mt-1 w-full rounded-md border border-gray-600 bg-white px-3 py-2 text-gray-800"
-                @disabled(empty($puroks))
-        >
-            <option value="">Select purok / zone / sitio</option>
-            @foreach($puroks as $purok)
-                <option value="{{ $purok }}">{{ $purok }}</option>
-            @endforeach
-        </select>
+        <input
+            id="location_purok"
+            type="text"
+            wire:model.live="selectedPurok"
+            class="mt-1 w-full rounded-md border border-gray-600 bg-white px-3 py-2 text-gray-800"
+            placeholder="e.g. Purok 3, Zone 2 or Sitio Mabini"
+            list="location_purok_options"
+        />
+        @if(!empty($puroks))
+            <datalist id="location_purok_options">
+                @foreach($puroks as $purok)
+                    <option value="{{ $purok }}"></option>
+                @endforeach
+            </datalist>
+        @endif
     </div>
 
     @if($locationValue)

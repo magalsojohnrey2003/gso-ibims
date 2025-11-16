@@ -119,9 +119,9 @@
             <div id="borrowWizardSteps" class="space-y-8">
                 {{-- Step 1 --}}
                 <section data-step="1" class="wizard-step space-y-6">
-                    <div class="grid gap-6 lg:grid-cols-2">
-                        <div class="space-y-6">
-                            <div class="bg-white p-6 rounded-2xl shadow-lg">
+                    <div class="grid gap-6 lg:grid-cols-2 lg:items-stretch">
+                        <div class="space-y-6 h-full">
+                            <div class="bg-white p-6 rounded-2xl shadow-lg h-full flex flex-col">
                                 <div class="flex items-center justify-between mb-4">
                                     <x-title
                                         level="h3"
@@ -136,7 +136,7 @@
                                     </x-title>
                                 </div>
 
-                                <div id="borrowListItems" class="space-y-3 max-h-[40vh] overflow-auto">
+                                <div id="borrowListItems" class="mt-4 flex-1 space-y-3 overflow-y-auto pr-1">
                                     @forelse($borrowList as $item)
                                         @php
                                             $currentQty = (int) old("items.{$item['id']}.quantity", $item['qty']);
