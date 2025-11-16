@@ -43,7 +43,10 @@
 <{{ $tag }}
     @if($tag === 'a') href="{{ $href }}" @else type="{{ $type }}" @endif
     {{ $disabled ? 'disabled' : '' }}
-    {{ $attributes->merge(['class' => $classes]) }}
+    {{ $attributes->merge([
+        'class' => $classes,
+        'data-spinner' => $attributes->get('data-spinner', 'true'),
+    ]) }}
 >
     {{-- Left icon (slot takes priority; if not provided, use iconName) --}}
     @if (($iconPosition ?? 'left') === 'left')

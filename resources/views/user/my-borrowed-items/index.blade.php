@@ -69,15 +69,17 @@
                         </tr>
                     </thead>
                     <tbody id="myBorrowedItemsTableBody" class="text-center">
-                        <tr>
-                            <td colspan="5" class="py-4 text-gray-500">Loading...</td>
-                        </tr>
+                        <x-table-loading-state colspan="5" />
                     </tbody>
                 </table>
                 </div>
             </div>
         </div>
     </div>
+
+    <template id="my-borrowed-items-empty-state-template">
+        <x-table-empty-state colspan="5" />
+    </template>
 
     <!-- Modal (same visual style as borrow-requests) -->
     <x-modal name="borrowDetailsModal" maxWidth="lg">

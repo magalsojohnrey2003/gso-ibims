@@ -18,11 +18,11 @@ $classes = $baseClasses . ' ' . $colorClasses;
 @endphp
 
 @if($as === 'a')
-    <a href="{{ $href }}" {{ $attributes->merge(['class' => $classes]) }}>
+    <a href="{{ $href }}" {{ $attributes->merge(['class' => $classes, 'data-spinner' => $attributes->get('data-spinner', 'true')]) }}>
         {{ $slot }}
     </a>
 @elseif($as === 'button')
-    <button type="{{ $type }}" {{ $attributes->merge(['class' => $classes]) }}>
+    <button type="{{ $type }}" {{ $attributes->merge(['class' => $classes, 'data-spinner' => $attributes->get('data-spinner', 'true')]) }}>
         {{ $slot }}
     </button>
 @endif

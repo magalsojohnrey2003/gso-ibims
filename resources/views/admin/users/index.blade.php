@@ -85,9 +85,12 @@
                         </tr>
                         </thead>
                         <tbody id="users-tbody" class="text-center">
-                        @foreach($users as $user)
+                        <x-table-loading-state colspan="6" class="hidden" wire:loading.class.remove="hidden" />
+                        @forelse($users as $user)
                             @include('admin.users._row', ['user' => $user])
-                        @endforeach
+                        @empty
+                            <x-table-empty-state colspan="6" />
+                        @endforelse
                         </tbody>
                     </table>
                 </div>

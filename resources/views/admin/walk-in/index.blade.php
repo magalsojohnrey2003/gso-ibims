@@ -37,15 +37,17 @@
                         </tr>
                     </thead>
                     <tbody id="walkinTableBody" class="text-center">
-                        <tr>
-                            <td colspan="6" class="py-4 text-gray-500">Loading...</td>
-                        </tr>
+                        <x-table-loading-state colspan="6" data-walkin-loading-row />
                     </tbody>
                 </table>
                 </div>
             </div>
         </div>
     </div>
+
+    <template id="walkin-empty-state-template">
+        <x-table-empty-state colspan="6" />
+    </template>
 
     <x-modal name="walkinDetailsModal" maxWidth="lg">
         <div class="p-6 space-y-6">
@@ -157,7 +159,6 @@
                         <div class="w-full">
                             <span class="text-gray-500">Items:</span>
                             <ul id="confirmItemsList" class="list-disc list-inside text-gray-700 mt-1 ml-1">
-                                <li>Loading...</li>
                             </ul>
                         </div>
                     </div>

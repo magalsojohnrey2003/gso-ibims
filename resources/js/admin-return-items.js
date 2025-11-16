@@ -152,7 +152,13 @@ function renderTable() {
     tbody.innerHTML = '';
 
     if (!Array.isArray(RETURN_ROWS) || RETURN_ROWS.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-gray-500">No return items to review yet.</td></tr>';
+        const template = document.getElementById('return-items-empty-state-template');
+        tbody.innerHTML = '';
+        if (template?.content?.firstElementChild) {
+            tbody.appendChild(template.content.firstElementChild.cloneNode(true));
+        } else {
+            tbody.innerHTML = '<tr><td colspan="4" class="py-10 text-center text-gray-500">No return items to review yet.</td></tr>';
+        }
         return;
     }
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\User;
 use App\Http\Controllers\Controller;
 use App\Models\ManpowerRequest;
 use App\Models\ManpowerRole;
+use App\Services\ManpowerRequestPdfService;
 use App\Support\MisOrLocations;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
@@ -107,6 +108,26 @@ class ManpowerRequestController extends Controller
         return response()->json([
             'message' => 'Manpower request submitted.',
             'id' => $model->id,
+        ]);
+    }
+
+    public function print(int $id, ManpowerRequestPdfService $pdfService)
+    {
+        $manpowerRequest = ManpowerRequest::with('user')
+            ->where('user_id', Auth::id())
+            ->findOrFail($id);
+
+        $result = $pdfService->render($manpowerRequest);
+        if (! ($result['success'] ?? false) || empty($result['content'])) {
+            abort(500, $result['message'] ?? 'Unable to generate the manpower request form.');
+        }
+
+        $filename = $result['filename'] ?? 'manpower-request.pdf';
+        $mime = $result['mime'] ?? 'application/pdf';
+
+        return response($result['content'], 200, [
+            'Content-Type' => $mime,
+            'Content-Disposition' => 'inline; filename="' . $filename . '"',
         ]);
     }
 }

@@ -204,8 +204,7 @@ class ItemController extends Controller
             ];
         })->values()->toArray();
 
-        $defaultPhoto = $this->defaultPhoto;
-        return view('admin.items.index', compact('items', 'categories', 'categoryCodeMap', 'offices', 'defaultPhoto'));
+        return view('admin.items.index', compact('items', 'categories', 'categoryCodeMap', 'offices'));
     }
 
     public function search(Request $request)
@@ -568,10 +567,10 @@ public function store(Request $request, PropertyNumberService $numbers)
     }
 
     $photoPath = null;
+    $uploadedPhoto = false;
     if ($request->hasFile('photo')) {
         $photoPath = $request->file('photo')->store('items', 'public');
-    } else {
-        $photoPath = $this->defaultPhoto;
+        $uploadedPhoto = true;
     }
 
     $acquisitionDateValue = null;
@@ -718,7 +717,7 @@ public function store(Request $request, PropertyNumberService $numbers)
 
     } catch (\Throwable $e) {
         DB::rollBack();
-        if ($request->hasFile('photo') && $photoPath) {
+        if ($uploadedPhoto && $photoPath) {
             Storage::disk('public')->delete($photoPath);
         }
 
@@ -744,14 +743,12 @@ public function update(Request $request, Item $item)
     ]);
 
     $originalPhoto = $item->photo;
-    $photoPath = $originalPhoto;
+    $photoPath = $originalPhoto && $originalPhoto !== $this->defaultPhoto ? $originalPhoto : null;
     $uploadedNewPhoto = false;
 
     if ($request->hasFile('photo')) {
         $photoPath = $request->file('photo')->store('items', 'public');
         $uploadedNewPhoto = true;
-    } elseif (! $item->photo && empty($data['existing_photo'])) {
-        $photoPath = $this->defaultPhoto;
     }
 
     DB::beginTransaction();
@@ -798,7 +795,7 @@ public function update(Request $request, Item $item)
         }
 
         if ($request->wantsJson()) {
-            $photoUrl = $item->photo ? asset('storage/' . ltrim($item->photo, '/')) : null;
+            $photoUrl = $item->photo_url;
             return response()->json([
                 'message' => 'Item details updated successfully.',
                 'item_id' => $item->id,
@@ -808,6 +805,7 @@ public function update(Request $request, Item $item)
                 'total_qty' => $item->total_qty,
                 'available_qty' => $item->available_qty,
                 'photo' => $photoUrl,
+                'photo_url' => $photoUrl,
                 'description' => $primaryInstance?->notes,
             ]);
         }
@@ -1143,4 +1141,3 @@ public function update(Request $request, Item $item)
 
 
 }
-

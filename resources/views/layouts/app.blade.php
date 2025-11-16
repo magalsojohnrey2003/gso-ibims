@@ -9,6 +9,8 @@
 
     <meta name="user-id" content="{{ auth()->id() ?? '' }}">
     <meta name="user-role" content="{{ auth()->user()->role ?? '' }}">
+    <meta name="terms-accepted" content="{{ auth()->check() && auth()->user()->terms_accepted_at ? 'true' : 'false' }}">
+    <meta name="terms-accept-url" content="{{ auth()->check() ? route('user.terms.accept') : '' }}">
 
     <title>{{ config('app.name', 'Laravel') }}</title>
 
@@ -371,6 +373,50 @@
             });
         </script>
     @endif
+
+    {{-- Terms & Conditions modal --}}
+    <div id="terms-modal"
+         class="fixed inset-0 z-[70] hidden items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+         aria-hidden="true"
+         role="dialog"
+         aria-labelledby="terms-modal-title">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden relative">
+            <button type="button"
+                    id="decline-terms-btn"
+                    class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500 rounded-full p-2"
+                    aria-label="Close terms modal">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            <div class="px-8 pt-10 pb-8 space-y-6">
+                <div class="space-y-1">
+                    <p class="text-xs uppercase tracking-widest text-purple-500 font-semibold">Required Action</p>
+                    <h2 id="terms-modal-title" class="text-2xl font-bold text-gray-900">Terms of Service</h2>
+                    <p class="text-sm text-gray-500">Before borrowing items or requesting manpower, please review and accept the latest policy.</p>
+                </div>
+                <div class="space-y-3 text-gray-700">
+                    <p class="leading-relaxed">By using this service, you agree to be fully responsible for all items you borrow. You must report any damage immediately and ensure every item is returned on the agreed date.</p>
+                    <p class="text-sm">By continuing, you agree to our full
+                        <a href="{{ route('user.terms') }}" target="_blank" class="text-blue-600 underline font-semibold hover:text-blue-800">Terms &amp; Conditions</a>.
+                    </p>
+                    <p id="terms-modal-error" class="text-sm text-red-500 hidden"></p>
+                </div>
+                <div class="flex flex-col sm:flex-row sm:justify-end gap-3 pt-2">
+                    <button type="button"
+                            class="w-full sm:w-auto px-5 py-2.5 text-sm font-semibold border border-gray-200 rounded-full hover:bg-gray-50 text-gray-600 transition"
+                            id="terms-modal-cancel">
+                        Decline
+                    </button>
+                    <button type="button"
+                            id="accept-terms-btn"
+                            class="w-full sm:w-auto px-6 py-2.5 text-sm font-semibold rounded-full bg-purple-600 text-white shadow-lg hover:bg-purple-700 transition focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2">
+                        Accept &amp; Continue
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
 </body>
 </html>

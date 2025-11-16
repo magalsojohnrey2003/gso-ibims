@@ -108,7 +108,8 @@
                               <th class="px-6 py-3">Actions</th>
                           </tr>
                       </thead>
-                <tbody class="text-center">
+                <tbody id="itemsTableBody" class="text-center">
+                      <x-table-loading-state colspan="6" data-items-loading-row />
                       @forelse ($items as $item)
                           @php
                               // Determine display name for category: if item->category is numeric id and map exists, use mapped name.
@@ -122,29 +123,8 @@
                           @endphp
                           <tr class="hover:bg-gray-50 text-center" data-item-row="{{ $item->id }}">
                               <td class="px-6 py-4" data-item-photo>
-                                  @php
-                                      $photoUrl = null;
-                                      if ($item->photo) {
-                                          // Check if photo is in storage (public disk)
-                                          if (Storage::disk('public')->exists($item->photo)) {
-                                              $photoUrl = Storage::disk('public')->url($item->photo);
-                                          } 
-                                          // Check if it's a full HTTP URL
-                                          elseif (str_starts_with($item->photo, 'http')) {
-                                              $photoUrl = $item->photo;
-                                          } 
-                                          // Check if it's in public directory (default photo or legacy path)
-                                          elseif (file_exists(public_path($item->photo))) {
-                                              $photoUrl = asset($item->photo);
-                                          }
-                                      }
-                                      // Use default photo if no photo found or photo column is empty
-                                      if (!$photoUrl) {
-                                          $photoUrl = asset($defaultPhoto);
-                                      }
-                                  @endphp
                                   <div class="flex justify-center">
-                                      <img src="{{ $photoUrl }}" data-item-photo-img class="h-12 w-12 object-cover rounded-lg shadow-sm" alt="{{ $item->name }}">
+                                      <img src="{{ $item->photo_url }}" data-item-photo-img class="h-12 w-12 object-cover rounded-lg shadow-sm" alt="{{ $item->name }}">
                                   </div>
                               </td>
                               <td class="px-6 py-4 font-semibold text-gray-900 text-center" data-item-name>{{ $item->name }}</td>
@@ -287,11 +267,7 @@
                               </x-modal>
                           @endpush
                       @empty
-                          <tr>
-                              <td colspan="6" class="px-6 py-4 text-center text-gray-500">
-                                  <x-status-badge type="warning" text="No items found" />
-                              </td>
-                          </tr>
+                          <x-table-empty-state colspan="6" data-items-empty-row class="hidden" />
                       @endforelse
                       </tbody>
                   </table>
@@ -457,6 +433,26 @@
 document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('items-live-search');
     const table = document.querySelector('.gov-table tbody');
+    const tableBody = document.getElementById('itemsTableBody');
+    
+    if (tableBody) {
+        const loadingRow = tableBody.querySelector('[data-items-loading-row]');
+        const emptyRow = tableBody.querySelector('[data-items-empty-row]');
+        const hideLoading = () => {
+            if (loadingRow) {
+                loadingRow.classList.add('hidden');
+            }
+            if (emptyRow) {
+                emptyRow.classList.remove('hidden');
+            }
+        };
+        if (document.readyState === 'complete') {
+            hideLoading();
+        } else {
+            window.addEventListener('load', hideLoading, { once: true });
+            setTimeout(hideLoading, 1200);
+        }
+    }
     
     if (!searchInput || !table) return;
     

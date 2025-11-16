@@ -30,6 +30,7 @@
           </tr>
         </thead>
         <tbody id="gla-list-body" class="divide-y divide-gray-100 bg-white">
+          <x-table-loading-state colspan="3" />
           <!-- Filled by JS -->
         </tbody>
         </table>
@@ -46,9 +47,7 @@
         </tr>
       </template>
       <template data-gla-empty-template>
-        <tr data-empty-state>
-          <td colspan="3" class="px-3 py-2 text-gray-500">No GLA sub-categories yet</td>
-        </tr>
+        <x-table-empty-state colspan="3" data-empty-state />
       </template>
     </div>
 

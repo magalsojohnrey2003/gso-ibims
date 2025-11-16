@@ -20,12 +20,11 @@ use App\Http\Controllers\Admin\ManpowerRequestController as AdminManpowerRequest
 use App\Http\Controllers\User\ManpowerRequestController as UserManpowerRequestController;
 use App\Http\Controllers\ManpowerRoleController;
 use App\Http\Controllers\PublicManpowerRequestController;
+use App\Http\Controllers\WelcomeController;
 
 
-// ??? Root should redirect to login instead of welcome
-Route::get('/', function () {
-    return view('auth.login-register');
-});
+Route::get('/', [WelcomeController::class, 'landing'])->name('landing');
+Route::get('/features/borrow-items', [WelcomeController::class, 'publicBorrowItems'])->name('public.borrow-items');
 
 Route::get('/manpower/status/{token}', [PublicManpowerRequestController::class, 'show'])
     ->name('manpower.requests.public.show');
@@ -33,6 +32,7 @@ Route::get('/manpower/status/{token}', [PublicManpowerRequestController::class, 
 
 Route::middleware('auth')->group(function () {
     // Profile pages
+    Route::get('/profile', [ProfileController::class, 'editInfo'])->name('profile.show');
     Route::get('/profile/info', [ProfileController::class, 'editInfo'])->name('profile.info');
     Route::get('/profile/password', [ProfileController::class, 'editPassword'])->name('profile.password');
     Route::get('/profile/delete', [ProfileController::class, 'editDelete'])->name('profile.delete');
@@ -177,6 +177,8 @@ Route::middleware(['auth', 'role:user', 'nocache'])
     ->group(function () {
 
         Route::get('/dashboard', [UserDashboardController::class, 'index'])->name('user.dashboard');
+        Route::get('/terms', [UserDashboardController::class, 'showTerms'])->name('user.terms');
+        Route::post('/accept-terms', [UserDashboardController::class, 'acceptTerms'])->name('user.terms.accept');
          // API endpoints
     Route::get('/dashboard/my-requests', [UserDashboardController::class, 'myRequests']);
     Route::post('/dashboard/requests/{id}/cancel', [UserDashboardController::class, 'cancelRequest']);
@@ -222,6 +224,7 @@ Route::middleware(['auth', 'role:user', 'nocache'])
             Route::get('/', [UserManpowerRequestController::class, 'index'])->name('index');
             Route::get('/list', [UserManpowerRequestController::class, 'list'])->name('list');
             Route::post('/store', [UserManpowerRequestController::class, 'store'])->name('store');
+            Route::get('/print/{id}', [UserManpowerRequestController::class, 'print'])->name('print');
         });
 
     });

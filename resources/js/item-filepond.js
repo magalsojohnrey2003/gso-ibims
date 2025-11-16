@@ -41,6 +41,7 @@ function initFilePondOnInput(input) {
     instantUpload: false,
     allowReorder: false,
     credits: false,
+    storeAsFile: true,
     allowImagePreview: true,
 
     // Image preview sizing (height controls preview panel height)

@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use DB;
+use Illuminate\Http\JsonResponse;
 
 class DashboardController extends Controller
 {
@@ -57,8 +58,7 @@ class DashboardController extends Controller
         $availableItemsPreview = Item::where('available_qty', '>', 0)
             ->orderByDesc('created_at')
             ->take(3)
-            ->get(['id', 'name', 'category', 'photo', 'available_qty'])
-            ->toArray();
+            ->get(['id', 'name', 'category', 'photo', 'available_qty']);
 
         // === Recent activity (last 5 requests) ===
         $recentActivity = $myRequests->map(function ($req) {
@@ -156,5 +156,26 @@ class DashboardController extends Controller
             ->get(['id', 'name', 'category', 'photo', 'available_qty']);
 
         return response()->json($items);
+    }
+
+    public function showTerms()
+    {
+        return view('user.terms.index');
+    }
+
+    public function acceptTerms(): JsonResponse
+    {
+        $user = Auth::user();
+
+        if (!$user) {
+            return response()->json(['status' => 'unauthenticated'], 401);
+        }
+
+        if (is_null($user->terms_accepted_at)) {
+            $user->terms_accepted_at = now();
+            $user->save();
+        }
+
+        return response()->json(['status' => 'success'], 200);
     }
 }

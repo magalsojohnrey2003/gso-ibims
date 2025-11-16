@@ -66,15 +66,17 @@
                         </tr>
                     </thead>
                     <tbody id="returnItemsTableBody" class="text-center">
-                        <tr>
-                            <td colspan="4" class="py-4 text-center text-gray-500">Loading...</td>
-                        </tr>
+                        <x-table-loading-state colspan="4" />
                     </tbody>
                 </table>
                 </div>
             </div>
         </div>
     </div>
+
+    <template id="return-items-empty-state-template">
+        <x-table-empty-state colspan="4" />
+    </template>
 
     <!-- Templates -->
     <template id="badge-status-pending">
@@ -281,9 +283,7 @@
                                 </tr>
                             </thead>
                             <tbody id="manage-items-tbody" class="divide-y bg-white">
-                                <tr>
-                                    <td colspan="4" class="px-4 py-4 text-center text-gray-500">Loading...</td>
-                                </tr>
+                                <x-table-loading-state colspan="4" />
                             </tbody>
                         </table>
                     </div>

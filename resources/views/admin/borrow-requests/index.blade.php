@@ -68,15 +68,17 @@
                         </tr>
                     </thead>
                     <tbody id="borrowRequestsTableBody" class="text-center">
-                        <tr>
-                            <td colspan="6" class="py-4 text-gray-500">Loading...</td>
-                        </tr>
+                        <x-table-loading-state colspan="6" />
                     </tbody>
                 </table>
                 </div>
             </div>
         </div>
     </div>
+
+    <template id="borrow-requests-empty-state-template">
+        <x-table-empty-state colspan="6" />
+    </template>
 
     <!-- Modal (modern design) -->
     <x-modal name="requestDetailsModal" maxWidth="lg">
@@ -110,15 +112,6 @@
                     <div>
                         <div class="font-medium text-gray-800">Borrower</div>
                         <div class="text-gray-600" id="borrowerName">—</div>
-                    </div>
-                </div>
-
-                <!-- Manpower (NEW) -->
-                <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
-                    <i class="fas fa-users text-purple-600 mt-1"></i>
-                    <div>
-                        <div class="font-medium text-gray-800">Number of Manpower</div>
-                        <div class="text-gray-600" id="manpowerCount">—</div>
                     </div>
                 </div>
 
@@ -606,5 +599,3 @@
     @vite(['resources/js/app.js'])
 
 </x-app-layout>
-
-

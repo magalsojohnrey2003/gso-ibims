@@ -474,3 +474,37 @@ nav, aside, main { color: inherit; }
 /* -----------------------------------------------------------------------
    End of file
    ----------------------------------------------------------------------- */
+@keyframes button-loading-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+[data-spinner] {
+  position: relative;
+  overflow: hidden;
+}
+
+[data-spinner][data-loading] {
+  pointer-events: none;
+  color: transparent !important;
+}
+
+[data-spinner][data-loading] > * {
+  opacity: 0;
+}
+
+[data-spinner][data-loading]::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: -0.625rem;
+  margin-left: -0.625rem;
+  border-radius: 9999px;
+  border: 2px solid var(--spinner-foreground, currentColor);
+  border-top-color: transparent;
+  animation: button-loading-spin 0.7s linear infinite;
+}

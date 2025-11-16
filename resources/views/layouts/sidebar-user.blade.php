@@ -29,7 +29,8 @@
                    role="menuitem"
                    @if(request()->routeIs('borrow.items') || request()->routeIs('borrowList.*')) aria-current="page" @endif
                    class="flex items-center px-4 py-3 rounded-md gov-hover transition-colors duration-150 group focus:outline-none focus:ring-2 focus:ring-offset-1
-                          {{ (request()->routeIs('borrow.items') || request()->routeIs('borrowList.*')) ? 'gov-active' : '' }}">
+                          {{ (request()->routeIs('borrow.items') || request()->routeIs('borrowList.*')) ? 'gov-active' : '' }}"
+                    data-requires-terms="true">
                     <i class="fas fa-cart-plus mr-3 sidebar-icon" aria-hidden="true"></i>
                     <span class="sidebar-text">{{ request()->routeIs('borrowList.*') ? 'Borrow List' : 'Borrow Items' }}</span>
                 </a>
@@ -57,9 +58,23 @@
                    role="menuitem"
                    @if(request()->routeIs('user.manpower.*')) aria-current="page" @endif
                    class="flex items-center px-4 py-3 rounded-md gov-hover transition-colors duration-150 group focus:outline-none focus:ring-2 focus:ring-offset-1
-                          {{ request()->routeIs('user.manpower.*') ? 'gov-active' : '' }}">
+                          {{ request()->routeIs('user.manpower.*') ? 'gov-active' : '' }}"
+                    data-requires-terms="true">
                     <i class="fas fa-people-carry mr-3 sidebar-icon" aria-hidden="true"></i>
                     <span class="sidebar-text">Request Manpower</span>
+                </a>
+            </li>
+
+            {{-- Terms & Conditions --}}
+            <li role="none">
+                <a href="{{ route('user.terms') }}"
+                   title="Terms &amp; Conditions"
+                   role="menuitem"
+                   @if(request()->routeIs('user.terms')) aria-current="page" @endif
+                   class="flex items-center px-4 py-3 rounded-md gov-hover transition-colors duration-150 group focus:outline-none focus:ring-2 focus:ring-offset-1
+                          {{ request()->routeIs('user.terms') ? 'gov-active' : '' }}">
+                    <i class="fas fa-shield-alt mr-3 sidebar-icon" aria-hidden="true"></i>
+                    <span class="sidebar-text">Terms &amp; Conditions</span>
                 </a>
             </li>
 

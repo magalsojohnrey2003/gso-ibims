@@ -119,9 +119,9 @@
             <div id="borrowWizardSteps" class="space-y-8">
                 {{-- Step 1 --}}
                 <section data-step="1" class="wizard-step space-y-6">
-                    <div class="grid gap-6 lg:grid-cols-2">
-                        <div class="space-y-6">
-                            <div class="bg-white p-6 rounded-2xl shadow-lg">
+                    <div class="grid gap-6 lg:grid-cols-2 lg:items-stretch">
+                        <div class="space-y-6 h-full">
+                            <div class="bg-white p-6 rounded-2xl shadow-lg h-full flex flex-col">
                                 <div class="flex items-center justify-between mb-4">
                                     <x-title
                                         level="h3"
@@ -136,7 +136,7 @@
                                     </x-title>
                                 </div>
 
-                                <div id="borrowListItems" class="space-y-3 max-h-[40vh] overflow-auto">
+                                <div id="borrowListItems" class="mt-4 flex-1 space-y-3 overflow-y-auto pr-1">
                                     @forelse($borrowList as $item)
                                         @php
                                             $currentQty = (int) old("items.{$item['id']}.quantity", $item['qty']);
@@ -150,25 +150,9 @@
                                             data-item-quantity="{{ $currentQty }}">
                                             <div class="flex items-center gap-3">
                                                 @php
-                                                    $photoUrl = null;
-                                                    if (!empty($item['photo'])) {
-                                                        // Check if photo is in storage (public disk)
-                                                        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($item['photo'])) {
-                                                            $photoUrl = \Illuminate\Support\Facades\Storage::disk('public')->url($item['photo']);
-                                                        } 
-                                                        // Check if it's a full HTTP URL
-                                                        elseif (str_starts_with($item['photo'], 'http')) {
-                                                            $photoUrl = $item['photo'];
-                                                        } 
-                                                        // Check if it's in public directory (default photo or legacy path)
-                                                        elseif (file_exists(public_path($item['photo']))) {
-                                                            $photoUrl = asset($item['photo']);
-                                                        }
-                                                    }
-                                                    // Use default photo if no photo found or photo column is empty
-                                                    if (!$photoUrl) {
-                                                        $photoUrl = asset($defaultPhoto);
-                                                    }
+                                                    $photoUrl = \App\Models\Item::make([
+                                                        'photo' => $item['photo'] ?? null,
+                                                    ])->photo_url;
                                                 @endphp
                                                 <img
                                                     src="{{ $photoUrl }}"
@@ -274,55 +258,11 @@
                                 </div>
 
                                 <div class="space-y-4">
-                                    <div>
-                                        <x-input-label for="location_municipality" value="Municipality" />
-                                        <select id="location_municipality"
-                                                class="mt-1 w-full rounded-md border border-gray-600 bg-white px-3 py-2 text-gray-800"
-                                                data-initial="{{ $oldMunicipalityKey ?? '' }}">
-                                            <option value="" disabled selected>Select municipality</option>
-                                            @foreach($municipalities as $key => $definition)
-                                                <option value="{{ $key }}"
-                                                        data-label="{{ $definition['label'] ?? $key }}"
-                                                        @selected(($oldMunicipalityKey ?? '') === $key)>
-                                                    {{ $definition['label'] ?? $key }}
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-
-                                    <div>
-                                        <x-input-label for="location_barangay" value="Barangay" />
-                                        <select id="location_barangay"
-                                                class="mt-1 w-full rounded-md border border-gray-600 bg-white px-3 py-2 text-gray-800"
-                                                data-initial="{{ $oldBarangay ?? '' }}"
-                                                disabled>
-                                            <option value="">Select barangay</option>
-                                        </select>
-                                    </div>
-
-                                    <div>
-                                        <x-input-label for="location_purok" value="Purok / Zone / Sitio" />
-                                        <select id="location_purok"
-                                                class="mt-1 w-full rounded-md border border-gray-600 bg-white px-3 py-2 text-gray-800"
-                                                data-initial="{{ $oldPurok ?? '' }}"
-                                                disabled>
-                                            <option value="">Select purok / zone / sitio</option>
-                                        </select>
-                                    </div>
-
-                                    <div id="locationDisplayWrapper" class="{{ $oldLocation ? '' : 'hidden' }}">
-                                        <x-input-label for="location_display" value="Selected Address" />
-                                        <x-text-input
-                                            id="location_display"
-                                            type="text"
-                                            class="mt-1 w-full border border-gray-600 bg-gray-100 text-gray-800"
-                                            readonly
-                                            value="{{ $oldLocation }}"
-                                        />
-                                    </div>
-
-                                    <input type="hidden" id="location" name="location" value="{{ $oldLocation }}">
-                                    <x-input-error :messages="$errors->get('location')" class="mt-1" />
+                                    <livewire:location-selector
+                                        :initial-municipality-key="$oldMunicipalityKey"
+                                        :initial-barangay="$oldBarangay"
+                                        :initial-purok="$oldPurok"
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -616,13 +556,6 @@
             </div>
         </div>
     </x-modal>
-
-    <script>
-        window.LOCATION_ENDPOINTS = {
-            barangays: "{{ route('user.locations.barangays') }}",
-            puroks: "{{ route('user.locations.puroks') }}"
-        };
-    </script>
 
     @vite(['resources/js/app.js'])
 </x-app-layout>

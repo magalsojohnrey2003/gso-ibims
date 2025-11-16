@@ -67,19 +67,9 @@
 
     // ====== Borrow Trends (Chart.js) ======
     // Using global Chart from CDN
-    const personalEmptyEl = document.getElementById("personalBorrowEmpty");
+    let personalEmptyEl = null;
     let personalChart;
     let initialData = {};
-    
-    // Load initial data from script tag
-    try {
-        const dataEl = document.getElementById('user-dashboard-data');
-        if (dataEl && dataEl.textContent) {
-            initialData = JSON.parse(dataEl.textContent || '{}') || {};
-        }
-    } catch (e) {
-        console.warn('Failed to parse user dashboard data', e);
-    }
 
     function initChart() {
         const canvas = document.getElementById("personalBorrowChart");
@@ -170,14 +160,34 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        const hasActivitySection = !!document.getElementById("user-activity");
+        const hasChartSection = !!document.getElementById("personalBorrowChart");
+        const dataEl = document.getElementById('user-dashboard-data');
+        const trendFilterEl = document.getElementById("personalTrendFilter");
+
+        if (!hasActivitySection && !hasChartSection && !dataEl) {
+            return;
+        }
+
+        personalEmptyEl = document.getElementById("personalBorrowEmpty");
+
+        try {
+            if (dataEl && dataEl.textContent) {
+                initialData = JSON.parse(dataEl.textContent || '{}') || {};
+            }
+        } catch (e) {
+            console.warn('Failed to parse user dashboard data', e);
+            initialData = {};
+        }
+
         initChart();
-        document.getElementById("personalTrendFilter")?.addEventListener("change", e => {
+        trendFilterEl?.addEventListener("change", e => {
             fetchTrends(e.target.value);
         });
 
-        // initial load
-        if (typeof loadActivity === 'function') loadActivity();
-        // keep activity refreshed
-        if (typeof loadActivity === 'function') setInterval(loadActivity, 30000);
+        if (hasActivitySection) {
+            loadActivity();
+            setInterval(loadActivity, 30000);
+        }
     });
 })();

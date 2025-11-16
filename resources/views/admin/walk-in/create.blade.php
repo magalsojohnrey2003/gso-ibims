@@ -46,17 +46,7 @@
                         <tbody id="walkinItemsBody" class="divide-y divide-gray-100">
                             @foreach($items as $item)
                                 @php
-                                    $photoUrl = null;
-                                    if (!empty($item->photo)) {
-                                        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($item->photo)) {
-                                            $photoUrl = \Illuminate\Support\Facades\Storage::disk('public')->url($item->photo);
-                                        } elseif (str_starts_with($item->photo, 'http')) {
-                                            $photoUrl = $item->photo;
-                                        } elseif (file_exists(public_path($item->photo))) {
-                                            $photoUrl = asset($item->photo);
-                                        }
-                                    }
-                                    if (!$photoUrl) { $photoUrl = asset($defaultPhoto); }
+                                    $photoUrl = $item->photo_url;
                                 @endphp
                                 <tr data-item-row data-name="{{ strtolower($item->name) }}" class="align-middle">
                                     <td class="px-4 py-3 align-middle">

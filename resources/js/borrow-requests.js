@@ -576,7 +576,13 @@ function renderBorrowRequests() {
     });
 
     if (!filtered.length) {
-        tbody.innerHTML = '<tr><td colspan="6" class="py-4 text-gray-500">No requests found.</td></tr>';
+        const template = document.getElementById('borrow-requests-empty-state-template');
+        tbody.innerHTML = '';
+        if (template?.content?.firstElementChild) {
+            tbody.appendChild(template.content.firstElementChild.cloneNode(true));
+        } else {
+            tbody.innerHTML = '<tr><td colspan="6" class="py-10 text-center text-gray-500">No requests found.</td></tr>';
+        }
         return;
     }
 
