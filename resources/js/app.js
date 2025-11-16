@@ -27,8 +27,6 @@ import './qty-controls';
 import '../css/borrow-list.css';
 import '../css/assign-manpower.css';
 import './sidebar-toggle';
-import './location-selector';
-
 
 
 window.Alpine = Alpine;

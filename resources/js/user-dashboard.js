@@ -70,6 +70,16 @@
     const personalEmptyEl = document.getElementById("personalBorrowEmpty");
     let personalChart;
     let initialData = {};
+    
+    // Load initial data from script tag
+    try {
+        const dataEl = document.getElementById('user-dashboard-data');
+        if (dataEl && dataEl.textContent) {
+            initialData = JSON.parse(dataEl.textContent || '{}') || {};
+        }
+    } catch (e) {
+        console.warn('Failed to parse user dashboard data', e);
+    }
 
     function initChart() {
         const canvas = document.getElementById("personalBorrowChart");
@@ -160,29 +170,14 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        const dataScript = document.getElementById('user-dashboard-data');
-        const activityContainer = document.getElementById('user-activity');
-        if (!dataScript && !activityContainer) {
-            return;
-        }
-
-        if (dataScript && dataScript.textContent) {
-            try {
-                initialData = JSON.parse(dataScript.textContent || '{}') || {};
-            } catch (e) {
-                console.warn('Failed to parse user dashboard data', e);
-                initialData = {};
-            }
-        }
-
         initChart();
         document.getElementById("personalTrendFilter")?.addEventListener("change", e => {
             fetchTrends(e.target.value);
         });
 
-        if (typeof loadActivity === 'function' && activityContainer) {
-            loadActivity();
-            setInterval(loadActivity, 30000);
-        }
+        // initial load
+        if (typeof loadActivity === 'function') loadActivity();
+        // keep activity refreshed
+        if (typeof loadActivity === 'function') setInterval(loadActivity, 30000);
     });
 })();

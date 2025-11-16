@@ -146,24 +146,35 @@
                         @if(isset($availableItemsPreview) && count($availableItemsPreview) > 0)
                             @foreach($availableItemsPreview as $item)
                                 @php
-                                    $categoryLabel = $item->category_name ?? $item->category ?? 'Uncategorized';
+                                    $photoUrl = null;
+                                    if (!empty($item['photo'])) {
+                                        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($item['photo'])) {
+                                            $photoUrl = \Illuminate\Support\Facades\Storage::disk('public')->url($item['photo']);
+                                        } elseif (str_starts_with($item['photo'], 'http')) {
+                                            $photoUrl = $item['photo'];
+                                        } elseif (file_exists(public_path($item['photo']))) {
+                                            $photoUrl = asset($item['photo']);
+                                        }
+                                    }
                                 @endphp
                                 <div class="p-3 border dark:border-gray-600 rounded-lg flex items-center gap-3 hover:shadow-md transition-shadow">
                                     <div class="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded overflow-hidden flex-shrink-0">
-                                        <img
-                                            src="{{ $item->photo_url }}"
-                                            alt="{{ $item->name ?? 'Item photo' }}"
-                                            class="w-full h-full object-cover"
-                                        >
+                                        @if($photoUrl)
+                                            <img src="{{ $photoUrl }}" alt="{{ $item['name'] ?? '' }}" class="w-full h-full object-cover">
+                                        @else
+                                            <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-600 dark:to-gray-700">
+                                                <i class="fas fa-box text-gray-400 dark:text-gray-500 text-lg"></i>
+                                            </div>
+                                        @endif
                                     </div>
                                     <div class="flex-1 min-w-0">
                                         <div class="flex items-center gap-2">
-                                            <span class="font-medium dark:text-white truncate" title="{{ ($item->name ?? 'Unknown') . ' - ' . $categoryLabel }}">
-                                                {{ $item->name ?? 'Unknown' }} - {{ $categoryLabel }}
+                                            <span class="font-medium dark:text-white truncate" title="{{ $item['name'] ?? 'Unknown' }} - {{ $item['category'] ?? 'Uncategorized' }}">
+                                                {{ $item['name'] ?? 'Unknown' }} - {{ $item['category'] ?? 'Uncategorized' }}
                                             </span>
                                         </div>
                                         <div class="text-xs text-green-600 dark:text-green-400 mt-1">
-                                            <i class="fas fa-check-circle"></i> {{ $item->available_qty ?? 0 }} available
+                                            <i class="fas fa-check-circle"></i> {{ $item['available_qty'] ?? 0 }} available
                                         </div>
                                     </div>
                                 </div>
