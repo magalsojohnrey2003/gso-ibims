@@ -85,11 +85,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const actionButtons = (r) => {
     if (r.status === 'pending') {
       return `<div class='flex items-center justify-center gap-2'>
-        <button data-action='approve' class='px-3 py-1.5 text-xs rounded-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold'>Approve</button>
-        <button data-action='reject' class='px-3 py-1.5 text-xs rounded-full bg-red-500 hover:bg-red-600 text-white font-semibold'>Reject</button>
+        <button data-action='approve' class='inline-flex items-center justify-center w-9 h-9 rounded-full bg-[#22C55E] text-white shadow-none' title='Approve'>
+          <i class="fas fa-check"></i>
+        </button>
+        <button data-action='reject' class='inline-flex items-center justify-center w-9 h-9 rounded-full bg-[#EF4444] text-white shadow-none' title='Reject'>
+          <i class="fas fa-times"></i>
+        </button>
       </div>`;
     }
-    return `<button data-action='view' class='px-3 py-1.5 text-xs rounded-full border border-gray-300 hover:border-gray-400 text-gray-700 font-semibold'>View</button>`;
+    return `<button data-action='view' class='inline-flex items-center justify-center w-9 h-9 rounded-full bg-[#6D28D9] text-white shadow-none' title='View'>
+      <i class="fas fa-eye"></i>
+    </button>`;
   };
 
   tbody.addEventListener('click', (e) => {

@@ -1,3 +1,24 @@
+/* --- Custom override for Manpower table action buttons to match My Borrowed Items --- */
+.gov-table td .manpower-action-view {
+    background-color: #22C55E ; /* Emerald-500 */
+    color: #fff ;
+    box-shadow: none ;
+    border: none ;
+    transition: none ;
+}
+.gov-table td .manpower-action-print {
+    background-color: #F59E42 ; /* Orange-400 */
+    color: #fff ;
+    box-shadow: none ;
+    border: none ;
+    transition: none ;
+}
+.gov-table td .manpower-action-view:hover,
+.gov-table td .manpower-action-print:hover {
+    background-color: inherit ;
+    box-shadow: none ;
+    transform: none ;
+}
 /* Global UI helpers for GSO-IBIMS
    - Government-appropriate palette (purple used sparingly)
    - No gradients
