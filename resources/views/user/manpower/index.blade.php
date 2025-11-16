@@ -316,6 +316,7 @@
         window.USER_MANPOWER = {
             list: "{{ route('user.manpower.list') }}",
             store: "{{ route('user.manpower.store') }}",
+            print: "{{ route('user.manpower.print', '__ID__') }}",
             roles: "{{ route('manpower.roles.index') }}",
             locations: {
                 municipalities: "{{ route('api.locations.municipalities') }}",

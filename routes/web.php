@@ -224,6 +224,7 @@ Route::middleware(['auth', 'role:user', 'nocache'])
             Route::get('/', [UserManpowerRequestController::class, 'index'])->name('index');
             Route::get('/list', [UserManpowerRequestController::class, 'list'])->name('list');
             Route::post('/store', [UserManpowerRequestController::class, 'store'])->name('store');
+            Route::get('/print/{id}', [UserManpowerRequestController::class, 'print'])->name('print');
         });
 
     });

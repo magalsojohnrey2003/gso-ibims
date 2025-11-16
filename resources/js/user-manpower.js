@@ -152,6 +152,8 @@ document.addEventListener('DOMContentLoaded', () => {
     tbody.innerHTML = rows.map(r => {
       const sched = formatSchedule(r);
       const approved = r.approved_quantity != null ? r.approved_quantity : '—';
+      const printTemplate = window.USER_MANPOWER?.print || '';
+      const printUrl = printTemplate ? printTemplate.replace('__ID__', r.id) : '#';
       return `<tr data-request-id='${r.id}'>
         <td class='px-6 py-3 font-semibold'>#${r.id}</td>
         <td class='px-6 py-3'>${approved} / ${r.quantity}</td>
@@ -159,7 +161,10 @@ document.addEventListener('DOMContentLoaded', () => {
         <td class='px-6 py-3 text-sm text-gray-700'>${sched}</td>
         <td class='px-6 py-3'>${badgeHtml(r.status)}</td>
         <td class='px-6 py-3'>
-            <button data-action='view' class='px-3 py-1.5 text-xs rounded-full border border-gray-300 hover:border-gray-400 text-gray-700 font-semibold'>View</button>
+            <div class='flex items-center justify-center gap-2'>
+                <button data-action='view' class='px-3 py-1.5 text-xs rounded-full border border-gray-300 hover:border-gray-400 text-gray-700 font-semibold'>View</button>
+                <a href='${printUrl}' target='_blank' rel='noopener' class='px-3 py-1.5 text-xs rounded-full border border-purple-500 text-purple-600 hover:bg-purple-50 font-semibold'>Print</a>
+            </div>
         </td>
       </tr>`;
     }).join('');

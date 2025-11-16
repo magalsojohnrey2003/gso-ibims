@@ -46,18 +46,13 @@
         @endif
     </div>
 
-    @if($locationValue)
-        <div>
-            <x-input-label for="location_display" value="Selected Address" />
-            <x-text-input
-                id="location_display"
-                type="text"
-                class="mt-1 w-full border border-gray-600 bg-gray-100 text-gray-800"
-                readonly
-                value="{{ $locationValue }}"
-            />
+
+    <div>
+        <x-input-label for="location_display" value="Address Preview" />
+        <div id="location_display" class="mt-1 w-full border border-purple-500 bg-gray-50 text-gray-800 rounded-md px-3 py-2" style="border-width:2px; min-height:2.5rem;">
+            {{ $locationValue ?: 'No address selected yet.' }}
         </div>
-    @endif
+    </div>
 
     <input type="hidden" id="location" name="location" value="{{ $locationValue }}">
     <x-input-error :messages="$errors->get('location')" class="mt-1" />
