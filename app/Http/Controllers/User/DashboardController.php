@@ -58,8 +58,7 @@ class DashboardController extends Controller
         $availableItemsPreview = Item::where('available_qty', '>', 0)
             ->orderByDesc('created_at')
             ->take(3)
-            ->get(['id', 'name', 'category', 'photo', 'available_qty'])
-            ->toArray();
+            ->get(['id', 'name', 'category', 'photo', 'available_qty']);
 
         // === Recent activity (last 5 requests) ===
         $recentActivity = $myRequests->map(function ($req) {
