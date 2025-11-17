@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use Maatwebsite\Excel\Concerns\FromArray;
+use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Events\AfterSheet;
@@ -12,8 +13,23 @@ use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class ReportsExport implements FromArray, ShouldAutoSize, WithEvents
+class ReportsExport implements FromArray, ShouldAutoSize, WithEvents, WithHeadings
 {
+    /**
+    * Return the column headings for the Excel export.
+    *
+    * @return array
+    */
+    public function headings(): array
+    {
+        return [
+            'Item Name',
+            'Category',
+            'Total Quantity',
+            'Available Quantity',
+            'Quantity In Use'
+        ];
+    }
     protected array $columns;
     protected array $rows;
     protected array $meta;

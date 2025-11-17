@@ -124,18 +124,16 @@
 
             {{-- Table --}}
             <div class="shadow rounded-2xl p-6" style="background: var(--card-bg); color: var(--text);">
-                <div class="table-wrapper">
-                    <div class="table-container">
-                        <table id="reportTable" class="min-w-full rounded-lg text-sm gov-table">
-                        <thead id="reportTableHead"
-                               style="background: rgba(0,0,0,0.03); color: var(--text);">
+                <div id="reportTableScroll" class="table-wrapper overflow-x-auto max-h-[70vh] overflow-y-auto">
+                    <table id="reportTable" class="min-w-full rounded-lg text-sm gov-table">
+                        <thead id="reportTableHead" class="bg-purple-600 dark:bg-purple-700 text-gray-100 text-center">
                             <!-- dynamic headers inserted by JS -->
                         </thead>
-                        <tbody id="reportTableBody" class="">
+                        <tbody id="reportTableBody" class="text-center">
                             <!-- dynamic rows inserted by JS -->
                         </tbody>
-                        </table>
-                    </div>
+                    </table>
+                </div>
                 </div>
             </div>
 
@@ -156,10 +154,22 @@
 
     {{-- Table polish (theme-aware via CSS variables and theme class overrides) --}}
     <style>
+        #reportTableScroll {
+            max-height: 70vh;
+            overflow-y: auto;
+            overflow-x: auto;
+            border-radius: 0.75rem;
+        }
+
+        #reportTable {
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+
         /* base spacing + readable text */
         #reportTable th, #reportTable td {
             padding: 0.75rem 1rem;
-            text-align: left;
+            text-align: center;
             white-space: nowrap;
             color: var(--text);
             border-bottom: 1px solid rgba(0,0,0,0.06);
@@ -168,8 +178,12 @@
         /* head style */
         #reportTable thead th {
             font-weight: 700;
-            background: rgba(0,0,0,0.03);
-            color: var(--text);
+            background: #7c3aed; /* purple-600 */
+            color: #f3f4f6; /* gray-100 */
+            position: sticky;
+            top: 0;
+            z-index: 5;
+            opacity: 1;
         }
 
         /* even rows subtle */
@@ -183,8 +197,8 @@
             color: var(--text);
         }
         .theme-dark #reportTable thead th {
-            background: rgba(255,255,255,0.03);
-            color: var(--text);
+            background: #6d28d9; /* purple-700 */
+            color: #f3f4f6; /* gray-100 */
         }
         .theme-dark #reportTableBody tr:nth-child(even) { background-color: rgba(255,255,255,0.02); }
         .theme-dark #reportTableBody tr:hover { background-color: rgba(255,255,255,0.04); }
@@ -193,6 +207,16 @@
         .theme-original #reportTable thead th {
             background: rgba(11,74,119,0.06); /* subtle tint that reads on ORIGINAL palette */
             color: var(--nav-text);
+        }
+
+        /* custom scrollbars */
+        #reportTableScroll::-webkit-scrollbar {
+            height: 8px;
+            width: 8px;
+        }
+        #reportTableScroll::-webkit-scrollbar-thumb {
+            background: rgba(100,116,139,0.4);
+            border-radius: 999px;
         }
     </style>
 </x-app-layout>
