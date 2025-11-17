@@ -94,7 +94,7 @@
 }
 </style>
 
-<form method="POST" action="{{ $action }}" id="user-form" data-ajax="true" class="modern-user-form">
+<form method="POST" action="{{ $action }}" id="user-form" @if(!empty($ajax)) data-ajax="true" @endif class="modern-user-form">
     @csrf
     @if(strtoupper($method) !== 'POST')
         @method($method)

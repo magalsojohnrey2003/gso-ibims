@@ -183,5 +183,4 @@
         window.CSRF_TOKEN = "{{ csrf_token() }}";
     </script>
 
-    @vite(['resources/js/app.js'])
 </x-app-layout>

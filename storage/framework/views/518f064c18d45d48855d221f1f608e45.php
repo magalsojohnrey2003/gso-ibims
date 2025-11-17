@@ -122,7 +122,7 @@ unset($__defined_vars, $__key, $__value); ?>
 }
 </style>
 
-<form method="POST" action="<?php echo e($action); ?>" id="user-form" data-ajax="true" class="modern-user-form">
+<form method="POST" action="<?php echo e($action); ?>" id="user-form" <?php if(!empty($ajax)): ?> data-ajax="true" <?php endif; ?> class="modern-user-form">
     <?php echo csrf_field(); ?>
     <?php if(strtoupper($method) !== 'POST'): ?>
         <?php echo method_field($method); ?>

@@ -1,6 +1,6 @@
 
 <tr data-user-id="<?php echo e($user->id); ?>">
-    <td class="px-6 py-4 whitespace-nowrap"><?php echo e($user->full_name ?? ($user->first_name . ' ' . $user->last_name)); ?></td>
+    <td class="px-6 py-4 whitespace-nowrap max-w-xs truncate" title="<?php echo e($user->full_name ?? ($user->first_name . ' ' . $user->last_name)); ?>"><?php echo e($user->full_name ?? ($user->first_name . ' ' . $user->last_name)); ?></td>
     <td class="px-6 py-4 whitespace-nowrap"><?php echo e($user->email); ?></td>
     <td class="px-6 py-4 whitespace-nowrap">
         <span class="inline-flex items-center justify-center text-xs font-semibold px-3 py-1 rounded-full bg-gray-100 text-gray-700">

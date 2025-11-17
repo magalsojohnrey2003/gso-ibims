@@ -89,6 +89,25 @@
     <?php endif; ?>
 
     <!-- Table Section -->
+    <style>
+    #users-table {
+        table-layout: fixed;
+    }
+    #users-table th,
+    #users-table td {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    #users-table td.max-w-xs {
+        max-width: 16rem;
+    }
+    #users-table th:last-child,
+    #users-table td:last-child {
+        min-width: 90px;
+        width: 90px;
+    }
+    </style>
     <div class="pb-2">
         <div class="px-2">
             <div class="rounded-2xl shadow-lg border border-gray-200 table-wrapper">
@@ -179,7 +198,7 @@
                 </h3>
             </div>
             <div class="px-6 py-6">
-                <?php echo $__env->make('admin.users._form', ['action' => route('admin.users.store'), 'method' => 'POST'], array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
+                <?php echo $__env->make('admin.users._form', ['action' => route('admin.users.store'), 'method' => 'POST', 'ajax' => true], array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
             </div>
         </div>
     </div>
@@ -274,11 +293,12 @@
                 // Clear form inputs when opening create modal
                 if (form) {
                     form.reset();
-                    // Clear all validation states
+                    // Clear all validation states and input values
                     form.querySelectorAll('.user-form-field').forEach(field => {
                         field.classList.remove('error', 'success');
                         const input = field.querySelector('input');
                         if (input) {
+                            input.value = '';
                             input.classList.remove('has-value');
                             input.removeAttribute('aria-invalid');
                         }
@@ -388,6 +408,7 @@
             })
             .then(res => res.json())
             .then(data => {
+                console.log('User AJAX response:', data);
                 if (data.errors) {
                     showFormErrors(form, data.errors);
                     showError('Please check the form for errors');
