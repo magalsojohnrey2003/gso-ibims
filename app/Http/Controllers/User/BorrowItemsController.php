@@ -476,19 +476,6 @@ class BorrowItemsController extends Controller
         ];
         Notification::send($admins, new RequestNotification($payload));
 
-        // Send SMS notification to user
-        $user = $borrowRequest->user;
-        if ($user && !empty($user->phone)) {
-            try {
-                \App\Services\PhilSmsService::make()->sendSms(
-                    $user->phone,
-                    'Your borrowed items have been delivered and confirmed. Thank you!'
-                );
-            } catch (\Throwable $e) {
-                // Log or ignore SMS errors
-            }
-        }
-
         return response()->json(['message' => 'Confirmed receipt.']);
     }
 
