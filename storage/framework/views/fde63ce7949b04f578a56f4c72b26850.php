@@ -1,8 +1,17 @@
-{{-- resources/views/admin/users/index.blade.php --}}
-<x-app-layout>
-    @php
+
+<?php if (isset($component)) { $__componentOriginal9ac128a9029c0e4701924bd2d73d7f54 = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginal9ac128a9029c0e4701924bd2d73d7f54 = $attributes; } ?>
+<?php $component = App\View\Components\AppLayout::resolve([] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('app-layout'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\App\View\Components\AppLayout::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes([]); ?>
+    <?php
         $noMainScroll = false; // Enable main content scrolling for consistency
-    @endphp
+    ?>
 
     <!-- Title and Actions Section -->
     <div class="py-2">
@@ -12,14 +21,25 @@
                 <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <!-- Title -->
                     <div class="flex-shrink-0 flex items-center">
-            <x-title level="h2"
-                                size="2xl"
-                                weight="bold"
-                                icon="users"
-                                variant="s"
-                iconStyle="plain"
-                iconColor="gov-accent"
-                compact="true"> Manage Users </x-title>
+            <?php if (isset($component)) { $__componentOriginala29c4b6de1220dbc50317dc759b47929 = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginala29c4b6de1220dbc50317dc759b47929 = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.title','data' => ['level' => 'h2','size' => '2xl','weight' => 'bold','icon' => 'users','variant' => 's','iconStyle' => 'plain','iconColor' => 'gov-accent','compact' => 'true']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('title'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes(['level' => 'h2','size' => '2xl','weight' => 'bold','icon' => 'users','variant' => 's','iconStyle' => 'plain','iconColor' => 'gov-accent','compact' => 'true']); ?> Manage Users  <?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginala29c4b6de1220dbc50317dc759b47929)): ?>
+<?php $attributes = $__attributesOriginala29c4b6de1220dbc50317dc759b47929; ?>
+<?php unset($__attributesOriginala29c4b6de1220dbc50317dc759b47929); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginala29c4b6de1220dbc50317dc759b47929)): ?>
+<?php $component = $__componentOriginala29c4b6de1220dbc50317dc759b47929; ?>
+<?php unset($__componentOriginala29c4b6de1220dbc50317dc759b47929); ?>
+<?php endif; ?>
                     </div>
                     
                     <!-- Actions -->
@@ -61,12 +81,12 @@
     </div>
 
     <!-- Alerts -->
-    @if(session('success'))
-        <div class="mb-4 alert-success">{{ session('success') }}</div>
-    @endif
-    @if(session('error'))
-        <div class="mb-4 alert-error">{{ session('error') }}</div>
-    @endif
+    <?php if(session('success')): ?>
+        <div class="mb-4 alert-success"><?php echo e(session('success')); ?></div>
+    <?php endif; ?>
+    <?php if(session('error')): ?>
+        <div class="mb-4 alert-error"><?php echo e(session('error')); ?></div>
+    <?php endif; ?>
 
     <!-- Table Section -->
     <style>
@@ -104,12 +124,50 @@
                         </tr>
                         </thead>
                         <tbody id="users-tbody" class="text-center">
-                        <x-table-loading-state colspan="6" class="hidden" wire:loading.class.remove="hidden" />
-                        @forelse($users as $user)
-                            @include('admin.users._row', ['user' => $user])
-                        @empty
-                            <x-table-empty-state colspan="6" />
-                        @endforelse
+                        <?php if (isset($component)) { $__componentOriginal112d5e476c92fff12a90a4ecc845ba67 = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginal112d5e476c92fff12a90a4ecc845ba67 = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.table-loading-state','data' => ['colspan' => '6','class' => 'hidden','wire:loading.class.remove' => 'hidden']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('table-loading-state'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes(['colspan' => '6','class' => 'hidden','wire:loading.class.remove' => 'hidden']); ?>
+<?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginal112d5e476c92fff12a90a4ecc845ba67)): ?>
+<?php $attributes = $__attributesOriginal112d5e476c92fff12a90a4ecc845ba67; ?>
+<?php unset($__attributesOriginal112d5e476c92fff12a90a4ecc845ba67); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginal112d5e476c92fff12a90a4ecc845ba67)): ?>
+<?php $component = $__componentOriginal112d5e476c92fff12a90a4ecc845ba67; ?>
+<?php unset($__componentOriginal112d5e476c92fff12a90a4ecc845ba67); ?>
+<?php endif; ?>
+                        <?php $__empty_1 = true; $__currentLoopData = $users; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $user): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                            <?php echo $__env->make('admin.users._row', ['user' => $user], array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
+                        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                            <?php if (isset($component)) { $__componentOriginal4ffe5ef1be9b37746eb81577fa92d603 = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginal4ffe5ef1be9b37746eb81577fa92d603 = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.table-empty-state','data' => ['colspan' => '6']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('table-empty-state'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes(['colspan' => '6']); ?>
+<?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginal4ffe5ef1be9b37746eb81577fa92d603)): ?>
+<?php $attributes = $__attributesOriginal4ffe5ef1be9b37746eb81577fa92d603; ?>
+<?php unset($__attributesOriginal4ffe5ef1be9b37746eb81577fa92d603); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginal4ffe5ef1be9b37746eb81577fa92d603)): ?>
+<?php $component = $__componentOriginal4ffe5ef1be9b37746eb81577fa92d603; ?>
+<?php unset($__componentOriginal4ffe5ef1be9b37746eb81577fa92d603); ?>
+<?php endif; ?>
+                        <?php endif; ?>
                         </tbody>
                     </table>
                 </div>
@@ -118,13 +176,14 @@
     </div>
 
                 <div class="p-4">
-                    {{ $users->links() }}
+                    <?php echo e($users->links()); ?>
+
                 </div>
             </div>
         </div>
     </div>
 
-    {{-- Create Modal (hidden) --}}
+    
     <div id="create-modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50 p-4">
         <div class="bg-white rounded-2xl w-full max-w-3xl shadow-2xl transform transition-all">
             <div class="bg-purple-600 text-white px-6 py-5 rounded-t-2xl relative">
@@ -139,12 +198,12 @@
                 </h3>
             </div>
             <div class="px-6 py-6">
-                @include('admin.users._form', ['action' => route('admin.users.store'), 'method' => 'POST', 'ajax' => true])
+                <?php echo $__env->make('admin.users._form', ['action' => route('admin.users.store'), 'method' => 'POST', 'ajax' => true], array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
             </div>
         </div>
     </div>
 
-    {{-- Edit Modal (content loaded via AJAX) --}}
+    
     <div id="edit-modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50 p-4">
         <div id="edit-modal-content" class="bg-white rounded-2xl w-full max-w-3xl shadow-2xl transform transition-all">
             <div class="bg-purple-600 text-white px-6 py-5 rounded-t-2xl relative">
@@ -164,7 +223,7 @@
         </div>
     </div>
 
-    {{-- SweetAlert2 for toasts --}}
+    
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <script>
@@ -814,5 +873,15 @@
     </script>
     
 
-    @vite('resources/js/app.js')
-</x-app-layout>
+    <?php echo app('Illuminate\Foundation\Vite')('resources/js/app.js'); ?>
+ <?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginal9ac128a9029c0e4701924bd2d73d7f54)): ?>
+<?php $attributes = $__attributesOriginal9ac128a9029c0e4701924bd2d73d7f54; ?>
+<?php unset($__attributesOriginal9ac128a9029c0e4701924bd2d73d7f54); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginal9ac128a9029c0e4701924bd2d73d7f54)): ?>
+<?php $component = $__componentOriginal9ac128a9029c0e4701924bd2d73d7f54; ?>
+<?php unset($__componentOriginal9ac128a9029c0e4701924bd2d73d7f54); ?>
+<?php endif; ?>
+<?php /**PATH C:\Users\magal\Desktop\gso-ibims\resources\views/admin/users/index.blade.php ENDPATH**/ ?>

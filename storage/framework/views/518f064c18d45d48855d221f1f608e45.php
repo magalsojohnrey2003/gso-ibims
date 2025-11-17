@@ -1,5 +1,33 @@
-{{-- resources/views/admin/users/_form.blade.php --}}
-@props(['user' => null, 'action' => '#', 'method' => 'POST'])
+
+<?php $attributes ??= new \Illuminate\View\ComponentAttributeBag;
+
+$__newAttributes = [];
+$__propNames = \Illuminate\View\ComponentAttributeBag::extractPropNames((['user' => null, 'action' => '#', 'method' => 'POST']));
+
+foreach ($attributes->all() as $__key => $__value) {
+    if (in_array($__key, $__propNames)) {
+        $$__key = $$__key ?? $__value;
+    } else {
+        $__newAttributes[$__key] = $__value;
+    }
+}
+
+$attributes = new \Illuminate\View\ComponentAttributeBag($__newAttributes);
+
+unset($__propNames);
+unset($__newAttributes);
+
+foreach (array_filter((['user' => null, 'action' => '#', 'method' => 'POST']), 'is_string', ARRAY_FILTER_USE_KEY) as $__key => $__value) {
+    $$__key = $$__key ?? $__value;
+}
+
+$__defined_vars = get_defined_vars();
+
+foreach ($attributes->all() as $__key => $__value) {
+    if (array_key_exists($__key, $__defined_vars)) unset($$__key);
+}
+
+unset($__defined_vars, $__key, $__value); ?>
 
 <style>
 /* Floating label styles for user modal */
@@ -94,17 +122,17 @@
 }
 </style>
 
-<form method="POST" action="{{ $action }}" id="user-form" @if(!empty($ajax)) data-ajax="true" @endif class="modern-user-form">
-    @csrf
-    @if(strtoupper($method) !== 'POST')
-        @method($method)
-    @endif
+<form method="POST" action="<?php echo e($action); ?>" id="user-form" <?php if(!empty($ajax)): ?> data-ajax="true" <?php endif; ?> class="modern-user-form">
+    <?php echo csrf_field(); ?>
+    <?php if(strtoupper($method) !== 'POST'): ?>
+        <?php echo method_field($method); ?>
+    <?php endif; ?>
 
     <div class="space-y-4">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div class="user-form-field">
                 <input name="first_name" 
-                       value="{{ old('first_name', $user->first_name ?? '') }}" 
+                       value="<?php echo e(old('first_name', $user->first_name ?? '')); ?>" 
                        placeholder=" "
                        required />
                 <label>First name *</label>
@@ -112,14 +140,14 @@
             </div>
             <div class="user-form-field">
                 <input name="middle_name" 
-                       value="{{ old('middle_name', $user->middle_name ?? '') }}" 
+                       value="<?php echo e(old('middle_name', $user->middle_name ?? '')); ?>" 
                        placeholder=" " />
                 <label>Middle name</label>
                 <div class="error" aria-hidden="true"></div>
             </div>
             <div class="user-form-field">
                 <input name="last_name" 
-                       value="{{ old('last_name', $user->last_name ?? '') }}" 
+                       value="<?php echo e(old('last_name', $user->last_name ?? '')); ?>" 
                        placeholder=" "
                        required />
                 <label>Last name *</label>
@@ -131,7 +159,7 @@
             <div class="user-form-field">
                 <input type="email"
                        name="email" 
-                       value="{{ old('email', $user->email ?? '') }}" 
+                       value="<?php echo e(old('email', $user->email ?? '')); ?>" 
                        placeholder=" "
                        required />
                 <label>Email *</label>
@@ -143,8 +171,8 @@
                        name="password" 
                        id="user-password-field"
                        placeholder=" "
-                       {{ $user ? '' : 'required' }} />
-                <label>Password {{ $user ? '' : '*' }}</label>
+                       <?php echo e($user ? '' : 'required'); ?> />
+                <label>Password <?php echo e($user ? '' : '*'); ?></label>
                 <span class="password-eye" data-target="#user-password-field">
                     <i class="fa-solid fa-eye"></i>
                 </span>
@@ -156,7 +184,9 @@
     <div class="mt-8">
         <div id="form-errors" class="text-red-600 text-sm mb-3 bg-red-50 p-3 rounded-lg hidden"></div>
         <button type="submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg">
-            {{ $user ? 'Save changes' : 'Create User' }}
+            <?php echo e($user ? 'Save changes' : 'Create User'); ?>
+
         </button>
     </div>
 </form>
+<?php /**PATH C:\Users\magal\Desktop\gso-ibims\resources\views/admin/users/_form.blade.php ENDPATH**/ ?>
