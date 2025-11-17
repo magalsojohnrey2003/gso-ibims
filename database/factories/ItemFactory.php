@@ -74,8 +74,7 @@ class ItemFactory extends Factory
         ];
 
         $totalQty = $this->faker->numberBetween(1, 50);
-        $borrowedQty = $this->faker->numberBetween(0, (int)($totalQty * 0.6)); // Max 60% borrowed
-        $availableQty = $totalQty - $borrowedQty;
+        $availableQty = $totalQty; // All items available, none borrowed
 
         return [
             'name' => $this->faker->randomElement($itemNames),

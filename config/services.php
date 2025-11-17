@@ -1,3 +1,7 @@
+    'philsms' => [
+        'url' => env('PHILSMS_API_URL'),
+        'token' => env('PHILSMS_API_TOKEN'),
+    ],
 <?php
 
 return [
