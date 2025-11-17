@@ -150,5 +150,5 @@
         </div>
     </div>
 
-    @vite(['resources/js/admin-walk-in.js'])
+    @vite(['resources/js/app.js'])
 </x-app-layout>
