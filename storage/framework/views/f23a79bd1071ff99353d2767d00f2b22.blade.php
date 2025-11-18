@@ -1,6 +1,6 @@
 <?php extract((new \Illuminate\Support\Collection($attributes->getAttributes()))->mapWithKeys(function ($value, $key) { return [Illuminate\Support\Str::camel(str_replace([':', '.'], ' ', $key)) => $value]; })->all(), EXTR_SKIP); ?>
 
-<x-heroicon-o-trash  {{ $attributes }}>
+<x-heroicon-s-clipboard-document-check  {{ $attributes }}>
 
 {{ $slot ?? "" }}
-</x-heroicon-o-trash>
+</x-heroicon-s-clipboard-document-check>

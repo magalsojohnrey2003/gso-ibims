@@ -16,6 +16,9 @@
 
     <!-- Use main app.css too to get theme variables & utility classes available on auth pages -->
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+
+    <!-- Responsive overrides dedicated for mobile scaling -->
+    <link rel="stylesheet" href="{{ asset('css/mobile-responsive.css') }}">
 </head>
 <body>
     @yield('content')

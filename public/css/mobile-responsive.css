@@ -1,0 +1,105 @@
+/* Responsive overrides to keep the desktop auth layout intact on small screens */
+@media (max-width: 767px) {
+  /* keep the desktop proportions and uniformly scale the entire card */
+  .auth-shell {
+    --auth-base-width: 880;
+    --auth-target-width: clamp(320px, 100vw - 32px, calc(var(--auth-base-width) * 1px));
+    --auth-scale: calc(var(--auth-target-width) / (var(--auth-base-width) * 1px));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 100vh;
+    padding: 24px 0;
+    overflow-x: hidden;
+  }
+
+  .auth-shell .wrapper.larger-form {
+    width: calc(var(--auth-base-width) * 1px);
+    max-width: none;
+    margin: 0 auto;
+    padding: 28px 32px;
+    border-radius: 14px;
+    height: auto;
+    max-height: none;
+    transform-origin: center center;
+    transform: scale(var(--auth-scale));
+  }
+
+  /* keep panels side-by-side and centered */
+  .auth-shell .auth-panels,
+  .auth-shell .auth-slider {
+    display: flex;
+    flex-direction: row !important;
+    align-items: stretch;
+    justify-content: center;
+    gap: 0;
+  }
+
+  .auth-shell .auth-panel {
+    flex: 1 1 50%;
+    max-width: 50%;
+    padding: 12px 18px;
+    align-items: center;
+  }
+
+  .auth-shell .auth-panel form {
+    width: 100%;
+    max-width: 420px;
+    margin: 0 auto;
+    max-height: calc(100vh - 160px);
+    overflow: auto;
+    padding-right: 8px;
+    padding-bottom: 28px;
+  }
+
+  /* restore the sliding cover to its desktop proportions */
+  .auth-shell .auth-cover {
+    top: 0 !important;
+    width: 50% !important;
+    height: 100% !important;
+    border-radius: 12px;
+    transform: none !important;
+    box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.32);
+  }
+
+  .auth-shell .auth-cover.cover-left {
+    left: 0 !important;
+  }
+
+  .auth-shell .auth-cover.cover-right {
+    left: 50% !important;
+  }
+
+  .auth-shell .auth-cover .cover-content {
+    padding: 24px 20px;
+    gap: 12px;
+    max-width: 420px;
+    border-radius: 16px;
+  }
+
+  .auth-shell .auth-cover .cover-logo {
+    width: 140px;
+    max-width: 140px;
+    animation-duration: 6.5s;
+  }
+
+  .auth-shell .auth-cover .cover-text .cover-title {
+    font-size: 1.12rem;
+  }
+
+  .auth-shell .auth-cover .cover-text .cover-sub {
+    font-size: 0.9rem;
+  }
+
+  .auth-shell .auth-cover .cover-text .cover-desc {
+    display: block;
+    font-size: 0.9rem;
+    line-height: 1.55;
+  }
+
+  .auth-shell .auth-cover .cover-text .cover-meta {
+    font-size: 0.8rem;
+  }
+}
