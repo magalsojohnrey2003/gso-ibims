@@ -9,7 +9,7 @@
                      variant="s"
                      iconStyle="plain"
                      iconColor="gov-accent">
-                Borrow Itemsssss
+                Borrow Items
             </x-title>
         </div>
 
