@@ -44,14 +44,6 @@
     align-items: center;
   }
 
-  .auth-shell .auth-panel[data-desktop-hidden="1"] {
-    display: none !important;
-  }
-
-  .auth-shell .auth-panel[data-desktop-hidden="0"] {
-    display: flex !important;
-  }
-
   .auth-shell .auth-panel form {
     width: 100%;
     max-width: 420px;
@@ -70,7 +62,6 @@
     border-radius: 12px;
     transform: none !important;
     box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.32);
-    display: flex !important;
   }
 
   .auth-shell .auth-cover.cover-left {
