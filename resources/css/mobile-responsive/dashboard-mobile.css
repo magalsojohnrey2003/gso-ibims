@@ -1,0 +1,108 @@
+/* Shared dashboard tweaks */
+.dashboard-page {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+}
+
+.dashboard-page .stat-card,
+.dashboard-page .card,
+.dashboard-page .welcome-card-custom {
+    border-radius: 1rem;
+}
+
+@media (max-width: 1024px) {
+    #pageContainer {
+        height: auto;
+        min-height: calc(100vh - 4rem);
+    }
+
+    #mainContent {
+        height: auto;
+        min-height: calc(100vh - 4rem);
+        padding-bottom: 2.5rem;
+    }
+}
+
+@media (max-width: 767px) {
+    body {
+        overflow-x: hidden;
+        width: 100%;
+    }
+
+    html {
+        overflow-x: hidden;
+        width: 100%;
+    }
+
+    #pageContainer {
+        height: auto;
+        min-height: calc(100vh - 4rem);
+    }
+
+    #mainContent {
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        width: 100%;
+        overflow: visible;
+        padding-bottom: 2.5rem;
+    }
+
+    #mainContent > .max-w-7xl,
+    #mainContent > .max-w-6xl,
+    #mainContent > .mx-auto {
+        width: auto;
+        max-width: none;
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .dashboard-page {
+        --dashboard-base-width: 1200;
+        --dashboard-target-width: clamp(320px, 100vw - 24px, calc(var(--dashboard-base-width) * 1px));
+        --dashboard-scale: calc(var(--dashboard-target-width) / (var(--dashboard-base-width) * 1px));
+        width: calc(var(--dashboard-base-width) * 1px);
+        margin: 0 auto;
+        transform-origin: top center;
+        transform: scale(var(--dashboard-scale));
+        gap: 2.5rem;
+        padding-inline: 0;
+    }
+
+    .dashboard-page .welcome-card-wrapper {
+        margin-bottom: 0;
+    }
+
+    .dashboard-page .dashboard-stat-grid {
+        display: grid;
+        gap: 2rem;
+    }
+
+    .dashboard-page .dashboard-stat-grid--admin {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .dashboard-page .dashboard-stat-grid--user {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .dashboard-page .dashboard-analytics-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 2rem;
+    }
+
+    .dashboard-page .stat-card,
+    .dashboard-page .card,
+    .dashboard-page .welcome-card-custom {
+        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+    }
+
+    .dashboard-page .card .h-72,
+    .dashboard-page .card .h-56,
+    .dashboard-page .chart-container {
+        min-height: 320px;
+    }
+}

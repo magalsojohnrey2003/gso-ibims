@@ -10,7 +10,7 @@
          iconColor="white">
     Dashboard
 </x-title>
-    <div class="py-10">
+    <div class="py-10 dashboard-page">
         
         <div class="max-w-6xl mx-auto sm:px-6 lg:px-8 space-y-8">
 
@@ -50,7 +50,7 @@
             />
           
             {{-- Quick Stats --}}
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 dashboard-stat-grid dashboard-stat-grid--user">
                 {{-- My Borrowed Items --}}
                 <div class="stat-card relative overflow-hidden rounded-xl p-5 transition-all duration-300 hover:shadow-xl" 
                      style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);">
@@ -109,7 +109,7 @@
             </div>
 
             {{-- Two-column: Trends + Available Items --}}
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 dashboard-analytics-grid">
                 {{-- Personal Borrow Trends --}}
                 <div class="card p-6 rounded-xl">
                     <div class="flex justify-between items-center mb-4">
