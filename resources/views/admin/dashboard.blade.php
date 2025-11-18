@@ -14,7 +14,7 @@
 </div>
    
 
-    <div class="py-10 dashboard-page">
+    <div class="py-10">
         <div class="sm:px-6 lg:px-8 space-y-10">
 
             {{-- Welcome Card - Always shows until logout --}}
@@ -52,7 +52,7 @@
                 :type="$greetingType" 
             />
             {{-- Statistics Cards --}}
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 dashboard-stat-grid dashboard-stat-grid--admin">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {{-- Total Items --}}
                 <div class="stat-card relative overflow-hidden rounded-xl p-6 transition-all duration-300 hover:shadow-xl" 
                      style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);">
@@ -97,7 +97,7 @@
             </div>
 
             {{-- Charts Section (two columns) --}}
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 dashboard-analytics-grid">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {{-- Borrow Trends --}}
                 <div class="card p-6 chart-container rounded-xl">
                     <div class="flex justify-between items-center mb-6">

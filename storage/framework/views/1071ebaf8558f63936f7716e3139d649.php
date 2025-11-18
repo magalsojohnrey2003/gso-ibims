@@ -22,7 +22,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <!-- Scripts / Vite -->
-    <?php echo app('Illuminate\Foundation\Vite')(['resources/css/app.css', 'resources/css/mobile-responsive/dashboard-mobile.css', 'resources/js/app.js']); ?>
+    <?php echo app('Illuminate\Foundation\Vite')(['resources/css/app.css', 'resources/js/app.js']); ?>
 
     <!-- Minimal fallbacks & small layout helpers so the page looks correct until Tailwind rebuild runs -->
     <style>
