@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
 {
@@ -63,8 +64,10 @@ class UserController extends Controller
             $data['creation_source'] = 'Admin-Created';
 
             $user = User::create($data);
-            // ensure created accounts are regular users
-            $user->assignRole('user');
+
+            // Ensure the basic borrower role exists before assignment.
+            $userRole = $this->ensureUserRoleExists();
+            $user->assignRole($userRole);
 
             if ($request->ajax()) {
                 $row = view('admin.users._row', compact('user'))->render();
@@ -139,9 +142,10 @@ class UserController extends Controller
 
         // update user fields (role is intentionally not editable here)
         $user->update($data);
-        // make sure user still has at least the plain 'user' role if none exist
+        // Ensure the borrower role exists and is attached when missing.
         if ($user->roles()->count() === 0) {
-            $user->assignRole('user');
+            $userRole = $this->ensureUserRoleExists();
+            $user->assignRole($userRole);
         }
 
         if ($request->ajax()) {
@@ -178,5 +182,18 @@ class UserController extends Controller
         }
 
         return redirect()->route('admin.users.index')->with('success', 'User deleted.');
+    }
+
+    /**
+     * Guarantee the default borrower role exists for assignment.
+     */
+    protected function ensureUserRoleExists(): Role
+    {
+        $guard = config('auth.defaults.guard', 'web');
+
+        return Role::firstOrCreate([
+            'name' => 'user',
+            'guard_name' => $guard,
+        ]);
     }
 }
