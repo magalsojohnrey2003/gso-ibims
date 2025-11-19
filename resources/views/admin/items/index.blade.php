@@ -138,9 +138,9 @@
                               <td class="px-6 py-4 text-center">
                                   <div class="flex items-center justify-center gap-3">
                                       <x-button
-                                          variant="primary"
+                                          variant="secondary"
                                           size="sm"
-                                          class="h-10 w-10 !px-0 !py-0 rounded-full shadow-lg [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
+                                          class="btn-action btn-utility h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
                                           iconName="pencil-square"
                                           x-data
                                           x-on:click.prevent="$dispatch('open-modal', 'edit-item-{{ $item->id }}')">
@@ -149,7 +149,7 @@
                                       <x-button
                                           variant="secondary"
                                           size="sm"
-                                          class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
+                                          class="btn-action btn-view h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
                                           iconName="eye"
                                           x-data
                                           x-on:click.prevent="$dispatch('open-modal', 'view-item-{{ $item->id }}')">
@@ -158,7 +158,7 @@
                                       <x-button
                                           variant="secondary"
                                           size="sm"
-                                          class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
+                                          class="btn-action btn-print h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
                                           iconName="printer"
                                           type="button"
                                           data-print-stickers
@@ -172,9 +172,9 @@
                                           Print
                                       </x-button>
                                       <x-button
-                                          variant="danger"
+                                          variant="secondary"
                                           size="sm"
-                                          class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
+                                          class="btn-action btn-delete h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
                                           iconName="trash"
                                           x-data
                                           x-on:click.prevent="$dispatch('open-modal', 'confirm-delete-{{ $item->id }}')">

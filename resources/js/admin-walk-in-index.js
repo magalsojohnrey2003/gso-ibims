@@ -77,9 +77,9 @@
 
     // Print button - always visible
     buttons.push(`
-      <button type="button" data-action="print" class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-purple-600 text-white shadow transition hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
+      <button type="button" data-action="print" class="btn-action btn-print h-10 w-10" title="Print">
         <span class="sr-only">Print</span>
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M16 9V4H8v5" />
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" />
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 14h12v8H6z" />
@@ -90,18 +90,18 @@
     // Conditional buttons based on status
     if (status === 'approved') {
       buttons.push(`
-        <button type="button" data-action="deliver" class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-indigo-600 text-white shadow transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+        <button type="button" data-action="deliver" class="btn-action btn-deliver h-10 w-10" title="Deliver Items">
           <span class="sr-only">Deliver Items</span>
-          <i class="fas fa-truck"></i>
+          <i class="fas fa-truck" aria-hidden="true"></i>
         </button>
       `);
     }
 
     if (status === 'delivered') {
       buttons.push(`
-        <button type="button" data-action="view" class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white shadow transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+        <button type="button" data-action="view" class="btn-action btn-view h-10 w-10" title="View">
           <span class="sr-only">View</span>
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
           </svg>

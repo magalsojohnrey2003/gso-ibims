@@ -84,18 +84,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const actionButtons = (r) => {
     if (r.status === 'pending') {
-      return `<div class='flex items-center justify-center gap-2'>
-        <button data-action='approve' class='inline-flex items-center justify-center w-9 h-9 rounded-full bg-[#22C55E] text-white shadow-none' title='Approve'>
-          <i class="fas fa-check"></i>
+      return `<div class="flex items-center justify-center gap-2">
+        <button data-action="approve" class="btn-action btn-accept h-10 w-10" title="Approve">
+          <span class="sr-only">Approve</span>
+          <i class="fas fa-check" aria-hidden="true"></i>
         </button>
-        <button data-action='reject' class='inline-flex items-center justify-center w-9 h-9 rounded-full bg-[#EF4444] text-white shadow-none' title='Reject'>
-          <i class="fas fa-times"></i>
+        <button data-action="reject" class="btn-action btn-reject h-10 w-10" title="Reject">
+          <span class="sr-only">Reject</span>
+          <i class="fas fa-times" aria-hidden="true"></i>
         </button>
       </div>`;
     }
-    return `<button data-action='view' class='inline-flex items-center justify-center w-9 h-9 rounded-full bg-[#6D28D9] text-white shadow-none' title='View'>
-      <i class="fas fa-eye"></i>
-    </button>`;
+    return `<div class="flex items-center justify-center gap-2">
+      <button data-action="view" class="btn-action btn-view h-10 w-10" title="View">
+        <span class="sr-only">View</span>
+        <i class="fas fa-eye" aria-hidden="true"></i>
+      </button>
+    </div>`;
   };
 
   tbody.addEventListener('click', (e) => {
@@ -226,10 +231,13 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     rolesTableBody.innerHTML = roles.map(role => `
-      <tr data-role-id='${role.id}' class="border-t">
-        <td class="px-4 py-3 font-medium">${role.name}</td>
+      <tr data-role-id='${role.id}'>
+        <td class="px-4 py-3 font-medium text-gray-800 dark:text-gray-100">${role.name}</td>
         <td class="px-4 py-3 text-center">
-          <button data-role-delete class="text-red-500 hover:text-red-600"><i class="fas fa-trash"></i></button>
+          <button data-role-delete class="btn-action btn-delete h-9 w-9" title="Remove role">
+            <span class="sr-only">Remove role</span>
+            <i class="fas fa-trash" aria-hidden="true"></i>
+          </button>
         </td>
       </tr>
     `).join('');

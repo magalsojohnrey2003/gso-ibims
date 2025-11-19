@@ -442,6 +442,47 @@ nav, aside, main { color: inherit; }
    ----------------------------------------------------------------------- */
 .accent-ghost { background-color: var(--gov-accent-ghost); }
 
+/* -----------------------------------------------------------------------
+   Table action buttons (Tailwind utility helpers)
+   ----------------------------------------------------------------------- */
+@layer components {
+  .btn-action {
+    @apply inline-flex items-center justify-center !p-2 rounded-full border !border-gray-200 !bg-white !text-[#6F42C1] shadow-sm transition duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#6F42C1] hover:!text-[#6F42C1] disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-action svg {
+    @apply w-5 h-5 text-current;
+  }
+
+  .btn-print {
+    @apply hover:!bg-[#F8F9FA] hover:!text-[#6F42C1] hover:!border-[#E5E7EB];
+  }
+
+  .btn-view {
+    @apply hover:!bg-[#592582] hover:!text-white hover:!border-[#592582];
+  }
+
+  .btn-delete {
+    @apply hover:!bg-[#FDDDDD] hover:!text-[#C33543] hover:!border-[#C33543];
+  }
+
+  .btn-reject {
+    @apply hover:!bg-[#FFEDD5] hover:!text-[#F97316] hover:!border-[#F97316];
+  }
+
+  .btn-accept {
+    @apply hover:!bg-[#D1FAE5] hover:!text-[#059669] hover:!border-[#059669];
+  }
+
+  .btn-deliver {
+    @apply hover:!bg-[#1D4ED8] hover:!text-white hover:!border-[#1D4ED8];
+  }
+
+  .btn-utility {
+    @apply hover:!bg-[#F8F9FA] hover:!text-[#6F42C1] hover:!border-[#E5E7EB];
+  }
+}
+
 /* Inputs (scoped general styles; keep Breeze component usage as usual) */
 
 /* Small helpers for error state */
