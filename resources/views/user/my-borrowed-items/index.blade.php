@@ -204,14 +204,14 @@
 
     <!-- Templates for action buttons -->
     <template id="btn-view-template">
-        <x-button iconName="eye" variant="secondary" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only !bg-emerald-500 hover:!bg-emerald-600 text-white" data-action="view">View</x-button>
+        <x-button iconName="eye" variant="secondary" class="btn-action btn-view h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="view">View</x-button>
     </template>
 
     <template id="btn-print-template">
-        <x-button variant="secondary" iconName="printer" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only !bg-amber-500 hover:!bg-amber-600 text-white" data-action="print">Print</x-button>
+        <x-button variant="secondary" iconName="printer" class="btn-action btn-print h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="print">Print</x-button>
     </template>
     <template id="btn-return-template">
-        <x-button variant="warning" iconName="arrow-uturn-left" class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only !bg-indigo-500 hover:!bg-indigo-600 text-white" data-action="return">Return Items</x-button>
+        <x-button variant="secondary" iconName="arrow-uturn-left" class="btn-action btn-utility h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="return">Return Items</x-button>
     </template>
 
     <!-- Alert templates -->

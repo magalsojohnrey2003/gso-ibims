@@ -24,9 +24,9 @@
     <td class="px-6 py-4">
         <div class="flex items-center justify-center gap-3">
             <x-button
-                variant="primary"
+                variant="secondary"
                 size="sm"
-                class="h-10 w-10 !px-0 !py-0 rounded-full shadow-lg [&>span:first-child]:mr-0 [&>span:last-child]:sr-only open-edit-modal"
+                class="btn-action btn-utility h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only open-edit-modal"
                 iconName="pencil-square"
                 data-edit-url="{{ route('admin.users.edit', $user) }}">
                 Edit
@@ -35,9 +35,9 @@
                 @csrf
                 @method('DELETE')
                 <x-button
-                    variant="danger"
+                    variant="secondary"
                     size="sm"
-                    class="h-10 w-10 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
+                    class="btn-action btn-delete h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
                     iconName="trash"
                     type="submit">
                     Delete

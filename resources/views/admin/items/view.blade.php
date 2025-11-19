@@ -150,7 +150,7 @@
                                     <x-button
                                         variant="secondary"
                                         size="sm"
-                                        class="h-9 w-9 !px-0 !py-0 rounded-full shadow [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
+                                        class="btn-action btn-utility h-9 w-9 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
                                         iconName="clock"
                                         x-data
                                         x-on:click.prevent="window.dispatchEvent(new CustomEvent('item-history:open', { detail: { instanceId: {{ $instance->id }}, propertyNumber: '{{ $instance->property_number }}' } }))">

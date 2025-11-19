@@ -162,11 +162,13 @@ document.addEventListener('DOMContentLoaded', () => {
         <td class='px-6 py-3'>${badgeHtml(r.status)}</td>
         <td class='px-6 py-3'>
             <div class='flex items-center justify-center gap-2'>
-                <button data-action='view' class='inline-flex items-center justify-center w-9 h-9 rounded-full manpower-action-view' title='View'>
-                  <i class="fas fa-eye"></i>
+                <button data-action='view' class='btn-action btn-view h-10 w-10' title='View'>
+                  <span class='sr-only'>View</span>
+                  <i class="fas fa-eye" aria-hidden="true"></i>
                 </button>
-                <a href='${printUrl}' target='_blank' rel='noopener' class='inline-flex items-center justify-center w-9 h-9 rounded-full manpower-action-print' title='Print'>
-                  <i class="fas fa-print"></i>
+                <a href='${printUrl}' target='_blank' rel='noopener' class='btn-action btn-print h-10 w-10' title='Print'>
+                  <span class='sr-only'>Print</span>
+                  <i class="fas fa-print" aria-hidden="true"></i>
                 </a>
             </div>
         </td>

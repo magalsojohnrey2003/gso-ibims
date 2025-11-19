@@ -63,30 +63,45 @@
     <template id="badge-status-rejected"><x-status-badge type="rejected" text="Rejected" /></template>
 
     <x-modal name="adminManageRolesModal" maxWidth="2xl">
-        <div class="p-6 space-y-5">
-            <div class="flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-gray-900">Manage Roles</h3>
-                <button class="text-gray-400 hover:text-gray-600" @click="$dispatch('close-modal','adminManageRolesModal')"><i class="fas fa-times"></i></button>
+        <div class="w-full bg-white dark:bg-gray-900 shadow-lg overflow-hidden flex flex-col max-h-[85vh]">
+            <div class="bg-purple-600 text-white px-6 py-5 sticky top-0 z-20 relative">
+                <button
+                    type="button"
+                    @click="$dispatch('close-modal','adminManageRolesModal')"
+                    class="absolute top-4 right-4 text-white hover:text-gray-200 transition-colors p-2 hover:bg-white/10 rounded-lg"
+                    aria-label="Close manage roles modal"
+                >
+                    <i class="fas fa-times"></i>
+                </button>
+                <h3 class="text-2xl font-bold flex items-center gap-2">
+                    <i class="fas fa-users-cog"></i>
+                    Manage Roles
+                </h3>
+                <p class="text-purple-100 mt-2 text-sm leading-relaxed">Add or remove manpower role types for future requests.</p>
             </div>
-            <div class="grid gap-6 md:grid-cols-3">
-                <div class="md:col-span-1 space-y-3">
-                    <label class="block text-sm font-medium text-gray-700" for="adminRoleName">Role Type</label>
-                    <input type="text" id="adminRoleName" class="w-full rounded-lg border-gray-300 focus:border-purple-500 focus:ring-purple-500 text-sm" placeholder="e.g. Driver, Usher" />
-                    <x-button id="adminSaveRole" variant="primary" class="w-full">Save</x-button>
-                </div>
-                <div class="md:col-span-2">
-                    <div class="border rounded-xl overflow-hidden">
-                        <table class="w-full text-sm text-left text-gray-600">
-                            <thead class="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
-                                <tr>
-                                    <th class="px-4 py-3">Role Type</th>
-                                    <th class="px-4 py-3 text-center w-20">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="adminRolesTableBody">
-                                <x-table-loading-state colspan="2" />
-                            </tbody>
-                        </table>
+            <div class="flex-1 overflow-y-auto p-6 space-y-6">
+                <div class="grid gap-4 md:grid-cols-3">
+                    <div class="md:col-span-1 space-y-3">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-200" for="adminRoleName">Role Type</label>
+                        <input type="text" id="adminRoleName" class="w-full rounded-lg border border-gray-300 focus:border-purple-500 focus:ring-purple-500 text-sm" placeholder="e.g. Driver, Usher" />
+                        <x-button id="adminSaveRole" variant="primary" class="w-full">Save</x-button>
+                    </div>
+                    <div class="md:col-span-2">
+                        <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden shadow-sm table-wrapper">
+                            <div class="table-container">
+                                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm text-left text-gray-700 dark:text-gray-200">
+                                    <thead class="bg-purple-600 dark:bg-purple-700 text-xs uppercase tracking-wide text-white">
+                                        <tr>
+                                            <th class="px-4 py-3 font-semibold">Role Type</th>
+                                            <th class="px-4 py-3 text-center w-24 font-semibold">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="adminRolesTableBody" class="divide-y divide-gray-100 dark:divide-gray-800 bg-white dark:bg-gray-900">
+                                        <x-table-loading-state colspan="2" />
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
