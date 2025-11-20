@@ -8,12 +8,12 @@
         <ul class="space-y-2" role="none">
             <!-- Back to Home -->
             <li role="none">
-                <a href="{{ auth()->user()->role === 'admin' ? route('admin.dashboard') : route('user.dashboard') }}"
+                <a href="<?php echo e(auth()->user()->role === 'admin' ? route('admin.dashboard') : route('user.dashboard')); ?>"
                    role="menuitem"
                    title="Home"
-                   @if(request()->routeIs('admin.dashboard') || request()->routeIs('user.dashboard')) aria-current="page" @endif
+                   <?php if(request()->routeIs('admin.dashboard') || request()->routeIs('user.dashboard')): ?> aria-current="page" <?php endif; ?>
                    class="flex items-center px-4 py-3 rounded-md gov-hover transition-colors duration-150 group focus:outline-none focus:ring-2 focus:ring-offset-1
-                          {{ request()->routeIs('admin.dashboard') || request()->routeIs('user.dashboard') ? 'gov-active' : '' }}">
+                          <?php echo e(request()->routeIs('admin.dashboard') || request()->routeIs('user.dashboard') ? 'gov-active' : ''); ?>">
                     <i class="fas fa-home mr-3 sidebar-icon" aria-hidden="true"></i>
                     <span class="sidebar-text">Home</span>
                 </a>
@@ -21,12 +21,12 @@
 
             <!-- Profile Info -->
             <li role="none">
-                <a href="{{ route('profile.info') }}"
+                <a href="<?php echo e(route('profile.info')); ?>"
                    role="menuitem"
                    title="Profile Info"
-                   @if(request()->routeIs('profile.info')) aria-current="page" @endif
+                   <?php if(request()->routeIs('profile.info')): ?> aria-current="page" <?php endif; ?>
                    class="flex items-center px-4 py-3 rounded-md gov-hover transition-colors duration-150 group focus:outline-none focus:ring-2 focus:ring-offset-1
-                          {{ request()->routeIs('profile.info') ? 'gov-active' : '' }}">
+                          <?php echo e(request()->routeIs('profile.info') ? 'gov-active' : ''); ?>">
                     <i class="fas fa-user mr-3 sidebar-icon" aria-hidden="true"></i>
                     <span class="sidebar-text">Profile Info</span>
                 </a>
@@ -34,12 +34,12 @@
 
             <!-- Update Password -->
             <li role="none">
-                <a href="{{ route('profile.password') }}"
+                <a href="<?php echo e(route('profile.password')); ?>"
                    role="menuitem"
                    title="Update Password"
-                   @if(request()->routeIs('profile.password')) aria-current="page" @endif
+                   <?php if(request()->routeIs('profile.password')): ?> aria-current="page" <?php endif; ?>
                    class="flex items-center px-4 py-3 rounded-md gov-hover transition-colors duration-150 group focus:outline-none focus:ring-2 focus:ring-offset-1
-                          {{ request()->routeIs('profile.password') ? 'gov-active' : '' }}">
+                          <?php echo e(request()->routeIs('profile.password') ? 'gov-active' : ''); ?>">
                     <i class="fas fa-key mr-3 sidebar-icon" aria-hidden="true"></i>
                     <span class="sidebar-text">Update Password</span>
                 </a>
@@ -47,12 +47,12 @@
 
             <!-- Delete Account -->
             <li role="none">
-                <a href="{{ route('profile.delete') }}"
+                <a href="<?php echo e(route('profile.delete')); ?>"
                    role="menuitem"
                    title="Delete Account"
-                   @if(request()->routeIs('profile.delete')) aria-current="page" @endif
+                   <?php if(request()->routeIs('profile.delete')): ?> aria-current="page" <?php endif; ?>
                    class="flex items-center px-4 py-3 rounded-md gov-hover transition-colors duration-150 group focus:outline-none focus:ring-2 focus:ring-offset-1
-                          {{ request()->routeIs('profile.delete') ? 'gov-active' : '' }}">
+                          <?php echo e(request()->routeIs('profile.delete') ? 'gov-active' : ''); ?>">
                     <i class="fas fa-user-slash mr-3 sidebar-icon" aria-hidden="true"></i>
                     <span class="sidebar-text">Delete Account</span>
                 </a>
@@ -60,3 +60,4 @@
         </ul>
     </nav>
 </aside>
+<?php /**PATH C:\Users\magal\Desktop\gso-ibims\resources\views/layouts/sidebar-profile.blade.php ENDPATH**/ ?>

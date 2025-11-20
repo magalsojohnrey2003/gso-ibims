@@ -1,5 +1,5 @@
 <nav x-data="{ open: false }"
-     class="w-full fixed top-0 left-0 z-50 bg-white/95 backdrop-blur-sm dark:bg-slate-900/95 border-b border-gray-100 dark:border-gray-800"
+    class="primary-navbar w-full fixed top-0 left-0 z-50 backdrop-blur-sm"
      role="navigation" aria-label="Primary">
     <div class="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
         <div class="h-16 flex items-center justify-between">
@@ -8,23 +8,23 @@
                 <!-- Sidebar Toggle Button -->
                 <button id="sidebarToggle"
                         aria-label="Toggle sidebar"
-                        class="p-2 rounded-md touch-p-2 -ml-1 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-purple-500"
+                        class="nav-icon-button touch-p-2 -ml-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-0"
                 >
                     <i class="fas fa-bars text-lg" aria-hidden="true"></i>
                 </button>
 
                 <!-- Brand logo + title - responsive -->
                 <a href="<?php echo e(auth()->check() ? (auth()->user()->role === 'admin' ? route('admin.dashboard') : route('user.dashboard')) : url('/')); ?>"
-                   class="flex items-center gap-2 no-underline">
+                   class="flex items-center gap-2 no-underline nav-brand">
                     <img src="<?php echo e(asset('images/logo2.png')); ?>" class="h-8 w-8 object-contain" alt="logo">
-                    <span class=" text-lg font-bold leading-none">GSO-IBIMS</span>
+                    <span class="text-lg font-bold leading-none nav-brand-text">GSO-IBIMS</span>
                 </a>
             </div>
 
               <!-- Center: optional page title slot for narrow screens -->
             <div class="flex-1 flex items-center justify-center sm:justify-start">
                 <!-- For mobile we can show a condensed page title if the template sets it via a section -->
-                <div class="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate max-w-[60vw] sm:max-w-none">
+                <div class="text-sm font-semibold nav-title truncate max-w-[60vw] sm:max-w-none">
                     <?php echo $__env->yieldContent('navTitle', ''); ?>
                 </div>
             </div>
@@ -33,8 +33,8 @@
             <div class="flex items-center gap-3">
                 <!-- Notification + profile on medium+ screens; on small screens we keep icons compact -->
                 <div class="flex items-center gap-2">
-                    <button id="notificationBtn" class="relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition" aria-haspopup="true" aria-expanded="false" aria-controls="notificationDropdown">
-                        <i class="fas fa-bell text-base text-gray-700 dark:text-gray-300" aria-hidden="true"></i>
+                    <button id="notificationBtn" class="nav-icon-button relative w-9 h-9 rounded-full" aria-haspopup="true" aria-expanded="false" aria-controls="notificationDropdown">
+                        <i class="fas fa-bell text-base" aria-hidden="true"></i>
                         <span id="notificationBadge" class="absolute -top-1 -right-1 inline-flex items-center justify-center rounded-full text-[10px] w-4 h-4 bg-red-600 text-white hidden">0</span>
                     </button>
 
@@ -100,8 +100,8 @@
 
         <!-- Profile -->
         <div class="relative">
-            <button id="profileDropdownBtn" class="flex items-center focus:outline-none" aria-haspopup="true" aria-expanded="false" aria-controls="profileDropdown">
-                <div class="w-9 h-9 rounded-full overflow-hidden border-2 transition shadow-sm">
+            <button id="profileDropdownBtn" class="flex items-center nav-profile-trigger focus:outline-none" aria-haspopup="true" aria-expanded="false" aria-controls="profileDropdown">
+                <div class="w-9 h-9 rounded-full overflow-hidden border-2 profile-avatar transition shadow-sm">
                     <img src="<?php echo e(Auth::user()->profile_photo ? asset('storage/' . Auth::user()->profile_photo) : asset('images/profile.jpg')); ?>"
                         alt="Profile" class="w-full h-full object-cover">
                 </div>

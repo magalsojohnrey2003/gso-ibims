@@ -50,6 +50,8 @@ foreach ($attributes->all() as $__key => $__value) {
 unset($__defined_vars, $__key, $__value); ?>
 
 <?php
+    use Illuminate\Support\Str;
+
     $variantClasses = [
         'primary'   => 'text-white bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 focus:ring-indigo-500 hover:shadow-[0_0_10px_#6366f1] border border-transparent',
         'secondary' => 'text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:ring-indigo-500 hover:shadow-[0_0_10px_#9ca3af] border border-gray-300 dark:border-gray-600',
@@ -63,19 +65,33 @@ unset($__defined_vars, $__key, $__value); ?>
         'lg' => 'px-4 py-2.5 text-base',
     ];
 
-    
     $base = 'inline-flex items-center justify-center rounded-md shadow-sm font-medium transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
 
-    $classes = implode(' ', [
+    $isActionButton = Str::contains($attributes->get('class', ''), 'btn-action');
+
+    if ($isActionButton) {
+        $base = 'inline-flex items-center justify-center rounded-full shadow-sm font-medium transition duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#6F42C1] disabled:opacity-60 disabled:cursor-not-allowed relative overflow-visible aspect-square border border-gray-200 bg-white text-[#6F42C1]';
+        $sizeClasses = [
+            'sm' => 'p-2',
+            'md' => 'p-2.5',
+            'lg' => 'p-3',
+        ];
+        $variantClasses = array_fill_keys(array_keys($variantClasses), '');
+    }
+
+    $classes = implode(' ', array_filter([
         $base,
         $sizeClasses[$size] ?? $sizeClasses['md'],
         $variantClasses[$variant] ?? $variantClasses['primary'],
-    ]);
+    ]));
 
     $tag = $as === 'a' ? 'a' : 'button';
 
     // Build the Heroicon component name if iconName is provided
     $iconComponent = $iconName ? "heroicon-{$iconStyle}-{$iconName}" : null;
+
+    $iconLeftMargin = $isActionButton ? '' : 'mr-2';
+    $iconRightMargin = $isActionButton ? '' : 'ml-2';
 ?>
 
 <<?php echo e($tag); ?>
@@ -92,9 +108,14 @@ unset($__defined_vars, $__key, $__value); ?>
     
     <?php if(($iconPosition ?? 'left') === 'left'): ?>
         <?php if(isset($icon)): ?>
-            <span class="mr-2"><?php echo e($icon); ?></span>
+            <?php if($isActionButton): ?>
+                <?php echo e($icon); ?>
+
+            <?php else: ?>
+                <span class="<?php echo e($iconLeftMargin); ?>"><?php echo e($icon); ?></span>
+            <?php endif; ?>
         <?php elseif($iconComponent): ?>
-            <span class="mr-2">
+            <?php if($isActionButton): ?>
                 <?php if (isset($component)) { $__componentOriginal511d4862ff04963c3c16115c05a86a9d = $component; } ?>
 <?php if (isset($attributes)) { $__attributesOriginal511d4862ff04963c3c16115c05a86a9d = $attributes; } ?>
 <?php $component = Illuminate\View\DynamicComponent::resolve(['component' => $iconComponent] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
@@ -115,7 +136,30 @@ unset($__defined_vars, $__key, $__value); ?>
 <?php $component = $__componentOriginal511d4862ff04963c3c16115c05a86a9d; ?>
 <?php unset($__componentOriginal511d4862ff04963c3c16115c05a86a9d); ?>
 <?php endif; ?>
-            </span>
+            <?php else: ?>
+                <span class="<?php echo e($iconLeftMargin); ?>">
+                    <?php if (isset($component)) { $__componentOriginal511d4862ff04963c3c16115c05a86a9d = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginal511d4862ff04963c3c16115c05a86a9d = $attributes; } ?>
+<?php $component = Illuminate\View\DynamicComponent::resolve(['component' => $iconComponent] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('dynamic-component'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\Illuminate\View\DynamicComponent::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes(['class' => 'w-5 h-5']); ?>
+<?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginal511d4862ff04963c3c16115c05a86a9d)): ?>
+<?php $attributes = $__attributesOriginal511d4862ff04963c3c16115c05a86a9d; ?>
+<?php unset($__attributesOriginal511d4862ff04963c3c16115c05a86a9d); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginal511d4862ff04963c3c16115c05a86a9d)): ?>
+<?php $component = $__componentOriginal511d4862ff04963c3c16115c05a86a9d; ?>
+<?php unset($__componentOriginal511d4862ff04963c3c16115c05a86a9d); ?>
+<?php endif; ?>
+                </span>
+            <?php endif; ?>
         <?php endif; ?>
     <?php endif; ?>
 
@@ -124,9 +168,14 @@ unset($__defined_vars, $__key, $__value); ?>
     
     <?php if(($iconPosition ?? 'left') === 'right'): ?>
         <?php if(isset($icon)): ?>
-            <span class="ml-2"><?php echo e($icon); ?></span>
+            <?php if($isActionButton): ?>
+                <?php echo e($icon); ?>
+
+            <?php else: ?>
+                <span class="<?php echo e($iconRightMargin); ?>"><?php echo e($icon); ?></span>
+            <?php endif; ?>
         <?php elseif($iconComponent): ?>
-            <span class="ml-2">
+            <?php if($isActionButton): ?>
                 <?php if (isset($component)) { $__componentOriginal511d4862ff04963c3c16115c05a86a9d = $component; } ?>
 <?php if (isset($attributes)) { $__attributesOriginal511d4862ff04963c3c16115c05a86a9d = $attributes; } ?>
 <?php $component = Illuminate\View\DynamicComponent::resolve(['component' => $iconComponent] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
@@ -147,7 +196,30 @@ unset($__defined_vars, $__key, $__value); ?>
 <?php $component = $__componentOriginal511d4862ff04963c3c16115c05a86a9d; ?>
 <?php unset($__componentOriginal511d4862ff04963c3c16115c05a86a9d); ?>
 <?php endif; ?>
-            </span>
+            <?php else: ?>
+                <span class="<?php echo e($iconRightMargin); ?>">
+                    <?php if (isset($component)) { $__componentOriginal511d4862ff04963c3c16115c05a86a9d = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginal511d4862ff04963c3c16115c05a86a9d = $attributes; } ?>
+<?php $component = Illuminate\View\DynamicComponent::resolve(['component' => $iconComponent] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('dynamic-component'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\Illuminate\View\DynamicComponent::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes(['class' => 'w-5 h-5']); ?>
+<?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginal511d4862ff04963c3c16115c05a86a9d)): ?>
+<?php $attributes = $__attributesOriginal511d4862ff04963c3c16115c05a86a9d; ?>
+<?php unset($__attributesOriginal511d4862ff04963c3c16115c05a86a9d); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginal511d4862ff04963c3c16115c05a86a9d)): ?>
+<?php $component = $__componentOriginal511d4862ff04963c3c16115c05a86a9d; ?>
+<?php unset($__componentOriginal511d4862ff04963c3c16115c05a86a9d); ?>
+<?php endif; ?>
+                </span>
+            <?php endif; ?>
         <?php endif; ?>
     <?php endif; ?>
 </<?php echo e($tag); ?>>

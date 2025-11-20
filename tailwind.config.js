@@ -17,6 +17,9 @@ export default {
       // gov purple available as a tailwind color utility
       colors: {
         'gov-purple': '#A855F7',
+        'nav-purple': '#7D46D3',
+        'sidebar-purple': '#4C1D95',
+        'sidebar-purple-hover': '#5B21B6',
       },
       fontFamily: {
         sans: ['Figtree', ...defaultTheme.fontFamily.sans],

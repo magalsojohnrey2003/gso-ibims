@@ -1,9 +1,9 @@
+/* fontawesome */
+@import "@fortawesome/fontawesome-free/css/all.min.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* fontawesome */
-@import "~@fortawesome/fontawesome-free/css/all.min.css";
 
 /* New item highlight animation */
 @keyframes fadeOutHighlight {
@@ -23,16 +23,14 @@
 
 /* Base sidebar surface uses theme variables */
 .sidebar {
-  background: var(--sidebar-bg, var(--sidebar-bg-light)); /* falls back to light if unset */
-  color: var(--nav-text);
-  -webkit-backdrop-filter: blur(3px);
-  backdrop-filter: blur(3px);
-  box-shadow: var(--elev-shadow);
+  background-color: var(--sidebar-bg, var(--sidebar-bg-light));
+  background-image: none;
+  color: var(--sidebar-text, var(--nav-text));
+  box-shadow: var(--sidebar-shadow, none);
   transition: transform .18s ease, width .18s ease, background-color .12s ease, color .12s ease;
   will-change: transform, width;
   min-width: 0;
   overflow: visible;
-  transition: background-color .12s ease, color .12s ease;
   /* allow per-type hooks like [data-sidebar-type="admin"] if needed */
 }
 
@@ -40,71 +38,175 @@
 .sidebar-logo .logo-img { transition: width .18s ease, height .18s ease; }
 .sidebar-text { transition: opacity .14s ease, visibility .14s ease; }
 
-/* Gov hover / accent behavior (polished for light/dark) */
-:root { --gov-accent: #A855F7; --gov-accent-rgba: 168,85,247; }
-
-.gov-hover { position: relative; z-index: 0; transition: background-color .15s ease, color .12s ease; }
-
-/* subtle overlay on hover */
-.gov-hover:hover {
-  background-color: rgba(var(--gov-accent-rgba), 0.04);
+/* Sidebar link states tuned for purple navigation */
+.gov-hover {
+  position: relative;
+  z-index: 0;
+  transition: background-color .18s ease, color .18s ease, box-shadow .18s ease;
+  border-radius: 0.75rem;
+  color: inherit;
 }
 
-/* left accent pseudo-element (no layout shift) */
-.gov-hover::before {
+#sidebar nav ul li a {
+  color: var(--sidebar-text, #ffffff);
+  font-weight: 500;
+  transition: background-color .18s ease, color .18s ease, box-shadow .18s ease;
+  position: relative;
+  border: none;
+  background-image: none;
+  box-shadow: none;
+}
+
+#sidebar nav ul li a .sidebar-icon,
+#sidebar nav ul li a .sidebar-text {
+  color: inherit;
+  transition: inherit;
+}
+
+#sidebar nav ul li a::before {
   content: '';
   position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  border-top-right-radius: 4px;
-  border-bottom-right-radius: 4px;
-  background: transparent;
+  left: 0.75rem;
+  top: 50%;
+  width: 0.3rem;
+  height: 0;
+  border-radius: 9999px;
+  background: var(--sidebar-indicator, rgba(255,255,255,0.85));
+  transform: translateY(-50%);
   opacity: 0;
-  transition: background .15s ease, opacity .15s ease, transform .15s ease;
+  transition: height .18s ease, opacity .18s ease;
   pointer-events: none;
 }
 
-.gov-hover:hover::before {
-  background: rgba(var(--gov-accent-rgba), 0.18);
-  opacity: 1;
-}
-
-/* Dark-mode adjustments */
-html.dark .gov-hover:hover {
-  background-color: rgba(var(--gov-accent-rgba), 0.08);
-}
-html.dark .gov-hover:hover::before {
-  background: rgba(var(--gov-accent-rgba), 0.28);
-  opacity: 1;
-}
-
-/* Active state uses solid gov accent but keeps icon/text color readable */
-.gov-active {
-  background: var(--gov-accent);
-  color: inherit;
-}
-.gov-active .sidebar-text,
-.gov-active .sidebar-icon { color: inherit; }
-
-/* ensure icon/text inside links keep current color */
-#sidebar nav ul li a,
-#sidebar nav ul li a i,
-#sidebar nav ul li a svg {
-  color: inherit;
-}
-
-/* inset left accent for hover/active (extra accessibility hook) */
 #sidebar nav ul li a:hover,
+#sidebar nav ul li a:focus-visible {
+  background-color: var(--sidebar-hover, #5B21B6);
+  color: var(--sidebar-text, #ffffff);
+}
+
+#sidebar nav ul li a:hover::before,
+#sidebar nav ul li a:focus-visible::before {
+  height: 60%;
+  opacity: .75;
+}
+
+.gov-active,
 #sidebar nav ul li a[aria-current="page"],
 #sidebar nav ul li a.active {
-  box-shadow: inset 4px 0 0 var(--gov-accent);
+  background-color: var(--sidebar-active-bg, #ffffff);
+  color: var(--sidebar-active-text, #4C1D95);
+  box-shadow: var(--sidebar-active-shadow, 0 10px 30px rgba(76,29,149,0.22));
+}
+
+.gov-active::before,
+#sidebar nav ul li a[aria-current="page"]::before,
+#sidebar nav ul li a.active::before {
+  height: 70%;
+  opacity: 1;
+  background: var(--sidebar-active-text, #4C1D95);
+}
+
+.gov-active .sidebar-text,
+.gov-active .sidebar-icon,
+#sidebar nav ul li a[aria-current="page"] .sidebar-text,
+#sidebar nav ul li a[aria-current="page"] .sidebar-icon,
+#sidebar nav ul li a.active .sidebar-text,
+#sidebar nav ul li a.active .sidebar-icon {
+  color: inherit;
+  font-weight: 600;
+}
+
+#sidebar nav ul li a.gov-active:hover,
+#sidebar nav ul li a[aria-current="page"]:hover,
+#sidebar nav ul li a.active:hover {
+  background-color: var(--sidebar-active-bg, #ffffff);
+  color: var(--sidebar-active-text, #4C1D95);
+}
+
+/* Primary navigation (top bar) */
+.primary-navbar {
+  background-color: var(--navbar-bg, #7D46D3);
+  color: var(--navbar-text, #ffffff);
+  border-bottom: 1px solid var(--navbar-border, rgba(255,255,255,0.18));
+  box-shadow: var(--navbar-shadow, 0 8px 20px rgba(76,29,149,0.22));
+}
+
+.primary-navbar .nav-brand,
+.primary-navbar .nav-brand:hover {
+  color: inherit;
+  text-decoration: none;
+}
+
+.primary-navbar .nav-title {
+  color: rgba(255,255,255,0.78);
+}
+
+.primary-navbar .nav-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  border-radius: 0.75rem;
+  color: inherit;
+  background-color: transparent;
+  border: 1px solid transparent;
+  transition: background-color .18s ease, border-color .18s ease, transform .18s ease;
+  cursor: pointer;
+}
+
+.primary-navbar .nav-icon-button:hover,
+.primary-navbar .nav-icon-button:focus-visible {
+  background-color: var(--navbar-button-hover, rgba(255,255,255,0.18));
+  border-color: rgba(255,255,255,0.08);
+  color: inherit;
+}
+
+.primary-navbar .nav-icon-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--navbar-button-focus, rgba(255,255,255,0.45));
+}
+
+.primary-navbar .nav-icon-button i,
+.primary-navbar .nav-icon-button svg {
+  color: inherit;
+}
+
+.primary-navbar .nav-profile-trigger {
+  border-radius: 9999px;
+  padding: 0.25rem;
+  transition: background-color .18s ease, box-shadow .18s ease;
+}
+
+.primary-navbar .nav-profile-trigger:hover,
+.primary-navbar .nav-profile-trigger:focus-visible {
+  background-color: var(--navbar-button-hover, rgba(255,255,255,0.18));
+}
+
+.primary-navbar .nav-profile-trigger:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--navbar-button-focus, rgba(255,255,255,0.45));
+}
+
+.primary-navbar .profile-avatar {
+  border-color: rgba(255,255,255,0.68);
+  box-shadow: 0 4px 18px rgba(17,24,39,0.2);
+}
+
+.primary-navbar .nav-search input,
+.primary-navbar input[type="search"] {
+  background-color: var(--navbar-input-bg, rgba(255,255,255,0.12));
+  border: 1px solid var(--navbar-input-border, rgba(255,255,255,0.5));
+  color: var(--navbar-text, #ffffff);
+}
+
+.primary-navbar .nav-search input::placeholder,
+.primary-navbar input[type="search"]::placeholder {
+  color: var(--navbar-input-placeholder, rgba(255,255,255,0.72));
 }
 
 /* small responsive tweak for mobile */
 @media (max-width:1024px) {
-  .sidebar { background: rgba(255,255,255,0.02); }
+  .sidebar { background-color: var(--sidebar-bg, #4C1D95); }
 }
 
 @media (max-width: 1023px) {
@@ -117,9 +219,9 @@ html.dark .gov-hover:hover::before {
     z-index: 40;
     width: min(320px, 85vw);
     transform: translateX(-100%);
-    box-shadow: 0 20px 50px rgba(0,0,0,0.25);
-    border-right: 1px solid rgba(0,0,0,0.04);
-    background: var(--sidebar-bg, #fff);
+    box-shadow: 0 24px 60px rgba(36,0,94,0.35);
+    border-right: 1px solid rgba(255,255,255,0.12);
+    background-color: var(--sidebar-bg, #4C1D95);
   }
   #sidebar.-translate-x-full { transform: translateX(-100%); }
   #sidebar.translate-x-0 { transform: translateX(0); }
@@ -256,24 +358,37 @@ html.dark .gov-hover:hover::before {
    Base CSS variables (fallbacks)
    ----------------------------------------------------------------------- */
 :root{
-  --bg: #f6f7fb;            /* light-mode page background (soft, not pure white) */
+  --bg: #F3F4F6;            /* light-mode page background */
   --text: #0f1724;
   --muted: #6b7280;
   --card-bg: #ffffff;
-  --primary: #6d28d9;         /* modern purple (soft) */
+  --primary: #6d28d9;
   --primary-600: #083a60;
   --accent: #0ea5a3;
   --accent-2: #10b981;
 
-  /* subtle purple accent token (use sparingly) */
-  --gov-accent: #A78BFA;      /* lighter purple */
-  --gov-accent-ghost: rgba(168,85,247,0.06);
+  /* purple navigation tokens */
+  --gov-accent: #7D46D3;
+  --gov-accent-ghost: rgba(125,70,211,0.08);
+  --sidebar-bg-light: #4C1D95;
+  --sidebar-text: #ffffff;
+  --sidebar-hover: #5B21B6;
+  --sidebar-active-bg: #ffffff;
+  --sidebar-active-text: #4C1D95;
+  --sidebar-indicator: rgba(255,255,255,0.88);
+  --sidebar-shadow: none;
+  --sidebar-active-shadow: 0 10px 30px rgba(76,29,149,0.22);
+  --navbar-bg: #7D46D3;
+  --navbar-text: #ffffff;
+  --navbar-border: rgba(255,255,255,0.18);
+  --navbar-shadow: 0 8px 20px rgba(76,29,149,0.22);
+  --navbar-button-hover: rgba(255,255,255,0.18);
+  --navbar-button-focus: rgba(255,255,255,0.46);
+  --navbar-input-bg: rgba(255,255,255,0.14);
+  --navbar-input-border: rgba(255,255,255,0.52);
+  --navbar-input-placeholder: rgba(255,255,255,0.72);
 
-  /* sidebar / nav surfaces (light/dark will override) */
-  --sidebar-bg-light: #ffffff;
-  --sidebar-bg-dark: #17171f;
-
-  --nav-text: #111827;
+  --nav-text: var(--sidebar-text);
   --elev-shadow: 0 6px 18px rgba(2,6,23,0.06);
   --glass: rgba(255,255,255,0.6);
 
@@ -285,14 +400,30 @@ html.dark .gov-hover:hover::before {
    THEME: LIGHT (clean, minimal, official)
    ----------------------------------------------------------------------- */
 .theme-light{
-  --bg: #f6f7fb;
+  --bg: #F3F4F6;
   --text: #0f1724;
   --muted: #475569;
   --card-bg: #ffffff;
   --primary: #0b4a77;
   --primary-600: #083a60;
-  --sidebar-bg: var(--sidebar-bg-light);
-  --nav-text: #111827;
+  --sidebar-bg: #4C1D95;
+  --sidebar-text: #ffffff;
+  --sidebar-hover: #5B21B6;
+  --sidebar-active-bg: #ffffff;
+  --sidebar-active-text: #4C1D95;
+  --sidebar-indicator: rgba(255,255,255,0.88);
+  --sidebar-shadow: none;
+  --sidebar-active-shadow: 0 10px 30px rgba(76,29,149,0.22);
+  --navbar-bg: #7D46D3;
+  --navbar-text: #ffffff;
+  --navbar-border: rgba(255,255,255,0.18);
+  --navbar-shadow: 0 8px 20px rgba(76,29,149,0.22);
+  --navbar-button-hover: rgba(255,255,255,0.18);
+  --navbar-button-focus: rgba(255,255,255,0.46);
+  --navbar-input-bg: rgba(255,255,255,0.14);
+  --navbar-input-border: rgba(255,255,255,0.52);
+  --navbar-input-placeholder: rgba(255,255,255,0.72);
+  --nav-text: var(--sidebar-text);
   --elev-shadow: 0 6px 18px rgba(2,6,23,0.04);
   --border: var(--border-light);
 }
@@ -309,8 +440,24 @@ html.dark .gov-hover:hover::before {
   --card-bg: #23232f;     /* slightly lighter for cards */
   --primary: #06b6d4;
   --primary-600: #0891b2;
-  --sidebar-bg: #16161b;  /* slightly different than page bg to create column separation */
-  --nav-text: #E6EEF8;
+  --sidebar-bg: #111827;
+  --sidebar-text: #E2E8F0;
+  --sidebar-hover: #1F2937;
+  --sidebar-active-bg: rgba(148,163,184,0.18);
+  --sidebar-active-text: #F8FAFC;
+  --sidebar-indicator: rgba(165,180,252,0.65);
+  --sidebar-shadow: none;
+  --sidebar-active-shadow: 0 10px 24px rgba(15,23,42,0.4);
+  --navbar-bg: #0F172A;
+  --navbar-text: #E2E8F0;
+  --navbar-border: rgba(15,23,42,0.85);
+  --navbar-shadow: 0 8px 20px rgba(15,23,42,0.35);
+  --navbar-button-hover: rgba(148,163,184,0.18);
+  --navbar-button-focus: rgba(96,165,250,0.35);
+  --navbar-input-bg: rgba(30,41,59,0.7);
+  --navbar-input-border: rgba(148,163,184,0.45);
+  --navbar-input-placeholder: rgba(203,213,225,0.65);
+  --nav-text: var(--sidebar-text);
   --elev-shadow: 0 6px 18px rgba(0,0,0,0.5);
   --border: var(--border-dark);
 }
@@ -318,49 +465,23 @@ html.dark .gov-hover:hover::before {
 /* -----------------------------------------------------------------------
    Sidebar / Nav surfaces (no heavy gradients; keep flat + subtle separation)
    ----------------------------------------------------------------------- */
-.theme-light nav,
-.theme-light aside {
-  background: var(--sidebar-bg);
-  color: var(--nav-text);
-  -webkit-backdrop-filter: blur(3px);
-  backdrop-filter: blur(3px);
-}
-.theme-dark nav,
+
+.theme-original aside,
+.theme-light aside,
 .theme-dark aside {
-  background: var(--sidebar-bg);
-  color: var(--nav-text);
-  -webkit-backdrop-filter: blur(2px);
-  backdrop-filter: blur(2px);
+  background-color: var(--sidebar-bg, #4C1D95);
+  color: var(--sidebar-text, #ffffff);
+}
+
+.theme-original .primary-navbar,
+.theme-light .primary-navbar,
+.theme-dark .primary-navbar {
+  background-color: var(--navbar-bg, #7D46D3);
+  color: var(--navbar-text, #ffffff);
 }
 
 /* Ensure main inherits theme colors */
 nav, aside, main { color: inherit; }
-
-/* -----------------------------------------------------------------------
-   Left accent for sidebar links: no layout shift, subtle inset bar
-   - Uses inset box-shadow on hover/active so text color remains black/white
-   ----------------------------------------------------------------------- */
-#sidebar nav ul li a {
-  transition: background-color .12s ease, color .12s ease, box-shadow .14s ease;
-  position: relative;
-}
-
-/* hover / active accent (small, government-style) */
-#sidebar nav ul li a:hover,
-#sidebar nav ul li a[aria-current="page"],
-#sidebar nav ul li a.active {
-  /* inset left accent (no reflow) */
-  box-shadow: inset 4px 0 0 var(--gov-accent);
-  background-color: rgba(0,0,0,0.02);
-}
-
-/* For dark mode, make the hover BG a subtle overlay */
-.theme-dark #sidebar nav ul li a:hover,
-.theme-dark #sidebar nav ul li a[aria-current="page"],
-.theme-dark #sidebar nav ul li a.active {
-  background-color: rgba(255,255,255,0.02);
-}
-
 
 /* -----------------------------------------------------------------------
    Generic components (cards, buttons) — restrained, professional
@@ -447,7 +568,52 @@ nav, aside, main { color: inherit; }
    ----------------------------------------------------------------------- */
 @layer components {
   .btn-action {
-    @apply inline-flex items-center justify-center !p-2 rounded-full border !border-gray-200 !bg-white !text-[#6F42C1] shadow-sm transition duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#6F42C1] hover:!text-[#6F42C1] disabled:cursor-not-allowed disabled:opacity-60;
+    @apply inline-flex items-center justify-center p-2 rounded-full border border-gray-200 bg-white text-[#6F42C1] shadow-sm transition duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#6F42C1] hover:text-[#6F42C1] disabled:cursor-not-allowed disabled:opacity-60 relative overflow-visible;
+    isolation: isolate;
+    aspect-ratio: 1 / 1;
+    transition-property: box-shadow, transform, color, background-color, border-color;
+  }
+
+  .btn-action::before {
+    content: "";
+    position: absolute;
+    inset: -0.25rem;
+    border-radius: inherit;
+    border: 2px solid rgba(111, 66, 193, 0.4);
+    opacity: 0;
+    transform: scale(0.85);
+    transition: transform .3s ease, opacity .3s ease;
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  .btn-action::after {
+    content: "";
+    position: absolute;
+    inset: -0.6rem;
+    border-radius: inherit;
+    background: radial-gradient(circle, rgba(111, 66, 193, 0.22) 0%, rgba(111, 66, 193, 0.05) 55%, transparent 85%);
+    opacity: 0;
+    transform: scale(0.65);
+    z-index: -2;
+    pointer-events: none;
+  }
+
+  .btn-action:hover,
+  .btn-action:focus-visible {
+    box-shadow: 0 0 0 4px rgba(111, 66, 193, 0.18), 0 12px 26px rgba(111, 66, 193, 0.22);
+    transform: translateY(-1px);
+  }
+
+  .btn-action:hover::before,
+  .btn-action:focus-visible::before {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+
+  .btn-action:hover::after,
+  .btn-action:focus-visible::after {
+    animation: btn-action-pulse 1.05s ease-out forwards;
   }
 
   .btn-action svg {
@@ -455,31 +621,56 @@ nav, aside, main { color: inherit; }
   }
 
   .btn-print {
-    @apply hover:!bg-[#F8F9FA] hover:!text-[#6F42C1] hover:!border-[#E5E7EB];
+    @apply hover:bg-[#F8F9FA] hover:text-[#6F42C1] hover:border-[#E5E7EB];
   }
 
   .btn-view {
-    @apply hover:!bg-[#592582] hover:!text-white hover:!border-[#592582];
+    @apply hover:bg-[#592582] hover:text-white hover:border-[#592582];
   }
 
   .btn-delete {
-    @apply hover:!bg-[#FDDDDD] hover:!text-[#C33543] hover:!border-[#C33543];
+    @apply hover:bg-[#FDDDDD] hover:text-[#C33543] hover:border-[#C33543];
   }
 
   .btn-reject {
-    @apply hover:!bg-[#FFEDD5] hover:!text-[#F97316] hover:!border-[#F97316];
+    @apply hover:bg-[#FFEDD5] hover:text-[#F97316] hover:border-[#F97316];
   }
 
   .btn-accept {
-    @apply hover:!bg-[#D1FAE5] hover:!text-[#059669] hover:!border-[#059669];
+    @apply hover:bg-[#D1FAE5] hover:text-[#059669] hover:border-[#059669];
   }
 
   .btn-deliver {
-    @apply hover:!bg-[#1D4ED8] hover:!text-white hover:!border-[#1D4ED8];
+    @apply hover:bg-[#1D4ED8] hover:text-white hover:border-[#1D4ED8];
   }
 
   .btn-utility {
-    @apply hover:!bg-[#F8F9FA] hover:!text-[#6F42C1] hover:!border-[#E5E7EB];
+    @apply hover:bg-[#F8F9FA] hover:text-[#6F42C1] hover:border-[#E5E7EB];
+  }
+}
+
+@keyframes btn-action-pulse {
+  0% {
+    opacity: 0.45;
+    transform: scale(0.75);
+    box-shadow: 0 0 0 0 rgba(111, 66, 193, 0.28);
+  }
+  55% {
+    opacity: 0.18;
+    transform: scale(1.2);
+    box-shadow: 0 0 0 10px rgba(111, 66, 193, 0.08);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.45);
+    box-shadow: 0 0 0 18px rgba(111, 66, 193, 0);
+  }
+}
+
+@layer utilities {
+  button.btn-action,
+  a.btn-action {
+    border-radius: 9999px;
   }
 }
 

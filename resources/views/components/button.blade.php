@@ -12,6 +12,8 @@
 ])
 
 @php
+    use Illuminate\Support\Str;
+
     $variantClasses = [
         'primary'   => 'text-white bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 focus:ring-indigo-500 hover:shadow-[0_0_10px_#6366f1] border border-transparent',
         'secondary' => 'text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:ring-indigo-500 hover:shadow-[0_0_10px_#9ca3af] border border-gray-300 dark:border-gray-600',
@@ -25,19 +27,33 @@
         'lg' => 'px-4 py-2.5 text-base',
     ];
 
-    
     $base = 'inline-flex items-center justify-center rounded-md shadow-sm font-medium transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
 
-    $classes = implode(' ', [
+    $isActionButton = Str::contains($attributes->get('class', ''), 'btn-action');
+
+    if ($isActionButton) {
+        $base = 'inline-flex items-center justify-center rounded-full shadow-sm font-medium transition duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#6F42C1] disabled:opacity-60 disabled:cursor-not-allowed relative overflow-visible aspect-square border border-gray-200 bg-white text-[#6F42C1]';
+        $sizeClasses = [
+            'sm' => 'p-2',
+            'md' => 'p-2.5',
+            'lg' => 'p-3',
+        ];
+        $variantClasses = array_fill_keys(array_keys($variantClasses), '');
+    }
+
+    $classes = implode(' ', array_filter([
         $base,
         $sizeClasses[$size] ?? $sizeClasses['md'],
         $variantClasses[$variant] ?? $variantClasses['primary'],
-    ]);
+    ]));
 
     $tag = $as === 'a' ? 'a' : 'button';
 
     // Build the Heroicon component name if iconName is provided
     $iconComponent = $iconName ? "heroicon-{$iconStyle}-{$iconName}" : null;
+
+    $iconLeftMargin = $isActionButton ? '' : 'mr-2';
+    $iconRightMargin = $isActionButton ? '' : 'ml-2';
 @endphp
 
 <{{ $tag }}
@@ -51,11 +67,19 @@
     {{-- Left icon (slot takes priority; if not provided, use iconName) --}}
     @if (($iconPosition ?? 'left') === 'left')
         @if (isset($icon))
-            <span class="mr-2">{{ $icon }}</span>
+            @if ($isActionButton)
+                {{ $icon }}
+            @else
+                <span class="{{ $iconLeftMargin }}">{{ $icon }}</span>
+            @endif
         @elseif ($iconComponent)
-            <span class="mr-2">
+            @if ($isActionButton)
                 <x-dynamic-component :component="$iconComponent" class="w-5 h-5" />
-            </span>
+            @else
+                <span class="{{ $iconLeftMargin }}">
+                    <x-dynamic-component :component="$iconComponent" class="w-5 h-5" />
+                </span>
+            @endif
         @endif
     @endif
 
@@ -64,11 +88,19 @@
     {{-- Right icon --}}
     @if (($iconPosition ?? 'left') === 'right')
         @if (isset($icon))
-            <span class="ml-2">{{ $icon }}</span>
+            @if ($isActionButton)
+                {{ $icon }}
+            @else
+                <span class="{{ $iconRightMargin }}">{{ $icon }}</span>
+            @endif
         @elseif ($iconComponent)
-            <span class="ml-2">
+            @if ($isActionButton)
                 <x-dynamic-component :component="$iconComponent" class="w-5 h-5" />
-            </span>
+            @else
+                <span class="{{ $iconRightMargin }}">
+                    <x-dynamic-component :component="$iconComponent" class="w-5 h-5" />
+                </span>
+            @endif
         @endif
     @endif
 </{{ $tag }}>
