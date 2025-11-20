@@ -5,13 +5,24 @@
   const state = {
     rows: [],
   };
+  const ICONS = {
+    printer: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9V4h12v5" /><path stroke-linecap="round" stroke-linejoin="round" d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" /><path stroke-linecap="round" stroke-linejoin="round" d="M6 14h12v8H6z" /></svg>',
+    eye: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.065 7-9.542 7S3.732 16.057 2.458 12z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>',
+    truck: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 7.5h9a1.5 1.5 0 011.5 1.5v7.5m-6 0H3.75A1.5 1.5 0 012.25 15V7.5" /><path stroke-linecap="round" stroke-linejoin="round" d="M12.75 12h3.028a1.5 1.5 0 011.122.5l2.55 2.85a1.5 1.5 0 01.4 1v1.65A1.5 1.5 0 0118.35 19.5H18" /><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 19.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3zM18 19.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3z" /></svg>'
+  };
   let loadingMarkup = null;
 
-  const dateFormatter = new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  const SHORT_MONTHS = ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May.', 'Jun.', 'Jul.', 'Aug.', 'Sept.', 'Oct.', 'Nov.', 'Dec.'];
+
+  const formatDateDisplay = (date) => {
+    if (!(date instanceof Date)) return null;
+    if (Number.isNaN(date.getTime())) return null;
+    const month = SHORT_MONTHS[date.getMonth()];
+    if (!month) return null;
+    const day = date.getDate();
+    const year = date.getFullYear();
+    return `${month} ${day}, ${year}`;
+  };
 
   const timeFormatter = new Intl.DateTimeFormat(undefined, {
     hour: 'numeric',
@@ -39,7 +50,7 @@
     const explicit = row?.[`${prefix}_date_display`];
     if (explicit) return explicit;
     const parsed = parseDate(row?.[`${prefix}_at`]);
-    return parsed ? dateFormatter.format(parsed) : null;
+    return parsed ? formatDateDisplay(parsed) : null;
   };
 
   const getTimeDisplay = (row, prefix) => {
@@ -79,11 +90,7 @@
     buttons.push(`
       <button type="button" data-action="print" class="btn-action btn-print h-10 w-10" title="Print">
         <span class="sr-only">Print</span>
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M16 9V4H8v5" />
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" />
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 14h12v8H6z" />
-        </svg>
+        ${ICONS.printer}
       </button>
     `);
 
@@ -92,7 +99,7 @@
       buttons.push(`
         <button type="button" data-action="deliver" class="btn-action btn-deliver h-10 w-10" title="Deliver Items">
           <span class="sr-only">Deliver Items</span>
-          <i class="fas fa-truck" aria-hidden="true"></i>
+          ${ICONS.truck}
         </button>
       `);
     }
@@ -101,10 +108,7 @@
       buttons.push(`
         <button type="button" data-action="view" class="btn-action btn-view h-10 w-10" title="View">
           <span class="sr-only">View</span>
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-          </svg>
+          ${ICONS.eye}
         </button>
       `);
     }

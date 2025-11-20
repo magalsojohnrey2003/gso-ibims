@@ -9,19 +9,21 @@
 <?php $attributes = $attributes->except(\App\View\Components\AppLayout::ignoredParameterNames()); ?>
 <?php endif; ?>
 <?php $component->withAttributes([]); ?>
-<div class="px-6 lg:px-8">
-    <?php if (isset($component)) { $__componentOriginala29c4b6de1220dbc50317dc759b47929 = $component; } ?>
+    <div class="py-10">
+        <div class="sm:px-6 lg:px-8 space-y-10">
+            <div class="px-6 lg:px-8">
+                <?php if (isset($component)) { $__componentOriginala29c4b6de1220dbc50317dc759b47929 = $component; } ?>
 <?php if (isset($attributes)) { $__attributesOriginala29c4b6de1220dbc50317dc759b47929 = $attributes; } ?>
-<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.title','data' => ['level' => 'h2','size' => '2xl','weight' => 'bold','icon' => 'home','variant' => 's','iconStyle' => 'circle','iconBg' => 'transparent']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.title','data' => ['level' => 'h2','size' => '2xl','weight' => 'bold','icon' => 'home','variant' => 's','iconStyle' => 'plain','iconColor' => 'title-purple','iconBg' => 'transparent']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
 <?php $component->withName('title'); ?>
 <?php if ($component->shouldRender()): ?>
 <?php $__env->startComponent($component->resolveView(), $component->data()); ?>
 <?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
 <?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
 <?php endif; ?>
-<?php $component->withAttributes(['level' => 'h2','size' => '2xl','weight' => 'bold','icon' => 'home','variant' => 's','iconStyle' => 'circle','iconBg' => 'transparent']); ?>
-        Dashboard
-     <?php echo $__env->renderComponent(); ?>
+<?php $component->withAttributes(['level' => 'h2','size' => '2xl','weight' => 'bold','icon' => 'home','variant' => 's','iconStyle' => 'plain','iconColor' => 'title-purple','iconBg' => 'transparent']); ?>
+                    Dashboard
+                 <?php echo $__env->renderComponent(); ?>
 <?php endif; ?>
 <?php if (isset($__attributesOriginala29c4b6de1220dbc50317dc759b47929)): ?>
 <?php $attributes = $__attributesOriginala29c4b6de1220dbc50317dc759b47929; ?>
@@ -31,12 +33,7 @@
 <?php $component = $__componentOriginala29c4b6de1220dbc50317dc759b47929; ?>
 <?php unset($__componentOriginala29c4b6de1220dbc50317dc759b47929); ?>
 <?php endif; ?>
-</div>
-   
-
-    <div class="py-10">
-        <div class="sm:px-6 lg:px-8 space-y-10">
-
+            </div>
             
             <?php
                 $user = auth()->user();
@@ -196,7 +193,7 @@
         }
     </script>
 
-    <?php echo app('Illuminate\Foundation\Vite')('resources/js/app.js'); ?>
+    <?php echo app('Illuminate\Foundation\Vite')(['resources/js/app.js']); ?>
 
  <?php echo $__env->renderComponent(); ?>
 <?php endif; ?>

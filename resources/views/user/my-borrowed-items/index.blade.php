@@ -20,7 +20,7 @@
                                 icon="clipboard-document-check"
                                 variant="s"
                                 iconStyle="plain"
-                                iconColor="gov-accent"
+                                iconColor="title-purple"
                                 compact="true"> My Borrowed Items </x-title>
                     </div>
                     

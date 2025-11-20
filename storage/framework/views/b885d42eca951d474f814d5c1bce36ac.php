@@ -5,9 +5,9 @@
 
     $description = $primaryInstance?->notes;
     $categoryLabel = $displayCategory ?? ($item->category ?? '');
-    $updatedAt = optional($item->updated_at)->format('M d, Y g:i A');
-    $createdAt = optional($item->created_at)->format('M d, Y g:i A');
-    $acquisitionDateDisplay = optional($item->acquisition_date)->format('M d, Y');
+    $updatedAt = optional($item->updated_at)->format('M. j, Y g:i A');
+    $createdAt = optional($item->created_at)->format('M. j, Y g:i A');
+    $acquisitionDateDisplay = optional($item->acquisition_date)->format('M. j, Y');
     $acquisitionCostDisplay = $item->acquisition_cost !== null
         ? '₱' . number_format($item->acquisition_cost, 0)
         : null;

@@ -75,7 +75,7 @@
                                 icon="archive-box"
                                 variant="s"
                                 iconStyle="plain"
-                                iconColor="gov-accent"
+                                iconColor="title-purple"
                                 compact="true"> Items Management </x-title>
                     </div>
                     
@@ -140,7 +140,7 @@
                                       <x-button
                                           variant="secondary"
                                           size="sm"
-                                          class="btn-action btn-utility h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
+                                          class="btn-action btn-utility btn-edit h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
                                           iconName="pencil-square"
                                           x-data
                                           x-on:click.prevent="$dispatch('open-modal', 'edit-item-{{ $item->id }}')">
@@ -167,7 +167,7 @@
                                           data-print-quantity="{{ max(1, $item->instances->count()) }}"
                                           data-print-item="{{ $item->name }}"
                                           data-print-description="{{ $item->description }}"
-                                          data-print-acquisition="{{ optional($item->acquisition_date)->format('m/d/Y') }}"
+                                          data-print-acquisition="{{ optional($item->acquisition_date)->format('M. j, Y') }}"
                                           :disabled="$item->instances->isEmpty()">
                                           Print
                                       </x-button>

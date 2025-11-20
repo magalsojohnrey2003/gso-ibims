@@ -12,8 +12,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const viewFields = document.querySelectorAll('[data-view-field]');
   const approvedQuantityInput = document.getElementById('adminApprovedQuantity');
   const confirmApproveBtn = document.getElementById('confirmAdminApproval');
+  const ICONS = {
+    check: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>',
+    xMark: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>',
+    eye: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.065 7-9.542 7S3.732 16.057 2.458 12z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>',
+    trash: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21a48.11 48.11 0 00-3.478-.397M7.53 5.79a48.108 48.108 0 00-3.4.273M15 5.25V4.5A1.5 1.5 0 0013.5 3h-3A1.5 1.5 0 009 4.5v.75m7.5 0a48.667 48.667 0 013.468.34M9 5.25a48.667 48.667 0 00-3.468.34M4.5 6.75h15" /></svg>'
+  };
   let CACHE = [];
   let ACTIVE_REQUEST = null;
+
+  const SHORT_MONTHS = ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May.', 'Jun.', 'Jul.', 'Aug.', 'Sept.', 'Oct.', 'Nov.', 'Dec.'];
 
   const fetchRows = async () => {
     try {
@@ -39,7 +47,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const safe = value.includes('T') ? value : value.replace(' ', 'T');
     const date = new Date(safe);
     if (Number.isNaN(date.getTime())) return null;
-    return date.toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'});
+    const month = SHORT_MONTHS[date.getMonth()] || '';
+    const day = date.getDate();
+    const year = date.getFullYear();
+    if (!month || !day || !year) return null;
+    return `${month} ${day}, ${year}`;
   };
 
   const formatSchedule = (row) => {
@@ -87,18 +99,18 @@ document.addEventListener('DOMContentLoaded', () => {
       return `<div class="flex items-center justify-center gap-2">
         <button data-action="approve" class="btn-action btn-accept h-10 w-10" title="Approve">
           <span class="sr-only">Approve</span>
-          <i class="fas fa-check" aria-hidden="true"></i>
+          ${ICONS.check}
         </button>
         <button data-action="reject" class="btn-action btn-reject h-10 w-10" title="Reject">
           <span class="sr-only">Reject</span>
-          <i class="fas fa-times" aria-hidden="true"></i>
+          ${ICONS.xMark}
         </button>
       </div>`;
     }
     return `<div class="flex items-center justify-center gap-2">
       <button data-action="view" class="btn-action btn-view h-10 w-10" title="View">
         <span class="sr-only">View</span>
-        <i class="fas fa-eye" aria-hidden="true"></i>
+        ${ICONS.eye}
       </button>
     </div>`;
   };
@@ -236,7 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <td class="px-4 py-3 text-center">
           <button data-role-delete class="btn-action btn-delete h-9 w-9" title="Remove role">
             <span class="sr-only">Remove role</span>
-            <i class="fas fa-trash" aria-hidden="true"></i>
+            ${ICONS.trash}
           </button>
         </td>
       </tr>

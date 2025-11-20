@@ -18,7 +18,7 @@
                                 icon="users"
                                 variant="s"
                 iconStyle="plain"
-                iconColor="gov-accent"
+                iconColor="title-purple"
                 compact="true"> Manage Users </x-title>
                     </div>
                     
@@ -72,6 +72,7 @@
     <style>
     #users-table {
         table-layout: fixed;
+        width: 100%;
     }
     #users-table th,
     #users-table td {
@@ -79,13 +80,19 @@
         text-overflow: ellipsis;
         white-space: nowrap;
     }
-    #users-table td.max-w-xs {
-        max-width: 16rem;
+    #users-table td[data-column="name"] {
+        max-width: 14rem;
+    }
+    #users-table td[data-column="email"] {
+        max-width: 18rem;
+    }
+    #users-table td[data-column="created"] {
+        max-width: 10rem;
     }
     #users-table th:last-child,
     #users-table td:last-child {
-        min-width: 90px;
-        width: 90px;
+        min-width: 112px;
+        width: 112px;
     }
     </style>
     <div class="pb-2">

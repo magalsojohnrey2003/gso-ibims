@@ -1,22 +1,20 @@
 {{-- resources/views/admin/dashboard.blade.php --}}
 <x-app-layout>
-<div class="px-6 lg:px-8">
-    <x-title 
-        level="h2"
-        size="2xl"
-        weight="bold"
-        icon="home"
-        variant="s"
-        iconStyle="circle"
-        iconBg="transparent">
-        Dashboard
-    </x-title>
-</div>
-   
-
     <div class="py-10">
         <div class="sm:px-6 lg:px-8 space-y-10">
-
+            <div class="px-6 lg:px-8">
+                <x-title 
+                    level="h2"
+                    size="2xl"
+                    weight="bold"
+                    icon="home"
+                    variant="s"
+                    iconStyle="plain"
+                    iconColor="title-purple"
+                    iconBg="transparent">
+                    Dashboard
+                </x-title>
+            </div>
             {{-- Welcome Card - Always shows until logout --}}
             @php
                 $user = auth()->user();
@@ -161,6 +159,6 @@
         }
     </script>
 
-    @vite('resources/js/app.js')
+    @vite(['resources/js/app.js'])
 
 </x-app-layout>

@@ -84,7 +84,7 @@
                 <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
                     <p class="text-xs text-center text-gray-500">
                         <i class="fas fa-clock mr-1"></i>
-                        {{ now()->format('F j, Y g:i A') }}
+                        {{ now()->format('M. j, Y g:i A') }}
                     </p>
                 </div>
             </div>

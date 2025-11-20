@@ -19,8 +19,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const endTimeInput = document.getElementById('mp_end_time');
   const userViewFields = document.querySelectorAll('[data-user-view]');
   const qrContainer = document.getElementById('userManpowerQr');
+  const ICONS = {
+    eye: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.065 7-9.542 7S3.732 16.057 2.458 12z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>',
+    printer: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9V4h12v5" /><path stroke-linecap="round" stroke-linejoin="round" d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" /><path stroke-linecap="round" stroke-linejoin="round" d="M6 14h12v8H6z" /></svg>'
+  };
   let CACHE = [];
   let PENDING_PAYLOAD = null;
+  const SHORT_MONTHS = ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May.', 'Jun.', 'Jul.', 'Aug.', 'Sept.', 'Oct.', 'Nov.', 'Dec.'];
 
   const openModal = (name) => window.dispatchEvent(new CustomEvent('open-modal', { detail: name }));
   const closeModal = (name) => window.dispatchEvent(new CustomEvent('close-modal', { detail: name }));
@@ -115,10 +120,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const formatDate = (value) => {
     if (!value) return null;
-    const safe = value.includes('T') ? value : value.replace(' ', 'T');
-    const date = new Date(safe);
+    const input = typeof value === 'string' ? (value.includes('T') ? value : value.replace(' ', 'T')) : value;
+    const date = new Date(input);
     if (Number.isNaN(date.getTime())) return null;
-    return date.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+    const month = SHORT_MONTHS[date.getMonth()];
+    if (!month) return null;
+    const day = date.getDate();
+    const year = date.getFullYear();
+    return `${month} ${day}, ${year}`;
   };
 
   const formatSchedule = (row) => {
@@ -164,11 +173,11 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class='flex items-center justify-center gap-2'>
                 <button data-action='view' class='btn-action btn-view h-10 w-10' title='View'>
                   <span class='sr-only'>View</span>
-                  <i class="fas fa-eye" aria-hidden="true"></i>
+                  ${ICONS.eye}
                 </button>
                 <a href='${printUrl}' target='_blank' rel='noopener' class='btn-action btn-print h-10 w-10' title='Print'>
                   <span class='sr-only'>Print</span>
-                  <i class="fas fa-print" aria-hidden="true"></i>
+                  ${ICONS.printer}
                 </a>
             </div>
         </td>

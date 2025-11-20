@@ -5,8 +5,8 @@
     'variant'   => 's',      // 's' solid, 'o' outline
     'size'      => '2xl',
     'weight'    => 'bold',
-    'iconSize'  => '6',
-    'iconColor' => 'gov-accent',   // token (see mapping below)
+    'iconSize'  => '5',
+    'iconColor' => 'title-purple',   // token (see mapping below)
     'iconStyle' => 'plain',        // 'plain' | 'circle'
     'iconBg'    => 'transparent',  // token used for circle bg
     'iconLabel' => null,
@@ -22,8 +22,8 @@
         'base' => 'text-base',
         'lg'   => 'text-lg',
         'xl'   => 'text-xl',
-        '2xl'  => 'text-2xl',
-        '3xl'  => 'text-3xl',
+        '2xl'  => 'text-[1.375rem]',
+        '3xl'  => 'text-[1.75rem]',
     ];
     $weightMap = [
         'normal'    => 'font-normal',
@@ -35,23 +35,25 @@
     $weightClass = $weightMap[$weight] ?? $weightMap['bold'];
 
     // Wrapper and heading classes adapt when compact=true
-    $wrapperClass = trim((($compact ? 'mb-0' : 'mb-6') . ' flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4'));
-    $headingBase = trim("flex items-center gap-3 {$sizeClass} {$weightClass} " . ($compact ? 'leading-none' : 'leading-tight'));
+    $wrapperClass = trim((($compact ? 'mb-0' : 'mb-6') . ' flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'));
+    $headingBase = trim("flex items-center gap-2 {$sizeClass} {$weightClass} " . ($compact ? 'leading-none' : 'leading-tight') . ' title-heading');
 
     // Map commonly used tokens to utility classes (safe for editor + purge)
     $colorTokenToClass = [
-        'white'      => 'text-white',
-        'black'      => 'text-black',
-        'gov-accent' => 'text-gov-accent',
-        'muted'      => 'text-muted',       // optional: if you add it to css
+        'white'        => 'text-white',
+        'black'        => 'text-black',
+        'gov-accent'   => 'text-gov-accent',
+        'title-purple' => 'text-title-purple',
+        'muted'        => 'text-muted',       // optional: if you add it to css
         // allow direct tailwind tokens like 'gray-600' -> 'text-gray-600' by convention
     ];
 
     $bgTokenToClass = [
-        'white'      => 'bg-white',
-        'black'      => 'bg-black',
-        'gov-accent' => 'bg-gov-accent',
-        'transparent'=> 'bg-transparent',
+        'white'        => 'bg-white',
+        'black'        => 'bg-black',
+        'gov-accent'   => 'bg-gov-accent',
+        'title-purple' => 'bg-title-purple',
+        'transparent'  => 'bg-transparent',
     ];
 
     // helper: convert token to text class if exists or to text-{token} for simple tailwind-like tokens
@@ -83,12 +85,12 @@
     // wrapper classes (circle vs plain)
     if ($icon && $iconStyle === 'circle') {
         // circle: padding, rounded-full and background class
-        $iconWrapperClass = trim("inline-flex items-center justify-center p-2 rounded-full {$iconBgClass}");
+        $iconWrapperClass = trim("inline-flex title-icon items-center justify-center p-1.5 rounded-full {$iconBgClass}");
         // when circle, icon itself should use text color class
         $iconInnerClass = $iconColorClass;
     } else {
         // plain: small margin, icon colored via iconColorClass
-        $iconWrapperClass = "inline-flex items-center justify-center mr-1";
+        $iconWrapperClass = "inline-flex title-icon items-center justify-center";
         $iconInnerClass = $iconColorClass;
     }
 
@@ -102,11 +104,11 @@
         @if($icon && $componentName)
             <span class="{{ $iconWrapperClass }}" @if($iconLabel) role="img" aria-label="{{ $iconLabel }}" @else aria-hidden="true" @endif>
                 {{-- dynamic heroicon inserted here, uses classes for color & size --}}
-                <x-dynamic-component :component="$componentName" class="{{ $iconSizeClass }} {{ $iconInnerClass }}" />
+                <x-dynamic-component :component="$componentName" class="{{ $iconSizeClass }} {{ $iconInnerClass }} title-icon-graphic" />
             </span>
         @endif
 
-        <span class="leading-tight ml-1 text-current">
+        <span class="leading-tight text-current title-heading-label">
             {{ $slot }}
         </span>
     </{{ $level }}>

@@ -1,4 +1,5 @@
 const CONFIG = window.RETURN_ITEMS_CONFIG || {};
+const SHORT_MONTHS = ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May.', 'Jun.', 'Jul.', 'Aug.', 'Sept.', 'Oct.', 'Nov.', 'Dec.'];
 const LIST_ROUTE = CONFIG.list || '/admin/return-items/list';
 const SHOW_BASE = CONFIG.base || '/admin/return-items';
 const UPDATE_INSTANCE_BASE = CONFIG.updateInstanceBase || '/admin/return-items/instances';
@@ -116,20 +117,23 @@ function formatDate(value) {
     if (!value) return '-';
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return value;
-    return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const month = SHORT_MONTHS[d.getMonth()];
+    if (!month) return value;
+    const day = d.getDate();
+    const year = d.getFullYear();
+    return `${month} ${day}, ${year}`;
 }
 
 function formatDateTime(value) {
     if (!value) return '--';
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return value;
-    return d.toLocaleString('en-US', {
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-    });
+    const month = SHORT_MONTHS[d.getMonth()];
+    if (!month) return value;
+    const day = d.getDate();
+    const year = d.getFullYear();
+    const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    return `${month} ${day}, ${year} ${time}`;
 }
 
 async function loadReturnItems() {

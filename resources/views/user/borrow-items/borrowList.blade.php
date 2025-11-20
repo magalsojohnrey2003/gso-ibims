@@ -52,10 +52,10 @@
     $oldReturnDateValue = old('return_date', optional($borrowRequest ?? null)->return_date ?? null);
 
     $usageBorrowDisplayDefault = $oldBorrowDateValue
-        ? \Illuminate\Support\Carbon::parse($oldBorrowDateValue)->format('F j, Y')
+        ? \Illuminate\Support\Carbon::parse($oldBorrowDateValue)->format('M. j, Y')
         : 'Select on calendar';
     $usageReturnDisplayDefault = $oldReturnDateValue
-        ? \Illuminate\Support\Carbon::parse($oldReturnDateValue)->format('F j, Y')
+        ? \Illuminate\Support\Carbon::parse($oldReturnDateValue)->format('M. j, Y')
         : 'Select on calendar';
 @endphp
 
@@ -67,7 +67,7 @@
         icon="shopping-cart"
         variant="s"
         iconStyle="circle"
-        iconBg="gov-accent"
+        iconBg="title-purple"
         iconColor="white">
         Borrow List
     </x-title>
