@@ -5,7 +5,7 @@
              icon="document-chart-bar"
              variant="s"
              iconStyle="plain"
-             iconColor="gov-accent">Reports</x-title>
+             iconColor="title-purple">Reports</x-title>
 
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <div class="py-8">

@@ -7,7 +7,7 @@
             <div class="rounded-2xl shadow-lg bg-white border border-gray-200 px-6 py-4 mb-2">
                 <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <div class="flex-shrink-0 flex items-center">
-                        <x-title level="h2" size="2xl" weight="bold" icon="users" variant="s" iconStyle="plain" iconColor="gov-accent" compact="true"> Request Manpower </x-title>
+                        <x-title level="h2" size="2xl" weight="bold" icon="users" variant="s" iconStyle="plain" iconColor="title-purple" compact="true"> Request Manpower </x-title>
                     </div>
                     <div class="flex items-center gap-3">
                         <div class="flex-shrink-0 relative">

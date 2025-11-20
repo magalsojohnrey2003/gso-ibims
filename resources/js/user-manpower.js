@@ -25,6 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   let CACHE = [];
   let PENDING_PAYLOAD = null;
+  const SHORT_MONTHS = ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May.', 'Jun.', 'Jul.', 'Aug.', 'Sept.', 'Oct.', 'Nov.', 'Dec.'];
 
   const openModal = (name) => window.dispatchEvent(new CustomEvent('open-modal', { detail: name }));
   const closeModal = (name) => window.dispatchEvent(new CustomEvent('close-modal', { detail: name }));
@@ -119,10 +120,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const formatDate = (value) => {
     if (!value) return null;
-    const safe = value.includes('T') ? value : value.replace(' ', 'T');
-    const date = new Date(safe);
+    const input = typeof value === 'string' ? (value.includes('T') ? value : value.replace(' ', 'T')) : value;
+    const date = new Date(input);
     if (Number.isNaN(date.getTime())) return null;
-    return date.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+    const month = SHORT_MONTHS[date.getMonth()];
+    if (!month) return null;
+    const day = date.getDate();
+    const year = date.getFullYear();
+    return `${month} ${day}, ${year}`;
   };
 
   const formatSchedule = (row) => {

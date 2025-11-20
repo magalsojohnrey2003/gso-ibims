@@ -1,5 +1,6 @@
 const CSRF_TOKEN = window.CSRF_TOKEN || document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 const LIST_ROUTE = window.LIST_ROUTE || '/admin/borrow-requests/list';
+const SHORT_MONTHS = ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May.', 'Jun.', 'Jul.', 'Aug.', 'Sept.', 'Oct.', 'Nov.', 'Dec.'];
 
 let BORROW_CACHE = [];
 let BR_SEARCH_TERM = '';
@@ -18,7 +19,11 @@ function formatDate(value) {
     if (!value) return 'N/A';
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return value;
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const month = SHORT_MONTHS[date.getMonth()];
+    if (!month) return value;
+    const day = date.getDate();
+    const year = date.getFullYear();
+    return `${month} ${day}, ${year}`;
 }
 
 function humanizeStatus(status) {

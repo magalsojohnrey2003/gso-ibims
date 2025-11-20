@@ -18,7 +18,7 @@
                                 icon="users"
                                 variant="s"
                 iconStyle="plain"
-                iconColor="gov-accent"
+                iconColor="title-purple"
                 compact="true"> Manage Users </x-title>
                     </div>
                     

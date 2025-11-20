@@ -1,6 +1,7 @@
 <aside id="sidebar"
-    class="w-64 sidebar h-screen fixed inset-y-0 left-0 transition-all duration-300 transform -translate-x-full lg:translate-x-0 lg:relative z-40 flex-shrink-0"
+    class="w-64 sidebar is-collapsed h-screen fixed inset-y-0 left-0 transition-all duration-300 transform -translate-x-full lg:translate-x-0 lg:relative z-40 flex-shrink-0"
     data-sidebar-type="profile"
+    data-desktop-collapsed="true"
     aria-hidden="true">
 
     <!-- Navigation -->

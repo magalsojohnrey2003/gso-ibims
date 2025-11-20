@@ -21,6 +21,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let CACHE = [];
   let ACTIVE_REQUEST = null;
 
+  const SHORT_MONTHS = ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May.', 'Jun.', 'Jul.', 'Aug.', 'Sept.', 'Oct.', 'Nov.', 'Dec.'];
+
   const fetchRows = async () => {
     try {
       const params = new URLSearchParams();
@@ -45,7 +47,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const safe = value.includes('T') ? value : value.replace(' ', 'T');
     const date = new Date(safe);
     if (Number.isNaN(date.getTime())) return null;
-    return date.toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'});
+    const month = SHORT_MONTHS[date.getMonth()] || '';
+    const day = date.getDate();
+    const year = date.getFullYear();
+    if (!month || !day || !year) return null;
+    return `${month} ${day}, ${year}`;
   };
 
   const formatSchedule = (row) => {

@@ -106,8 +106,8 @@
                 <dt>Schedule</dt>
                 <dd>
                     @php
-                        $start = optional($request->start_at)->format('M d, Y');
-                        $end = optional($request->end_at)->format('M d, Y');
+                        $start = optional($request->start_at)->format('M. j, Y');
+                        $end = optional($request->end_at)->format('M. j, Y');
                     @endphp
                     {{ $start && $end ? $start . ' - ' . $end : '—' }}
                 </dd>
@@ -124,7 +124,7 @@
         </dl>
 
         <div class="footer">
-            Updated {{ optional($request->updated_at)->format('M d, Y h:i A') }}
+            Updated {{ optional($request->updated_at)->format('M. j, Y h:i A') }}
         </div>
     </main>
 </body>

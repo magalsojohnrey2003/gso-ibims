@@ -8,6 +8,7 @@ let blockedBorrowDates = [];
 window.borrowMonth = borrowMonth;
 window.borrowYear = borrowYear;
 const MAX_BORROW_DAYS = 3; // inclusive max days
+const SHORT_MONTHS = ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May.', 'Jun.', 'Jul.', 'Aug.', 'Sept.', 'Oct.', 'Nov.', 'Dec.'];
 
 // Use neutral for available, blue for borrow, amber for return, gray for range, red for booked
 const DAY_CLASS_BASE = 'relative flex h-12 items-center justify-center rounded-lg border text-sm font-medium transition select-none';
@@ -48,7 +49,17 @@ function ymdFromDate(dt) {
 function formatLong(dateStr) {
     const dt = parseYMD(dateStr);
     if (!dt) return '';
-    return dt.toLocaleString('default', { month: 'long', day: 'numeric', year: 'numeric' });
+    const month = SHORT_MONTHS[dt.getMonth()];
+    if (!month) return '';
+    return `${month} ${dt.getDate()}, ${dt.getFullYear()}`;
+}
+
+function formatShortDate(date) {
+    if (!(date instanceof Date)) return '';
+    if (Number.isNaN(date.getTime())) return '';
+    const month = SHORT_MONTHS[date.getMonth()];
+    if (!month) return '';
+    return `${month} ${date.getDate()}, ${date.getFullYear()}`;
 }
 
 function formatUsageRange(startValue, endValue) {
@@ -429,12 +440,10 @@ function highlightBorrowRange(start, end, options = { jumpToMonth: true }) {
         if (borrowPick && returnPick) {
             const b = parseYMD(borrowPick);
             const r = parseYMD(returnPick);
-            const fmt = (d) => d.toLocaleString('default', { month: 'short', day: 'numeric', year: 'numeric' });
-            datesLine.textContent = `Dates: ${fmt(b)} – ${fmt(r)}`;
+            datesLine.textContent = `Dates: ${formatShortDate(b)} – ${formatShortDate(r)}`;
         } else if (borrowPick && !returnPick) {
             const b = parseYMD(borrowPick);
-            const fmt = (d) => d.toLocaleString('default', { month: 'short', day: 'numeric', year: 'numeric' });
-            datesLine.textContent = `Dates: ${fmt(b)}`;
+            datesLine.textContent = `Dates: ${formatShortDate(b)}`;
         } else {
             datesLine.textContent = '';
         }
@@ -680,12 +689,10 @@ document.addEventListener("DOMContentLoaded", function() {
         if (borrowPick && returnPick) {
             const b = parseYMD(borrowPick);
             const r = parseYMD(returnPick);
-            const fmt = (d) => d.toLocaleString('default', { month: 'short', day: 'numeric', year: 'numeric' });
-            datesLine.textContent = `Dates: ${fmt(b)} – ${fmt(r)}`;
+            datesLine.textContent = `Dates: ${formatShortDate(b)} – ${formatShortDate(r)}`;
         } else if (borrowPick && !returnPick) {
             const b = parseYMD(borrowPick);
-            const fmt = (d) => d.toLocaleString('default', { month: 'short', day: 'numeric', year: 'numeric' });
-            datesLine.textContent = `Dates: ${fmt(b)}`;
+            datesLine.textContent = `Dates: ${formatShortDate(b)}`;
         } else {
             datesLine.textContent = '';
         }

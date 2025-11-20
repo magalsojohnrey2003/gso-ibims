@@ -137,14 +137,14 @@
                     <div class="flex-shrink-0 flex items-center">
                         <?php if (isset($component)) { $__componentOriginala29c4b6de1220dbc50317dc759b47929 = $component; } ?>
 <?php if (isset($attributes)) { $__attributesOriginala29c4b6de1220dbc50317dc759b47929 = $attributes; } ?>
-<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.title','data' => ['level' => 'h2','size' => '2xl','weight' => 'bold','icon' => 'archive-box','variant' => 's','iconStyle' => 'plain','iconColor' => 'gov-accent','compact' => 'true']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.title','data' => ['level' => 'h2','size' => '2xl','weight' => 'bold','icon' => 'archive-box','variant' => 's','iconStyle' => 'plain','iconColor' => 'title-purple','compact' => 'true']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
 <?php $component->withName('title'); ?>
 <?php if ($component->shouldRender()): ?>
 <?php $__env->startComponent($component->resolveView(), $component->data()); ?>
 <?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
 <?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
 <?php endif; ?>
-<?php $component->withAttributes(['level' => 'h2','size' => '2xl','weight' => 'bold','icon' => 'archive-box','variant' => 's','iconStyle' => 'plain','iconColor' => 'gov-accent','compact' => 'true']); ?> Items Management  <?php echo $__env->renderComponent(); ?>
+<?php $component->withAttributes(['level' => 'h2','size' => '2xl','weight' => 'bold','icon' => 'archive-box','variant' => 's','iconStyle' => 'plain','iconColor' => 'title-purple','compact' => 'true']); ?> Items Management  <?php echo $__env->renderComponent(); ?>
 <?php endif; ?>
 <?php if (isset($__attributesOriginala29c4b6de1220dbc50317dc759b47929)): ?>
 <?php $attributes = $__attributesOriginala29c4b6de1220dbc50317dc759b47929; ?>
@@ -236,14 +236,14 @@
                                   <div class="flex items-center justify-center gap-3">
                                       <?php if (isset($component)) { $__componentOriginald0f1fd2689e4bb7060122a5b91fe8561 = $component; } ?>
 <?php if (isset($attributes)) { $__attributesOriginald0f1fd2689e4bb7060122a5b91fe8561 = $attributes; } ?>
-<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.button','data' => ['variant' => 'secondary','size' => 'sm','class' => 'btn-action btn-utility h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only','iconName' => 'pencil-square','xData' => true,'xOn:click.prevent' => '$dispatch(\'open-modal\', \'edit-item-'.e($item->id).'\')']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.button','data' => ['variant' => 'secondary','size' => 'sm','class' => 'btn-action btn-utility btn-edit h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only','iconName' => 'pencil-square','xData' => true,'xOn:click.prevent' => '$dispatch(\'open-modal\', \'edit-item-'.e($item->id).'\')']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
 <?php $component->withName('button'); ?>
 <?php if ($component->shouldRender()): ?>
 <?php $__env->startComponent($component->resolveView(), $component->data()); ?>
 <?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
 <?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
 <?php endif; ?>
-<?php $component->withAttributes(['variant' => 'secondary','size' => 'sm','class' => 'btn-action btn-utility h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only','iconName' => 'pencil-square','x-data' => true,'x-on:click.prevent' => '$dispatch(\'open-modal\', \'edit-item-'.e($item->id).'\')']); ?>
+<?php $component->withAttributes(['variant' => 'secondary','size' => 'sm','class' => 'btn-action btn-utility btn-edit h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only','iconName' => 'pencil-square','x-data' => true,'x-on:click.prevent' => '$dispatch(\'open-modal\', \'edit-item-'.e($item->id).'\')']); ?>
                                           Edit
                                        <?php echo $__env->renderComponent(); ?>
 <?php endif; ?>
@@ -278,14 +278,14 @@
 <?php endif; ?>
                                       <?php if (isset($component)) { $__componentOriginald0f1fd2689e4bb7060122a5b91fe8561 = $component; } ?>
 <?php if (isset($attributes)) { $__attributesOriginald0f1fd2689e4bb7060122a5b91fe8561 = $attributes; } ?>
-<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.button','data' => ['variant' => 'secondary','size' => 'sm','class' => 'btn-action btn-print h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only','iconName' => 'printer','type' => 'button','dataPrintStickers' => true,'dataPrintRoute' => ''.e(route('admin.items.stickers', $item)).'','dataPrintDefault' => ''.e(max(1, min(5, $item->instances->count()))).'','dataPrintQuantity' => ''.e(max(1, $item->instances->count())).'','dataPrintItem' => ''.e($item->name).'','dataPrintDescription' => ''.e($item->description).'','dataPrintAcquisition' => ''.e(optional($item->acquisition_date)->format('m/d/Y')).'','disabled' => $item->instances->isEmpty()]] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.button','data' => ['variant' => 'secondary','size' => 'sm','class' => 'btn-action btn-print h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only','iconName' => 'printer','type' => 'button','dataPrintStickers' => true,'dataPrintRoute' => ''.e(route('admin.items.stickers', $item)).'','dataPrintDefault' => ''.e(max(1, min(5, $item->instances->count()))).'','dataPrintQuantity' => ''.e(max(1, $item->instances->count())).'','dataPrintItem' => ''.e($item->name).'','dataPrintDescription' => ''.e($item->description).'','dataPrintAcquisition' => ''.e(optional($item->acquisition_date)->format('M. j, Y')).'','disabled' => $item->instances->isEmpty()]] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
 <?php $component->withName('button'); ?>
 <?php if ($component->shouldRender()): ?>
 <?php $__env->startComponent($component->resolveView(), $component->data()); ?>
 <?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
 <?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
 <?php endif; ?>
-<?php $component->withAttributes(['variant' => 'secondary','size' => 'sm','class' => 'btn-action btn-print h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only','iconName' => 'printer','type' => 'button','data-print-stickers' => true,'data-print-route' => ''.e(route('admin.items.stickers', $item)).'','data-print-default' => ''.e(max(1, min(5, $item->instances->count()))).'','data-print-quantity' => ''.e(max(1, $item->instances->count())).'','data-print-item' => ''.e($item->name).'','data-print-description' => ''.e($item->description).'','data-print-acquisition' => ''.e(optional($item->acquisition_date)->format('m/d/Y')).'','disabled' => \Illuminate\View\Compilers\BladeCompiler::sanitizeComponentAttribute($item->instances->isEmpty())]); ?>
+<?php $component->withAttributes(['variant' => 'secondary','size' => 'sm','class' => 'btn-action btn-print h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only','iconName' => 'printer','type' => 'button','data-print-stickers' => true,'data-print-route' => ''.e(route('admin.items.stickers', $item)).'','data-print-default' => ''.e(max(1, min(5, $item->instances->count()))).'','data-print-quantity' => ''.e(max(1, $item->instances->count())).'','data-print-item' => ''.e($item->name).'','data-print-description' => ''.e($item->description).'','data-print-acquisition' => ''.e(optional($item->acquisition_date)->format('M. j, Y')).'','disabled' => \Illuminate\View\Compilers\BladeCompiler::sanitizeComponentAttribute($item->instances->isEmpty())]); ?>
                                           Print
                                        <?php echo $__env->renderComponent(); ?>
 <?php endif; ?>

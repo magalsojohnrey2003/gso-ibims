@@ -12,11 +12,17 @@
   };
   let loadingMarkup = null;
 
-  const dateFormatter = new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  const SHORT_MONTHS = ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May.', 'Jun.', 'Jul.', 'Aug.', 'Sept.', 'Oct.', 'Nov.', 'Dec.'];
+
+  const formatDateDisplay = (date) => {
+    if (!(date instanceof Date)) return null;
+    if (Number.isNaN(date.getTime())) return null;
+    const month = SHORT_MONTHS[date.getMonth()];
+    if (!month) return null;
+    const day = date.getDate();
+    const year = date.getFullYear();
+    return `${month} ${day}, ${year}`;
+  };
 
   const timeFormatter = new Intl.DateTimeFormat(undefined, {
     hour: 'numeric',
@@ -44,7 +50,7 @@
     const explicit = row?.[`${prefix}_date_display`];
     if (explicit) return explicit;
     const parsed = parseDate(row?.[`${prefix}_at`]);
-    return parsed ? dateFormatter.format(parsed) : null;
+    return parsed ? formatDateDisplay(parsed) : null;
   };
 
   const getTimeDisplay = (row, prefix) => {

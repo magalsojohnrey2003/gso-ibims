@@ -12,6 +12,9 @@
 
   var lastToggleAt = 0;
   var TOGGLE_DEBOUNCE_MS = 200;
+  var DESKTOP_BREAKPOINT = '(min-width: 1024px)';
+  var COLLAPSED_CLASS = 'is-collapsed';
+  var EXPANDED_CLASS = 'is-expanded';
 
   function warnMissing(el, name) {
     if (!el) {
@@ -24,6 +27,44 @@
   warnMissing(sidebar, SIDEBAR_ID);
   warnMissing(overlay, OVERLAY_ID);
   warnMissing(toggle, TOGGLE_ID);
+
+  function isDesktopViewport() {
+    if (typeof window.matchMedia === 'function') {
+      return window.matchMedia(DESKTOP_BREAKPOINT).matches;
+    }
+    var viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+    return viewportWidth >= 1024;
+  }
+
+  function getStoredDesktopCollapsed() {
+    if (!sidebar) return true;
+    return sidebar.getAttribute('data-desktop-collapsed') !== 'false';
+  }
+
+  function storeDesktopCollapsed(collapsed) {
+    if (!sidebar) return;
+    sidebar.setAttribute('data-desktop-collapsed', collapsed ? 'true' : 'false');
+  }
+
+  function applyDesktopCollapsedState(collapsed) {
+    if (!sidebar) return;
+    storeDesktopCollapsed(collapsed);
+
+    if (!isDesktopViewport()) {
+      sidebar.classList.remove(COLLAPSED_CLASS, EXPANDED_CLASS);
+      return;
+    }
+
+    if (collapsed) {
+      sidebar.classList.add(COLLAPSED_CLASS);
+      sidebar.classList.remove(EXPANDED_CLASS);
+      if (toggle) toggle.setAttribute('aria-expanded', 'false');
+    } else {
+      sidebar.classList.add(EXPANDED_CLASS);
+      sidebar.classList.remove(COLLAPSED_CLASS);
+      if (toggle) toggle.setAttribute('aria-expanded', 'true');
+    }
+  }
 
   function isOpen() {
     if (!sidebar) return false;
@@ -70,6 +111,11 @@
     if (now - lastToggleAt < TOGGLE_DEBOUNCE_MS) return;
     lastToggleAt = now;
 
+    if (isDesktopViewport()) {
+      applyDesktopCollapsedState(!getStoredDesktopCollapsed());
+      return;
+    }
+
     if (isOpen()) {
       closeSidebar();
     } else {
@@ -98,18 +144,9 @@
         if (viewportWidth < 1024) {
           toggleSidebar();
         } else {
-          // Desktop toggle: collapse/expand sidebar width and toggle text visibility
           if (!sidebar) return;
-          if (sidebar.classList.contains('w-64')) {
-            sidebar.classList.remove('w-64');
-            sidebar.classList.add('w-20');
-          } else {
-            sidebar.classList.remove('w-20');
-            sidebar.classList.add('w-64');
-          }
-          document.querySelectorAll('.sidebar-text, .sidebar-logo .logo-img').forEach(el => {
-            el.classList.toggle('hidden');
-          });
+          var collapsed = getStoredDesktopCollapsed();
+          applyDesktopCollapsedState(!collapsed);
         }
       }, { passive: false });
 
@@ -126,24 +163,16 @@
   function handleResize() {
     try {
       if (!sidebar) return;
-      if (window.matchMedia('(min-width: 1024px)').matches) {
+      if (isDesktopViewport()) {
         // Desktop: show sidebar, hide overlay, remove scroll lock
         sidebar.classList.remove('-translate-x-full');
         sidebar.classList.add('translate-x-0');
         if (overlay) overlay.classList.add('hidden');
         sidebar.setAttribute('aria-hidden', 'false');
-        if (toggle) toggle.setAttribute('aria-expanded', 'true');
         removeScrollLock();
-
-        // Ensure sidebar has default width expanded
-        if (sidebar.classList.contains('w-20')) {
-          sidebar.classList.remove('w-20');
-          sidebar.classList.add('w-64');
-          document.querySelectorAll('.sidebar-text, .sidebar-logo .logo-img').forEach(el => {
-            el.classList.remove('hidden');
-          });
-        }
+        applyDesktopCollapsedState(getStoredDesktopCollapsed());
       } else {
+        sidebar.classList.remove(COLLAPSED_CLASS, EXPANDED_CLASS);
         // Mobile/tablet: if not explicitly open, hide sidebar
         if (!isOpen()) {
           sidebar.classList.add('-translate-x-full');
@@ -151,6 +180,7 @@
           sidebar.setAttribute('aria-hidden', 'true');
           if (toggle) toggle.setAttribute('aria-expanded', 'false');
         }
+        if (toggle) toggle.setAttribute('aria-expanded', isOpen() ? 'true' : 'false');
       }
     } catch (err) {
       console.error('[sidebar-toggle] handleResize error', err);

@@ -25,14 +25,14 @@
                     <div class="flex-shrink-0 flex items-center">
                         <?php if (isset($component)) { $__componentOriginala29c4b6de1220dbc50317dc759b47929 = $component; } ?>
 <?php if (isset($attributes)) { $__attributesOriginala29c4b6de1220dbc50317dc759b47929 = $attributes; } ?>
-<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.title','data' => ['level' => 'h2','size' => '2xl','weight' => 'bold','icon' => 'clipboard-document-check','variant' => 's','iconStyle' => 'plain','iconColor' => 'gov-accent','compact' => 'true']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.title','data' => ['level' => 'h2','size' => '2xl','weight' => 'bold','icon' => 'clipboard-document-check','variant' => 's','iconStyle' => 'plain','iconColor' => 'title-purple','compact' => 'true']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
 <?php $component->withName('title'); ?>
 <?php if ($component->shouldRender()): ?>
 <?php $__env->startComponent($component->resolveView(), $component->data()); ?>
 <?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
 <?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
 <?php endif; ?>
-<?php $component->withAttributes(['level' => 'h2','size' => '2xl','weight' => 'bold','icon' => 'clipboard-document-check','variant' => 's','iconStyle' => 'plain','iconColor' => 'gov-accent','compact' => 'true']); ?> My Borrowed Items  <?php echo $__env->renderComponent(); ?>
+<?php $component->withAttributes(['level' => 'h2','size' => '2xl','weight' => 'bold','icon' => 'clipboard-document-check','variant' => 's','iconStyle' => 'plain','iconColor' => 'title-purple','compact' => 'true']); ?> My Borrowed Items  <?php echo $__env->renderComponent(); ?>
 <?php endif; ?>
 <?php if (isset($__attributesOriginala29c4b6de1220dbc50317dc759b47929)): ?>
 <?php $attributes = $__attributesOriginala29c4b6de1220dbc50317dc759b47929; ?>

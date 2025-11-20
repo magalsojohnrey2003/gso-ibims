@@ -19,7 +19,7 @@
                                 weight="bold"
                                 icon="clipboard-document-check"
                                 iconStyle="plain"
-                                iconColor="gov-accent"
+                                iconColor="title-purple"
                                 compact="true"> Borrow Requests </x-title>
                     </div>
                     

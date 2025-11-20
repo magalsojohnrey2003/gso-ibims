@@ -9,11 +9,10 @@ export function formatDate(dateStr) {
     if (!dateStr) return "N/A";
     const d = new Date(dateStr);
     if (isNaN(d)) return dateStr;
-    return d.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric"
-    });
+    const month = d.toLocaleString("en-US", { month: "short" });
+    const day = d.getDate();
+    const year = d.getFullYear();
+    return `${month}. ${day}, ${year}`;
 }
 
 function escapeHtml(unsafe) {

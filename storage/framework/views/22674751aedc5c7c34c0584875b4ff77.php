@@ -70,7 +70,7 @@ unset($__defined_vars, $__key, $__value); ?>
     $isActionButton = Str::contains($attributes->get('class', ''), 'btn-action');
 
     if ($isActionButton) {
-        $base = 'inline-flex items-center justify-center rounded-full shadow-sm font-medium transition duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#6F42C1] disabled:opacity-60 disabled:cursor-not-allowed relative overflow-visible aspect-square border border-gray-200 bg-white text-[#6F42C1]';
+        $base = 'inline-flex items-center justify-center rounded-full font-medium transition duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#6F42C1] disabled:opacity-60 disabled:cursor-not-allowed relative overflow-visible aspect-square border border-gray-200 bg-white text-[#6F42C1]';
         $sizeClasses = [
             'sm' => 'p-2',
             'md' => 'p-2.5',

@@ -7,10 +7,10 @@
             {{ $user->creation_source ?? 'Borrower-Registered' }}
         </span>
     </td>
-    <td class="px-6 py-4 whitespace-nowrap" title="{{ $user->created_at->format('M d, Y') }}">{{ $user->created_at->format('Y-m-d') }}</td>
+    <td class="px-6 py-4 whitespace-nowrap" title="{{ $user->created_at->format('M. j, Y') }}">{{ $user->created_at->format('M. j, Y') }}</td>
     <td class="px-6 py-4 whitespace-nowrap">
         @if($user->last_login_at)
-            <span class="inline-flex items-center gap-1.5 text-sm" data-last-active="{{ $user->last_login_at->timestamp }}" title="Last login: {{ $user->last_login_at->format('M d, Y h:i A') }}">
+            <span class="inline-flex items-center gap-1.5 text-sm" data-last-active="{{ $user->last_login_at->timestamp }}" title="Last login: {{ $user->last_login_at->format('M. j, Y h:i A') }}">
                 <i class="fas fa-circle text-xs {{ $user->last_login_at->isToday() ? 'text-green-500' : ($user->last_login_at->gt(now()->subDays(7)) ? 'text-yellow-500' : 'text-gray-400') }}"></i>
                 <span class="last-active-text">{{ $user->last_login_at->diffForHumans() }}</span>
             </span>
@@ -26,7 +26,7 @@
             <x-button
                 variant="secondary"
                 size="sm"
-                class="btn-action btn-utility h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only open-edit-modal"
+                class="btn-action btn-utility btn-edit h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only open-edit-modal"
                 iconName="pencil-square"
                 data-edit-url="{{ route('admin.users.edit', $user) }}">
                 Edit

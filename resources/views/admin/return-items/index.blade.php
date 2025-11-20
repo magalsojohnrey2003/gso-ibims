@@ -19,7 +19,7 @@
                             weight="bold"
                             icon="arrow-path-rounded-square"
                             iconStyle="plain"
-                            iconColor="gov-accent"
+                            iconColor="title-purple"
                             compact="true">
                             Return Items
                         </x-title>

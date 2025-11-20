@@ -255,6 +255,41 @@ main[role="main"],
     min-height: auto ; /* Allow container to shrink */
 }
 
+.title-heading {
+    font-family: 'Poppins', 'Segoe UI', Arial, sans-serif;
+    letter-spacing: -0.01em;
+}
+
+.title-heading-label {
+    display: inline-flex;
+    align-items: center;
+}
+
+.title-icon {
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.title-icon-graphic {
+    color: inherit;
+}
+
+.text-title-purple {
+    color: #6D28D9;
+}
+
+body.theme-dark .text-title-purple {
+    color: #A78BFA;
+}
+
+.bg-title-purple {
+    background-color: #6D28D9;
+}
+
+body.theme-dark .bg-title-purple {
+    background-color: #4C1D95;
+}
+
 /* Optimize title container layout for compactness */
 .mb-2.rounded-2xl.shadow-lg.bg-white .flex.flex-col.md\\:flex-row {
     gap: 1rem ; /* Reduced gap between title and search */

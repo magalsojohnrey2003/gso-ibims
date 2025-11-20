@@ -1,5 +1,7 @@
 /* fontawesome */
 @import "@fortawesome/fontawesome-free/css/all.min.css";
+/* Title typography */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -34,6 +36,31 @@
   /* allow per-type hooks like [data-sidebar-type="admin"] if needed */
 }
 
+@media (min-width: 1024px) {
+  .sidebar.is-collapsed {
+    width: 4.75rem !important;
+  }
+
+  .sidebar.is-expanded,
+  .sidebar:not(.is-collapsed) {
+    width: 16rem !important;
+  }
+
+  .sidebar.is-collapsed nav ul li a {
+    justify-content: center;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .sidebar.is-collapsed .sidebar-icon {
+    margin-right: 0;
+  }
+
+  .sidebar.is-collapsed .sidebar-text {
+    display: none !important;
+  }
+}
+
 /* logo / collapsed text handling */
 .sidebar-logo .logo-img { transition: width .18s ease, height .18s ease; }
 .sidebar-text { transition: opacity .14s ease, visibility .14s ease; }
@@ -63,31 +90,10 @@
   transition: inherit;
 }
 
-#sidebar nav ul li a::before {
-  content: '';
-  position: absolute;
-  left: 0.75rem;
-  top: 50%;
-  width: 0.3rem;
-  height: 0;
-  border-radius: 9999px;
-  background: var(--sidebar-indicator, rgba(255,255,255,0.85));
-  transform: translateY(-50%);
-  opacity: 0;
-  transition: height .18s ease, opacity .18s ease;
-  pointer-events: none;
-}
-
 #sidebar nav ul li a:hover,
 #sidebar nav ul li a:focus-visible {
   background-color: var(--sidebar-hover, #5B21B6);
   color: var(--sidebar-text, #ffffff);
-}
-
-#sidebar nav ul li a:hover::before,
-#sidebar nav ul li a:focus-visible::before {
-  height: 60%;
-  opacity: .75;
 }
 
 .gov-active,
@@ -96,14 +102,6 @@
   background-color: var(--sidebar-active-bg, #ffffff);
   color: var(--sidebar-active-text, #4C1D95);
   box-shadow: var(--sidebar-active-shadow, 0 10px 30px rgba(76,29,149,0.22));
-}
-
-.gov-active::before,
-#sidebar nav ul li a[aria-current="page"]::before,
-#sidebar nav ul li a.active::before {
-  height: 70%;
-  opacity: 1;
-  background: var(--sidebar-active-text, #4C1D95);
 }
 
 .gov-active .sidebar-text,
@@ -568,10 +566,11 @@ nav, aside, main { color: inherit; }
    ----------------------------------------------------------------------- */
 @layer components {
   .btn-action {
-    @apply inline-flex items-center justify-center p-2 rounded-full border border-gray-200 bg-white text-[#6F42C1] shadow-sm transition duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#6F42C1] hover:text-[#6F42C1] disabled:cursor-not-allowed disabled:opacity-60 relative overflow-visible;
+    @apply inline-flex items-center justify-center p-2 rounded-full border border-gray-200 bg-white text-[#6F42C1] transition duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#6F42C1] hover:text-[#6F42C1] disabled:cursor-not-allowed disabled:opacity-60 relative overflow-visible;
     isolation: isolate;
     aspect-ratio: 1 / 1;
     transition-property: box-shadow, transform, color, background-color, border-color;
+    box-shadow: rgba(0, 0, 0, 0.4) 0px 2px 4px, rgba(0, 0, 0, 0.3) 0px 7px 13px -3px, rgba(0, 0, 0, 0.2) 0px -3px 0px inset;
   }
 
   .btn-action::before {
@@ -621,7 +620,14 @@ nav, aside, main { color: inherit; }
   }
 
   .btn-print {
-    @apply hover:bg-[#F8F9FA] hover:text-[#6F42C1] hover:border-[#E5E7EB];
+    @apply hover:text-[#6F42C1];
+  }
+
+  .btn-print:hover,
+  .btn-print:focus-visible {
+    background-color: #E5E7EB;
+    border-color: #D1D5DB;
+    color: #6F42C1;
   }
 
   .btn-view {
@@ -646,6 +652,19 @@ nav, aside, main { color: inherit; }
 
   .btn-utility {
     @apply hover:bg-[#F8F9FA] hover:text-[#6F42C1] hover:border-[#E5E7EB];
+  }
+
+  .btn-edit {
+    @apply text-[#1D4ED8] border-blue-200 focus-visible:ring-blue-400;
+    color: #1D4ED8;
+    border-color: rgba(59, 130, 246, 0.35);
+  }
+
+  .btn-edit:hover,
+  .btn-edit:focus-visible {
+    background-color: rgba(59, 130, 246, 0.15);
+    border-color: rgba(59, 130, 246, 0.45);
+    color: #1D4ED8;
   }
 }
 

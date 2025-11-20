@@ -1,39 +1,33 @@
 <nav x-data="{ open: false }"
     class="primary-navbar w-full fixed top-0 left-0 z-50 backdrop-blur-sm"
      role="navigation" aria-label="Primary">
-    <div class="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
-        <div class="h-16 flex items-center justify-between">
+    <div class="w-full px-3 sm:px-4 lg:px-6">
+        <div class="h-16 w-full flex items-center gap-3 flex-nowrap">
             <!-- Left: Toggle + Brand -->
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2 sm:gap-3 min-w-0 flex-shrink-0">
                 <!-- Sidebar Toggle Button -->
                 <button id="sidebarToggle"
                         aria-label="Toggle sidebar"
-                        class="nav-icon-button touch-p-2 -ml-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-0"
+                    class="nav-icon-button touch-p-2 -ml-1 flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-0"
                 >
                     <i class="fas fa-bars text-lg" aria-hidden="true"></i>
                 </button>
 
                 <!-- Brand logo + title - responsive -->
-                <a href="<?php echo e(auth()->check() ? (auth()->user()->role === 'admin' ? route('admin.dashboard') : route('user.dashboard')) : url('/')); ?>"
-                   class="flex items-center gap-2 no-underline nav-brand">
-                    <img src="<?php echo e(asset('images/logo2.png')); ?>" class="h-8 w-8 object-contain" alt="logo">
-                    <span class="text-lg font-bold leading-none nav-brand-text">GSO-IBIMS</span>
+                    <a href="<?php echo e(auth()->check() ? (auth()->user()->role === 'admin' ? route('admin.dashboard') : route('user.dashboard')) : url('/')); ?>"
+                       class="flex items-center gap-2 sm:gap-3 no-underline nav-brand min-w-0 max-w-[7rem] md:max-w-[9rem] xl:max-w-none">
+                    <img src="<?php echo e(asset('images/logo2.png')); ?>" class="h-8 w-8 object-contain flex-shrink-0" alt="logo">
+                        <span class="hidden lg:inline text-base xl:text-lg font-bold leading-none nav-brand-text truncate">GSO-IBIMS</span>
                 </a>
             </div>
 
-              <!-- Center: optional page title slot for narrow screens -->
-            <div class="flex-1 flex items-center justify-center sm:justify-start">
-                <!-- For mobile we can show a condensed page title if the template sets it via a section -->
-                <div class="text-sm font-semibold nav-title truncate max-w-[60vw] sm:max-w-none">
-                    <?php echo $__env->yieldContent('navTitle', ''); ?>
-                </div>
-            </div>
+                <div class="flex-1 min-w-0" aria-hidden="true"></div>
 
             <!-- Right side: controls -->
-            <div class="flex items-center gap-3">
+                <div class="flex items-center justify-end gap-2 sm:gap-3 min-w-0 flex-shrink-0">
                 <!-- Notification + profile on medium+ screens; on small screens we keep icons compact -->
-                <div class="flex items-center gap-2">
-                    <button id="notificationBtn" class="nav-icon-button relative w-9 h-9 rounded-full" aria-haspopup="true" aria-expanded="false" aria-controls="notificationDropdown">
+                <div class="flex items-center gap-2 flex-shrink-0 relative">
+                    <button id="notificationBtn" class="nav-icon-button relative w-9 h-9 rounded-full flex-shrink-0" aria-haspopup="true" aria-expanded="false" aria-controls="notificationDropdown">
                         <i class="fas fa-bell text-base" aria-hidden="true"></i>
                         <span id="notificationBadge" class="absolute -top-1 -right-1 inline-flex items-center justify-center rounded-full text-[10px] w-4 h-4 bg-red-600 text-white hidden">0</span>
                     </button>
@@ -99,7 +93,7 @@
         </div>
 
         <!-- Profile -->
-        <div class="relative">
+        <div class="relative flex-shrink-0">
             <button id="profileDropdownBtn" class="flex items-center nav-profile-trigger focus:outline-none" aria-haspopup="true" aria-expanded="false" aria-controls="profileDropdown">
                 <div class="w-9 h-9 rounded-full overflow-hidden border-2 profile-avatar transition shadow-sm">
                     <img src="<?php echo e(Auth::user()->profile_photo ? asset('storage/' . Auth::user()->profile_photo) : asset('images/profile.jpg')); ?>"
