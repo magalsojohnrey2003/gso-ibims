@@ -130,7 +130,7 @@
     </style>
 </head>
 
-<body class="font-sans antialiased transition-all duration-300" data-theme="original">
+<body class="font-sans antialiased transition-all duration-300 theme-light" data-theme="light">
     @php
         $loginMessage = null;
         if (session()->has('login_message')) {
@@ -185,7 +185,7 @@
         function applyTheme(mode) {
             const body = document.body;
             const html = document.documentElement;
-            mode = (mode === 'light' || mode === 'dark') ? mode : 'original';
+            mode = (mode === 'light' || mode === 'dark') ? mode : 'light';
 
             // remove existing theme classes
             body.classList.remove('theme-original', 'theme-light', 'theme-dark');
@@ -194,23 +194,28 @@
             if (mode === 'dark') {
                 body.classList.add('theme-dark');
                 html.classList.add('dark'); // Tailwind class-based dark mode
-            } else if (mode === 'light') {
-                body.classList.add('theme-light');
             } else {
-                body.classList.add('theme-original');
+                body.classList.add('theme-light');
             }
 
             try { body.setAttribute('data-theme', mode); } catch (e) {}
             try { window.dispatchEvent(new CustomEvent('themeChanged', { detail: { mode } })); } catch (e) {}
+            try { localStorage.setItem('theme', mode); } catch (e) {}
         }
 
-        // Initialize theme from localStorage or fallback to 'original'
+        // Initialize theme from localStorage or fallback to 'light'
         document.addEventListener('DOMContentLoaded', () => {
             try {
-                const savedTheme = localStorage.getItem('theme') || 'original';
-                applyTheme(savedTheme);
+                const stored = localStorage.getItem('theme');
+                let mode = 'light';
+                if (stored === 'dark' || stored === 'light') {
+                    mode = stored;
+                } else if (stored === 'original') {
+                    mode = 'light';
+                }
+                applyTheme(mode);
             } catch (e) {
-                applyTheme('original');
+                applyTheme('light');
             }
         });
 
