@@ -563,6 +563,15 @@ function buildStatusBadge(status, deliveryStatus) {
     };
 }
 
+function formatBorrowRequestCode(req) {
+    if (!req) return '';
+    const formatted = typeof req.formatted_request_id === 'string' ? req.formatted_request_id.trim() : '';
+    if (formatted) return formatted;
+    const rawId = req.id ?? null;
+    if (!rawId) return '';
+    return `BR-${String(rawId).padStart(4, '0')}`;
+}
+
 function renderBorrowRequests() {
     const tbody = document.getElementById('borrowRequestsTableBody');
     if (!tbody) return;
@@ -573,7 +582,7 @@ function renderBorrowRequests() {
     const normalizedStatus = (BR_STATUS_FILTER || '').toLowerCase().trim();
     const filtered = BORROW_CACHE.filter((req) => {
         const borrowerName = [req.user?.first_name, req.user?.last_name].filter(Boolean).join(' ').toLowerCase();
-        const idText = String(req.id ?? '').toLowerCase();
+        const idText = `${String(req.id ?? '')} ${formatBorrowRequestCode(req)}`.toLowerCase();
         const statusText = String(req.status ?? '').toLowerCase();
         const matchesSearch = !normalizedSearch || borrowerName.includes(normalizedSearch) || idText.includes(normalizedSearch);
         const matchesStatus = !normalizedStatus || statusText.includes(normalizedStatus) || (normalizedStatus === 'approved' && statusText === 'qr_verified');
@@ -597,9 +606,10 @@ function renderBorrowRequests() {
         tr.dataset.requestId = String(req.id ?? '');
 
         const borrowerName = [req.user?.first_name, req.user?.last_name].filter(Boolean).join(' ').trim() || 'Unknown';
+        const requestCode = formatBorrowRequestCode(req);
 
+        const tdId = `<td class="px-4 py-3">${escapeHtml(requestCode || String(req.id ?? ''))}</td>`;
         const tdBorrower = `<td class="px-4 py-3">${escapeHtml(borrowerName)}</td>`;
-        const tdId = `<td class="px-4 py-3">${escapeHtml(String(req.id ?? ''))}</td>`;
         const tdBorrowDate = `<td class="px-4 py-3">${escapeHtml(formatDate(req.borrow_date))}</td>`;
         const tdReturnDate = `<td class="px-4 py-3">${escapeHtml(formatDate(req.return_date))}</td>`;
 
@@ -634,7 +644,7 @@ function renderBorrowRequests() {
 
         tdActions.appendChild(wrapper);
 
-        tr.innerHTML = tdBorrower + tdId + tdBorrowDate + tdReturnDate + tdStatus;
+        tr.innerHTML = tdId + tdBorrower + tdBorrowDate + tdReturnDate + tdStatus;
         tr.appendChild(tdActions);
         tbody.appendChild(tr);
     });
@@ -865,7 +875,7 @@ function fillRequestModal(req) {
 
     const fullName = [req.user?.first_name, req.user?.last_name].filter(Boolean).join(' ').trim() || 'Unknown';
     setText('requestTitle', 'Borrow Request Details');
-    setText('requestShortStatus', `Borrow Request #${req.id}`);
+    setText('requestShortStatus', `Borrow Request ${formatBorrowRequestCode(req) || `#${req.id}`}`);
     setText('borrowerName', fullName);
     setText('manpowerCount', req.manpower_count ?? '�');
     setText('requestLocation', req.location ?? '�');

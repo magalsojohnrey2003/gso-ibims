@@ -9,6 +9,8 @@ class ManpowerRequest extends Model
 {
     use HasFactory;
 
+    protected $appends = ['formatted_request_id'];
+
     protected $fillable = [
         'user_id',
         'quantity',
@@ -65,5 +67,14 @@ class ManpowerRequest extends Model
         } catch (\Throwable $e) {
             return null;
         }
+    }
+
+    public function getFormattedRequestIdAttribute(): ?string
+    {
+        $id = $this->getAttribute('id');
+        if (!$id) {
+            return null;
+        }
+        return sprintf('MP-%04d', (int) $id);
     }
 }

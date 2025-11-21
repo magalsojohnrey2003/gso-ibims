@@ -12,7 +12,7 @@
                     <div class="flex items-center gap-3">
                         <div class="flex-shrink-0 relative">
                             <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
-                            <input type="text" id="user-manpower-search" placeholder="Search role or purpose"
+                            <input type="text" id="user-manpower-search" placeholder="Search role, purpose, or request ID"
                                    class="border border-gray-300 rounded-lg pl-12 pr-4 py-2.5 text-sm w-64 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all hover:border-gray-400" />
                         </div>
                         <x-button id="openManpowerCreate" variant="primary" iconName="plus" class="px-4 py-2 text-sm">Add Request</x-button>
@@ -32,13 +32,14 @@
                                 <th class="px-6 py-3 text-center">Request ID</th>
                                 <th class="px-6 py-3 text-center">Qty (Approved / Requested)</th>
                                 <th class="px-6 py-3 text-center">Role</th>
-                                <th class="px-6 py-3 text-center">Schedule</th>
+                                <th class="px-6 py-3 text-center">Borrowed Date</th>
+                                <th class="px-6 py-3 text-center">Return Date</th>
                                 <th class="px-6 py-3 text-center">Status</th>
                                 <th class="px-6 py-3 text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="userManpowerTableBody" class="text-center">
-                            <x-table-loading-state colspan="6" />
+                            <x-table-loading-state colspan="7" />
                         </tbody>
                     </table>
                 </div>
@@ -47,7 +48,7 @@
     </div>
 
     <template id="user-manpower-empty-state-template">
-        <x-table-empty-state colspan="6" />
+        <x-table-empty-state colspan="7" />
     </template>
 
     <!-- Create Modal -->
@@ -269,16 +270,20 @@
                     <div class="font-semibold text-gray-900" data-user-view="quantity">—</div>
                 </div>
                 <div>
+                    <div class="text-gray-500 uppercase text-xs">Borrowed Date</div>
+                    <div class="font-semibold text-gray-900" data-user-view="borrow_date">—</div>
+                </div>
+                <div>
+                    <div class="text-gray-500 uppercase text-xs">Return Date</div>
+                    <div class="font-semibold text-gray-900" data-user-view="return_date">—</div>
+                </div>
+                <div>
                     <div class="text-gray-500 uppercase text-xs">Municipality</div>
                     <div class="font-semibold text-gray-900" data-user-view="municipality">—</div>
                 </div>
                 <div>
                     <div class="text-gray-500 uppercase text-xs">Barangay</div>
                     <div class="font-semibold text-gray-900" data-user-view="barangay">—</div>
-                </div>
-                <div class="md:col-span-2">
-                    <div class="text-gray-500 uppercase text-xs">Schedule</div>
-                    <div class="font-semibold text-gray-900" data-user-view="schedule">—</div>
                 </div>
                 <div class="md:col-span-2">
                     <div class="text-gray-500 uppercase text-xs">Purpose</div>

@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class BorrowRequest extends Model
 {
+    protected $appends = ['formatted_request_id'];
+
     protected $fillable = [
         'user_id',
         'borrow_date',
@@ -92,5 +94,14 @@ class BorrowRequest extends Model
         $this->delivery_reported_at = now();
         $this->delivery_report_reason = $reason;
         $this->save();
+    }
+
+    public function getFormattedRequestIdAttribute(): ?string
+    {
+        $id = $this->getAttribute('id');
+        if (!$id) {
+            return null;
+        }
+        return sprintf('BR-%04d', (int) $id);
     }
 }

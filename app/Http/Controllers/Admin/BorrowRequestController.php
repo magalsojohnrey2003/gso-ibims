@@ -63,6 +63,7 @@ class BorrowRequestController extends Controller
 
                 return [
                     'id' => $r->id,
+                    'formatted_request_id' => $r->formatted_request_id,
                     'borrower_name' => $r->borrower_name,
                     'office_agency' => $r->office_agency,
                     'contact_number' => $r->contact_number,
@@ -301,6 +302,7 @@ class BorrowRequestController extends Controller
                 $status = $request->status === 'qr_verified' ? 'approved' : $request->status;
                 return [
                     'id' => $request->id,
+                    'formatted_request_id' => $request->formatted_request_id,
                     'borrow_date' => $request->borrow_date,
                     'return_date' => $request->return_date,
                     'status' => $status,

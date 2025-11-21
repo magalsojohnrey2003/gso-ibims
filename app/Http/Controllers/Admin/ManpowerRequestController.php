@@ -18,7 +18,9 @@ class ManpowerRequestController extends Controller
         $query = ManpowerRequest::with(['user', 'roleType'])->latest();
 
         if ($search = trim((string) $request->query('q', ''))) {
-            $query->where(function($q) use ($search) {
+            $numericSearch = preg_replace('/\D+/', '', $search);
+
+            $query->where(function($q) use ($search, $numericSearch) {
                 $q->where('purpose', 'like', "%$search%")
                   ->orWhere('role', 'like', "%$search%")
                   ->orWhereHas('user', function($uq) use ($search) {
@@ -26,6 +28,10 @@ class ManpowerRequestController extends Controller
                          ->orWhere('last_name', 'like', "%$search%")
                          ->orWhere('email', 'like', "%$search%");
                   });
+
+                if ($numericSearch !== '') {
+                    $q->orWhere('id', (int) $numericSearch);
+                }
             });
         }
 
@@ -41,6 +47,7 @@ class ManpowerRequestController extends Controller
                     'name' => $row->user->full_name ?? trim(($row->user->first_name ?? '').' '.($row->user->last_name ?? '')),
                     'email' => $row->user->email,
                 ] : null,
+                'formatted_request_id' => $row->formatted_request_id,
                 'quantity' => $row->quantity,
                 'approved_quantity' => $row->approved_quantity,
                 'role' => $row->role,

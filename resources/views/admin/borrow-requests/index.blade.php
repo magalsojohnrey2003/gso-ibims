@@ -59,8 +59,8 @@
                 <table class="w-full text-sm text-center text-gray-600 gov-table">
                     <thead class="bg-purple-600 text-white text-xs uppercase font-semibold text-center">
                         <tr>
-                            <th class="px-6 py-3 text-center">Borrower</th>
                             <th class="px-6 py-3 text-center">Request ID</th>
+                            <th class="px-6 py-3 text-center">Borrower</th>
                             <th class="px-6 py-3 text-center">Borrow Date</th>
                             <th class="px-6 py-3 text-center">Return Date</th>
                             <th class="px-6 py-3 text-center">Status</th>

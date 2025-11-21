@@ -31,8 +31,8 @@
                         <div class="flex-shrink-0 relative">
                             <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
                             <input type="text"
-                                   id="return-items-live-search"
-                                   placeholder="Search Borrower and Borrow ID"
+                                id="return-items-live-search"
+                                placeholder="Search borrower or request ID"
                                    class="border border-gray-300 rounded-lg pl-12 pr-4 py-2.5 text-sm w-64 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all hover:border-gray-400" />
                         </div>
                         
@@ -59,6 +59,7 @@
                 <table class="w-full text-sm text-center text-gray-600 gov-table">
                     <thead class="bg-purple-600 text-white text-xs uppercase font-semibold text-center">
                         <tr>
+                            <th class="px-6 py-3 text-center">Request ID</th>
                             <th class="px-6 py-3 text-center">Borrower</th>
                             <th class="px-6 py-3 text-center">Request Type</th>
                             <th class="px-6 py-3 text-center">Status</th>
@@ -66,7 +67,7 @@
                         </tr>
                     </thead>
                     <tbody id="returnItemsTableBody" class="text-center">
-                        <x-table-loading-state colspan="4" />
+                        <x-table-loading-state colspan="5" />
                     </tbody>
                 </table>
                 </div>
@@ -75,7 +76,7 @@
     </div>
 
     <template id="return-items-empty-state-template">
-        <x-table-empty-state colspan="4" />
+        <x-table-empty-state colspan="5" />
     </template>
 
     <!-- Templates -->
@@ -179,8 +180,8 @@
                     <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
                         <i class="fas fa-hashtag text-purple-600 mt-1"></i>
                         <div>
-                            <div class="font-medium text-gray-800">Borrow ID</div>
-                            <div class="text-gray-600" id="manage-borrow-id">--</div>
+                            <div class="font-medium text-gray-800">Request ID</div>
+                            <div class="text-gray-600" id="manage-request-id">--</div>
                         </div>
                     </div>
                     <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
@@ -339,23 +340,23 @@
         function filterTable() {
             const searchTerm = searchInput.value.toLowerCase().trim();
             const statusValue = statusFilter.value.toLowerCase();
-            const rows = tableBody.querySelectorAll('tr[data-borrow-id]');
+            const rows = tableBody.querySelectorAll('tr[data-request-code]');
             
             let visibleCount = 0;
             
             rows.forEach(row => {
-                const borrowerCell = row.querySelector('td:nth-child(1)');
-                const statusCell = row.querySelector('td:nth-child(2)');
-                const borrowId = row.getAttribute('data-borrow-id');
+                const borrowerCell = row.querySelector('td[data-column="borrower"]') || row.querySelector('td:nth-child(2)');
+                const statusCell = row.querySelector('td[data-column="status"]') || row.querySelector('td:nth-child(4)');
+                const requestCode = row.getAttribute('data-request-code');
                 
                 if (!borrowerCell || !statusCell) return;
                 
                 const borrowerText = borrowerCell.textContent.toLowerCase();
-                const borrowIdText = (borrowId || '').toLowerCase();
+                const requestCodeText = (requestCode || '').toLowerCase();
                 const statusText = statusCell.textContent.toLowerCase();
                 
                 // Check search match
-                const searchMatches = borrowerText.includes(searchTerm) || borrowIdText.includes(searchTerm);
+                const searchMatches = borrowerText.includes(searchTerm) || requestCodeText.includes(searchTerm);
                 
                 // Check status filter match (map "dispatched" to "borrowed")
                 const statusMatches = !statusValue || statusText.includes(statusValue) || (statusValue === 'borrowed' && statusText.includes('borrowed'));
@@ -370,14 +371,14 @@
             });
             
             // Handle empty state
-            const loadingRow = tableBody.querySelector('tr:not([data-borrow-id])');
+            const loadingRow = tableBody.querySelector('tr:not([data-request-code])');
             if (visibleCount === 0 && rows.length > 0 && !loadingRow) {
                 let noResultsRow = document.getElementById('no-results-row-return');
                 if (!noResultsRow) {
                     noResultsRow = document.createElement('tr');
                     noResultsRow.id = 'no-results-row-return';
                     noResultsRow.innerHTML = `
-                        <td colspan="4" class="px-6 py-8 text-center text-gray-500">
+                        <td colspan="5" class="px-6 py-8 text-center text-gray-500">
                             <div class="flex flex-col items-center gap-2">
                                 <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -407,7 +408,7 @@
         });
         
         searchInput.addEventListener('blur', function() {
-            this.placeholder = 'Search Borrower and Borrow ID';
+            this.placeholder = 'Search borrower or request ID';
         });
     });
     </script>

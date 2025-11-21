@@ -23,6 +23,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const SHORT_MONTHS = ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May.', 'Jun.', 'Jul.', 'Aug.', 'Sept.', 'Oct.', 'Nov.', 'Dec.'];
 
+  const formatRequestCode = (row) => {
+    if (!row) return '';
+    const formatted = typeof row.formatted_request_id === 'string' ? row.formatted_request_id.trim() : '';
+    if (formatted) return formatted;
+    const rawId = row.id ?? null;
+    if (!rawId) return '';
+    return `MP-${String(rawId).padStart(4, '0')}`;
+  };
+
   const fetchRows = async () => {
     try {
       const params = new URLSearchParams();
@@ -36,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
       render();
     } catch (e) {
       console.error(e);
-      tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-red-600">Failed to load.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="py-4 text-red-600">Failed to load.</td></tr>`;
     }
   };
 
@@ -54,13 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${month} ${day}, ${year}`;
   };
 
-  const formatSchedule = (row) => {
-    const start = formatDate(row.start_at);
-    const end = formatDate(row.end_at);
-    if (start && end) return `${start} - ${end}`;
-    if (start) return start;
-    return '—';
-  };
+  const formatDateDisplay = (value) => formatDate(value) || '—';
 
   const badgeHtml = (status) => {
     status = (status||'').toLowerCase();
@@ -77,17 +80,21 @@ document.addEventListener('DOMContentLoaded', () => {
       if (template?.content?.firstElementChild) {
         tbody.appendChild(template.content.firstElementChild.cloneNode(true));
       } else {
-        tbody.innerHTML = `<tr><td colspan="6" class="py-10 text-center text-gray-500">No manpower requests found</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="py-10 text-center text-gray-500">No manpower requests found</td></tr>`;
       }
       return;
     }
     tbody.innerHTML = CACHE.map(r => {
-      const schedule = formatSchedule(r);
+      const requestCode = formatRequestCode(r);
+      const borrowDate = formatDateDisplay(r.start_at);
+      const returnDate = formatDateDisplay(r.end_at);
       return `<tr data-manpower-id='${r.id}'>
+        <td class='px-6 py-3 font-semibold text-gray-900'>${requestCode || ''}</td>
         <td class='px-6 py-3'>${r.user ? r.user.name : '—'}</td>
         <td class='px-6 py-3'>${r.role || r.role_type || '—'}</td>
         <td class='px-6 py-3'>${r.quantity}</td>
-        <td class='px-6 py-3 text-sm text-gray-700'>${schedule}</td>
+        <td class='px-6 py-3 text-sm text-gray-700'>${borrowDate}</td>
+        <td class='px-6 py-3 text-sm text-gray-700'>${returnDate}</td>
         <td class='px-6 py-3'>${badgeHtml(r.status)}</td>
         <td class='px-6 py-3'>${actionButtons(r)}</td>
       </tr>`;
@@ -144,8 +151,10 @@ document.addEventListener('DOMContentLoaded', () => {
     approvedQuantityInput.value = row.quantity;
     approveFields.forEach(el => {
       const key = el.dataset.approveField;
-      if (key === 'schedule') {
-        el.textContent = formatSchedule(row);
+      if (key === 'borrow_date') {
+        el.textContent = formatDateDisplay(row.start_at);
+      } else if (key === 'return_date') {
+        el.textContent = formatDateDisplay(row.end_at);
       } else if (key === 'letter') {
         if (row.letter_url) {
           el.innerHTML = `<a href='${row.letter_url}' target='_blank' class='text-indigo-600 hover:underline'>Open uploaded letter</a>`;
@@ -165,8 +174,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const hydrateViewModal = (row) => {
     viewFields.forEach(el => {
       const key = el.dataset.viewField;
-      if (key === 'schedule') {
-        el.textContent = formatSchedule(row);
+      if (key === 'borrow_date') {
+        el.textContent = formatDateDisplay(row.start_at);
+      } else if (key === 'return_date') {
+        el.textContent = formatDateDisplay(row.end_at);
       } else if (key === 'quantity') {
         const approved = row.approved_quantity ? `${row.approved_quantity} / ` : '';
         el.textContent = `${approved}${row.quantity}`;

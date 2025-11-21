@@ -12,7 +12,7 @@
                     <div class="flex items-center gap-3">
                         <div class="flex-shrink-0 relative">
                             <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
-                            <input type="text" id="admin-manpower-search" placeholder="Search name, role, purpose"
+                            <input type="text" id="admin-manpower-search" placeholder="Search name, role, purpose, or request ID"
                                    class="border border-gray-300 rounded-lg pl-12 pr-4 py-2.5 text-sm w-64 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all hover:border-gray-400" />
                         </div>
                         <div class="flex-shrink-0 relative">
@@ -37,16 +37,18 @@
                     <table class="w-full text-sm text-center text-gray-600 gov-table">
                         <thead class="bg-purple-600 text-white text-xs uppercase font-semibold text-center">
                             <tr>
+                                <th class="px-6 py-3 text-center">Request ID</th>
                                 <th class="px-6 py-3 text-center">User</th>
                                 <th class="px-6 py-3 text-center">Role</th>
                                 <th class="px-6 py-3 text-center">Qty (Requested)</th>
-                                <th class="px-6 py-3 text-center">Schedule</th>
+                                <th class="px-6 py-3 text-center">Borrowed Date</th>
+                                <th class="px-6 py-3 text-center">Return Date</th>
                                 <th class="px-6 py-3 text-center">Status</th>
                                 <th class="px-6 py-3 text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="adminManpowerTableBody" class="text-center">
-                            <x-table-loading-state colspan="6" />
+                            <x-table-loading-state colspan="8" />
                         </tbody>
                     </table>
                 </div>
@@ -55,7 +57,7 @@
     </div>
 
     <template id="admin-manpower-empty-state-template">
-        <x-table-empty-state colspan="6" />
+        <x-table-empty-state colspan="8" />
     </template>
 
     <template id="badge-status-pending"><x-status-badge type="pending" text="Pending" /></template>
@@ -128,8 +130,12 @@
                     <div class="font-semibold text-gray-900" data-approve-field="quantity">—</div>
                 </div>
                 <div>
-                    <div class="text-gray-500 uppercase text-xs">Schedule</div>
-                    <div class="font-semibold text-gray-900" data-approve-field="schedule">—</div>
+                    <div class="text-gray-500 uppercase text-xs">Borrowed Date</div>
+                    <div class="font-semibold text-gray-900" data-approve-field="borrow_date">—</div>
+                </div>
+                <div>
+                    <div class="text-gray-500 uppercase text-xs">Return Date</div>
+                    <div class="font-semibold text-gray-900" data-approve-field="return_date">—</div>
                 </div>
                 <div>
                     <div class="text-gray-500 uppercase text-xs">Municipality</div>
@@ -187,9 +193,13 @@
                     <div class="text-gray-500 uppercase text-xs">Qty (Approved / Requested)</div>
                     <div class="font-semibold text-gray-900" data-view-field="quantity">—</div>
                 </div>
-                <div class="md:col-span-2">
-                    <div class="text-gray-500 uppercase text-xs">Schedule</div>
-                    <div class="font-semibold text-gray-900" data-view-field="schedule">—</div>
+                <div>
+                    <div class="text-gray-500 uppercase text-xs">Borrowed Date</div>
+                    <div class="font-semibold text-gray-900" data-view-field="borrow_date">—</div>
+                </div>
+                <div>
+                    <div class="text-gray-500 uppercase text-xs">Return Date</div>
+                    <div class="font-semibold text-gray-900" data-view-field="return_date">—</div>
                 </div>
                 <div>
                     <div class="text-gray-500 uppercase text-xs">Municipality</div>

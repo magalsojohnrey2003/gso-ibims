@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class WalkInRequest extends Model
 {
+    protected $appends = ['formatted_request_id'];
+
     protected $fillable = [
         'borrower_name',
         'office_agency',
@@ -71,5 +73,14 @@ class WalkInRequest extends Model
     public function items(): HasMany
     {
         return $this->hasMany(WalkInRequestItem::class);
+    }
+
+    public function getFormattedRequestIdAttribute(): ?string
+    {
+        $id = $this->getAttribute('id');
+        if (!$id) {
+            return null;
+        }
+        return sprintf('WI-%04d', (int) $id);
     }
 }

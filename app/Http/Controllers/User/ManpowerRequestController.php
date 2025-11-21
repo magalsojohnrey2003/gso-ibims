@@ -26,6 +26,7 @@ class ManpowerRequestController extends Controller
         $rows = $query->get()->map(function(ManpowerRequest $row) {
             return [
                 'id' => $row->id,
+                'formatted_request_id' => $row->formatted_request_id,
                 'quantity' => $row->quantity,
                 'approved_quantity' => $row->approved_quantity,
                 'role' => $row->role,

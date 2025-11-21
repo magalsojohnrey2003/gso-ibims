@@ -99,6 +99,25 @@ function renderInventoryStatusBadge(status, label) {
     return span;
 }
 
+function formatRequestCode(row) {
+    if (!row) return '';
+    const provided = typeof row.formatted_request_id === 'string' ? row.formatted_request_id.trim() : '';
+    if (provided) return provided;
+
+    const requestType = (row.request_type || '').toLowerCase();
+    if (requestType === 'walk-in') {
+        const numeric = row.walk_in_request_id ?? parseInt(String(row.id || '').replace(/\D+/g, ''), 10);
+        if (!numeric || Number.isNaN(numeric)) return '';
+        return `WI-${String(numeric).padStart(4, '0')}`;
+    }
+
+    const identifier = row.borrow_request_id ?? row.id;
+    if (!identifier) return '';
+    const numeric = parseInt(identifier, 10);
+    if (!numeric || Number.isNaN(numeric)) return '';
+    return `BR-${String(numeric).padStart(4, '0')}`;
+}
+
 function formatDeliveryStatus(status) {
     if (!status) return 'Pending';
     switch (String(status).toLowerCase()) {
@@ -161,7 +180,7 @@ function renderTable() {
         if (template?.content?.firstElementChild) {
             tbody.appendChild(template.content.firstElementChild.cloneNode(true));
         } else {
-            tbody.innerHTML = '<tr><td colspan="4" class="py-10 text-center text-gray-500">No return items to review yet.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="py-10 text-center text-gray-500">No return items to review yet.</td></tr>';
         }
         return;
     }
@@ -169,25 +188,32 @@ function renderTable() {
     RETURN_ROWS.forEach((row) => {
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-gray-50 transition';
-        tr.dataset.borrowId = String(row.borrow_request_id ?? row.id ?? '');
 
-        const borrowId = row.borrow_request_id ?? row.id ?? '--';
+        const requestCode = formatRequestCode(row);
+        const internalId = row.borrow_request_id ?? row.id ?? null;
+        const datasetCode = requestCode || (internalId != null ? String(internalId) : '');
+        tr.dataset.requestCode = datasetCode.toLowerCase();
+        const fallbackId = internalId && internalId !== '--' ? `#${internalId}` : '—';
+
+        const tdRequestId = document.createElement('td');
+        tdRequestId.className = 'px-6 py-3 text-center font-semibold text-gray-900';
+        tdRequestId.dataset.column = 'request-id';
+        tdRequestId.textContent = requestCode || fallbackId;
+        tr.appendChild(tdRequestId);
 
         const tdBorrower = document.createElement('td');
         tdBorrower.className = 'px-6 py-3 text-left';
+        tdBorrower.dataset.column = 'borrower';
         const borrowerName = document.createElement('div');
         borrowerName.className = 'font-semibold text-gray-900';
         borrowerName.textContent = row.borrower_name || 'Unknown';
-        const borrowerId = document.createElement('div');
-        borrowerId.className = 'text-xs text-gray-500';
-        borrowerId.textContent = `Borrow ID: ${borrowId}`;
         tdBorrower.appendChild(borrowerName);
-        tdBorrower.appendChild(borrowerId);
         tr.appendChild(tdBorrower);
 
         // Request Type column
         const tdRequestType = document.createElement('td');
         tdRequestType.className = 'px-6 py-3 text-center';
+        tdRequestType.dataset.column = 'request-type';
         const requestType = row.request_type || 'regular';
         const requestTypeBadge = requestType === 'walk-in' 
             ? cloneTemplate('badge-request-type-walkin', 'Walk-in')
@@ -197,6 +223,7 @@ function renderTable() {
 
         const tdStatus = document.createElement('td');
         tdStatus.className = 'px-6 py-3 text-center';
+        tdStatus.dataset.column = 'status';
         const statusBadge = renderStatusBadge(row.delivery_status, formatDeliveryStatus(row.delivery_status));
         tdStatus.appendChild(statusBadge);
         tr.appendChild(tdStatus);
@@ -297,7 +324,8 @@ function populateManageModal(data) {
     }));
     MANAGE_FILTER = data.default_item || '';
 
-    setText('manage-borrow-id', data.borrow_request_id ?? data.id ?? '--');
+    const requestDisplay = formatRequestCode(data) || (data.borrow_request_id ?? data.id ?? '--');
+    setText('manage-request-id', requestDisplay);
     setText('manage-borrower', data.borrower ?? 'Unknown');
 
     const addressInput = document.getElementById('manage-address');
@@ -550,7 +578,8 @@ function showCollectConfirm(row) {
     const messageEl = document.getElementById('collectConfirmMessage');
     if (messageEl) {
         const borrowId = row?.borrow_request_id ?? row?.id ?? '--';
-        messageEl.textContent = `Are you sure borrow request #${borrowId} has been picked up?`;
+        const requestLabel = formatRequestCode(row) || `#${borrowId}`;
+        messageEl.textContent = `Are you sure request ${requestLabel} has been picked up?`;
     }
     window.dispatchEvent(new CustomEvent('open-modal', { detail: 'collectConfirmModal' }));
 }
@@ -704,13 +733,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (riSearch) {
         riSearch.addEventListener('input', (e) => {
             const term = (e.target.value || '').toLowerCase().trim();
-            const rows = document.querySelectorAll('#returnItemsTableBody tr[data-borrow-id]');
+            const rows = document.querySelectorAll('#returnItemsTableBody tr[data-request-code]');
             let visible = 0;
             rows.forEach(r => {
-                const borrowerCell = r.querySelector('td:first-child');
+                const borrowerCell = r.querySelector('td[data-column="borrower"]') || r.querySelector('td:nth-child(2)');
+                const statusCell = r.querySelector('td[data-column="status"]') || r.querySelector('td:nth-child(4)');
                 const borrowerText = (borrowerCell?.textContent || '').toLowerCase();
-                const borrowId = (r.dataset.borrowId || '').toLowerCase();
-                const match = !term || borrowerText.includes(term) || borrowId.includes(term);
+                const statusText = (statusCell?.textContent || '').toLowerCase();
+                const requestCode = (r.dataset.requestCode || '').toLowerCase();
+                const match = !term || borrowerText.includes(term) || requestCode.includes(term) || statusText.includes(term);
                 r.style.display = match ? '' : 'none';
                 if (match) visible++;
             });
@@ -719,7 +750,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!existing) {
                     const tr = document.createElement('tr');
                     tr.id = 'no-results-row-return';
-                    tr.innerHTML = '<td colspan="4" class="px-6 py-8 text-center text-gray-500">No returns found</td>';
+                    tr.innerHTML = '<td colspan="5" class="px-6 py-8 text-center text-gray-500">No returns found</td>';
                     document.getElementById('returnItemsTableBody')?.appendChild(tr);
                 }
             } else if (existing) {
@@ -727,7 +758,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         riSearch.addEventListener('focus', function(){ this.placeholder = 'Type to Search'; });
-        riSearch.addEventListener('blur', function(){ this.placeholder = 'Search Borrower and Borrow ID'; });
+        riSearch.addEventListener('blur', function(){ this.placeholder = 'Search borrower or request ID'; });
     }
 
     const collectConfirmBtn = document.getElementById('collectConfirmBtn');

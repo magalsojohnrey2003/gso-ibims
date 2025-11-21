@@ -29,6 +29,15 @@
     minute: '2-digit',
   });
 
+  const formatRequestId = (row) => {
+    if (!row) return '';
+    const formatted = typeof row.formatted_request_id === 'string' ? row.formatted_request_id.trim() : '';
+    if (formatted) return formatted;
+    const rawId = row.id ?? null;
+    if (!rawId) return '';
+    return `WI-${String(rawId).padStart(4, '0')}`;
+  };
+
   const normalizeDateString = (value) => {
     if (typeof value !== 'string') {
       return value;
@@ -139,14 +148,16 @@
       const borrowTime = getTimeDisplay(row, 'borrowed');
       const returnDate = getDateDisplay(row, 'returned') || '—';
       const returnTime = getTimeDisplay(row, 'returned');
+      const requestCode = formatRequestId(row);
 
       const tr = document.createElement('tr');
       tr.dataset.id = row.id;
       tr.dataset.index = String(index);
       tr.dataset.borrower = (row.borrower_name || '').toLowerCase();
       tr.dataset.office = (row.office_agency || '').toLowerCase();
+      tr.dataset.requestCode = requestCode.toLowerCase();
       tr.innerHTML = `
-        <td class="px-6 py-3">${row.id}</td>
+        <td class="px-6 py-3 font-semibold text-gray-900">${requestCode || row.id}</td>
         <td class="px-6 py-3">${row.borrower_name || '—'}</td>
         <td class="px-6 py-3">
           <div>${borrowDate}</div>
@@ -360,7 +371,8 @@
         rows.forEach((tr) => {
           const borrower = tr.dataset.borrower || '';
           const office = tr.dataset.office || '';
-          tr.style.display = term === '' || borrower.includes(term) || office.includes(term)
+          const code = tr.dataset.requestCode || '';
+          tr.style.display = term === '' || borrower.includes(term) || office.includes(term) || code.includes(term)
             ? ''
             : 'none';
         });

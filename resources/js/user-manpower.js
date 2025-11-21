@@ -30,6 +30,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const openModal = (name) => window.dispatchEvent(new CustomEvent('open-modal', { detail: name }));
   const closeModal = (name) => window.dispatchEvent(new CustomEvent('close-modal', { detail: name }));
 
+  const formatRequestCode = (row) => {
+    if (!row) return '';
+    const formatted = typeof row.formatted_request_id === 'string' ? row.formatted_request_id.trim() : '';
+    if (formatted) return formatted;
+    const id = row.id ?? null;
+    if (!id) return '';
+    return `MP-${String(id).padStart(4, '0')}`;
+  };
+
   const fetchRows = async () => {
     try {
       const res = await fetch(window.USER_MANPOWER.list, { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
@@ -38,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
       render();
     } catch (e) {
       console.error(e);
-      tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-red-600">Failed to load.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" class="py-4 text-red-600">Failed to load.</td></tr>`;
     }
   };
 
@@ -130,13 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${month} ${day}, ${year}`;
   };
 
-  const formatSchedule = (row) => {
-    const start = formatDate(row.start_at);
-    const end = formatDate(row.end_at);
-    if (start && end) return `${start} - ${end}`;
-    if (start) return start;
-    return '—';
-  };
+  const formatDateDisplay = (value) => formatDate(value) || '—';
 
   const appendEmptyStateRow = (fallback = 'No requests found') => {
     const template = document.getElementById('user-manpower-empty-state-template');
@@ -144,7 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (template?.content?.firstElementChild) {
       tbody.appendChild(template.content.firstElementChild.cloneNode(true));
     } else {
-      tbody.innerHTML = `<tr><td colspan="6" class="py-10 text-center text-gray-500">${fallback}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" class="py-10 text-center text-gray-500">${fallback}</td></tr>`;
     }
   };
 
@@ -152,22 +155,30 @@ document.addEventListener('DOMContentLoaded', () => {
     let rows = CACHE;
     const term = (search?.value || '').toLowerCase().trim();
     if (term) {
-      rows = rows.filter(r => (r.role||'').toLowerCase().includes(term) || (r.purpose||'').toLowerCase().includes(term));
+      rows = rows.filter(r => {
+        const roleMatch = (r.role || '').toLowerCase().includes(term);
+        const purposeMatch = (r.purpose || '').toLowerCase().includes(term);
+        const codeMatch = (formatRequestCode(r) || '').toLowerCase().includes(term);
+        return roleMatch || purposeMatch || codeMatch;
+      });
     }
     if (!rows.length) {
       appendEmptyStateRow();
       return;
     }
     tbody.innerHTML = rows.map(r => {
-      const sched = formatSchedule(r);
+      const requestCode = formatRequestCode(r);
+      const borrowDate = formatDateDisplay(r.start_at);
+      const returnDate = formatDateDisplay(r.end_at);
       const approved = r.approved_quantity != null ? r.approved_quantity : '—';
       const printTemplate = window.USER_MANPOWER?.print || '';
       const printUrl = printTemplate ? printTemplate.replace('__ID__', r.id) : '#';
       return `<tr data-request-id='${r.id}'>
-        <td class='px-6 py-3 font-semibold'>#${r.id}</td>
+        <td class='px-6 py-3 font-semibold'>${requestCode || `#${r.id}`}</td>
         <td class='px-6 py-3'>${approved} / ${r.quantity}</td>
         <td class='px-6 py-3'>${r.role || '—'}</td>
-        <td class='px-6 py-3 text-sm text-gray-700'>${sched}</td>
+        <td class='px-6 py-3 text-sm text-gray-700'>${borrowDate}</td>
+        <td class='px-6 py-3 text-sm text-gray-700'>${returnDate}</td>
         <td class='px-6 py-3'>${badgeHtml(r.status)}</td>
         <td class='px-6 py-3'>
             <div class='flex items-center justify-center gap-2'>
@@ -309,8 +320,10 @@ document.addEventListener('DOMContentLoaded', () => {
       if (key === 'quantity') {
         const approved = row.approved_quantity != null ? row.approved_quantity : '—';
         el.textContent = `${approved} / ${row.quantity}`;
-      } else if (key === 'schedule') {
-        el.textContent = formatSchedule(row);
+      } else if (key === 'borrow_date') {
+        el.textContent = formatDateDisplay(row.start_at);
+      } else if (key === 'return_date') {
+        el.textContent = formatDateDisplay(row.end_at);
       } else if (key === 'letter') {
         if (row.letter_url) {
           el.innerHTML = `<a href='${row.letter_url}' target='_blank' class='text-indigo-600 hover:underline'>Open uploaded letter</a>`;
@@ -320,7 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } else if (key === 'status') {
         el.textContent = row.status ? row.status.charAt(0).toUpperCase() + row.status.slice(1) : '—';
       } else if (key === 'id') {
-        el.textContent = `#${row.id}`;
+        el.textContent = formatRequestCode(row) || `#${row.id}`;
       } else if (key === 'location') {
         el.textContent = row.location || '—';
       } else if (key === 'municipality') {
