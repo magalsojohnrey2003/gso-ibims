@@ -15,6 +15,26 @@ export function formatDate(dateStr) {
     return `${month}. ${day}, ${year}`;
 }
 
+function formatUsageRange(range) {
+    if (!range || typeof range !== 'string' || !range.includes('-')) return '—';
+    const [startRaw, endRaw] = range.split('-');
+
+    const formatTime = (value) => {
+        if (!value) return null;
+        const [hours, minutes] = value.split(':');
+        if (hours === undefined || minutes === undefined) return null;
+        const date = new Date();
+        date.setHours(Number(hours), Number(minutes), 0, 0);
+        if (Number.isNaN(date.getTime())) return null;
+        return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    };
+
+    const startLabel = formatTime(startRaw);
+    const endLabel = formatTime(endRaw);
+    if (!startLabel || !endLabel) return '—';
+    return `${startLabel} - ${endLabel}`;
+}
+
 function escapeHtml(unsafe) {
     if (unsafe === null || unsafe === undefined) return '';
     return String(unsafe)
@@ -63,8 +83,8 @@ function getBadgeHtml(status) {
     return `<span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-full ${color}"><i class="fas ${icon} text-xs"></i><span>${escapeHtml(label)}</span></span>`;
 }
 
-function showError(m){ window.showToast('error', m); }
-function showSuccess(m){ window.showToast('success', m); }
+function showError(m){ window.showToast(m, 'error'); }
+function showSuccess(m){ window.showToast(m, 'success'); }
 
 function appendEmptyState(tbody, templateId, colspan, fallbackText) {
     const template = document.getElementById(templateId);
@@ -195,11 +215,16 @@ export function fillBorrowModal(data) {
         if (el) el.textContent = value ?? '—';
     };
 
-    setText('mbi-location', data.location ?? '—'); 
-    setText('mbi-short-status', `Borrow Request #${data.id}`);
-    setText('mbi-request-id', data.id ?? '—');
+    const modalRoot = document.getElementById('borrowDetailsModalRoot');
+    if (modalRoot) {
+        modalRoot.dataset.requestId = data.id ? String(data.id) : '';
+    }
+
+    setText('mbi-location', data.location ?? '—');
+    setText('mbi-short-status', `Request ID #${data.id ?? '—'}`);
     setText('mbi-borrow-date', formatDate(data.borrow_date));
     setText('mbi-return-date', formatDate(data.return_date));
+    setText('mbi-usage-range', formatUsageRange(data.time_of_usage));
 
     // status badge
     const sb = document.getElementById('mbi-status-badge');
@@ -216,27 +241,52 @@ export function fillBorrowModal(data) {
     }
 
     const itemsList = document.getElementById('mbi-items');
+    const itemsSummary = document.getElementById('mbi-items-summary');
+    const itemsArray = Array.isArray(data.items) ? data.items : [];
+
+    if (itemsSummary) {
+        const count = itemsArray.length;
+        itemsSummary.textContent = count === 1 ? '1 item' : `${count} items`;
+    }
+
     if (itemsList) {
-        const itemsHtml = (data.items || []).map(i => {
+        const itemsHtml = itemsArray.map((i) => {
             const name = escapeHtml(i.item?.name ?? 'Unknown');
             const qty = escapeHtml(String(i.quantity ?? 0));
-            const assigned = (typeof i.assigned_manpower !== 'undefined' && (i.assigned_manpower !== null && i.assigned_manpower !== 0))
-                ? `${escapeHtml(String(i.assigned_manpower))}${i.manpower_role ? ' (' + escapeHtml(i.manpower_role) + ')' : ''}${i.manpower_notes ? ' — ' + escapeHtml(i.manpower_notes) : ''}`
-                : 'Not assigned';
-            return `<li>${name} (x${qty}) — Assigned manpower: ${assigned}</li>`;
+            return `<li>${name} (x${qty})</li>`;
         }).join('');
-        itemsList.innerHTML = itemsHtml ? itemsHtml : '<li>None</li>';
+        itemsList.innerHTML = itemsHtml || '<li class="list-none text-gray-500">No items recorded.</li>';
     }
 
     // rejection block
     const rejBlock = document.getElementById('mbi-rejection-block');
+    const rejSubject = document.getElementById('mbi-rejection-subject');
+    const rejSummary = document.getElementById('mbi-rejection-summary');
     const rejReason = document.getElementById('mbi-rejection-reason');
-    if (data.status === 'rejected' && data.rejection_reason) {
-        rejBlock.classList.remove('hidden');
-        if (rejReason) rejReason.textContent = data.rejection_reason;
-    } else {
-        rejBlock.classList.add('hidden');
-        if (rejReason) rejReason.textContent = '';
+
+    if (rejBlock) {
+        const status = (data.status || '').toLowerCase();
+        const subjectValue = typeof data.reject_category === 'string' ? data.reject_category.trim() : '';
+        const detailValue = typeof data.reject_reason === 'string' ? data.reject_reason.trim() : '';
+        const hasReason = subjectValue !== '' || detailValue !== '';
+
+        if (status === 'rejected' && hasReason) {
+            rejBlock.classList.remove('hidden');
+            if (rejSummary) {
+                rejSummary.textContent = subjectValue !== '' ? subjectValue : 'View details';
+            }
+            if (rejSubject) {
+                rejSubject.textContent = subjectValue || 'Reason';
+            }
+            if (rejReason) {
+                rejReason.textContent = detailValue || 'No detailed reason provided.';
+            }
+        } else {
+            rejBlock.classList.add('hidden');
+            if (rejSummary) rejSummary.textContent = 'Tap to view details';
+            if (rejSubject) rejSubject.textContent = '';
+            if (rejReason) rejReason.textContent = '';
+        }
     }
 
     // delivery reason block
@@ -502,10 +552,10 @@ window.addEventListener('storage', async function (ev) {
                 loadMyBorrowedItems();
             }
 
-            // If the details modal is open and showing the same request, refresh it too
-            // We detect by checking the modal detail element 'mbi-request-id'
-            const currentShown = document.getElementById('mbi-request-id')?.textContent || '';
-            if (String(currentShown) === String(payload.borrow_request_id)) {
+            // If modal is open for this request, refresh it using the root dataset id
+            const modalRoot = document.getElementById('borrowDetailsModalRoot');
+            const currentId = modalRoot?.dataset.requestId || '';
+            if (currentId && String(currentId) === String(payload.borrow_request_id)) {
                 // fetch fresh details and re-fill modal
                 try {
                     const id = payload.borrow_request_id;

@@ -54,6 +54,6 @@
         </div>
     </div>
 
-    <input type="hidden" id="location" name="location" value="{{ $locationValue }}">
+    <input type="hidden" id="location" name="location" value="{{ $locationStoredValue }}">
     <x-input-error :messages="$errors->get('location')" class="mt-1" />
 </div>

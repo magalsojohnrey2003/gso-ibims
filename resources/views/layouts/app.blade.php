@@ -203,8 +203,7 @@
             try { localStorage.setItem('theme', mode); } catch (e) {}
         }
 
-        // Initialize theme from localStorage or fallback to 'light'
-        document.addEventListener('DOMContentLoaded', () => {
+        function initializeThemeFromStorage() {
             try {
                 const stored = localStorage.getItem('theme');
                 let mode = 'light';
@@ -217,7 +216,14 @@
             } catch (e) {
                 applyTheme('light');
             }
-        });
+        }
+
+        // Initialize theme from localStorage or fallback to 'light'
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeThemeFromStorage, { once: true });
+        } else {
+            initializeThemeFromStorage();
+        }
 
         // Observe body class changes and keep data-theme in sync (for other scripts)
         (function() {

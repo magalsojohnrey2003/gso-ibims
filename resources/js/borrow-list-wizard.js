@@ -184,7 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const name = item.dataset.itemName || 'Item';
                     const qty = item.dataset.itemQuantity || '0';
                     const li = document.createElement('li');
-                    li.textContent = `${name} — Qty: ${qty}`;
+                    li.textContent = `${name}(x${qty})`;
                     summaryItemsList.appendChild(li);
                 });
             }
@@ -238,7 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const name = item.dataset.itemName || 'Item';
                     const qty = item.dataset.itemQuantity || '0';
                     const li = document.createElement('li');
-                    li.textContent = `${name} — Qty: ${qty}`;
+                    li.textContent = `${name}(x${qty})`;
                     modalItemsList.appendChild(li);
                 });
             }
@@ -321,7 +321,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (step2NextBtn) {
         step2NextBtn.addEventListener('click', () => {
             if (!borrowHidden?.value || !returnHidden?.value) {
-                window.showToast('warning', 'Please select both borrow and return dates before proceeding.');
+                window.showToast('Please select both borrow and return dates before proceeding.', 'warning');
                 return;
             }
             goToStep(2);
@@ -359,12 +359,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (openConfirmModalBtn) {
         openConfirmModalBtn.addEventListener('click', () => {
             if (!borrowHidden?.value || !returnHidden?.value) {
-                window.showToast('warning', 'Please select valid borrow and return dates.');
+                window.showToast('Please select valid borrow and return dates.', 'warning');
                 goToStep(1);
                 return;
             }
             if (!locationHidden?.value) {
-                window.showToast('warning', 'Please complete the address selection before submitting.');
+                window.showToast('Please complete the address selection before submitting.', 'warning');
                 goToStep(0);
                 return;
             }
@@ -374,7 +374,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const hasFile = pond && pond.getFiles().length > 0;
             
             if (!hasFile) {
-                window.showToast('warning', 'Please upload your letter before submitting.');
+                window.showToast('Please upload your letter before submitting.', 'warning');
                 return;
             }
 
@@ -393,7 +393,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const hasFileInPond = pond && pond.getFiles().length > 0;
             
             if (!hasFileInPond) {
-                window.showToast('warning', 'Please upload your signed letter before proceeding.');
+                window.showToast('Please upload your signed letter before proceeding.', 'warning');
                 return;
             }
             
@@ -442,13 +442,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         const errorElement = doc.querySelector('.alert-error, .text-red-600, [role="alert"], .error, x-alert[type="error"]');
                         if (errorElement) {
                             const errorText = errorElement.textContent || errorElement.innerText || 'Please check your form and try again.';
-                            window.showToast('error', errorText);
+                            window.showToast(errorText, 'error');
                         } else {
-                            window.showToast('error', 'Please check your form and try again.');
+                            window.showToast('Please check your form and try again.', 'error');
                         }
                     } catch (e) {
                         // If we can't parse the response, just show generic error
-                        window.showToast('error', 'Please check your form and try again.');
+                        window.showToast('Please check your form and try again.', 'error');
                     }
                     // Reload to show errors on page
                     window.location.reload();
@@ -458,9 +458,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     try {
                         // Import toast function if available
                         if (typeof showToast === 'function') {
-                            showToast('success', 'Borrow request submitted successfully!');
+                            showToast('Borrow request submitted successfully!', 'success');
                         } else if (window.showToast && typeof window.showToast === 'function') {
-                            window.showToast('success', 'Borrow request submitted successfully!');
+                            window.showToast('Borrow request submitted successfully!', 'success');
                         }
                     } catch (e) {
                         // Toast not available, that's okay - flash message will show
@@ -470,7 +470,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (error) {
                 console.error('Form submission error:', error);
-                window.showToast('error', 'An error occurred while submitting your request. Please try again.');
+                window.showToast('An error occurred while submitting your request. Please try again.', 'error');
             } finally {
                 confirmBorrowRequestBtn.disabled = false;
                 confirmBorrowRequestBtn.classList.remove('opacity-60', 'cursor-not-allowed');

@@ -392,6 +392,15 @@
 
   --border-light: rgba(2,6,23,0.06);
   --border-dark: rgba(255,255,255,0.04);
+
+  --input-surface: #f5f6fb;
+  --input-border: rgba(15,23,42,0.12);
+  --input-text: #0f1724;
+  --input-placeholder: rgba(100,116,139,0.78);
+  --input-shadow: rgba(15,23,42,0.06);
+  --input-border-focus: #7D46D3;
+  --input-focus-ring: rgba(125,70,211,0.22);
+  --input-disabled-bg: rgba(226,232,240,0.65);
 }
 
 /* -----------------------------------------------------------------------
@@ -424,6 +433,11 @@
   --nav-text: var(--sidebar-text);
   --elev-shadow: 0 6px 18px rgba(2,6,23,0.04);
   --border: var(--border-light);
+
+  --input-surface: #f7f8fc;
+  --input-border: rgba(99,102,241,0.18);
+  --input-placeholder: rgba(100,116,139,0.72);
+  --input-shadow: rgba(99,102,241,0.08);
 }
 
 /* -----------------------------------------------------------------------
@@ -458,6 +472,15 @@
   --nav-text: var(--sidebar-text);
   --elev-shadow: 0 6px 18px rgba(0,0,0,0.5);
   --border: var(--border-dark);
+
+  --input-surface: #202436;
+  --input-border: rgba(148,163,184,0.35);
+  --input-text: #E6EEF8;
+  --input-placeholder: rgba(148,163,184,0.72);
+  --input-shadow: rgba(15,23,42,0.58);
+  --input-border-focus: #38bdf8;
+  --input-focus-ring: rgba(56,189,248,0.28);
+  --input-disabled-bg: rgba(55,65,81,0.65);
 }
 
 /* -----------------------------------------------------------------------
@@ -565,6 +588,89 @@ nav, aside, main { color: inherit; }
    Table action buttons (Tailwind utility helpers)
    ----------------------------------------------------------------------- */
 @layer components {
+  .gov-input {
+    background-color: var(--input-surface);
+    border: 1px solid var(--input-border);
+    color: var(--input-text);
+    border-radius: 0.75rem;
+    box-shadow: 0 8px 22px var(--input-shadow);
+    transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease, transform .14s ease;
+  }
+
+  .gov-input::placeholder {
+    color: var(--input-placeholder);
+    opacity: 1;
+  }
+
+  .gov-input:hover:not(:disabled) {
+    box-shadow: 0 10px 26px rgba(125,70,211,0.16);
+  }
+
+  .gov-input:focus {
+    outline: none;
+    border-color: var(--input-border-focus);
+    box-shadow: 0 0 0 3px var(--input-focus-ring), 0 12px 30px rgba(76,29,149,0.18);
+  }
+
+  .gov-input:disabled,
+  .gov-input[aria-disabled="true"] {
+    background-color: var(--input-disabled-bg);
+    color: rgba(148,163,184,0.75);
+    cursor: not-allowed;
+    box-shadow: none;
+    border-color: rgba(148,163,184,0.32);
+  }
+
+  .gov-input[aria-invalid="true"],
+  .gov-input.error {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 3px rgba(239,68,68,0.22), 0 12px 24px rgba(239,68,68,0.18);
+  }
+
+  main :where(
+      input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']):not([type='hidden']):not([type='submit']):not([type='reset']):not([type='image']),
+      select,
+      textarea
+  ):not(.gov-input):not(.unstyled-input) {
+    background-color: var(--input-surface);
+    border: 1px solid var(--input-border);
+    color: var(--input-text);
+    border-radius: 0.75rem;
+    box-shadow: 0 8px 22px var(--input-shadow);
+    transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease;
+  }
+
+  main :where(
+      input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']):not([type='hidden']):not([type='submit']):not([type='reset']):not([type='image']),
+      select,
+      textarea
+  ):not(.gov-input):not(.unstyled-input)::placeholder {
+    color: var(--input-placeholder);
+    opacity: 1;
+  }
+
+  main :where(
+      input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']):not([type='hidden']):not([type='submit']):not([type='reset']):not([type='image']),
+      select,
+      textarea
+  ):not(.gov-input):not(.unstyled-input):focus {
+    outline: none;
+    border-color: var(--input-border-focus);
+    box-shadow: 0 0 0 3px var(--input-focus-ring), 0 10px 26px rgba(76,29,149,0.18);
+  }
+
+  main :where(
+      input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']):not([type='hidden']):not([type='submit']):not([type='reset']):not([type='image']),
+      select,
+      textarea
+  ):not(.gov-input):not(.unstyled-input):disabled {
+    background-color: var(--input-disabled-bg);
+    color: rgba(148,163,184,0.78);
+    cursor: not-allowed;
+    box-shadow: none;
+    border-color: rgba(148,163,184,0.32);
+  }
+
   .btn-action {
     @apply inline-flex items-center justify-center p-2 rounded-full border border-gray-200 bg-white text-[#6F42C1] transition duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#6F42C1] hover:text-[#6F42C1] disabled:cursor-not-allowed disabled:opacity-60 relative overflow-visible;
     isolation: isolate;
@@ -696,9 +802,11 @@ nav, aside, main { color: inherit; }
 /* Inputs (scoped general styles; keep Breeze component usage as usual) */
 
 /* Small helpers for error state */
-.input-field.error, textarea.error {
+.gov-input.error,
+.gov-input[aria-invalid="true"],
+textarea.error {
   border-color: #ef4444;
-  box-shadow: 0 4px 16px rgba(239,68,68,0.06);
+  box-shadow: 0 0 0 3px rgba(239,68,68,0.22), 0 12px 24px rgba(239,68,68,0.16);
 }
 
 /* Page-level transitions */

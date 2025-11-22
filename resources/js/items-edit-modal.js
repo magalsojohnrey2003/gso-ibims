@@ -182,7 +182,7 @@ function wireEditForm(form) {
           const summary = applyResult.message || buildErrorSummary(applyResult.fields || new Set());
           if (summary) {
             showMessage(errorEl, summary);
-            showToast('error', summary);
+            showToast(summary, 'error');
           }
           toggleLoading(submitBtn, false);
           return;
@@ -194,7 +194,7 @@ function wireEditForm(form) {
       const message = data.message || 'Item details updated successfully.';
 
       // Show toast notification
-      showToast('success', message);
+      showToast(message, 'success');
       showMessage(feedbackEl, message);
 
       // Revert to readonly state on success
@@ -219,7 +219,7 @@ function wireEditForm(form) {
       console.error(error);
       const message = error?.message || 'Failed to update item details. Please try again.';
       showMessage(errorEl, message);
-      showToast('error', message);
+      showToast(message, 'error');
     } finally {
       toggleLoading(submitBtn, false);
     }

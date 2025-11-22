@@ -49,7 +49,7 @@
 
                    {{-- Generate Button --}}
 <div class="lg:col-span-1 text-right">
-    <x-primary-button id="generateBtn" class="w-full justify-center">
+    <x-primary-button id="generateBtn" class="w-full justify-center" title="Generate the selected report">
         {{-- Spinner (hidden until loading) --}}
         <svg id="genSpinner" class="hidden mr-2 animate-spin h-4 w-4 text-white"
              xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -68,11 +68,11 @@
 
                     {{-- Export Buttons --}}
                     <div class="flex gap-2 justify-end">
-                        <x-secondary-button id="downloadPdfBtn" class="w-full justify-center">
+                        <x-secondary-button id="downloadPdfBtn" class="w-full justify-center" title="Download report as PDF">
                             <x-heroicon-o-document-text class="h-4 w-4 mr-1" /> PDF
                         </x-secondary-button>
 
-                        <x-primary-button id="downloadXlsxBtn" class="bg-green-600 hover:bg-green-700 w-full justify-center">
+                        <x-primary-button id="downloadXlsxBtn" class="bg-green-600 hover:bg-green-700 w-full justify-center" title="Download report as Excel">
                             <x-heroicon-o-table-cells class="h-4 w-4 mr-1" /> Excel
                         </x-primary-button>
                     </div>

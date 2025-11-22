@@ -29,15 +29,15 @@
                         <div class="flex-shrink-0 relative">
                             <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
                             <input type="text"
-                                   id="borrow-requests-live-search"
-                                   placeholder="Search Borrower and Request"
-                                   class="border border-gray-300 rounded-lg pl-12 pr-4 py-2.5 text-sm w-64 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all hover:border-gray-400" />
+                                id="borrow-requests-live-search"
+                                placeholder="Search Borrower and Request"
+                                class="gov-input pl-12 pr-4 py-2.5 text-sm w-64 transition duration-200 focus:outline-none focus:ring-0" />
                         </div>
                         
                         <!-- Sort By Status (no dropdown arrow like Reports) -->
                         <div class="flex-shrink-0 relative">
-                            <select id="borrow-requests-status-filter"
-                                    class="border border-gray-300 rounded-lg pl-4 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all hover:border-gray-400 appearance-none bg-white">
+                                <select id="borrow-requests-status-filter"
+                                    class="gov-input pl-4 pr-4 py-2.5 text-sm transition duration-200 appearance-none focus:outline-none focus:ring-0">
                                 <option value="">All Status</option>
                                 <option value="pending">Pending</option>
                                 <option value="approved">Approved</option>
@@ -82,107 +82,122 @@
 
     <!-- Modal (modern design) -->
     <x-modal name="requestDetailsModal" maxWidth="lg">
-        <div class="p-6 space-y-6">
-            <!-- Header -->
-            <div class="flex items-center justify-between border-b border-gray-200 pb-3">
-                <h3 class="text-xl font-semibold text-gray-800 flex items-center gap-3">
-                    <i class="fas fa-clipboard-check text-purple-600"></i>
-                    <span id="requestTitle">Borrow Request Details</span>
-                </h3>
+        <div class="w-full max-h-[85vh] bg-gray-100 dark:bg-gray-900 flex flex-col overflow-hidden rounded-2xl">
+            <div class="relative px-6 py-4 bg-[#4C1D95] text-white sticky top-0 z-30 flex items-start gap-3">
+                <div class="flex-1">
+                    <h3 class="text-xl font-semibold leading-snug flex items-center gap-2">
+                        <i class="fas fa-clipboard-check text-white"></i>
+                        <span id="requestTitle">Borrow Request Details</span>
+                    </h3>
+                    <p class="text-sm text-purple-100 mt-1">Review requester information, schedule, and status updates.</p>
+                </div>
                 <button
                     type="button"
-                    class="text-gray-400 hover:text-gray-600 transition"
+                    class="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition"
                     @click="$dispatch('close-modal', 'requestDetailsModal')"
                 >
+                    <span class="sr-only">Close modal</span>
                     <i class="fas fa-times text-lg"></i>
                 </button>
             </div>
 
-            <!-- Status banner -->
-            <div id="requestStatusBanner" class="flex items-center gap-3 bg-purple-50 border border-purple-100 rounded-lg p-3">
-                <i class="fas fa-check-circle text-green-600"></i>
-                <span id="requestShortStatus" class="font-semibold text-purple-800">Borrow Request #</span>
-            </div>
-
-            <!-- Content blocks -->
-            <div id="requestDetailsModalContent" class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-gray-700">
-                <!-- Borrower -->
-                <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
-                    <i class="fas fa-user text-purple-600 mt-1"></i>
-                    <div>
-                        <div class="font-medium text-gray-800">Borrower</div>
-                        <div class="text-gray-600" id="borrowerName">—</div>
-                    </div>
+            <div class="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+                <div id="requestStatusBanner" class="flex items-start gap-3 rounded-lg border border-purple-100 bg-purple-50 p-4 text-sm">
+                    <i class="fas fa-check-circle text-green-600 text-lg"></i>
+                    <p id="requestShortStatus" class="font-semibold text-purple-800">Borrow Request #</p>
                 </div>
 
-                <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
-                    <i class="fas fa-map-marker-alt text-purple-600 mt-1"></i>
-                    <div>
-                        <div class="font-medium text-gray-800">Delivery Location</div>
-                        <div class="text-gray-600" id="requestLocation">—</div>
+                <div id="requestDetailsModalContent" class="grid gap-4 md:grid-cols-2 text-sm text-gray-700">
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex items-start gap-3">
+                        <div class="h-10 w-10 flex items-center justify-center rounded-full bg-purple-100 text-purple-700">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div>
+                            <div class="font-medium text-gray-900 dark:text-white">Borrower</div>
+                            <div class="text-gray-600 dark:text-gray-300" id="borrowerName">—</div>
+                        </div>
                     </div>
-                </div>
 
-                <!-- Status (badge) -->
-                <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
-                    <i class="fas fa-tag text-purple-600 mt-1"></i>
-                    <div>
-                        <div class="font-medium text-gray-800">Status</div>
-                        <div id="statusBadge" class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">—</div>
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex items-start gap-3">
+                        <div class="h-10 w-10 flex items-center justify-center rounded-full bg-purple-100 text-purple-700">
+                            <i class="fas fa-map-marker-alt"></i>
+                        </div>
+                        <div>
+                            <div class="font-medium text-gray-900 dark:text-white">Delivery Location</div>
+                            <div class="text-gray-600 dark:text-gray-300" id="requestLocation">—</div>
+                        </div>
                     </div>
-                </div>
 
-                <!-- Items -->
-                <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3 sm:col-span-2">
-                    <i class="fas fa-box-open text-purple-600 mt-1"></i>
-                    <div>
-                        <div class="font-medium text-gray-800">Items Requested</div>
-                        <div class="text-gray-600" id="itemsList">—</div>
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex items-start gap-3">
+                        <div class="h-10 w-10 flex items-center justify-center rounded-full bg-purple-100 text-purple-700">
+                            <i class="fas fa-tag"></i>
+                        </div>
+                        <div>
+                            <div class="font-medium text-gray-900 dark:text-white">Status</div>
+                            <div id="statusBadge" class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">—</div>
+                        </div>
                     </div>
-                </div>
 
-                <!-- Rejection Reason -->
-                <div id="rejectionReasonCard" class="hidden flex items-start gap-3 bg-red-50 border border-red-100 rounded-lg p-3 sm:col-span-2">
-                    <i class="fas fa-circle-xmark text-red-600 mt-1"></i>
-                    <div>
-                        <div class="font-medium text-red-700">Rejection Reason</div>
-                        <div class="mt-1 space-y-1">
-                            <div class="text-sm font-semibold text-gray-900" id="rejectionReasonSubject"></div>
-                            <p class="text-sm text-gray-600 whitespace-pre-line" id="rejectionReasonDetail"></p>
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex items-start gap-3">
+                        <div class="h-10 w-10 flex items-center justify-center rounded-full bg-purple-100 text-purple-700">
+                            <i class="fas fa-calendar-day"></i>
+                        </div>
+                        <div>
+                            <div class="font-medium text-gray-900 dark:text-white">Borrow Date</div>
+                            <div class="text-gray-600 dark:text-gray-300" id="borrowDate">—</div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex items-start gap-3">
+                        <div class="h-10 w-10 flex items-center justify-center rounded-full bg-purple-100 text-purple-700">
+                            <i class="fas fa-calendar-check"></i>
+                        </div>
+                        <div>
+                            <div class="font-medium text-gray-900 dark:text-white">Return Date</div>
+                            <div class="text-gray-600 dark:text-gray-300" id="returnDate">—</div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex items-start gap-3 md:col-span-2">
+                        <div class="h-10 w-10 flex items-center justify-center rounded-full bg-purple-100 text-purple-700">
+                            <i class="fas fa-box-open"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="font-medium text-gray-900 dark:text-white">Items Requested</div>
+                            <div class="text-gray-600 dark:text-gray-300" id="itemsList">—</div>
+                        </div>
+                    </div>
+
+                    <div id="rejectionReasonCard" class="hidden md:col-span-2 bg-white dark:bg-gray-800 border border-red-200 rounded-lg shadow-sm p-4">
+                        <div class="flex items-start gap-3">
+                            <div class="h-10 w-10 flex items-center justify-center rounded-full bg-red-100 text-red-600">
+                                <i class="fas fa-circle-xmark"></i>
+                            </div>
+                            <div>
+                                <div class="font-medium text-red-700">Rejection Reason</div>
+                                <div class="mt-2 space-y-1">
+                                    <div class="text-sm font-semibold text-gray-900 dark:text-white" id="rejectionReasonSubject"></div>
+                                    <p class="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-line" id="rejectionReasonDetail"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="md:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+                        <div class="flex items-start gap-3">
+                            <div class="h-10 w-10 flex items-center justify-center rounded-full bg-blue-100 text-blue-600">
+                                <i class="fas fa-info-circle"></i>
+                            </div>
+                            <div>
+                                <div class="font-medium text-gray-900 dark:text-white">Status Information</div>
+                                <div class="text-gray-600 dark:text-gray-300" id="statusInfo">—</div>
+                            </div>
                         </div>
                     </div>
                 </div>
-
-                <!-- Borrow Date -->
-                <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
-                    <i class="fas fa-calendar-day text-purple-600 mt-1"></i>
-                    <div>
-                        <div class="font-medium text-gray-800">Borrow Date</div>
-                        <div class="text-gray-600" id="borrowDate">—</div>
-                    </div>
-                </div>
-
-                <!-- Return Date -->
-                <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
-                    <i class="fas fa-calendar-check text-purple-600 mt-1"></i>
-                    <div>
-                        <div class="font-medium text-gray-800">Return Date</div>
-                        <div class="text-gray-600" id="returnDate">—</div>
-                    </div>
-                </div>
-
-                <!-- Status info -->
-                <div class="flex items-start gap-3 bg-blue-50 rounded-lg p-3 sm:col-span-2">
-                    <i class="fas fa-info-circle text-blue-600 mt-1"></i>
-                    <div>
-                        <div class="font-medium text-gray-800">Status Information</div>
-                        <div class="text-gray-600" id="statusInfo">—</div>
-                    </div>
-                </div>
             </div>
 
-            <!-- Footer button -->
-            <div class="flex justify-end pt-4 border-t border-gray-200">
+            <div class="sticky bottom-0 z-30 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex flex-wrap justify-end gap-3">
                 <x-button
                     variant="secondary"
                     iconName="x-circle"
@@ -462,25 +477,25 @@
 </x-modal>
     {{-- Button templates (used by JS to create action buttons per-row) --}}
     <template id="btn-view-template">
-        <x-button variant="secondary" iconName="eye" class="btn-action btn-view h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="view">View</x-button>
+        <x-button variant="secondary" iconName="eye" class="btn-action btn-view h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="view" title="View request details">View</x-button>
     </template>
     <template id="btn-validate-template">
-        <x-button variant="secondary" iconName="shield-check" class="btn-action btn-utility h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="validate">Validate</x-button>
+        <x-button variant="secondary" iconName="shield-check" class="btn-action btn-utility h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="validate" title="Validate request">Validate</x-button>
     </template>
     <template id="btn-reject-template">
-        <x-button variant="secondary" iconName="x-circle" class="btn-action btn-reject h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="reject">Reject</x-button>
+        <x-button variant="secondary" iconName="x-circle" class="btn-action btn-reject h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="reject" title="Reject request">Reject</x-button>
     </template>
     <template id="btn-deliver-template">
-        <x-button variant="secondary" iconName="truck" class="btn-action btn-deliver h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="deliver">Deliver Items</x-button>
+        <x-button variant="secondary" iconName="truck" class="btn-action btn-deliver h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="deliver" title="Dispatch items">Deliver Items</x-button>
     </template>
     <template id="btn-mark-delivered-template">
-        <x-button variant="secondary" iconName="check-circle" class="btn-action btn-accept h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="mark-delivered">Mark as Delivered</x-button>
+        <x-button variant="secondary" iconName="check-circle" class="btn-action btn-accept h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="mark-delivered" title="Mark request as delivered">Mark as Delivered</x-button>
     </template>
     <template id="btn-cancel-dispatch-template">
-        <x-button variant="secondary" iconName="arrow-uturn-left" class="btn-action btn-delete h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="cancel-dispatch">Cancel Dispatch</x-button>
+        <x-button variant="secondary" iconName="arrow-uturn-left" class="btn-action btn-delete h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="cancel-dispatch" title="Cancel dispatch">Cancel Dispatch</x-button>
     </template>
     <template id="btn-accept-template">
-        <x-button variant="secondary" iconName="check-circle" class="btn-action btn-accept h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="approve">Accept</x-button>
+        <x-button variant="secondary" iconName="check-circle" class="btn-action btn-accept h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="approve" title="Approve request">Accept</x-button>
     </template>
 
     {{-- Alert templates --}}

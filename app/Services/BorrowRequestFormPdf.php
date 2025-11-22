@@ -145,7 +145,7 @@ class BorrowRequestFormPdf
             $name = $reqItem->item->name ?? ('Item #' . $reqItem->item_id);
             $qty = (int) ($reqItem->quantity ?? 0);
             $selected[] = [
-                'label' => $name . ' (Qty: ' . $qty . ')',
+                'label' => $name . '(x' . $qty . ')',
                 'checked' => true,
             ];
         }

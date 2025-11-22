@@ -278,7 +278,7 @@ class ItemInstancesManager {
       event.preventDefault();
       event.stopImmediatePropagation();
       if (this.serialSectionReason) {
-        showToast('error', this.serialSectionReason || 'Complete property number rows before editing serial or model numbers.');
+        showToast(this.serialSectionReason || 'Complete property number rows before editing serial or model numbers.', 'error');
       }
     }
   }
@@ -685,7 +685,7 @@ class ItemInstancesManager {
 
     if (errors.size) {
       const summary = buildErrorSummary(errors);
-      if (summary) showToast('error', summary);
+      if (summary) showToast(summary, 'error');
       const propertyFields = new Set(['year', 'category', 'gla', 'serial', 'office']);
       const hasPropertyError = Array.from(errors).some((field) => propertyFields.has(field));
       if (hasPropertyError) {
@@ -717,7 +717,7 @@ class ItemInstancesManager {
       const result = await this.api.patch(state.id, payload);
       if (!result.ok) {
         const message = (result.json && (result.json.message || (result.json.errors && Object.values(result.json.errors).flat().join(' ')))) || 'Failed to update item instance. Please try again.';
-        showToast('error', message);
+        showToast(message, 'error');
         return { ok: false, message };
       }
       state.initial = { ...state.current };
@@ -731,12 +731,12 @@ class ItemInstancesManager {
       const result = await this.api.destroy(state.id);
       if (!result.ok) {
         const message = (result.json && (result.json.message || result.json.error)) || 'Failed to delete item instance. Please try again.';
-        showToast('error', message);
+        showToast(message, 'error');
         return { ok: false, message };
       }
       state.row.remove();
       this.rows = this.rows.filter((item) => item !== state);
-      showToast('success', 'Item instance deleted successfully.');
+      showToast('Item instance deleted successfully.', 'success');
       window.dispatchEvent(new CustomEvent('instance:deleted', { detail: { instanceId: state.id } }));
     }
 

@@ -152,6 +152,7 @@
                                         size="sm"
                                         class="btn-action btn-utility h-9 w-9 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
                                         iconName="clock"
+                                        title="View property history"
                                         x-data
                                         x-on:click.prevent="window.dispatchEvent(new CustomEvent('item-history:open', { detail: { instanceId: {{ $instance->id }}, propertyNumber: '{{ $instance->property_number }}' } }))">
                                         History

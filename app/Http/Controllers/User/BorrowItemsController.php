@@ -19,12 +19,38 @@ use Illuminate\Support\Facades\Storage;
 class BorrowItemsController extends Controller
 {
     private string $defaultPhoto = 'images/item.png';
+    private array $nonBorrowableInstanceStatuses = ['damaged', 'missing', 'under_repair'];
+
+    private function getSafeBorrowLimit(Item $item): int
+    {
+        if (isset($item->safe_borrow_qty) && is_numeric($item->safe_borrow_qty)) {
+            return max(0, (int) $item->safe_borrow_qty);
+        }
+
+        if (isset($item->non_borrowable_instances_count) && is_numeric($item->non_borrowable_instances_count)) {
+            $nonBorrowableCount = (int) $item->non_borrowable_instances_count;
+        } elseif (isset($item->damaged_missing_qty) && is_numeric($item->damaged_missing_qty)) {
+            // Backward compatibility if older property is still set on the model instance
+            $nonBorrowableCount = (int) $item->damaged_missing_qty;
+        } else {
+            $nonBorrowableCount = (int) $item->instances()
+                ->whereIn('status', $this->nonBorrowableInstanceStatuses)
+                ->count();
+        }
+
+        return max(0, (int) $item->total_qty - $nonBorrowableCount);
+    }
 
     public function index(Request $request)
     {
         $search = trim($request->input('search', ''));
 
         $items = Item::query()
+            ->withCount([
+                'instances as non_borrowable_instances_count' => function ($query) {
+                    $query->whereIn('status', $this->nonBorrowableInstanceStatuses);
+                },
+            ])
             ->when($search !== '', function ($query) use ($search) {
                 $query->where('name', 'like', "%{$search}%")
                       ->orWhere('category', 'like', "%{$search}%");
@@ -35,6 +61,8 @@ class BorrowItemsController extends Controller
         $today = now()->startOfDay();
         foreach ($items as $item) {
             $item->is_new = $item->created_at && $item->created_at->gte($today);
+            $item->non_borrowable_instances_count = (int) ($item->non_borrowable_instances_count ?? 0);
+            $item->safe_borrow_qty = $this->getSafeBorrowLimit($item);
             // The category_name will be automatically available via the accessor
         }
 
@@ -46,6 +74,37 @@ class BorrowItemsController extends Controller
                 unset($borrowList[$id]);
             }
         }
+
+        if (!empty($borrowList)) {
+            $itemModels = Item::query()
+                ->withCount([
+                    'instances as non_borrowable_instances_count' => function ($query) {
+                        $query->whereIn('status', $this->nonBorrowableInstanceStatuses);
+                    },
+                ])
+                ->whereIn('id', array_keys($borrowList))
+                ->get()
+                ->keyBy('id');
+
+            foreach ($borrowList as $id => &$entry) {
+                $model = $itemModels->get($id);
+                if (!$model) {
+                    continue;
+                }
+
+                $safeMax = $this->getSafeBorrowLimit($model);
+                $entry['total_qty'] = (int) $model->total_qty;
+                $entry['safe_max_qty'] = max(0, $safeMax);
+                $entry['available_qty'] = (int) $model->available_qty;
+
+                $currentQty = max(1, (int) ($entry['qty'] ?? 1));
+                if ($safeMax > 0 && $currentQty > $safeMax) {
+                    $entry['qty'] = $safeMax;
+                }
+            }
+            unset($entry);
+        }
+
         Session::put('borrowList', $borrowList);
 
         return view('user.borrow-items.index', [
@@ -69,6 +128,36 @@ class BorrowItemsController extends Controller
                 unset($borrowList[$id]);
             }
         }
+
+        if (!empty($borrowList)) {
+            $borrowItems = Item::query()
+                ->withCount([
+                    'instances as non_borrowable_instances_count' => function ($query) {
+                        $query->whereIn('status', $this->nonBorrowableInstanceStatuses);
+                    },
+                ])
+                ->whereIn('id', array_keys($borrowList))
+                ->get()
+                ->keyBy('id');
+
+            foreach ($borrowList as $id => &$entry) {
+                $itemModel = $borrowItems->get($id);
+                if (!$itemModel) {
+                    continue;
+                }
+
+                $safeMax = $this->getSafeBorrowLimit($itemModel);
+                $entry['total_qty'] = (int) $itemModel->total_qty;
+                $entry['safe_max_qty'] = max(0, $safeMax);
+                $entry['available_qty'] = (int) $itemModel->available_qty;
+
+                $currentQty = max(1, (int) ($entry['qty'] ?? 1));
+                if ($safeMax > 0 && $currentQty > $safeMax) {
+                    $entry['qty'] = $safeMax;
+                }
+            }
+            unset($entry);
+        }
         Session::put('borrowList', $borrowList);
 
         return view('user.borrow-items.borrowList', [
@@ -81,30 +170,49 @@ class BorrowItemsController extends Controller
     // ✅ Add to Borrow List
     public function addToBorrowList(Request $request, Item $item)
     {
-        if ($item->total_qty <= 0) {
-            return back()->withErrors(['item' => "This item \"{$item->name}\" is out of stock and cannot be added."]);
+        $item->loadCount([
+            'instances as non_borrowable_instances_count' => function ($query) {
+                $query->whereIn('status', $this->nonBorrowableInstanceStatuses);
+            },
+        ]);
+
+        $safeBorrowLimit = $this->getSafeBorrowLimit($item);
+
+        if ($safeBorrowLimit <= 0) {
+            return back()->withErrors([
+                'item' => "All units of {$item->name} are currently marked as damaged, missing, or under maintenance.",
+            ]);
         }
 
         $qty = max(1, (int) $request->input('qty', 1));
-        $qty = min($qty, $item->total_qty);
+        $qty = min($qty, $safeBorrowLimit);
 
         $borrowList = Session::get('borrowList', []);
 
         $photoPath = $item->photo ?: $this->defaultPhoto;
 
         if (isset($borrowList[$item->id])) {
-            $newQty = min($borrowList[$item->id]['qty'] + $qty, $item->total_qty);
-            if ($newQty === $borrowList[$item->id]['qty']) {
-                return back()->withErrors(['item' => "You already have the maximum ({$item->total_qty}) of {$item->name} in your list."]);
+            $currentQty = max(1, (int) ($borrowList[$item->id]['qty'] ?? 1));
+            $newQty = min($currentQty + $qty, $safeBorrowLimit);
+
+            if ($newQty === $currentQty) {
+                return back()->withErrors([
+                    'item' => "You already have the maximum usable quantity ({$safeBorrowLimit}) of {$item->name} in your list.",
+                ]);
             }
             $borrowList[$item->id]['qty'] = $newQty;
+            $borrowList[$item->id]['safe_max_qty'] = $safeBorrowLimit;
+            $borrowList[$item->id]['total_qty'] = (int) $item->total_qty;
+            $borrowList[$item->id]['available_qty'] = (int) $item->available_qty;
         } else {
             $borrowList[$item->id] = [
                 'id'        => $item->id,
                 'name'      => $item->name,
                 'photo'     => $photoPath,
                 'qty'       => $qty,
-                'total_qty' => $item->total_qty,
+                'total_qty' => (int) $item->total_qty,
+                'safe_max_qty' => $safeBorrowLimit,
+                'available_qty' => (int) $item->available_qty,
                 'category'  => $item->category,
             ];
         }
@@ -135,7 +243,8 @@ class BorrowItemsController extends Controller
             if (!isset($postedItems[$itemId]['quantity'])) {
                 continue;
             }
-            $maxAllowed = max(1, (int) ($listItem['total_qty'] ?? 1));
+            $safeMax = (int) ($listItem['safe_max_qty'] ?? 0);
+            $maxAllowed = $safeMax > 0 ? $safeMax : max(1, (int) ($listItem['total_qty'] ?? 1));
             $requestedQty = (int) $postedItems[$itemId]['quantity'];
             if ($requestedQty < 1) {
                 $requestedQty = 1;
@@ -164,10 +273,18 @@ class BorrowItemsController extends Controller
 
         [$borrowDate, $returnDate] = [$validated['borrow_date'], $validated['return_date']];
 
-        $items = Item::whereIn('id', array_keys($borrowList))->get();
+        $items = Item::query()
+            ->withCount([
+                'instances as non_borrowable_instances_count' => function ($query) {
+                    $query->whereIn('status', $this->nonBorrowableInstanceStatuses);
+                },
+            ])
+            ->whereIn('id', array_keys($borrowList))
+            ->get();
 
         foreach ($items as $item) {
             $requestedQty = $borrowList[$item->id]['qty'];
+            $safeBorrowLimit = $this->getSafeBorrowLimit($item);
 
             $alreadyReserved = BorrowRequestItem::where('item_id', $item->id)
                 ->whereHas('request', function ($q) use ($borrowDate, $returnDate) {
@@ -177,8 +294,8 @@ class BorrowItemsController extends Controller
                 })
                 ->sum('quantity');
 
-            if ($requestedQty + $alreadyReserved > $item->total_qty) {
-                $remaining = max(0, $item->total_qty - $alreadyReserved);
+            if ($requestedQty + $alreadyReserved > $safeBorrowLimit) {
+                $remaining = max(0, $safeBorrowLimit - $alreadyReserved);
                 return back()->withErrors([
                     'date' => 'Not enough ' . $item->name . ' available in this date range.'
                 ])->withInput();
@@ -262,6 +379,13 @@ class BorrowItemsController extends Controller
         $returnDate = $request->query('return_date');
         $requestedQty = (int) $request->query('qty', 0);
 
+        $item->loadCount([
+            'instances as non_borrowable_instances_count' => function ($query) {
+                $query->whereIn('status', $this->nonBorrowableInstanceStatuses);
+            },
+        ]);
+        $safeBorrowLimit = $this->getSafeBorrowLimit($item);
+
         // If the caller provided a date range, return availability + remaining qty
         if ($borrowDate && $returnDate) {
             // Validate and parse dates safely
@@ -297,7 +421,7 @@ class BorrowItemsController extends Controller
                 })
                 ->sum('quantity');
 
-            $remaining = max(0, (int) $item->total_qty - (int) $alreadyReserved);
+            $remaining = max(0, $safeBorrowLimit - (int) $alreadyReserved);
             $available = $remaining >= $requestedQty;
 
             return response()->json([
@@ -341,7 +465,7 @@ class BorrowItemsController extends Controller
 
         $unavailableDates = [];
         foreach ($counts as $date => $qty) {
-            if ($qty >= $item->total_qty) {
+            if ($qty >= $safeBorrowLimit) {
                 $unavailableDates[] = $date;
             }
         }
@@ -380,7 +504,15 @@ class BorrowItemsController extends Controller
         }
 
         // Load items from database
-        $dbItems = Item::whereIn('id', array_keys($itemMap))->get()->keyBy('id');
+        $dbItems = Item::query()
+            ->withCount([
+                'instances as non_borrowable_instances_count' => function ($query) {
+                    $query->whereIn('status', $this->nonBorrowableInstanceStatuses);
+                },
+            ])
+            ->whereIn('id', array_keys($itemMap))
+            ->get()
+            ->keyBy('id');
         
         // Get all borrowed items for these items (only dispatched/delivered)
         $requests = BorrowRequestItem::whereIn('item_id', array_keys($itemMap))
@@ -426,7 +558,7 @@ class BorrowItemsController extends Controller
             $item = $dbItems[$itemId] ?? null;
             if (!$item) continue;
 
-            $totalQty = (int) $item->total_qty;
+            $totalQty = $this->getSafeBorrowLimit($item);
             $requestedQty = $itemMap[$itemId];
 
             foreach ($counts as $date => $borrowedQty) {

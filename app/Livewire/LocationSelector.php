@@ -17,6 +17,7 @@ class LocationSelector extends Component
     public ?string $selectedPurok = null;
 
     public string $locationValue = '';
+    public string $locationStoredValue = '';
 
     public function mount(?string $initialMunicipalityKey = null, ?string $initialBarangay = null, ?string $initialPurok = null): void
     {
@@ -136,13 +137,19 @@ class LocationSelector extends Component
     {
         $municipalityLabel = $this->getMunicipalityLabel($this->selectedMunicipality);
 
-        if ($municipalityLabel && $this->selectedBarangay && $this->selectedPurok) {
-            $this->locationValue = "{$municipalityLabel}, {$this->selectedBarangay}, {$this->selectedPurok}";
-            $this->dispatch('location-updated', valid: true, value: $this->locationValue);
-        } else {
-            $this->locationValue = '';
-            $this->dispatch('location-updated', valid: false, value: null);
-        }
+        $parts = array_filter([
+            $municipalityLabel,
+            $this->selectedBarangay,
+            $this->selectedPurok,
+        ]);
+
+        $displayValue = implode(', ', $parts);
+        $this->locationValue = $displayValue;
+
+        $isComplete = $municipalityLabel && $this->selectedBarangay && $this->selectedPurok;
+        $this->locationStoredValue = $isComplete ? $displayValue : '';
+
+        $this->dispatch('location-updated', valid: $isComplete, value: $isComplete ? $displayValue : null);
     }
 
     protected function getMunicipalityLabel(?string $key): ?string

@@ -35,11 +35,11 @@ function humanizeStatus(status) {
 }
 
 function showError(message) {
-    window.showToast('error', message);
+    window.showToast(message, 'error');
 }
 
 function showSuccess(message) {
-    window.showToast('success', message);
+    window.showToast(message, 'success');
 }
 
 function escapeHtml(unsafe) {
@@ -771,7 +771,7 @@ function openAssignManpowerModal(id) {
                     const li = document.createElement('li');
                     const itemName = item.item?.name || 'Unknown Item';
                     const quantity = item.quantity || 0;
-                    li.textContent = `${itemName} � Qty: ${quantity}`;
+                    li.textContent = `${itemName}(x${quantity})`;
                     ul.appendChild(li);
                 });
             } else {

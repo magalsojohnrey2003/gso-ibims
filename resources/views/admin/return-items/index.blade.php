@@ -33,13 +33,13 @@
                             <input type="text"
                                 id="return-items-live-search"
                                 placeholder="Search borrower or request ID"
-                                   class="border border-gray-300 rounded-lg pl-12 pr-4 py-2.5 text-sm w-64 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all hover:border-gray-400" />
+                                   class="gov-input pl-12 pr-4 py-2.5 text-sm w-64 transition duration-200 focus:outline-none focus:ring-0" />
                         </div>
                         
                         <!-- Sort By Status -->
                         <div class="flex-shrink-0 relative">
-                            <select id="return-items-status-filter"
-                                    class="border border-gray-300 rounded-lg pl-4 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all hover:border-gray-400 appearance-none bg-white">
+                                    <select id="return-items-status-filter"
+                                        class="gov-input pl-4 pr-4 py-2.5 text-sm transition duration-200 appearance-none focus:outline-none focus:ring-0">
                                 <option value="">All Status</option>
                                 <option value="borrowed">Borrowed</option>
                                 <option value="returned">Returned</option>
@@ -142,13 +142,13 @@
     </template>
 
     <template id="action-manage-template">
-        <x-button data-action="manage" variant="secondary" iconName="cog-6-tooth" class="btn-action btn-utility h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only">
+        <x-button data-action="manage" variant="secondary" iconName="cog-6-tooth" class="btn-action btn-utility h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" title="Manage return">
             Manage
         </x-button>
     </template>
 
     <template id="action-collect-template">
-        <x-button data-action="collect" variant="secondary" iconName="clipboard-document-check" class="btn-action btn-accept h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only">
+        <x-button data-action="collect" variant="secondary" iconName="clipboard-document-check" class="btn-action btn-accept h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" title="Mark as collected">
             Mark as Collected
         </x-button>
     </template>

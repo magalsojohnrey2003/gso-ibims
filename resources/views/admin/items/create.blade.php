@@ -87,7 +87,7 @@
                     id="description"
                     name="description"
                     rows="3"
-                    class="block w-full px-3 py-2 text-sm border-2 border-gray-400 dark:border-gray-500 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-purple-600 dark:focus:border-purple-400 transition-all duration-200 mt-1"
+                    class="gov-input block w-full px-3 py-2 text-sm transition duration-200 mt-1"
                     data-add-field="description"
                 >{{ old('description') }}</textarea>
                 <x-input-error :messages="$errors->get('description')" class="mt-2" />
@@ -120,7 +120,7 @@
             <div class="flex flex-col">
                 <x-input-label for="year_procured" value="Year Procured" />
         <select id="year_procured" name="year_procured"
-            class="block w-full px-3 py-2 text-sm border-2 border-gray-400 dark:border-gray-500 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-purple-600 dark:focus:border-purple-400 transition-all duration-200 mt-1"
+            class="gov-input block w-full px-3 py-2 text-sm transition duration-200 mt-1"
             data-property-segment="year"
             data-add-field="year">
                     <option value="">-- Year --</option>
@@ -138,7 +138,7 @@
             <div class="flex flex-col">
                 <x-input-label for="category" value="Category" />
         <select id="category" name="category"
-            class="block w-full px-3 py-2 text-sm border-2 border-gray-400 dark:border-gray-500 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-purple-600 dark:focus:border-purple-400 transition-all duration-200 mt-1"
+            class="gov-input block w-full px-3 py-2 text-sm transition duration-200 mt-1"
             data-category-select data-field="category" data-add-field="category">
                 </select>
                 <x-input-error :messages="$errors->get('category')" class="mt-2" />
@@ -149,7 +149,7 @@
                 <select
                     id="gla"
                     name="gla"
-                    class="block w-full px-3 py-2 text-sm border-2 border-gray-400 dark:border-gray-500 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-purple-600 dark:focus:border-purple-400 transition-all duration-200 mt-1 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    class="gov-input block w-full px-3 py-2 text-sm transition duration-200 mt-1 disabled:cursor-not-allowed"
                     data-gla-select
                     data-add-field="gla"
                     disabled>
@@ -180,7 +180,7 @@
                 <select
                     id="office"
                     name="office"
-                    class="block w-full px-3 py-2 text-sm border-2 border-gray-400 dark:border-gray-500 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-purple-600 dark:focus:border-purple-400 transition-all duration-200 mt-1"
+                    class="gov-input block w-full px-3 py-2 text-sm transition duration-200 mt-1"
                     data-add-field="office"
                     data-property-segment="office"
                     data-office-select>
@@ -215,19 +215,19 @@
                     </div>
 
                     <div class="flex items-center gap-2 flex-1" data-row-fields>
-                        <input type="text" readonly class="w-16 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-300" placeholder="Year" data-row-field="year" data-row-name="year" inputmode="numeric" maxlength="4" />
+                        <input type="text" readonly class="gov-input rounded-md w-16 text-center text-sm px-2 py-1 bg-gray-100 dark:bg-gray-700/80 transition duration-200" placeholder="Year" data-row-field="year" data-row-name="year" inputmode="numeric" maxlength="4" />
                         <span class="text-gray-500 dark:text-gray-400 select-none">-</span>
 
-                        <input type="text" readonly class="w-16 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-300" placeholder="Category" data-row-field="category" data-row-name="category_code" maxlength="4" />
+                        <input type="text" readonly class="gov-input rounded-md w-16 text-center text-sm px-2 py-1 bg-gray-100 dark:bg-gray-700/80 transition duration-200" placeholder="Category" data-row-field="category" data-row-name="category_code" maxlength="4" />
                         <span class="text-gray-500 dark:text-gray-400 select-none">-</span>
 
-                        <input type="text" readonly class="w-16 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-300" placeholder="GLA" data-row-field="gla" data-row-name="gla" inputmode="numeric" maxlength="4" />
+                        <input type="text" readonly class="gov-input rounded-md w-16 text-center text-sm px-2 py-1 bg-gray-100 dark:bg-gray-700/80 transition duration-200" placeholder="GLA" data-row-field="gla" data-row-name="gla" inputmode="numeric" maxlength="4" />
                         <span class="text-gray-500 dark:text-gray-400 select-none">-</span>
 
-                        <input type="text" class="w-20 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" placeholder="Serial" data-row-field="serial" data-row-name="serial" maxlength="5" />
+                        <input type="text" class="gov-input rounded-md w-20 text-center text-sm px-2 py-1 transition duration-200" placeholder="Serial" data-row-field="serial" data-row-name="serial" maxlength="5" />
                         <span class="text-gray-500 dark:text-gray-400 select-none">-</span>
 
-                        <input type="text" readonly class="w-16 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-300" placeholder="Office" data-row-field="office" data-row-name="office" maxlength="4" inputmode="numeric" />
+                        <input type="text" readonly class="gov-input rounded-md w-16 text-center text-sm px-2 py-1 bg-gray-100 dark:bg-gray-700/80 transition duration-200" placeholder="Office" data-row-field="office" data-row-name="office" maxlength="4" inputmode="numeric" />
                     </div>
                     
                     <button 
@@ -274,7 +274,7 @@
                 <input
                     type="text"
                     maxlength="100"
-                    class="w-full px-3 py-2 border-2 border-gray-400 dark:border-gray-500 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-purple-600 dark:focus:border-purple-400 transition-all duration-200"
+                    class="gov-input w-full px-3 py-2 text-sm uppercase transition duration-200"
                     placeholder="Type a model number to apply to all rows"
                     data-model-generator>
             </div>
@@ -296,7 +296,7 @@
                         <input
                             type="text"
                             maxlength="100"
-                            class="w-full px-3 py-2 border-2 border-gray-400 dark:border-gray-500 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-purple-600 dark:focus:border-purple-400 transition-all duration-200"
+                            class="gov-input w-full px-3 py-2 text-sm uppercase transition duration-200"
                             data-serial-model-field="serial_no" />
                     </div>
                     <div class="flex-1">
@@ -304,7 +304,7 @@
                         <input
                             type="text"
                             maxlength="100"
-                            class="w-full px-3 py-2 border-2 border-gray-400 dark:border-gray-500 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-purple-600 dark:focus:border-purple-400 transition-all duration-200"
+                            class="gov-input w-full px-3 py-2 text-sm uppercase transition duration-200"
                             data-serial-model-field="model_no" />
                     </div>
                 </div>

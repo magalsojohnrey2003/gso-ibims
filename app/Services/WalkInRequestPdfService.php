@@ -146,7 +146,7 @@ class WalkInRequestPdfService
             $name = $item->item?->name ?? ('Item #' . $item->item_id);
             $quantity = (int) $item->quantity;
             return [
-                'label' => $name . ' (Qty: ' . $quantity . ')',
+                'label' => $name . '(x' . $quantity . ')',
                 'checked' => true,
             ];
         })->values();

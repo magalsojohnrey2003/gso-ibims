@@ -106,7 +106,7 @@
                     id="description-{{ $item->id }}"
                     name="description"
                     rows="3"
-                    class="block w-full px-3 py-2 text-sm border-2 border-gray-400 dark:border-gray-500 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-purple-600 dark:focus:border-purple-400 transition-all duration-200 mt-1"
+                    class="gov-input block w-full px-3 py-2 text-sm transition duration-200 mt-1"
                     data-edit-field="description">{{ old('description', $primaryInstance?->notes) }}</textarea>
                 <x-input-error :messages="$errors->get('description')" class="mt-2" />
             </div>
@@ -176,7 +176,7 @@
                         <div class="flex items-center gap-2 flex-1">
                             <input
                                 type="text"
-                                class="w-16 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-300 instance-part-year"
+                                class="gov-input rounded-md w-16 text-center text-sm px-2 py-1 bg-gray-100 dark:bg-gray-700/80 transition duration-200 instance-part-year"
                                 value="{{ $inst->year_procured ?? '' }}"
                                 placeholder="Year"
                                 inputmode="numeric"
@@ -186,7 +186,7 @@
 
                             <input
                                 type="text"
-                                class="w-16 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-300 instance-part-category"
+                                class="gov-input rounded-md w-16 text-center text-sm px-2 py-1 bg-gray-100 dark:bg-gray-700/80 transition duration-200 instance-part-category"
                                 value="{{ $inst->category_code ?? $inst->category_id ?? '' }}"
                                 placeholder="Category"
                                 inputmode="numeric"
@@ -196,7 +196,7 @@
 
                             <input
                                 type="text"
-                                class="w-16 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-300 instance-part-gla"
+                                class="gov-input rounded-md w-16 text-center text-sm px-2 py-1 bg-gray-100 dark:bg-gray-700/80 transition duration-200 instance-part-gla"
                                 value="{{ $inst->gla ?? '' }}"
                                 placeholder="GLA"
                                 inputmode="numeric"
@@ -206,14 +206,14 @@
 
                             <input
                                 type="text"
-                                class="w-20 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 instance-part-serial"
+                                class="gov-input rounded-md w-20 text-center text-sm px-2 py-1 transition duration-200 instance-part-serial"
                                 value="{{ $inst->serial ?? '' }}"
                                 placeholder="Serial"
                                 maxlength="5">
                             <span class="text-gray-500 dark:text-gray-400 select-none">-</span>
 
                             <select
-                                class="w-24 text-center text-sm rounded-md border-2 border-gray-400 dark:border-gray-500 px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 instance-part-office"
+                                class="gov-input rounded-md w-24 text-center text-sm px-2 py-1 transition duration-200 instance-part-office"
                                 data-office-select
                                 data-sync-office>
                                 <option value="">Office</option>
@@ -267,7 +267,7 @@
                     <input
                         type="text"
                         maxlength="100"
-                        class="w-full px-3 py-2 border-2 border-gray-400 dark:border-gray-500 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-purple-600 dark:focus:border-purple-400 transition-all duration-200"
+                        class="gov-input w-full px-3 py-2 text-sm uppercase transition duration-200"
                         placeholder="Type a model number to apply to all rows"
                         data-model-generator>
                 </div>
@@ -284,7 +284,7 @@
                                 <input
                                     type="text"
                                     maxlength="100"
-                                    class="w-full px-3 py-2 border-2 border-gray-400 dark:border-gray-500 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-purple-600 dark:focus:border-purple-400 transition-all duration-200 instance-part-serial-no"
+                                    class="gov-input w-full px-3 py-2 text-sm uppercase transition duration-200 instance-part-serial-no"
                                     value="{{ $inst->serial_no ?? '' }}"
                                     data-serial-model-input="serial_no"
                                     data-instance-id="{{ $inst->id }}"
@@ -295,7 +295,7 @@
                                 <input
                                     type="text"
                                     maxlength="100"
-                                    class="w-full px-3 py-2 border-2 border-gray-400 dark:border-gray-500 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-purple-600 dark:focus:border-purple-400 transition-all duration-200 instance-part-model-no"
+                                    class="gov-input w-full px-3 py-2 text-sm uppercase transition duration-200 instance-part-model-no"
                                     value="{{ $inst->model_no ?? '' }}"
                                     data-serial-model-input="model_no"
                                     data-instance-id="{{ $inst->id }}"

@@ -82,10 +82,10 @@
                     <!-- Live Search Bar -->
                     <div class="flex-shrink-0 relative">
                         <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
-                        <input type="text"
+                           <input type="text"
                                id="items-live-search"
                                placeholder="Search by Name or Category"
-                               class="border border-gray-300 rounded-lg pl-12 pr-4 py-2.5 text-sm w-64 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all hover:border-gray-400" />
+                               class="gov-input pl-12 pr-4 py-2.5 text-sm w-64 transition duration-200 focus:outline-none focus:ring-0" />
                     </div>
                 </div>
             </div>
@@ -142,6 +142,7 @@
                                           size="sm"
                                           class="btn-action btn-utility btn-edit h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
                                           iconName="pencil-square"
+                                          title="Edit item"
                                           x-data
                                           x-on:click.prevent="$dispatch('open-modal', 'edit-item-{{ $item->id }}')">
                                           Edit
@@ -151,6 +152,7 @@
                                           size="sm"
                                           class="btn-action btn-view h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
                                           iconName="eye"
+                                          title="View item details"
                                           x-data
                                           x-on:click.prevent="$dispatch('open-modal', 'view-item-{{ $item->id }}')">
                                           View
@@ -168,6 +170,7 @@
                                           data-print-item="{{ $item->name }}"
                                           data-print-description="{{ $item->description }}"
                                           data-print-acquisition="{{ optional($item->acquisition_date)->format('M. j, Y') }}"
+                                          title="Print property stickers"
                                           :disabled="$item->instances->isEmpty()">
                                           Print
                                       </x-button>
@@ -176,6 +179,7 @@
                                           size="sm"
                                           class="btn-action btn-delete h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
                                           iconName="trash"
+                                          title="Delete item"
                                           x-data
                                           x-on:click.prevent="$dispatch('open-modal', 'confirm-delete-{{ $item->id }}')">
                                           Delete

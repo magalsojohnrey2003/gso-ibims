@@ -28,7 +28,8 @@
                 size="sm"
                 class="btn-action btn-utility btn-edit h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only open-edit-modal"
                 iconName="pencil-square"
-                data-edit-url="{{ route('admin.users.edit', $user) }}">
+                data-edit-url="{{ route('admin.users.edit', $user) }}"
+                title="Edit user">
                 Edit
             </x-button>
             <form class="inline ajax-delete" action="{{ route('admin.users.destroy', $user) }}" method="POST">
@@ -39,7 +40,8 @@
                     size="sm"
                     class="btn-action btn-delete h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
                     iconName="trash"
-                    type="submit">
+                    type="submit"
+                    title="Delete user">
                     Delete
                 </x-button>
             </form>

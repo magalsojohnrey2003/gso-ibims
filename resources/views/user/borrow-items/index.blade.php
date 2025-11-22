@@ -131,6 +131,10 @@
                         $isAvailable = ($item->available_qty ?? 0) > 0;
                         $iconClass = 'w-4 h-4 ' . ($isAvailable ? 'text-green-600' : 'text-red-600');
                         $availTextClass = $isAvailable ? 'text-green-700' : 'text-red-700';
+                        $safeMaxQty = max(0, (int) ($item->safe_borrow_qty ?? $item->total_qty));
+                        $inputMaxQty = max($safeMaxQty, 1);
+                        $differsFromTotal = $safeMaxQty < (int) $item->total_qty;
+                        $disableBorrow = $safeMaxQty <= 0;
                     @endphp
 
                     <div class="flex items-center justify-between text-sm mb-3">
@@ -148,45 +152,84 @@
                         </span>
                     </div>
 
+                    @if($differsFromTotal)
+                        <p class="text-xs text-amber-600 font-medium mb-3">Usable units: {{ $safeMaxQty }} (damaged or missing items excluded)</p>
+                    @endif
+
                     <!-- Borrow Form -->
                     <form action="{{ route('borrowList.add', $item->id) }}"
                         method="POST"
                         class="mt-auto borrow-add-form"
                         data-item-id="{{ $item->id }}"
                         data-item-name="{{ $item->name }}"
-                        data-item-total="{{ $item->total_qty }}">
+                        data-item-total="{{ $item->total_qty }}"
+                        data-safe-max="{{ $safeMaxQty }}"
+                        data-item-available-count="{{ $item->available_qty }}">
                         @csrf
 
                         {{-- quantity control (no inline JS, uses data attributes + classes) --}}
-                        <div class="flex items-center space-x-2 mb-2 qty-control" data-item-max="{{ $item->total_qty }}">
-                            <x-secondary-button type="button" class="btn-step-down">-</x-secondary-button>
+                        <div class="flex items-center space-x-2 mb-2 qty-control" data-item-max="{{ $inputMaxQty }}" data-safe-max="{{ $safeMaxQty }}">
+                            <x-secondary-button type="button" class="btn-step-down" :disabled="$disableBorrow">-</x-secondary-button>
 
                             <x-text-input 
                                 type="number" 
                                 name="qty" 
                                 value="1" 
                                 min="1" 
-                                max="{{ $item->total_qty }}" 
-                                class="w-16 text-center qty-input" />
+                                max="{{ $inputMaxQty }}" 
+                                class="w-16 text-center qty-input"
+                                :disabled="$disableBorrow" />
 
                             <x-secondary-button 
                                 type="button" 
                                 class="btn-step-up"
-                                data-max="{{ $item->total_qty }}">+</x-secondary-button>
+                                data-max="{{ $inputMaxQty }}"
+                                :disabled="$disableBorrow">+</x-secondary-button>
                         </div>
 
-                        <x-primary-button class="w-full">
+                        <x-primary-button 
+                            class="w-full"
+                            :disabled="$disableBorrow"
+                            :title="$disableBorrow ? 'All units are under maintenance.' : null"
+                        >
                             <i class="fas fa-plus-circle mr-1"></i> Add to List
                         </x-primary-button>
+
+                        @if($disableBorrow)
+                            <p class="mt-2 text-xs text-red-600">Unable to borrow this item right now.</p>
+                        @endif
                     </form>
                 </div>
             @endforeach
         </div>
     </div>
+
+    <x-modal name="borrow-items-zero-availability" maxWidth="md">
+        <div class="bg-white p-6 space-y-5">
+            <div class="flex items-center gap-3">
+                <span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 text-purple-600">
+                    <i class="fas fa-calendar-times text-lg"></i>
+                </span>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900">Item Currently In Use</h3>
+                    <p class="text-sm text-gray-500">This item shows zero availability for the selected dates.</p>
+                </div>
+            </div>
+            <p class="text-sm text-gray-700">This item is currently in use. Please choose available dates to proceed.</p>
+            <div class="flex justify-end gap-3">
+                <x-secondary-button type="button" data-zero-availability-cancel>Cancel</x-secondary-button>
+                <x-primary-button type="button" data-zero-availability-proceed>Proceed</x-primary-button>
+            </div>
+        </div>
+    </x-modal>
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const QTY_ERROR_CLASSES = ['ring-2', 'ring-red-300', 'border-red-500', 'focus:border-red-500', 'focus:ring-red-300'];
             const QTY_SUCCESS_CLASSES = ['ring-2', 'ring-green-300', 'border-green-500', 'focus:border-green-500', 'focus:ring-green-300'];
+
+            const ZERO_AVAILABILITY_MODAL = 'borrow-items-zero-availability';
+            const zeroAvailabilityState = { pendingForm: null };
 
             // ===== Live Search and Filtering =====
             const searchInput = document.getElementById('liveSearch');
@@ -258,6 +301,21 @@
             availabilityFilter.addEventListener('change', filterItems);
 
             // ===== Existing Quantity and Form Logic =====
+
+            function openZeroAvailabilityModal(form) {
+                zeroAvailabilityState.pendingForm = form;
+                window.dispatchEvent(new CustomEvent('open-modal', { detail: ZERO_AVAILABILITY_MODAL }));
+            }
+
+            function closeZeroAvailabilityModal() {
+                window.dispatchEvent(new CustomEvent('close-modal', { detail: ZERO_AVAILABILITY_MODAL }));
+            }
+
+            function resetZeroAvailabilityFlag(form) {
+                if (form && form.dataset.zeroAvailabilityConfirmed) {
+                    delete form.dataset.zeroAvailabilityConfirmed;
+                }
+            }
 
             function clearInlineError(form) {
                 const existing = form.querySelector('.inline-availability-error');
@@ -444,6 +502,26 @@
             document.querySelectorAll('form.borrow-add-form').forEach((form) => {
                 const qtyInput = form.querySelector('input[name="qty"], .qty-input');
                 if (qtyInput) {
+                    qtyInput.addEventListener('qty:clamped', (event) => {
+                        const detail = event.detail || {};
+                        if (detail.type !== 'max') return;
+
+                        const container = event.target.closest('.qty-control');
+                        const safeMaxAttr = form.dataset.safeMax || container?.dataset?.safeMax || '0';
+                        const safeMax = parseInt(safeMaxAttr, 10);
+                        const totalQty = parseInt(form.dataset.itemTotal || '0', 10);
+                        if (!Number.isFinite(safeMax) || safeMax <= 0) return;
+                        if (Number.isFinite(totalQty) && safeMax >= totalQty) return;
+                        if (detail.max !== undefined && Number(detail.max) !== Math.max(safeMax, 1)) return;
+
+                        if (form.dataset.clampToastCooldown === '1') return;
+                        form.dataset.clampToastCooldown = '1';
+                        window.showToast(`Quantity adjusted to ${safeMax}. Some items are currently marked as Damaged or Missing/Under Maintenance.`, 'error');
+                        setTimeout(() => {
+                            delete form.dataset.clampToastCooldown;
+                        }, 1500);
+                    });
+
                     qtyInput.addEventListener('input', () => {
                         setQuantityState(form, 'idle');
                         scheduleAvailabilityCheck(form);
@@ -464,6 +542,12 @@
                 form.addEventListener('submit', async (event) => {
                     event.preventDefault();
 
+                    const availableCount = parseInt(form.dataset.itemAvailableCount || '0', 10);
+                    if (availableCount <= 0 && form.dataset.zeroAvailabilityConfirmed !== '1') {
+                        openZeroAvailabilityModal(form);
+                        return;
+                    }
+
                     const submitBtn = form.querySelector('button[type="submit"], input[type="submit"], .x-primary-button') || form.querySelector('button');
                     if (submitBtn) submitBtn.disabled = true;
 
@@ -477,6 +561,7 @@
 
                         if (!qty || qty <= 0) {
                             setQuantityState(form, 'error', 'Please enter a valid quantity.');
+                            resetZeroAvailabilityFlag(form);
                             return;
                         }
                         if (Number.isFinite(maxAllowed) && qty > maxAllowed) {
@@ -484,6 +569,7 @@
                                 ? 'Not enough ' + itemName + ' available right now.'
                                 : 'Only ' + maxAllowed + ' ' + pluralizeItem(itemName, maxAllowed) + ' are available.';
                             setQuantityState(form, 'error', message);
+                            resetZeroAvailabilityFlag(form);
                             return;
                         }
 
@@ -494,14 +580,17 @@
                                 ? 'You can only borrow ' + remaining + ' more ' + pluralizeItem(itemName, remaining) + ' in this date range.'
                                 : 'Not enough ' + itemName + ' available in this date range.';
                             setQuantityState(form, 'error', message);
+                            resetZeroAvailabilityFlag(form);
                             return;
                         }
 
                         setQuantityState(form, availability ? 'valid' : 'idle');
+                        delete form.dataset.zeroAvailabilityConfirmed;
                         form.submit();
                     } catch (error) {
                         console.error('Availability validation failed', error);
                         setQuantityState(form, 'error', error.message || 'Unable to check availability right now.');
+                        resetZeroAvailabilityFlag(form);
                     } finally {
                         if (submitBtn) submitBtn.disabled = false;
                     }
@@ -509,6 +598,32 @@
 
                 scheduleAvailabilityCheck(form);
             });
+
+            const cancelBtn = document.querySelector('[data-zero-availability-cancel]');
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', () => {
+                    zeroAvailabilityState.pendingForm = null;
+                    closeZeroAvailabilityModal();
+                });
+            }
+
+            const proceedBtn = document.querySelector('[data-zero-availability-proceed]');
+            if (proceedBtn) {
+                proceedBtn.addEventListener('click', () => {
+                    const pendingForm = zeroAvailabilityState.pendingForm;
+                    if (!pendingForm) {
+                        closeZeroAvailabilityModal();
+                        return;
+                    }
+
+                    pendingForm.dataset.zeroAvailabilityConfirmed = '1';
+                    closeZeroAvailabilityModal();
+                    zeroAvailabilityState.pendingForm = null;
+                    setTimeout(() => {
+                        pendingForm.requestSubmit();
+                    }, 150);
+                });
+            }
         });
     </script>
 

@@ -12,6 +12,15 @@ if (window.__qtyControlsInit) {
 
   const DEBOUNCE_MS = 5000;
 
+  function notifyClamp(input, detail = {}) {
+    if (!input) return;
+    try {
+      input.dispatchEvent(new CustomEvent('qty:clamped', { bubbles: true, detail }));
+    } catch (err) {
+      console.warn('Failed to dispatch qty:clamped event', err);
+    }
+  }
+
   function findQtyInput(btn) {
     if (!btn) return null;
     const container = btn.closest('.qty-control');
@@ -61,15 +70,24 @@ if (window.__qtyControlsInit) {
     const max = maxAttr !== null && maxAttr !== undefined && String(maxAttr).length ? parseInt(maxAttr, 10) : Infinity;
 
     let val = parseInt(input.value, 10);
+    let clampedToMax = false;
     if (Number.isNaN(val)) {
       // empty or invalid -> fallback to min
       val = min;
     }
     if (val < min) val = min;
-    if (Number.isFinite(max) && val > max) val = max;
+    if (Number.isFinite(max) && val > max) {
+      val = max;
+      clampedToMax = true;
+    }
 
     // Only set if different to reduce selection disruptions
-    if (String(input.value) !== String(val)) input.value = val;
+    if (String(input.value) !== String(val)) {
+      input.value = val;
+      if (clampedToMax) {
+        notifyClamp(input, { type: 'max', max });
+      }
+    }
 
     if (container) updateButtonsState(container);
   }
@@ -172,6 +190,7 @@ if (window.__qtyControlsInit) {
 
       if (!Number.isNaN(val) && Number.isFinite(max) && val > max) {
         target.value = max; // snap right away
+        notifyClamp(target, { type: 'max', max });
         updateButtonsState(container);
         return;
       }

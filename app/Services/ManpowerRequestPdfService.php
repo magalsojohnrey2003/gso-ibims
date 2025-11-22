@@ -190,7 +190,7 @@ class ManpowerRequestPdfService
 
         $roleLabel = trim((string) ($manpowerRequest->role ?? 'Manpower'));
         $quantity = max((int) $manpowerRequest->quantity, 0);
-        $fields['item_1'] = sprintf('%s (Qty: %d)', $roleLabel !== '' ? $roleLabel : 'Manpower', $quantity);
+        $fields['item_1'] = sprintf('%s(x%d)', $roleLabel !== '' ? $roleLabel : 'Manpower', $quantity);
         $fields['check_1'] = 'Yes';
 
         $randomItems = Item::query()

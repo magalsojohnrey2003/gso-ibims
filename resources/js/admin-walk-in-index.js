@@ -261,7 +261,8 @@
       if (row.items && row.items.length > 0) {
         row.items.forEach(item => {
           const li = document.createElement('li');
-          li.textContent = `${item.name || `Item #${item.item_id}`} (Qty: ${item.quantity})`;
+          const label = item.name || `Item #${item.item_id}`;
+          li.textContent = `${label}(x${item.quantity})`;
           itemsListEl.appendChild(li);
         });
       } else {
@@ -290,7 +291,7 @@
 
     const template = window.WALKIN_DELIVER_ROUTE_TEMPLATE;
     if (!template || typeof template !== 'string' || !template.includes('__ID__')) {
-      window.showToast('error', 'Deliver route not configured properly.');
+      window.showToast('Deliver route not configured properly.', 'error');
       return;
     }
 
@@ -315,14 +316,14 @@
       if (res.ok) {
         // Close modal
         window.dispatchEvent(new CustomEvent('close-modal', { detail: 'walkinDeliverConfirmModal' }));
-        window.showToast('success', data.message || 'Walk-in request delivered successfully!');
+        window.showToast(data.message || 'Walk-in request delivered successfully!', 'success');
         fetchRows(); // Refresh the table
       } else {
-        window.showToast('error', data.message || 'Failed to deliver the request.');
+        window.showToast(data.message || 'Failed to deliver the request.', 'error');
       }
     } catch (e) {
       console.error('Deliver error:', e);
-      window.showToast('error', 'An error occurred while delivering the request.');
+      window.showToast('An error occurred while delivering the request.', 'error');
     } finally {
       confirmBtn.disabled = false;
       confirmBtn.innerHTML = originalText;

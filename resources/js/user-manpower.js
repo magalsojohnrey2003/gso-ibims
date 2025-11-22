@@ -7,6 +7,58 @@ document.addEventListener('DOMContentLoaded', () => {
   const confirmBtn = document.getElementById('confirmManpowerSubmit');
   const saveBtn = document.getElementById('saveManpowerRequest');
   const form = document.getElementById('userManpowerForm');
+  const quantityInput = document.getElementById('mp_quantity');
+  const purposeInput = document.getElementById('mp_purpose');
+  const officeInput = document.getElementById('mp_office');
+  const locationInput = document.getElementById('mp_location');
+  const letterInput = document.getElementById('mp_letter');
+  const locationPreview = document.getElementById('locationPreview');
+  const schedulePreview = document.getElementById('schedulePreview');
+  const wizardSections = Array.from(document.querySelectorAll('[data-mp-step]'));
+  const wizardIndicatorItems = Array.from(document.querySelectorAll('#manpowerWizardIndicator [data-step-index]'));
+  const wizardPrevButton = document.getElementById('mpWizardPrev');
+  const wizardNextButton = document.getElementById('mpWizardNext');
+  const stepLabelEl = document.getElementById('manpowerWizardStepLabel');
+  const summaryEls = {
+    quantity: document.getElementById('mpSummaryQuantity'),
+    role: document.getElementById('mpSummaryRole'),
+    purpose: document.getElementById('mpSummaryPurpose'),
+    office: document.getElementById('mpSummaryOffice'),
+    location: document.getElementById('mpSummaryLocation'),
+    schedule: document.getElementById('mpSummarySchedule'),
+    letter: document.getElementById('mpSummaryLetter'),
+  };
+  const STEP_LABELS = {
+    1: 'Personnel Requirements & Context',
+    2: 'Location & Schedule',
+    3: 'Documents & Review',
+  };
+  const TOTAL_STEPS = wizardSections.length || 3;
+  let currentStep = 1;
+  const INDICATOR_CLASS_STATES = {
+    default: {
+      container: ['border-gray-200', 'bg-white', 'text-gray-600'],
+      badge: ['bg-gray-200', 'text-gray-700'],
+    },
+    active: {
+      container: ['border-purple-500', 'bg-purple-50', 'text-purple-700', 'shadow-sm'],
+      badge: ['bg-purple-600', 'text-white'],
+    },
+    complete: {
+      container: ['border-green-500', 'bg-green-50', 'text-green-700', 'shadow-sm'],
+      badge: ['bg-green-600', 'text-white'],
+    },
+  };
+  const INDICATOR_RESET_CLASSES = Array.from(new Set([
+    ...INDICATOR_CLASS_STATES.default.container,
+    ...INDICATOR_CLASS_STATES.active.container,
+    ...INDICATOR_CLASS_STATES.complete.container,
+  ]));
+  const INDICATOR_BADGE_RESET_CLASSES = Array.from(new Set([
+    ...INDICATOR_CLASS_STATES.default.badge,
+    ...INDICATOR_CLASS_STATES.active.badge,
+    ...INDICATOR_CLASS_STATES.complete.badge,
+  ]));
   // FilePond instance for letter upload
   let filePondInstance = null;
   const roleSelect = document.getElementById('mp_role');
@@ -19,6 +71,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const endTimeInput = document.getElementById('mp_end_time');
   const userViewFields = document.querySelectorAll('[data-user-view]');
   const qrContainer = document.getElementById('userManpowerQr');
+  const MUNICIPALITY_ALIASES = {
+    'cagayan-de-oro': 'cagayan-de-oro-city',
+  };
+  const LIMITED_MUNICIPALITIES = new Set(['cagayan-de-oro-city', 'tagoloan']);
+  const MUNICIPALITY_LABELS = {
+    'cagayan-de-oro-city': 'Cagayan de Oro City',
+    'cagayan-de-oro': 'Cagayan de Oro City',
+    tagoloan: 'Tagoloan',
+  };
+  const MUNICIPALITY_BARANGAYS = {};
   const ICONS = {
     eye: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.065 7-9.542 7S3.732 16.057 2.458 12z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>',
     printer: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9V4h12v5" /><path stroke-linecap="round" stroke-linejoin="round" d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" /><path stroke-linecap="round" stroke-linejoin="round" d="M6 14h12v8H6z" /></svg>'
@@ -63,6 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
         roleSelect.innerHTML = `<option value="">No roles available</option>`;
         roleSelect.disabled = true;
         roleEmptyMessage?.classList.remove('hidden');
+        refreshSummary();
         return;
       }
       roleEmptyMessage?.classList.add('hidden');
@@ -71,9 +134,11 @@ document.addEventListener('DOMContentLoaded', () => {
         `<option value="">Select a role</option>`,
         ...roles.map(role => `<option value="${role.id}">${role.name}</option>`)
       ].join('');
+      refreshSummary();
     } catch (e) {
       console.error(e);
       roleSelect.innerHTML = `<option value="">Failed to load roles</option>`;
+      refreshSummary();
     }
   };
 
@@ -84,46 +149,106 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const res = await fetch(window.USER_MANPOWER.locations.municipalities, { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
       const json = await res.json();
-      const municipalities = Array.isArray(json?.data) ? json.data : [];
+      const normalized = (Array.isArray(json?.data) ? json.data : []).map((m) => {
+        const originalId = m?.id ? String(m.id) : '';
+        const normalizedId = MUNICIPALITY_ALIASES[originalId] || originalId;
+        const label = m?.name || MUNICIPALITY_LABELS[normalizedId] || MUNICIPALITY_LABELS[originalId] || normalizedId;
+
+        return {
+          ...m,
+          id: normalizedId,
+          name: label,
+          label,
+        };
+      });
+
+      const municipalities = normalized
+        .filter((m) => m?.id && LIMITED_MUNICIPALITIES.has(m.id))
+        .sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }));
+      if (!municipalities.length) {
+        municipalitySelect.innerHTML = `<option value="">Unavailable</option>`;
+        municipalitySelect.disabled = true;
+        refreshSummary();
+        return;
+      }
       municipalitySelect.innerHTML = [
         `<option value="">Select municipality</option>`,
-        ...municipalities.map(m => `<option value="${m.id}">${m.name}</option>`)
+        ...municipalities.map((m) => {
+          const label = m.name || MUNICIPALITY_LABELS[m.id] || m.id;
+          return `<option value="${m.id}">${label}</option>`;
+        })
       ].join('');
       municipalitySelect.disabled = false;
       barangaySelect.innerHTML = `<option value="">Select barangay</option>`;
       barangaySelect.disabled = true;
+      refreshSummary();
     } catch (e) {
       console.error(e);
       municipalitySelect.innerHTML = `<option value="">Failed to load municipalities</option>`;
+      refreshSummary();
     }
   };
 
   const loadBarangays = async (municipalityId) => {
     if (!barangaySelect) return;
-    if (!municipalityId) {
+    const normalizedId = MUNICIPALITY_ALIASES[municipalityId] || municipalityId;
+
+    if (!normalizedId) {
       barangaySelect.innerHTML = `<option value="">Select barangay</option>`;
       barangaySelect.disabled = true;
+      refreshSummary();
       return;
     }
+
+    const localBarangays = MUNICIPALITY_BARANGAYS[normalizedId];
+    if (Array.isArray(localBarangays) && localBarangays.length) {
+      barangaySelect.innerHTML = [
+        `<option value="">Select barangay</option>`,
+        ...localBarangays.map((b) => `<option value="${b.id}">${b.name}</option>`),
+      ].join('');
+      barangaySelect.disabled = false;
+      refreshSummary();
+      return;
+    }
+
     barangaySelect.disabled = true;
     barangaySelect.innerHTML = `<option value="">Loading barangays...</option>`;
     try {
-      const url = `${window.USER_MANPOWER.locations.barangays}/${municipalityId}`;
+      const url = `${window.USER_MANPOWER.locations.barangays}/${normalizedId}`;
       const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
       const json = await res.json();
-      const barangays = Array.isArray(json?.data) ? json.data : [];
+      const barangays = (Array.isArray(json?.data) ? json.data : [])
+        .map((b) => {
+          const id = b?.id ?? b?.code ?? null;
+          const name = b?.name ?? b?.label ?? null;
+          if (!id || !name) return null;
+          return {
+            id: String(id),
+            name: String(name),
+          };
+        })
+        .filter((entry) => entry && entry.id && entry.name)
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
+      MUNICIPALITY_BARANGAYS[normalizedId] = barangays;
       barangaySelect.innerHTML = [
         `<option value="">Select barangay</option>`,
         ...barangays.map(b => `<option value="${b.id}">${b.name}</option>`)
       ].join('');
       barangaySelect.disabled = false;
+      refreshSummary();
     } catch (e) {
       console.error(e);
       barangaySelect.innerHTML = `<option value="">Failed to load barangays</option>`;
+      refreshSummary();
     }
   };
 
-  municipalitySelect?.addEventListener('change', (e) => loadBarangays(e.target.value));
+  municipalitySelect?.addEventListener('change', (e) => {
+    const rawValue = e.target.value;
+    const normalizedValue = MUNICIPALITY_ALIASES[rawValue] || rawValue;
+    loadBarangays(normalizedValue);
+  });
 
   const badgeHtml = (status) => window.renderUserManpowerBadge ? window.renderUserManpowerBadge(status) : (status||'—');
 
@@ -140,6 +265,236 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const formatDateDisplay = (value) => formatDate(value) || '—';
+
+  const getSelectLabel = (select) => {
+    if (!select || !('selectedIndex' in select)) return '';
+    const option = select.options?.[select.selectedIndex];
+    if (!option) return '';
+    return option.text ?? '';
+  };
+
+  const formatPlainDate = (value) => {
+    if (typeof value !== 'string' || value.length === 0) return null;
+    const [year, month, day] = value.split('-');
+    if (!year || !month || !day) return null;
+    const monthIndex = Number(month) - 1;
+    const monthName = SHORT_MONTHS[monthIndex];
+    const dayNumber = Number(day);
+    if (!monthName || Number.isNaN(dayNumber)) return null;
+    return `${monthName} ${dayNumber}, ${year}`;
+  };
+
+  const formatTimeLabel = (value) => {
+    if (!value) return '';
+    const [hoursPart, minutesPart = '0'] = value.split(':');
+    const hours = parseInt(hoursPart, 10);
+    if (Number.isNaN(hours)) return value;
+    const minutes = parseInt(minutesPart, 10) || 0;
+    const suffix = hours >= 12 ? 'PM' : 'AM';
+    const normalizedHours = ((hours + 11) % 12) + 1;
+    const paddedMinutes = String(minutes).padStart(2, '0');
+    return `${normalizedHours}:${paddedMinutes} ${suffix}`;
+  };
+
+  const refreshSummary = () => {
+    if (!summaryEls) return;
+    if (summaryEls.quantity) {
+      const quantityValue = parseInt(quantityInput?.value ?? '', 10);
+      summaryEls.quantity.textContent = Number.isInteger(quantityValue)
+        ? `${quantityValue} personnel${quantityValue === 1 ? '' : 's'}`
+        : '—';
+    }
+
+    if (summaryEls.role) {
+      const roleLabel = roleSelect && roleSelect.value ? getSelectLabel(roleSelect) : '';
+      summaryEls.role.textContent = roleLabel || '—';
+    }
+
+    if (summaryEls.purpose) {
+      const purposeValue = (purposeInput?.value || '').trim();
+      summaryEls.purpose.textContent = purposeValue || '—';
+    }
+
+    if (summaryEls.office) {
+      const officeValue = (officeInput?.value || '').trim();
+      summaryEls.office.textContent = officeValue || '—';
+    }
+
+    if (summaryEls.location) {
+      const municipalityText = municipalitySelect && municipalitySelect.value ? getSelectLabel(municipalitySelect) : '';
+      const barangayText = barangaySelect && barangaySelect.value ? getSelectLabel(barangaySelect) : '';
+      const areaText = (locationInput?.value || '').trim();
+      const parts = [municipalityText, barangayText, areaText].filter(Boolean);
+      summaryEls.location.textContent = parts.length ? parts.join(', ') : '—';
+    }
+
+    if (summaryEls.schedule) {
+      const startDateValue = startDateInput?.value || '';
+      const endDateValue = endDateInput?.value || '';
+      const startLabel = startDateValue ? formatPlainDate(startDateValue) : null;
+      const endLabel = endDateValue ? formatPlainDate(endDateValue) : null;
+
+      const startDisplay = startLabel
+        ? `${startLabel}${startTimeInput?.value ? ` ${formatTimeLabel(startTimeInput.value)}` : ''}`
+        : null;
+      const endDisplay = endLabel
+        ? `${endLabel}${endTimeInput?.value ? ` ${formatTimeLabel(endTimeInput.value)}` : ''}`
+        : null;
+
+      if (startDisplay || endDisplay) {
+        summaryEls.schedule.textContent = `Start: ${startDisplay || '—'} • End: ${endDisplay || '—'}`;
+      } else {
+        summaryEls.schedule.textContent = '—';
+      }
+    }
+
+    if (summaryEls.letter) {
+      let letterName = null;
+      if (filePondInstance && typeof filePondInstance.getFiles === 'function') {
+        const files = filePondInstance.getFiles();
+        if (files.length > 0) {
+          letterName = files[0].file?.name || null;
+        }
+      }
+      if (!letterName && letterInput?.files?.length) {
+        letterName = letterInput.files[0].name;
+      }
+      summaryEls.letter.textContent = letterName || 'No letter uploaded.';
+    }
+  };
+
+  const bindSummaryListener = (el) => {
+    if (!el) return;
+    ['input', 'change'].forEach((eventName) => el.addEventListener(eventName, refreshSummary));
+  };
+
+  [
+    quantityInput,
+    roleSelect,
+    purposeInput,
+    officeInput,
+    municipalitySelect,
+    barangaySelect,
+    locationInput,
+    startDateInput,
+    startTimeInput,
+    endDateInput,
+    endTimeInput,
+  ].forEach(bindSummaryListener);
+
+  letterInput?.addEventListener('change', refreshSummary);
+
+  const updateIndicator = () => {
+    if (!wizardIndicatorItems.length) return;
+    wizardIndicatorItems.forEach((item) => {
+      const idx = Number(item.dataset.stepIndex);
+      const badge = item.querySelector('[data-step-badge]');
+      const state = idx < currentStep ? 'complete' : (idx === currentStep ? 'active' : 'default');
+      INDICATOR_RESET_CLASSES.forEach((cls) => item.classList.remove(cls));
+      if (badge) {
+        INDICATOR_BADGE_RESET_CLASSES.forEach((cls) => badge.classList.remove(cls));
+      }
+      INDICATOR_CLASS_STATES[state]?.container.forEach((cls) => item.classList.add(cls));
+      if (badge) {
+        INDICATOR_CLASS_STATES[state]?.badge.forEach((cls) => badge.classList.add(cls));
+      }
+    });
+  };
+
+  const goToStep = (step) => {
+    if (!wizardSections.length) {
+      if (stepLabelEl) {
+        const label = STEP_LABELS[currentStep] || '';
+        stepLabelEl.textContent = label ? `Step ${currentStep} of ${TOTAL_STEPS}: ${label}` : `Step ${currentStep} of ${TOTAL_STEPS}`;
+      }
+      return;
+    }
+    currentStep = Math.max(1, Math.min(step, TOTAL_STEPS));
+    wizardSections.forEach((section) => {
+      const idx = Number(section.dataset.mpStep);
+      section.classList.toggle('hidden', idx !== currentStep);
+    });
+    wizardPrevButton?.classList.toggle('hidden', currentStep === 1);
+    wizardNextButton?.classList.toggle('hidden', currentStep === TOTAL_STEPS);
+    saveBtn?.classList.toggle('hidden', currentStep !== TOTAL_STEPS);
+    if (stepLabelEl) {
+      const label = STEP_LABELS[currentStep] || '';
+      stepLabelEl.textContent = label ? `Step ${currentStep} of ${TOTAL_STEPS}: ${label}` : `Step ${currentStep} of ${TOTAL_STEPS}`;
+    }
+    updateIndicator();
+    refreshSummary();
+  };
+
+  const validateStepOne = () => {
+    const quantityValue = parseInt(quantityInput?.value ?? '', 10);
+    if (!Number.isInteger(quantityValue) || quantityValue < 1) {
+      window.showToast?.('warning', 'Quantity must be at least 1');
+      quantityInput?.focus();
+      return false;
+    }
+    if (quantityValue > 999) {
+      window.showToast?.('warning', 'Maximum of 999 personnel only');
+      quantityInput?.focus();
+      return false;
+    }
+    if (!roleSelect?.value) {
+      window.showToast?.('warning', 'Please select a manpower role');
+      roleSelect?.focus();
+      return false;
+    }
+    const purposeValue = (purposeInput?.value || '').trim();
+    if (!purposeValue) {
+      window.showToast?.('warning', 'Purpose is required');
+      purposeInput?.focus();
+      return false;
+    }
+    return true;
+  };
+
+  const validateStepTwo = () => {
+    if (!municipalitySelect?.value) {
+      window.showToast?.('warning', 'Please select a municipality/city');
+      municipalitySelect?.focus();
+      return false;
+    }
+    if (!barangaySelect?.value) {
+      window.showToast?.('warning', 'Please select a barangay');
+      barangaySelect?.focus();
+      return false;
+    }
+    const locationValue = (locationInput?.value || '').trim();
+    if (!locationValue) {
+      window.showToast?.('warning', 'Specific area is required');
+      locationInput?.focus();
+      return false;
+    }
+    const startDateValue = startDateInput?.value || '';
+    const endDateValue = endDateInput?.value || '';
+    if (!startDateValue) {
+      window.showToast?.('warning', 'Start date is required');
+      startDateInput?.focus();
+      return false;
+    }
+    if (!endDateValue) {
+      window.showToast?.('warning', 'End date is required');
+      endDateInput?.focus();
+      return false;
+    }
+    const startAtValue = buildDateTimeString(startDateValue, startTimeInput?.value || '00:00', '00:00');
+    const endAtValue = buildDateTimeString(endDateValue, endTimeInput?.value || '23:59', '23:59');
+    if (startAtValue && endAtValue && new Date(endAtValue) < new Date(startAtValue)) {
+      window.showToast?.('warning', 'End schedule must be on or after the start schedule.');
+      endDateInput?.focus();
+      return false;
+    }
+    return true;
+  };
+
+  const validateStep = (step) => {
+    if (step === 1) return validateStepOne();
+    if (step === 2) return validateStepTwo();
+    return true;
+  };
 
   const appendEmptyStateRow = (fallback = 'No requests found') => {
     const template = document.getElementById('user-manpower-empty-state-template');
@@ -203,17 +558,17 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const collectFormData = () => {
-    const quantity = parseInt(document.getElementById('mp_quantity').value, 10);
-    const manpower_role_id = roleSelect.value.trim();
-    const purpose = document.getElementById('mp_purpose').value.trim();
-    const location = document.getElementById('mp_location').value.trim();
-    const office_agency = document.getElementById('mp_office').value.trim();
-    const municipality_id = municipalitySelect.value.trim();
-    const barangay_id = barangaySelect.value.trim();
-    const start_date = startDateInput.value;
-    const end_date = endDateInput.value;
-    const start_time = startTimeInput.value;
-    const end_time = endTimeInput.value;
+    const quantity = parseInt(quantityInput?.value ?? '', 10);
+    const manpower_role_id = (roleSelect?.value || '').trim();
+    const purpose = (purposeInput?.value || '').trim();
+    const location = (locationInput?.value || '').trim();
+    const office_agency = (officeInput?.value || '').trim();
+    const municipality_id = (municipalitySelect?.value || '').trim();
+    const barangay_id = (barangaySelect?.value || '').trim();
+    const start_date = startDateInput?.value || '';
+    const end_date = endDateInput?.value || '';
+    const start_time = startTimeInput?.value || '';
+    const end_time = endTimeInput?.value || '';
 
     if (!Number.isInteger(quantity) || quantity < 1) return { ok:false, message:'Quantity must be at least 1' };
     if (quantity > 999) return { ok:false, message:'Maximum of 999 personnel only' };
@@ -250,30 +605,77 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   };
 
+  wizardNextButton?.addEventListener('click', () => {
+    if (!validateStep(currentStep)) return;
+    goToStep(currentStep + 1);
+  });
+
+  wizardPrevButton?.addEventListener('click', () => {
+    goToStep(currentStep - 1);
+  });
+
   openBtn?.addEventListener('click', () => {
     form?.reset();
-    if (filePondInstance && typeof filePondInstance.removeFiles === 'function') filePondInstance.removeFiles();
+    initFilePond();
+    if (filePondInstance && typeof filePondInstance.removeFiles === 'function') {
+      filePondInstance.removeFiles();
+    } else if (letterInput) {
+      letterInput.value = '';
+    }
     PENDING_PAYLOAD = null;
     fetchRoles();
     loadMunicipalities();
+    if (barangaySelect) {
+      barangaySelect.innerHTML = `<option value="">Select barangay</option>`;
+      barangaySelect.disabled = true;
+    }
+    if (locationPreview) locationPreview.textContent = '—';
+    if (schedulePreview) schedulePreview.textContent = '—';
+    goToStep(1);
     openModal('userManpowerCreateModal');
   });
 
   // FilePond initialization (if present)
-  if (window.FilePond && document.getElementById('mp_letter')) {
-    filePondInstance = FilePond.create(document.getElementById('mp_letter'), {
+  const initFilePond = () => {
+    if (!letterInput || !window.FilePond) return;
+    try {
+      if (typeof FilePond.registerPlugin === 'function' && window.FilePondPluginFileValidateType && window.FilePondPluginFileValidateSize) {
+        FilePond.registerPlugin(window.FilePondPluginFileValidateType, window.FilePondPluginFileValidateSize);
+      }
+    } catch (pluginError) {
+      console.warn('FilePond plugin registration failed', pluginError);
+    }
+
+    const pondOptions = {
       acceptedFileTypes: ['application/pdf', 'image/png', 'image/jpeg'],
       maxFileSize: '5MB',
       allowMultiple: false,
       name: 'letter_file',
-      credits: false
-    });
-  }
+      credits: false,
+      labelIdle: 'Drag & Drop your letter or <span class="filepond--label-action">Browse</span>',
+      onaddfile: refreshSummary,
+      onremovefile: refreshSummary,
+      onupdatefiles: refreshSummary,
+    };
+
+    filePondInstance = FilePond.find(letterInput) || FilePond.create(letterInput, pondOptions);
+    if (filePondInstance?.setOptions) {
+      filePondInstance.setOptions(pondOptions);
+    }
+    refreshSummary();
+  };
+
+  initFilePond();
+  goToStep(currentStep);
 
   saveBtn?.addEventListener('click', () => {
+    if (currentStep !== TOTAL_STEPS) {
+      goToStep(TOTAL_STEPS);
+      return;
+    }
     const v = collectFormData();
     if (!v.ok) {
-      window.showToast('warning', v.message);
+      window.showToast?.('warning', v.message);
       return;
     }
     PENDING_PAYLOAD = v.data;
@@ -297,8 +699,9 @@ document.addEventListener('DOMContentLoaded', () => {
       closeModal('userManpowerConfirmModal');
       closeModal('userManpowerCreateModal');
       await fetchRows();
+      PENDING_PAYLOAD = null;
     } catch(e) {
-      window.showToast('error', e.message || 'Failed to submit manpower request.');
+      window.showToast?.('error', e.message || 'Failed to submit manpower request.');
     }
   });
 

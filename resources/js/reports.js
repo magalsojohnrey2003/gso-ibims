@@ -405,7 +405,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             if (!res.ok) {
                 const err = await res.json().catch(() => ({ message: 'Failed to fetch report' }));
-                window.showToast('error', err.message || 'Failed to fetch report');
+                window.showToast(err.message || 'Failed to fetch report', 'error');
                 return;
             }
 
@@ -422,7 +422,7 @@ document.addEventListener('DOMContentLoaded', function () {
             renderSummary(lastFetched.meta, lastFetched.extra);
         } catch (err) {
             console.error('fetchReport error', err);
-            window.showToast('error', 'Error fetching report. Please try again.');
+            window.showToast('Error fetching report. Please try again.', 'error');
         } finally {
             genSpinner?.classList.add('hidden');
             generateBtn.disabled = false;
@@ -449,7 +449,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const params = buildParams();
         const baseUrl = kind === 'pdf' ? exportPdfUrl : exportXlsxUrl;
         if (!baseUrl) {
-            window.showToast('error', 'Export URL not configured.');
+            window.showToast('Export URL not configured.', 'error');
             return;
         }
         window.location.href = baseUrl + '?' + toQuery(params);

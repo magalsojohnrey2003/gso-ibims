@@ -323,7 +323,7 @@ window.handleCalendarClick = function(dateStr, el) {
 
         const daysCount = daysDiffInclusive(borrowPick, dateStr);
         if (daysCount > MAX_BORROW_DAYS) {
-            window.showToast('warning', `Return date must be within ${MAX_BORROW_DAYS} days from borrow date (inclusive).`);
+            window.showToast(`Return date must be within ${MAX_BORROW_DAYS} days from borrow date (inclusive).`, 'warning');
             return;
         }
 
@@ -331,11 +331,11 @@ window.handleCalendarClick = function(dateStr, el) {
         for (let d of between) {
             const today = new Date(); today.setHours(0, 0, 0, 0);
             if (parseYMD(d) < today) {
-                window.showToast('warning', 'Selected range includes a past date. Please choose valid dates.');
+                window.showToast('Selected range includes a past date. Please choose valid dates.', 'warning');
                 return;
             }
             if (blockedBorrowDates.includes(d)) {
-                window.showToast('warning', 'Selected range includes blocked dates. Please choose another range.');
+                window.showToast('Selected range includes blocked dates. Please choose another range.', 'warning');
                 return;
             }
         }
@@ -459,6 +459,27 @@ function highlightBorrowRange(start, end, options = { jumpToMonth: true }) {
 
 /* ---------- Editable item quantities ---------- */
 
+function notifyQuantityClamp(input, maxAllowed) {
+    if (!input) return;
+    const container = input.closest('[data-item-entry]');
+    if (!container) return;
+
+    const safeMax = parseInt(container.dataset.safeMax || String(maxAllowed) || '0', 10);
+    const totalQty = parseInt(container.dataset.itemTotal || '0', 10);
+
+    if (!Number.isFinite(safeMax) || safeMax <= 0) return;
+    if (Number.isFinite(totalQty) && safeMax >= totalQty) return;
+
+    if (input.dataset.clampToastCooldown === '1') return;
+    input.dataset.clampToastCooldown = '1';
+    if (typeof window.showToast === 'function') {
+        window.showToast(`Quantity adjusted to ${safeMax}. Some items are currently marked as Damaged or Missing/Under Maintenance.`, 'error');
+    }
+    setTimeout(() => {
+        delete input.dataset.clampToastCooldown;
+    }, 1500);
+}
+
 function clampQuantityValue(input) {
     const maxAllowed = Math.max(1, parseInt(input.dataset.itemMax || input.getAttribute('max') || '1', 10) || 1);
     let value = parseInt(input.value, 10);
@@ -468,6 +489,7 @@ function clampQuantityValue(input) {
     }
     if (value > maxAllowed) {
         value = maxAllowed;
+        notifyQuantityClamp(input, maxAllowed);
     }
 
     input.value = String(value);
@@ -523,7 +545,10 @@ function bindEditableItemQuantities() {
 
             let value = parseInt(raw, 10);
             if (!Number.isFinite(value) || value < 1) value = 1;
-            if (value > maxAllowed) value = maxAllowed;
+            if (value > maxAllowed) {
+                value = maxAllowed;
+                notifyQuantityClamp(input, maxAllowed);
+            }
 
             if (String(value) !== raw) {
                 input.value = String(value);

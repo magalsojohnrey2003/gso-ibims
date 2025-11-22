@@ -129,7 +129,7 @@
     submitBtn.addEventListener('click', async () => {
       const items = collectSelected();
       if (items.length === 0) {
-        window.showToast('warning', 'Please select at least one item (quantity > 0).');
+        window.showToast('Please select at least one item (quantity > 0).', 'warning');
         return;
       }
 
@@ -158,14 +158,14 @@
 
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          window.showToast('error', data?.message || 'Failed to submit walk-in request.');
+          window.showToast(data?.message || 'Failed to submit walk-in request.', 'error');
           return;
         }
-        window.showToast('success', data?.message || 'Walk-in request submitted successfully.');
+        window.showToast(data?.message || 'Walk-in request submitted successfully.', 'success');
         // Redirect back to index to show in table
         window.location.href = '/admin/walk-in';
       } catch (e) {
-        window.showToast('error', 'Network error. Please try again.');
+        window.showToast('Network error. Please try again.', 'error');
       }
     });
   }

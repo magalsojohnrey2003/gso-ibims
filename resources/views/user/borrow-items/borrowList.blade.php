@@ -72,7 +72,7 @@
         Borrow List
     </x-title>
 
-    <div class="p-6 max-w-7xl mx-auto space-y-6">
+    <div class="px-4 sm:px-6 lg:px-10 py-6 space-y-6">
         @if(session('success'))
             <x-alert type="success" :message="session('success')" />
         @endif
@@ -119,151 +119,147 @@
             <div id="borrowWizardSteps" class="space-y-8">
                 {{-- Step 1 --}}
                 <section data-step="1" class="wizard-step space-y-6">
-                    <div class="grid gap-6 lg:grid-cols-2 lg:items-stretch">
-                        <div class="space-y-6 h-full">
-                            <div class="bg-white p-6 rounded-2xl shadow-lg h-full flex flex-col">
-                                <div class="flex items-center justify-between mb-4">
-                                    <x-title
-                                        level="h3"
-                                        size="lg"
-                                        weight="semibold"
-                                        class="flex items-center gap-3">
-                                        <i class="fas fa-list text-purple-600"></i>
-                                        Item List
-                                        <span class="inline-flex items-center justify-center bg-purple-100 text-purple-800 text-sm font-medium px-2 py-1 rounded">
-                                            {{ count($borrowList) }}
-                                        </span>
-                                    </x-title>
-                                </div>
+                    <div class="grid gap-6 xl:grid-cols-3 items-start">
+                        <div class="bg-white p-6 rounded-2xl shadow-lg h-full flex flex-col min-h-[18rem]">
+                            <div class="flex items-center justify-between mb-4">
+                                <x-title
+                                    level="h3"
+                                    size="lg"
+                                    weight="semibold"
+                                    class="flex items-center gap-3">
+                                    <i class="fas fa-list text-purple-600"></i>
+                                    Item List
+                                    <span class="inline-flex items-center justify-center bg-purple-100 text-purple-800 text-sm font-medium px-2 py-1 rounded">
+                                        {{ count($borrowList) }}
+                                    </span>
+                                </x-title>
+                            </div>
 
-                                <div id="borrowListItems" class="mt-4 flex-1 space-y-3 overflow-y-auto pr-1">
-                                    @forelse($borrowList as $item)
-                                        @php
-                                            $currentQty = (int) old("items.{$item['id']}.quantity", $item['qty']);
-                                        @endphp
-                                        <div
-                                            class="flex flex-col gap-4 rounded-xl border border-gray-200 p-4 sm:flex-row sm:items-center sm:justify-between"
-                                            data-item-entry
-                                            data-item-id="{{ $item['id'] }}"
-                                            data-item-name="{{ $item['name'] }}"
-                                            data-item-total="{{ $item['total_qty'] }}"
-                                            data-item-quantity="{{ $currentQty }}">
-                                            <div class="flex items-center gap-3">
-                                                @php
-                                                    $photoUrl = \App\Models\Item::make([
-                                                        'photo' => $item['photo'] ?? null,
-                                                    ])->photo_url;
-                                                @endphp
-                                                <img
-                                                    src="{{ $photoUrl }}"
-                                                    class="h-14 w-14 rounded object-cover"
-                                                    alt="{{ $item['name'] }}">
-                                                <div class="space-y-1">
-                                                    <p class="font-semibold text-gray-800">{{ $item['name'] }}</p>
-                                                    <p class="text-sm text-gray-500">Available: {{ $item['total_qty'] }} total</p>
-                                                </div>
-                                            </div>
-
-                                            <div class="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:gap-4">
-                                                <div class="flex items-center gap-2">
-                                                    <label for="item-qty-{{ $item['id'] }}" class="text-sm font-medium text-gray-700">Qty</label>
-                                                    <input
-                                                        id="item-qty-{{ $item['id'] }}"
-                                                        name="items[{{ $item['id'] }}][quantity]"
-                                                        type="number"
-                                                        inputmode="numeric"
-                                                        min="1"
-                                                        max="{{ $item['total_qty'] }}"
-                                                        value="{{ $currentQty }}"
-                                                        data-item-max="{{ $item['total_qty'] }}"
-                                                        class="borrow-quantity-input w-20 rounded-lg border border-gray-300 px-3 py-1 text-center text-sm font-semibold text-gray-800 focus:border-purple-500 focus:ring-purple-500" />
-                                                </div>
-
-                                                <button
-                                                    type="submit"
-                                                    class="inline-flex items-center justify-center rounded-full bg-red-100 px-3 py-2 text-sm text-red-700 transition hover:bg-red-200"
-                                                    form="remove-item-{{ $item['id'] }}">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            </div>
+                            <div id="borrowListItems" class="mt-4 flex-1 space-y-3 overflow-y-auto pr-1 max-h-72 min-h-0">
+                                @forelse($borrowList as $item)
+                                    @php
+                                        $currentQty = (int) old("items.{$item['id']}.quantity", $item['qty']);
+                                        $safeMaxQty = (int) ($item['safe_max_qty'] ?? $item['total_qty']);
+                                        $totalQty = (int) ($item['total_qty'] ?? $safeMaxQty);
+                                    @endphp
+                                    <div
+                                        class="flex flex-wrap items-center gap-4 rounded-xl border border-gray-200 bg-gray-50/70 p-3"
+                                        data-item-entry
+                                        data-item-id="{{ $item['id'] }}"
+                                        data-item-name="{{ $item['name'] }}"
+                                        data-item-total="{{ $totalQty }}"
+                                        data-safe-max="{{ $safeMaxQty }}"
+                                        data-item-quantity="{{ $currentQty }}">
+                                        <div class="flex min-w-0 flex-1 flex-col items-center gap-2 text-center">
+                                            @php
+                                                $photoUrl = \App\Models\Item::make([
+                                                    'photo' => $item['photo'] ?? null,
+                                                ])->photo_url;
+                                            @endphp
+                                            <img
+                                                src="{{ $photoUrl }}"
+                                                class="h-12 w-12 rounded object-cover"
+                                                alt="{{ $item['name'] }}">
+                                            <p class="text-sm font-semibold text-gray-800 break-words" title="{{ $item['name'] }}">{{ $item['name'] }}</p>
                                         </div>
-                                    @empty
-                                        <p class="py-6 text-center text-sm text-gray-500">No items selected.</p>
-                                    @endforelse
+
+                                        <div class="flex items-center gap-3">
+                                            <div class="flex items-center gap-2 rounded-full border border-gray-300 bg-white px-2 py-1">
+                                                <span class="text-xs font-semibold text-gray-500">Qty</span>
+                                                <input
+                                                    id="item-qty-{{ $item['id'] }}"
+                                                    name="items[{{ $item['id'] }}][quantity]"
+                                                    type="number"
+                                                    inputmode="numeric"
+                                                    min="1"
+                                                    max="{{ max($safeMaxQty, 1) }}"
+                                                    value="{{ $currentQty }}"
+                                                    data-item-max="{{ max($safeMaxQty, 1) }}"
+                                                    class="borrow-quantity-input w-16 border-0 bg-transparent text-center text-sm font-semibold text-gray-800 focus:border-0 focus:ring-0"
+                                                    aria-label="Quantity for {{ $item['name'] }}" />
+                                            </div>
+
+                                            <button
+                                                type="submit"
+                                                class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-red-200 bg-red-50 text-red-600 transition hover:bg-red-100"
+                                                form="remove-item-{{ $item['id'] }}">
+                                                <i class="fas fa-trash text-sm"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                @empty
+                                    <p class="py-6 text-center text-sm text-gray-500">No items selected.</p>
+                                @endforelse
+                            </div>
+
+                            @if(count($borrowList) === 0)
+                                <div class="mt-4 flex justify-center">
+                                    <a href="{{ route('borrow.items') }}" class="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-purple-700">
+                                        <i class="fas fa-plus-circle"></i> Add Items
+                                    </a>
+                                </div>
+                            @endif
+                        </div>
+
+                        <div class="bg-white p-6 rounded-2xl shadow-lg space-y-5 h-full flex flex-col">
+                            <div class="flex items-center justify-between">
+                                <x-title
+                                    level="h3"
+                                    size="lg"
+                                    weight="semibold"
+                                    class="flex items-center gap-3">
+                                    <i class="fas fa-clipboard-list text-purple-600"></i>
+                                    Request Details
+                                </x-title>
+                            </div>
+
+                            <div class="space-y-4 flex-1">
+                                <div>
+                                    <x-input-label for="purpose_office" value="Request Office/Agency" />
+                                    <x-text-input
+                                        id="purpose_office"
+                                        name="purpose_office"
+                                        type="text"
+                                        maxlength="255"
+                                        value="{{ old('purpose_office', optional($borrowRequest ?? null)->purpose_office ?? '') }}"
+                                        class="mt-1 w-full rounded-lg border border-gray-400 px-3 py-2 text-sm text-gray-800 bg-white focus:border-purple-500 focus:ring-purple-500"
+                                        placeholder="eg. Engineering Office – Maintenance Team" />
+                                    <x-input-error :messages="$errors->get('purpose_office')" class="mt-1" />
                                 </div>
 
-                                @if(count($borrowList) === 0)
-                                    <div class="mt-4 flex justify-center">
-                                        <a href="{{ route('borrow.items') }}" class="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-purple-700">
-                                            <i class="fas fa-plus-circle"></i> Add Items
-                                        </a>
-                                    </div>
-                                @endif
+                                <div class="flex-1">
+                                    <x-input-label for="purpose" value="Purpose" />
+                                    <textarea
+                                        id="purpose"
+                                        name="purpose"
+                                        rows="4"
+                                        maxlength="500"
+                                        class="mt-1 w-full rounded-lg border border-gray-600 px-3 py-2 text-sm text-gray-800 focus:border-purple-500 focus:ring-purple-500"
+                                        placeholder="Briefly describe how the items will be used">{{ old('purpose', optional($borrowRequest ?? null)->purpose ?? '') }}</textarea>
+                                    <x-input-error :messages="$errors->get('purpose')" class="mt-1" />
+                                    <p class="mt-1 text-xs text-gray-500">Provide enough context for approvers to understand the request.</p>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="space-y-6">
-                            <div class="bg-white p-6 rounded-2xl shadow-lg space-y-5">
-                                <div class="flex items-center justify-between">
-                                    <x-title
-                                        level="h3"
-                                        size="lg"
-                                        weight="semibold"
-                                        class="flex items-center gap-3">
-                                        <i class="fas fa-clipboard-list text-purple-600"></i>
-                                        Request Details
-                                    </x-title>
-                                </div>
-
-                                <div class="space-y-4">
-                                    <div>
-                                        <x-input-label for="purpose_office" value="Request Office/Agency" />
-                                        <x-text-input
-                                            id="purpose_office"
-                                            name="purpose_office"
-                                            type="text"
-                                            maxlength="255"
-                                            value="{{ old('purpose_office', optional($borrowRequest ?? null)->purpose_office ?? '') }}"
-                                            class="mt-1 w-full rounded-lg border border-gray-400 px-3 py-2 text-sm text-gray-800 bg-white focus:border-purple-500 focus:ring-purple-500"
-                                            placeholder="eg. Engineering Office – Maintenance Team" />
-                                        <x-input-error :messages="$errors->get('purpose_office')" class="mt-1" />
-                                    </div>
-
-                                    <div>
-                                        <x-input-label for="purpose" value="Purpose" />
-                                        <textarea
-                                            id="purpose"
-                                            name="purpose"
-                                            rows="4"
-                                            maxlength="500"
-                                            class="mt-1 w-full rounded-lg border border-gray-600 px-3 py-2 text-sm text-gray-800 focus:border-purple-500 focus:ring-purple-500"
-                                            placeholder="Briefly describe how the items will be used">{{ old('purpose', optional($borrowRequest ?? null)->purpose ?? '') }}</textarea>
-                                        <x-input-error :messages="$errors->get('purpose')" class="mt-1" />
-                                        <p class="mt-1 text-xs text-gray-500">Provide enough context for approvers to understand the request.</p>
-                                    </div>
-
-                                </div>
+                        <div class="bg-white p-6 rounded-2xl shadow-lg space-y-5 h-full flex flex-col">
+                            <div class="flex items-center justify-between">
+                                <x-title
+                                    level="h3"
+                                    size="lg"
+                                    weight="semibold"
+                                    class="flex items-center gap-3">
+                                    <i class="fas fa-map-marker-alt text-purple-600"></i>
+                                    Location Details
+                                </x-title>
                             </div>
 
-                            <div class="bg-white p-6 rounded-2xl shadow-lg space-y-5">
-                                <div class="flex items-center justify-between">
-                                    <x-title
-                                        level="h3"
-                                        size="lg"
-                                        weight="semibold"
-                                        class="flex items-center gap-3">
-                                        <i class="fas fa-map-marker-alt text-purple-600"></i>
-                                        Location Details
-                                    </x-title>
-                                </div>
-
-                                <div class="space-y-4">
-                                    <livewire:location-selector
-                                        :initial-municipality-key="$oldMunicipalityKey"
-                                        :initial-barangay="$oldBarangay"
-                                        :initial-purok="$oldPurok"
-                                    />
-                                </div>
+                            <div class="space-y-4 flex-1">
+                                <livewire:location-selector
+                                    :initial-municipality-key="$oldMunicipalityKey"
+                                    :initial-barangay="$oldBarangay"
+                                    :initial-purok="$oldPurok"
+                                />
                             </div>
                         </div>
                     </div>
@@ -281,7 +277,7 @@
 
                 {{-- Step 2 --}}
                 <section data-step="2" class="wizard-step hidden space-y-6">
-                    <div class="max-w-7xl mx-auto p-4 lg:p-6">
+                    <div class="p-4 lg:p-6 xl:px-10">
                         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             <div class="lg:col-span-2 rounded-2xl shadow-sm border border-gray-200 bg-white p-4 lg:p-6">
                                 <div class="flex items-center justify-center gap-3 mb-4">

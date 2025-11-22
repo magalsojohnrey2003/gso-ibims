@@ -13,10 +13,10 @@
                         <div class="flex-shrink-0 relative">
                             <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
                             <input type="text" id="admin-manpower-search" placeholder="Search name, role, purpose, or request ID"
-                                   class="border border-gray-300 rounded-lg pl-12 pr-4 py-2.5 text-sm w-64 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all hover:border-gray-400" />
+                                class="gov-input pl-12 pr-4 py-2.5 text-sm w-64 transition duration-200 focus:outline-none focus:ring-0" />
                         </div>
                         <div class="flex-shrink-0 relative">
-                            <select id="admin-manpower-status" class="border border-gray-300 rounded-lg pl-4 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all hover:border-gray-400 appearance-none bg-white">
+                            <select id="admin-manpower-status" class="gov-input pl-4 pr-4 py-2.5 text-sm transition duration-200 appearance-none focus:outline-none focus:ring-0">
                                 <option value="">All Status</option>
                                 <option value="pending">Pending</option>
                                 <option value="approved">Approved</option>
@@ -85,7 +85,7 @@
                 <div class="grid gap-4 md:grid-cols-3">
                     <div class="md:col-span-1 space-y-3">
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-200" for="adminRoleName">Role Type</label>
-                        <input type="text" id="adminRoleName" class="w-full rounded-lg border border-gray-300 focus:border-purple-500 focus:ring-purple-500 text-sm" placeholder="e.g. Driver, Usher" />
+                        <input type="text" id="adminRoleName" class="gov-input w-full text-sm transition duration-200" placeholder="e.g. Driver, Usher" />
                         <x-button id="adminSaveRole" variant="primary" class="w-full">Save</x-button>
                     </div>
                     <div class="md:col-span-2">
@@ -171,56 +171,95 @@
     </x-modal>
 
     <x-modal name="adminManpowerViewModal" maxWidth="2xl">
-        <div class="p-6 space-y-5">
-            <div class="flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-gray-900">Request Details</h3>
-                <button class="text-gray-400 hover:text-gray-600" @click="$dispatch('close-modal','adminManpowerViewModal')"><i class="fas fa-times"></i></button>
+        <div class="w-full max-h-[85vh] bg-gray-100 dark:bg-gray-900 flex flex-col overflow-hidden rounded-2xl">
+            <div class="relative px-6 py-4 bg-[#4C1D95] text-white sticky top-0 z-30 flex items-start gap-3">
+                <div class="flex-1">
+                    <h3 class="text-xl font-semibold leading-snug flex items-center gap-2">
+                        <i class="fas fa-users"></i>
+                        <span>Request Details</span>
+                    </h3>
+                    <p class="text-sm text-purple-100 mt-1">Full breakdown of the manpower request.</p>
+                </div>
+                <button
+                    type="button"
+                    class="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition"
+                    @click="$dispatch('close-modal','adminManpowerViewModal')"
+                >
+                    <span class="sr-only">Close modal</span>
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
-            <div class="grid gap-4 md:grid-cols-2 text-sm">
-                <div>
-                    <div class="text-gray-500 uppercase text-xs">Requester</div>
-                    <div class="font-semibold text-gray-900" data-view-field="user">—</div>
-                </div>
-                <div>
-                    <div class="text-gray-500 uppercase text-xs">Status</div>
-                    <div class="font-semibold text-gray-900" data-view-field="status">—</div>
-                </div>
-                <div>
-                    <div class="text-gray-500 uppercase text-xs">Role</div>
-                    <div class="font-semibold text-gray-900" data-view-field="role">—</div>
-                </div>
-                <div>
-                    <div class="text-gray-500 uppercase text-xs">Qty (Approved / Requested)</div>
-                    <div class="font-semibold text-gray-900" data-view-field="quantity">—</div>
-                </div>
-                <div>
-                    <div class="text-gray-500 uppercase text-xs">Borrowed Date</div>
-                    <div class="font-semibold text-gray-900" data-view-field="borrow_date">—</div>
-                </div>
-                <div>
-                    <div class="text-gray-500 uppercase text-xs">Return Date</div>
-                    <div class="font-semibold text-gray-900" data-view-field="return_date">—</div>
-                </div>
-                <div>
-                    <div class="text-gray-500 uppercase text-xs">Municipality</div>
-                    <div class="font-semibold text-gray-900" data-view-field="municipality">—</div>
-                </div>
-                <div>
-                    <div class="text-gray-500 uppercase text-xs">Barangay</div>
-                    <div class="font-semibold text-gray-900" data-view-field="barangay">—</div>
-                </div>
-                <div class="md:col-span-2">
-                    <div class="text-gray-500 uppercase text-xs">Purpose</div>
-                    <div class="font-medium text-gray-900" data-view-field="purpose">—</div>
-                </div>
-                <div class="md:col-span-2">
-                    <div class="text-gray-500 uppercase text-xs">Specific Area</div>
-                    <div class="font-medium text-gray-900" data-view-field="location">—</div>
+
+            <div class="flex-1 overflow-y-auto px-6 py-5 space-y-5 text-sm text-gray-700 dark:text-gray-300">
+                <div class="grid gap-4 md:grid-cols-2">
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 md:col-span-2">
+                        <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Request Summary</h4>
+                        <dl class="mt-3 grid gap-3 sm:grid-cols-2">
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Requester</dt>
+                                <dd class="mt-1 font-medium text-gray-900 dark:text-white" data-view-field="user">—</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Status</dt>
+                                <dd class="mt-1 font-medium text-gray-900 dark:text-white" data-view-field="status">—</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Role</dt>
+                                <dd class="mt-1 font-medium text-gray-900 dark:text-white" data-view-field="role">—</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Qty (Approved / Requested)</dt>
+                                <dd class="mt-1 font-medium text-gray-900 dark:text-white" data-view-field="quantity">—</dd>
+                            </div>
+                        </dl>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+                        <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Schedule</h4>
+                        <dl class="mt-3 space-y-3">
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Borrow Date</dt>
+                                <dd class="mt-1 font-medium text-gray-900 dark:text-white" data-view-field="borrow_date">—</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Return Date</dt>
+                                <dd class="mt-1 font-medium text-gray-900 dark:text-white" data-view-field="return_date">—</dd>
+                            </div>
+                        </dl>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+                        <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Location</h4>
+                        <dl class="mt-3 space-y-3">
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Municipality</dt>
+                                <dd class="mt-1 font-medium text-gray-900 dark:text-white" data-view-field="municipality">—</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Barangay</dt>
+                                <dd class="mt-1 font-medium text-gray-900 dark:text-white" data-view-field="barangay">—</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Specific Area</dt>
+                                <dd class="mt-1 font-medium text-gray-900 dark:text-white" data-view-field="location">—</dd>
+                            </div>
+                        </dl>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 md:col-span-2">
+                        <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Purpose</h4>
+                        <p class="mt-2 text-gray-600 dark:text-gray-300" data-view-field="purpose">—</p>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 md:col-span-2">
+                        <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Letter</h4>
+                        <div class="mt-3 text-gray-600 dark:text-gray-300" data-view-field="letter">No letter uploaded.</div>
+                    </div>
                 </div>
             </div>
-            <div class="border-t pt-4">
-                <div class="text-sm text-gray-500 uppercase mb-2">Letter</div>
-                <div data-view-field="letter" class="text-sm text-gray-700">No letter uploaded.</div>
+
+            <div class="sticky bottom-0 z-30 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-end">
+                <x-button variant="secondary" @click="$dispatch('close-modal','adminManpowerViewModal')">Close</x-button>
             </div>
         </div>
     </x-modal>
