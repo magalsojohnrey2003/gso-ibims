@@ -30,8 +30,6 @@
                         <thead class="bg-purple-600 text-white text-xs uppercase font-semibold text-center">
                             <tr>
                                 <th class="px-6 py-3 text-center">Request ID</th>
-                                <th class="px-6 py-3 text-center">Qty (Approved / Requested)</th>
-                                <th class="px-6 py-3 text-center">Role</th>
                                 <th class="px-6 py-3 text-center">Borrowed Date</th>
                                 <th class="px-6 py-3 text-center">Return Date</th>
                                 <th class="px-6 py-3 text-center">Status</th>
@@ -39,7 +37,7 @@
                             </tr>
                         </thead>
                         <tbody id="userManpowerTableBody" class="text-center">
-                            <x-table-loading-state colspan="7" />
+                            <x-table-loading-state colspan="5" />
                         </tbody>
                     </table>
                 </div>
@@ -48,7 +46,7 @@
     </div>
 
     <template id="user-manpower-empty-state-template">
-        <x-table-empty-state colspan="7" />
+        <x-table-empty-state colspan="5" />
     </template>
 
     <!-- Create Modal -->
@@ -377,23 +375,15 @@
                         <p class="mt-2 text-gray-600 dark:text-gray-300" data-user-view="purpose">—</p>
                     </div>
 
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 md:col-span-2">
-                        <div class="grid gap-6 md:grid-cols-2">
-                            <div>
-                                <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Letter</h4>
-                                <div class="mt-3 text-gray-600 dark:text-gray-300" data-user-view="letter">No letter uploaded.</div>
-                            </div>
-                            <div class="text-center">
-                                <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">QR Status</h4>
-                                <div id="userManpowerQr" class="mt-3 flex items-center justify-center bg-gray-50 dark:bg-gray-700 rounded-lg min-h-[160px]">
-                                    <div class="text-sm text-gray-400">QR code unavailable.</div>
-                                </div>
-                                <a data-user-view="public-url" href="#" target="_blank" class="text-indigo-600 hover:underline text-sm mt-3 inline-flex items-center justify-center gap-1 hidden">
-                                    <i class="fas fa-external-link-alt text-xs"></i>
-                                    <span>Open status page</span>
-                                </a>
-                            </div>
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 md:col-span-2 text-center">
+                        <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">QR Status</h4>
+                        <div id="userManpowerQr" class="mt-3 flex items-center justify-center bg-gray-50 dark:bg-gray-700 rounded-lg min-h-[160px]">
+                            <div class="text-sm text-gray-400">QR code unavailable.</div>
                         </div>
+                        <a data-user-view="public-url" href="#" target="_blank" class="text-indigo-600 hover:underline text-sm mt-3 inline-flex items-center justify-center gap-1 hidden">
+                            <i class="fas fa-external-link-alt text-xs"></i>
+                            <span>Open status page</span>
+                        </a>
                     </div>
                 </div>
             </div>
@@ -406,6 +396,7 @@
 
     <div id="userManpowerBadgeTemplates" class="hidden">
         <template data-status="pending"><x-status-badge type="pending" text="Pending" /></template>
+        <template data-status="validated"><x-status-badge type="info" text="Validated" /></template>
         <template data-status="approved"><x-status-badge type="accepted" text="Approved" /></template>
         <template data-status="rejected"><x-status-badge type="rejected" text="Rejected" /></template>
         <template data-status="default"><x-status-badge type="gray" text="—" /></template>

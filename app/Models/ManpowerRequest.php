@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class ManpowerRequest extends Model
 {
@@ -29,6 +30,7 @@ class ManpowerRequest extends Model
         'public_token',
         'municipality',
         'barangay',
+        'qr_verified_form_path',
     ];
 
     protected $casts = [
@@ -48,15 +50,12 @@ class ManpowerRequest extends Model
 
     public function getLetterUrlAttribute(): ?string
     {
-        $path = $this->letter_path;
-        if (! $path) return null;
-        try {
-            if (\Illuminate\Support\Facades\Storage::disk('public')->exists($path)) {
-                return \Illuminate\Support\Facades\Storage::disk('public')->url($path);
-            }
-            if (filter_var($path, FILTER_VALIDATE_URL)) return $path;
-        } catch (\Throwable $e) {}
-        return null;
+        return $this->resolvePublicDiskUrl($this->letter_path);
+    }
+
+    public function getQrVerifiedFormUrlAttribute(): ?string
+    {
+        return $this->resolvePublicDiskUrl($this->qr_verified_form_path);
     }
 
     public function getPublicStatusUrlAttribute(): ?string
@@ -76,5 +75,67 @@ class ManpowerRequest extends Model
             return null;
         }
         return sprintf('MP-%04d', (int) $id);
+    }
+
+    private function resolvePublicDiskUrl(?string $path): ?string
+    {
+        if (! $path) {
+            return null;
+        }
+
+        $disk = null;
+        try {
+            $disk = Storage::disk('public');
+        } catch (\Throwable $e) {
+            $disk = null;
+        }
+
+        $candidate = null;
+        if ($disk && $disk->exists($path)) {
+            try {
+                $candidate = $disk->url($path);
+            } catch (\Throwable $e) {
+                $candidate = null;
+            }
+        }
+
+        if (! $candidate && filter_var($path, FILTER_VALIDATE_URL)) {
+            $candidate = $path;
+        }
+
+        $request = null;
+        try {
+            $request = request();
+        } catch (\Throwable $e) {
+            $request = null;
+        }
+
+        if ($candidate && filter_var($candidate, FILTER_VALIDATE_URL)) {
+            if ($request) {
+                $parsed = parse_url($candidate) ?: [];
+                $port = $request->getPort();
+                $needsPort = empty($parsed['port']) && ! in_array($port, [null, 80, 443], true);
+                if ($needsPort) {
+                    $scheme = $request->getScheme();
+                    $host = $request->getHost();
+                    $pathPart = $parsed['path'] ?? '';
+                    $query = isset($parsed['query']) ? '?' . $parsed['query'] : '';
+                    return sprintf('%s://%s:%d%s%s', $scheme, $host, $port, $pathPart, $query);
+                }
+            }
+
+            return $candidate;
+        }
+
+        $relative = $candidate ?: '/storage/' . ltrim($path, '/');
+        if ($relative && $relative[0] !== '/') {
+            $relative = '/' . ltrim($relative, '/');
+        }
+
+        if ($request) {
+            return rtrim($request->getSchemeAndHttpHost(), '/') . $relative;
+        }
+
+        return $relative;
     }
 }

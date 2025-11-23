@@ -4,7 +4,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ManpowerRequest;
+use App\Services\ManpowerRequestPdfService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 class ManpowerRequestController extends Controller
 {
@@ -65,20 +68,89 @@ class ManpowerRequestController extends Controller
                 'rejection_reason_detail' => $row->rejection_reason_detail,
                 'public_token' => $row->public_token,
                 'public_url' => $row->public_status_url,
+                'qr_verified_form_url' => $row->qr_verified_form_url,
             ];
         });
 
         return response()->json($rows);
     }
 
+    public function scan(Request $request, ManpowerRequest $manpowerRequest, ManpowerRequestPdfService $pdfService)
+    {
+        $wasUpdated = false;
+        $scanTimestamp = now();
+
+        if ($manpowerRequest->status !== 'approved') {
+            if (! $manpowerRequest->approved_quantity) {
+                $manpowerRequest->approved_quantity = $manpowerRequest->quantity;
+            }
+
+            $manpowerRequest->status = 'approved';
+            $manpowerRequest->save();
+            $wasUpdated = true;
+        }
+
+        $manpowerRequest = $manpowerRequest->fresh(['user', 'roleType']);
+
+        $message = $wasUpdated
+            ? 'Manpower request marked as Approved via QR scan.'
+            : 'Manpower request was already marked as Approved.';
+
+        $downloadUrl = null;
+
+        try {
+            $result = $pdfService->render($manpowerRequest);
+
+            if (($result['success'] ?? false) && ! empty($result['content'])) {
+                $timestamp = $scanTimestamp->format('YmdHis');
+                $path = "qr-verified-forms/manpower-request-{$manpowerRequest->id}/manpower-request-{$manpowerRequest->id}-{$timestamp}.pdf";
+                $disk = Storage::disk('public');
+
+                if ($manpowerRequest->qr_verified_form_path && $disk->exists($manpowerRequest->qr_verified_form_path)) {
+                    $disk->delete($manpowerRequest->qr_verified_form_path);
+                }
+
+                $disk->put($path, $result['content']);
+
+                $manpowerRequest->qr_verified_form_path = $path;
+                $manpowerRequest->save();
+
+                $downloadUrl = $this->makeStorageUrl($path);
+            }
+        } catch (Throwable $e) {
+            report($e);
+        }
+
+        $manpowerRequest = $manpowerRequest->fresh(['user', 'roleType']);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => $message,
+                'status' => $manpowerRequest->status,
+                'updated' => $wasUpdated,
+                'download_url' => $downloadUrl,
+                'qr_verified_form_url' => $downloadUrl,
+                'scan_timestamp' => $scanTimestamp->toIso8601String(),
+            ]);
+        }
+
+        return view('admin.manpower.scan-result', [
+            'manpowerRequest' => $manpowerRequest,
+            'message' => $message,
+            'updated' => $wasUpdated,
+            'downloadUrl' => $downloadUrl,
+            'scanTimestamp' => $scanTimestamp,
+        ]);
+    }
+
     public function updateStatus(Request $request, ManpowerRequest $manpowerRequest)
     {
         $data = $request->validate([
-            'status' => 'required|in:approved,rejected',
+            'status' => 'required|in:validated,approved,rejected',
             'approved_quantity' => 'nullable|integer|min:1',
         ]);
 
-        if ($data['status'] === 'approved') {
+        if ($data['status'] === 'validated' || $data['status'] === 'approved') {
             $approved = $data['approved_quantity'] ?? $manpowerRequest->quantity;
             if ($approved > $manpowerRequest->quantity) {
                 return response()->json([
@@ -86,7 +158,7 @@ class ManpowerRequestController extends Controller
                 ], 422);
             }
             $manpowerRequest->approved_quantity = $approved;
-            $manpowerRequest->status = 'approved';
+            $manpowerRequest->status = $data['status'] === 'validated' ? 'validated' : 'approved';
         } else {
             $manpowerRequest->status = 'rejected';
             $manpowerRequest->approved_quantity = null;
@@ -102,5 +174,66 @@ class ManpowerRequestController extends Controller
             'status' => $manpowerRequest->status,
             'approved_quantity' => $manpowerRequest->approved_quantity,
         ]);
+    }
+
+    private function makeStorageUrl(?string $path): ?string
+    {
+        if (! $path) {
+            return null;
+        }
+
+        try {
+            $disk = Storage::disk('public');
+        } catch (Throwable) {
+            $disk = null;
+        }
+
+        if ($disk && $disk->exists($path)) {
+            $diskUrl = $disk->url($path);
+            $currentRequest = null;
+
+            try {
+                $currentRequest = request();
+            } catch (Throwable) {
+                $currentRequest = null;
+            }
+
+            if ($diskUrl && filter_var($diskUrl, FILTER_VALIDATE_URL)) {
+                if ($currentRequest) {
+                    $parsed = parse_url($diskUrl) ?: [];
+                    $port = $currentRequest->getPort();
+                    $isDefaultPort = in_array($port, [null, 80, 443], true);
+                    $missingPort = empty($parsed['port']);
+
+                    if ($missingPort && ! $isDefaultPort) {
+                        $scheme = $currentRequest->getScheme();
+                        $host = $currentRequest->getHost();
+                        $pathPart = $parsed['path'] ?? '';
+                        $query = isset($parsed['query']) ? '?' . $parsed['query'] : '';
+
+                        return sprintf('%s://%s:%d%s%s', $scheme, $host, $port, $pathPart, $query);
+                    }
+                }
+
+                return $diskUrl;
+            }
+
+            $relative = $diskUrl ?: ('/storage/' . ltrim($path, '/'));
+            if ($relative && $relative[0] !== '/') {
+                $relative = '/' . ltrim($relative, '/');
+            }
+
+            if ($currentRequest) {
+                return rtrim($currentRequest->getSchemeAndHttpHost(), '/') . $relative;
+            }
+
+            return $relative;
+        }
+
+        if (filter_var($path, FILTER_VALIDATE_URL)) {
+            return $path;
+        }
+
+        return null;
     }
 }

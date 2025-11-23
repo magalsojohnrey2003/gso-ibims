@@ -494,10 +494,6 @@
     <template id="btn-cancel-dispatch-template">
         <x-button variant="secondary" iconName="arrow-uturn-left" class="btn-action btn-delete h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="cancel-dispatch" title="Cancel dispatch">Cancel Dispatch</x-button>
     </template>
-    <template id="btn-accept-template">
-        <x-button variant="secondary" iconName="check-circle" class="btn-action btn-accept h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="approve" title="Approve request">Accept</x-button>
-    </template>
-
     {{-- Alert templates --}}
     <template id="alert-success-template">
         <div class="max-w-xs">

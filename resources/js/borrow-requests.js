@@ -629,8 +629,10 @@ function renderBorrowRequests() {
             wrapper.appendChild(createButtonFromTemplate('btn-validate-template', req.id));
             wrapper.appendChild(createButtonFromTemplate('btn-reject-template', req.id));
         } else if (statusKey === 'validated') {
-            wrapper.appendChild(createButtonFromTemplate('btn-accept-template', req.id));
-            wrapper.appendChild(createButtonFromTemplate('btn-reject-template', req.id));
+            const pendingTag = document.createElement('span');
+            pendingTag.className = 'inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full border border-sky-200 bg-sky-50 text-sky-700';
+            pendingTag.innerHTML = '<i class="fas fa-clock text-[0.7rem]"></i><span>Pending Submission</span>';
+            wrapper.appendChild(pendingTag);
         } else if (statusKey === 'approved' && !['dispatched','delivered'].includes(deliveryKey)) {
             wrapper.appendChild(createButtonFromTemplate('btn-deliver-template', req.id));
         } else if (deliveryKey === 'dispatched') {

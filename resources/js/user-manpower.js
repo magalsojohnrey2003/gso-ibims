@@ -109,7 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
       render();
     } catch (e) {
       console.error(e);
-      tbody.innerHTML = `<tr><td colspan="7" class="py-4 text-red-600">Failed to load.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" class="py-4 text-red-600">Failed to load.</td></tr>`;
     }
   };
 
@@ -502,7 +502,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (template?.content?.firstElementChild) {
       tbody.appendChild(template.content.firstElementChild.cloneNode(true));
     } else {
-      tbody.innerHTML = `<tr><td colspan="7" class="py-10 text-center text-gray-500">${fallback}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" class="py-10 text-center text-gray-500">${fallback}</td></tr>`;
     }
   };
 
@@ -525,26 +525,29 @@ document.addEventListener('DOMContentLoaded', () => {
       const requestCode = formatRequestCode(r);
       const borrowDate = formatDateDisplay(r.start_at);
       const returnDate = formatDateDisplay(r.end_at);
-      const approved = r.approved_quantity != null ? r.approved_quantity : '—';
       const printTemplate = window.USER_MANPOWER?.print || '';
       const printUrl = printTemplate ? printTemplate.replace('__ID__', r.id) : '#';
+      const status = String(r.status || '').toLowerCase();
+      const showPrint = status === 'validated' || status === 'approved';
+      const actionButtons = [`<button data-action='view' class='btn-action btn-view h-10 w-10' title='View'>
+                  <span class='sr-only'>View</span>
+                  ${ICONS.eye}
+                </button>`];
+      if (showPrint) {
+        actionButtons.push(`<a href='${printUrl}' target='_blank' rel='noopener' class='btn-action btn-print h-10 w-10' title='Print'>
+                  <span class='sr-only'>Print</span>
+                  ${ICONS.printer}
+                </a>`);
+      }
+      const actionsHtml = actionButtons.join('');
       return `<tr data-request-id='${r.id}'>
         <td class='px-6 py-3 font-semibold'>${requestCode || `#${r.id}`}</td>
-        <td class='px-6 py-3'>${approved} / ${r.quantity}</td>
-        <td class='px-6 py-3'>${r.role || '—'}</td>
         <td class='px-6 py-3 text-sm text-gray-700'>${borrowDate}</td>
         <td class='px-6 py-3 text-sm text-gray-700'>${returnDate}</td>
         <td class='px-6 py-3'>${badgeHtml(r.status)}</td>
         <td class='px-6 py-3'>
             <div class='flex items-center justify-center gap-2'>
-                <button data-action='view' class='btn-action btn-view h-10 w-10' title='View'>
-                  <span class='sr-only'>View</span>
-                  ${ICONS.eye}
-                </button>
-                <a href='${printUrl}' target='_blank' rel='noopener' class='btn-action btn-print h-10 w-10' title='Print'>
-                  <span class='sr-only'>Print</span>
-                  ${ICONS.printer}
-                </a>
+                ${actionsHtml}
             </div>
         </td>
       </tr>`;
@@ -727,12 +730,6 @@ document.addEventListener('DOMContentLoaded', () => {
         el.textContent = formatDateDisplay(row.start_at);
       } else if (key === 'return_date') {
         el.textContent = formatDateDisplay(row.end_at);
-      } else if (key === 'letter') {
-        if (row.letter_url) {
-          el.innerHTML = `<a href='${row.letter_url}' target='_blank' class='text-indigo-600 hover:underline'>Open uploaded letter</a>`;
-        } else {
-          el.textContent = 'No letter uploaded.';
-        }
       } else if (key === 'status') {
         el.textContent = row.status ? row.status.charAt(0).toUpperCase() + row.status.slice(1) : '—';
       } else if (key === 'id') {

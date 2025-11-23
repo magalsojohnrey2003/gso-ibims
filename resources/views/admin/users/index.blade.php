@@ -29,7 +29,7 @@
                             <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
                             <input type="text"
                                    id="users-live-search"
-                                   placeholder="Search users..."
+                                placeholder="Search name or phone..."
                                    class="border border-gray-300 rounded-lg pl-12 pr-4 py-2.5 text-sm w-64 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all hover:border-gray-400" />
                         </div>
                         <!-- Last Active Filter -->
@@ -53,7 +53,6 @@
                                 </button>
                             </div>
                         </div>
-                        <button id="open-create-modal" class="btn btn-primary">+ Create User</button>
                     </div>
                 </div>
             </div>
@@ -83,8 +82,8 @@
     #users-table td[data-column="name"] {
         max-width: 14rem;
     }
-    #users-table td[data-column="email"] {
-        max-width: 18rem;
+    #users-table td[data-column="phone"] {
+        max-width: 12rem;
     }
     #users-table td[data-column="created"] {
         max-width: 10rem;
@@ -103,7 +102,7 @@
                         <thead class="bg-purple-600 text-white text-xs uppercase font-semibold text-center">
                         <tr>
                             <th class="px-6 py-3 text-center">Name</th>
-                            <th class="px-6 py-3 text-center">Email</th>
+                            <th class="px-6 py-3 text-center">Phone #</th>
                             <th class="px-6 py-3 text-center">Created By</th>
                             <th class="px-6 py-3 text-center">Registered</th>
                             <th class="px-6 py-3 text-center">Last Active</th>
@@ -146,7 +145,12 @@
                 </h3>
             </div>
             <div class="px-6 py-6">
-                @include('admin.users._form', ['action' => route('admin.users.store'), 'method' => 'POST', 'ajax' => true])
+                @include('admin.users._form', [
+                    'user' => null,
+                    'action' => route('admin.users.store'),
+                    'method' => 'POST',
+                    'ajax' => true,
+                ])
             </div>
         </div>
     </div>
@@ -168,6 +172,111 @@
             <div id="edit-form-container" class="px-6 py-6">
                 <p class="text-sm text-gray-500">Loading...</p>
             </div>
+        </div>
+    </div>
+
+    {{-- Archived Accounts Modal --}}
+    <div id="archived-modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50 p-4">
+        <div class="bg-white rounded-2xl w-full max-w-4xl shadow-2xl transform transition-all">
+            <div class="bg-purple-600 text-white px-6 py-5 rounded-t-2xl relative">
+                <button data-action="close-modal" class="absolute top-1/2 -translate-y-1/2 left-6 text-white hover:text-gray-200 transition-colors focus:outline-none">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+                <h3 class="text-2xl font-bold flex items-center gap-2 justify-center">
+                    <i class="fas fa-box-archive"></i>
+                    Archived Accounts
+                </h3>
+            </div>
+            <div class="px-6 py-6">
+                <div class="overflow-x-auto max-h-[60vh]">
+                    <table class="w-full text-sm text-left text-gray-600">
+                        <thead class="bg-gray-100 text-xs uppercase font-semibold text-gray-600">
+                            <tr>
+                                <th class="px-6 py-3">Name</th>
+                                <th class="px-6 py-3">Phone #</th>
+                                <th class="px-6 py-3">Archived On</th>
+                                <th class="px-6 py-3 text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="archived-users-tbody">
+                            @foreach($archivedUsers as $archived)
+                                @include('admin.users._archived_row', ['user' => $archived])
+                            @endforeach
+                            <tr id="archived-empty-row" class="{{ $archivedUsers->isEmpty() ? '' : 'hidden' }}">
+                                <td colspan="4" class="px-6 py-8 text-center text-gray-500">
+                                    <div class="flex flex-col items-center gap-2">
+                                        <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <p class="font-medium">No archived accounts</p>
+                                        <p class="text-sm">Archived users will appear here for restoration.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Floating Action Menu --}}
+    <div x-data="{ open: false }" class="fixed bottom-8 right-8 z-40">
+        <button
+            @click="open = !open"
+            :aria-expanded="open"
+            type="button"
+            class="relative rounded-full w-14 h-14 flex items-center justify-center shadow-lg focus:outline-none transition-all duration-300 transform"
+            :class="open ? 'bg-red-600 hover:bg-red-700 scale-105' : 'bg-purple-600 hover:bg-purple-700 hover:scale-110'">
+            <span aria-hidden="true"
+                class="absolute inset-0 rounded-full opacity-0 transition-opacity duration-300"
+                :class="open ? 'opacity-20 bg-black/10' : ''"></span>
+            <svg xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                fill="none"
+                class="w-7 h-7 text-white transform transition-transform duration-300"
+                :class="open ? 'rotate-45' : 'rotate-0'">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 4v16m8-8H4" />
+            </svg>
+            <span class="sr-only">Open actions</span>
+        </button>
+        <div
+            x-show="open"
+            x-transition.origin.bottom.right
+            class="absolute bottom-20 right-0 flex flex-col gap-3 items-end"
+            @click.outside="open = false">
+            <button
+                data-open-create-user
+                @click="open = false"
+                class="group bg-white text-purple-600 px-4 py-3 rounded-xl shadow-lg hover:shadow-xl border-2 border-purple-200 hover:border-purple-400 transition-all transform hover:scale-105 flex items-center space-x-3 min-w-[220px]">
+                <div class="bg-purple-100 p-2 rounded-lg group-hover:bg-purple-200 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6" />
+                    </svg>
+                </div>
+                <div class="text-left">
+                    <div class="font-semibold text-sm">Create User</div>
+                    <div class="text-xs text-purple-500">Add a new borrower account</div>
+                </div>
+            </button>
+            <button
+                data-open-archived-users
+                @click="open = false"
+                class="group bg-white text-amber-600 px-4 py-3 rounded-xl shadow-lg hover:shadow-xl border-2 border-amber-200 hover:border-amber-400 transition-all transform hover:scale-105 flex items-center space-x-3 min-w-[220px]">
+                <div class="bg-amber-100 p-2 rounded-lg group-hover:bg-amber-200 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v8m-4-4h8" />
+                    </svg>
+                </div>
+                <div class="text-left">
+                    <div class="font-semibold text-sm">Archived Accounts</div>
+                    <div class="text-xs text-amber-500">Restore previously removed users</div>
+                </div>
+            </button>
         </div>
     </div>
 
@@ -234,9 +343,13 @@
 
         // Simple modal handling
         document.addEventListener('click', function(e) {
-            const openCreate = e.target.closest('#open-create-modal');
+            const openCreate = e.target.closest('#open-create-modal, [data-open-create-user]');
             if (openCreate) {
                 const modal = document.getElementById('create-modal');
+                if (!modal) {
+                    return;
+                }
+
                 const form = modal.querySelector('form');
                 // Clear form inputs when opening create modal
                 if (form) {
@@ -246,6 +359,9 @@
                         field.classList.remove('error', 'success');
                         const input = field.querySelector('input');
                         if (input) {
+                            if (input.name === 'phone') {
+                                input.dataset.cleanValue = '';
+                            }
                             input.value = '';
                             input.classList.remove('has-value');
                             input.removeAttribute('aria-invalid');
@@ -271,14 +387,34 @@
                 // Focus first input
                 setTimeout(() => {
                     const firstInput = form?.querySelector('input[name="first_name"]');
-                    if (firstInput) firstInput.focus();
+                    if (firstInput && typeof firstInput.focus === 'function') {
+                        firstInput.focus();
+                    }
                 }, 100);
+            }
+
+            const openArchived = e.target.closest('[data-open-archived-users]');
+            if (openArchived) {
+                const modal = document.getElementById('archived-modal');
+                if (modal) {
+                    modal.classList.remove('hidden');
+                    toggleArchivedEmptyState();
+                    setTimeout(() => {
+                        const closeBtn = modal.querySelector('[data-action="close-modal"]');
+                        if (closeBtn && typeof closeBtn.focus === 'function') {
+                            closeBtn.focus();
+                        }
+                    }, 100);
+                }
             }
 
             const close = e.target.closest('[data-action="close-modal"]');
             if (close) {
                 // hide parent modal
                 let modal = close.closest('#create-modal, #edit-modal');
+                if (!modal) {
+                    modal = close.closest('#archived-modal');
+                }
                 if (modal) modal.classList.add('hidden');
             }
 
@@ -304,6 +440,16 @@
                             const editForm = container.querySelector('form');
                             if (editForm) {
                                 initUserFormValidation(editForm);
+                                initUserFormLockState(editForm);
+                                const editTrigger = editForm.querySelector('[data-edit-form-trigger]');
+                                const focusTarget = editTrigger || editForm.querySelector('input[name="first_name"]');
+                                if (focusTarget && typeof focusTarget.focus === 'function') {
+                                    try {
+                                        focusTarget.focus({ preventScroll: true });
+                                    } catch (err) {
+                                        focusTarget.focus();
+                                    }
+                                }
                             }
                         }, 100);
                     })
@@ -317,8 +463,13 @@
         // close modal on escape
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
-                document.getElementById('create-modal').classList.add('hidden');
-                document.getElementById('edit-modal').classList.add('hidden');
+                const createModal = document.getElementById('create-modal');
+                const editModal = document.getElementById('edit-modal');
+                const archivedModal = document.getElementById('archived-modal');
+
+                if (createModal) createModal.classList.add('hidden');
+                if (editModal) editModal.classList.add('hidden');
+                if (archivedModal) archivedModal.classList.add('hidden');
             }
         });
 
@@ -338,6 +489,13 @@
 
             const url = form.action;
             const formData = new FormData(form);
+            const phoneInput = form.querySelector('input[name="phone"]');
+            if (phoneInput) {
+                const cleanPhone = (phoneInput.dataset && phoneInput.dataset.cleanValue)
+                    ? phoneInput.dataset.cleanValue
+                    : (phoneInput.value || '').toString().replace(/\D/g, '');
+                formData.set('phone', cleanPhone);
+            }
             const submitBtn = form.querySelector('button[type="submit"]');
             const originalBtnText = submitBtn ? submitBtn.innerHTML : '';
 
@@ -385,6 +543,9 @@
                         field.classList.remove('error', 'success');
                         const input = field.querySelector('input');
                         if (input) {
+                            if (input.name === 'phone') {
+                                input.dataset.cleanValue = '';
+                            }
                             input.classList.remove('has-value');
                             input.removeAttribute('aria-invalid');
                         }
@@ -429,13 +590,13 @@
 
             // Show modern single confirmation modal using SweetAlert2
             Swal.fire({
-                title: 'Delete User?',
-                text: "This action cannot be undone. Are you sure you want to delete this user?",
+                title: 'Archive User?',
+                text: "Archived users can be restored later from the Archived Accounts list.",
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#dc2626',
                 cancelButtonColor: '#6b7280',
-                confirmButtonText: 'Yes, delete',
+                confirmButtonText: 'Archive',
                 cancelButtonText: 'Cancel',
                 reverseButtons: true
             }).then((result) => {
@@ -458,10 +619,104 @@
                         if (data.success) {
                             const tr = document.querySelector(`tr[data-user-id="${data.id}"]`);
                             if (tr) tr.remove();
-                            showSuccess('User deleted successfully');
+
+                            if (data.archivedHtml) {
+                                const archivedTbody = document.getElementById('archived-users-tbody');
+                                if (archivedTbody) {
+                                    archivedTbody.insertAdjacentHTML('afterbegin', data.archivedHtml);
+                                }
+                            }
+
+                            toggleArchivedEmptyState();
+                            showSuccess(data.message || 'User archived successfully');
                         }
                     }).catch(() => showError('Failed to delete user'));
                 }
+            });
+        });
+
+        document.addEventListener('submit', function(e) {
+            const form = e.target.closest('form.ajax-restore');
+            if (!form) return;
+            e.preventDefault();
+
+            const url = form.action;
+            const formData = new FormData(form);
+
+            fetch(url, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: formData,
+                credentials: 'same-origin'
+            }).then(async res => {
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || !data.success) {
+                    showError(data.message || 'Failed to restore user');
+                    return;
+                }
+
+                const archivedRow = document.querySelector(`tr[data-archived-user-id="${data.id}"]`);
+                if (archivedRow) {
+                    archivedRow.remove();
+                }
+
+                if (data.html) {
+                    const tbody = document.getElementById('users-tbody');
+                    if (tbody) {
+                        if (tbody.querySelector(`tr[data-user-id="${data.id}"]`)) {
+                            tbody.querySelector(`tr[data-user-id="${data.id}"]`).outerHTML = data.html;
+                        } else {
+                            tbody.insertAdjacentHTML('afterbegin', data.html);
+                        }
+                    }
+                }
+
+                toggleArchivedEmptyState();
+                showSuccess(data.message || 'User restored successfully');
+            }).catch(() => showError('Failed to restore user'));
+        });
+
+        document.addEventListener('submit', function(e) {
+            const form = e.target.closest('form.ajax-force-delete');
+            if (!form) return;
+            e.preventDefault();
+
+            Swal.fire({
+                title: 'Delete Permanently?',
+                text: 'This will remove the user account and its data permanently. This action cannot be undone.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Delete',
+                cancelButtonText: 'Cancel',
+                reverseButtons: true
+            }).then(result => {
+                if (!result.isConfirmed) return;
+
+                const url = form.action;
+                const formData = new FormData(form);
+
+                fetch(url, {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    body: formData,
+                    credentials: 'same-origin'
+                }).then(async res => {
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok || !data.success) {
+                        showError(data.message || 'Failed to delete user permanently');
+                        return;
+                    }
+
+                    const archivedRow = document.querySelector(`tr[data-archived-user-id="${data.id}"]`);
+                    if (archivedRow) {
+                        archivedRow.remove();
+                    }
+
+                    toggleArchivedEmptyState();
+                    showSuccess(data.message || 'User deleted permanently');
+                }).catch(() => showError('Failed to delete user permanently'));
             });
         });
 
@@ -485,6 +740,24 @@
             if (container) {
                 container.innerHTML = '';
                 container.classList.add('hidden');
+            }
+        }
+
+        function toggleArchivedEmptyState() {
+            const tbody = document.getElementById('archived-users-tbody');
+            const emptyRow = document.getElementById('archived-empty-row');
+            if (!tbody || !emptyRow) return;
+            const hasRows = tbody.querySelector('tr[data-archived-user-id]') !== null;
+            emptyRow.classList.toggle('hidden', hasRows);
+        }
+
+        function formatPhoneForDisplay(value) {
+            const digits = (value || '').toString().replace(/\D/g, '').slice(0, 11);
+            if (!digits) return '';
+            if (digits.length <= 4) return digits;
+            if (digits.length <= 7) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+            return `${digits.slice(0, 4)}-${digits.slice(4, 7)}-${digits.slice(7)}`;
+        }
 
         // Apply validation to user forms
         function initUserFormValidation(form) {
@@ -492,24 +765,171 @@
 
             const inputs = form.querySelectorAll('input:not([type="hidden"])');
             inputs.forEach(input => {
-                // Add has-value class if input has value
-                if (input.value && input.value.trim() !== '') {
+                if (input.name === 'phone') {
+                    const initial = input.getAttribute('data-initial-clean') || input.dataset.cleanValue || input.value;
+                    const digits = (initial || '').toString().replace(/\D/g, '').slice(0, 11);
+                    if (digits) {
+                        input.dataset.cleanValue = digits;
+                        input.value = formatPhoneForDisplay(digits);
+                        input.classList.add('has-value');
+                    }
+                } else if (input.value && input.value.trim() !== '') {
                     input.classList.add('has-value');
                 }
 
                 // Input event listener
                 input.addEventListener('input', function() {
-                    if (this.value && this.value.trim() !== '') {
-                        this.classList.add('has-value');
+                    if (this.name === 'phone') {
+                        const digits = (this.value || '').toString().replace(/\D/g, '').slice(0, 11);
+                        this.dataset.cleanValue = digits;
+                        this.value = formatPhoneForDisplay(digits);
+                        if (digits) {
+                            this.classList.add('has-value');
+                        } else {
+                            this.classList.remove('has-value');
+                        }
                     } else {
-                        this.classList.remove('has-value');
+                        if (this.value && this.value.trim() !== '') {
+                            this.classList.add('has-value');
+                        } else {
+                            this.classList.remove('has-value');
+                        }
                     }
+
                     validateUserField(this);
                 });
 
                 // Blur validation
                 input.addEventListener('blur', function() {
                     validateUserField(this);
+                });
+            });
+        }
+
+        function initUserFormLockState(form) {
+            if (!form || !form.hasAttribute('data-edit-lockable-form')) return;
+
+            const lockableInputs = form.querySelectorAll('[data-edit-lockable]');
+            const trigger = form.querySelector('[data-edit-form-trigger]');
+            const controls = form.querySelector('[data-edit-form-controls]');
+            const cancelBtn = form.querySelector('[data-edit-form-cancel]');
+            const submitBtn = form.querySelector('[data-edit-form-submit]');
+
+            if (!lockableInputs.length || !trigger || !controls || !cancelBtn || !submitBtn) {
+                return;
+            }
+
+            const setLocked = (locked) => {
+                form.dataset.editLocked = locked ? 'true' : 'false';
+
+                lockableInputs.forEach(input => {
+                    input.readOnly = locked;
+                    if (locked) {
+                        input.setAttribute('aria-readonly', 'true');
+                    } else {
+                        input.removeAttribute('aria-readonly');
+                    }
+
+                    if (!locked && input.name === 'password') {
+                        input.value = '';
+                        input.classList.remove('has-value');
+                    }
+                });
+
+                if (locked) {
+                    trigger.hidden = false;
+                    trigger.classList.remove('hidden');
+                    controls.hidden = true;
+                    controls.classList.add('hidden');
+                    submitBtn.disabled = true;
+                    submitBtn.setAttribute('aria-disabled', 'true');
+                } else {
+                    trigger.hidden = true;
+                    trigger.classList.add('hidden');
+                    controls.hidden = false;
+                    controls.classList.remove('hidden');
+                    submitBtn.disabled = false;
+                    submitBtn.removeAttribute('aria-disabled');
+
+                    requestAnimationFrame(() => {
+                        const firstInput = lockableInputs[0];
+                        if (firstInput) {
+                            try {
+                                firstInput.focus({ preventScroll: true });
+                                if (typeof firstInput.select === 'function' && firstInput.type !== 'password') {
+                                    firstInput.select();
+                                }
+                            } catch (err) {
+                                try { firstInput.focus(); } catch (_) {}
+                            }
+                        }
+                    });
+                }
+            };
+
+            setLocked(true);
+
+            trigger.addEventListener('click', function () {
+                setLocked(false);
+            });
+
+            cancelBtn.addEventListener('click', function () {
+                form.reset();
+
+                lockableInputs.forEach(input => {
+                    if (input.name === 'phone') {
+                        const initialDigits = (input.getAttribute('data-initial-clean') || '').replace(/\D/g, '');
+                        input.dataset.cleanValue = initialDigits;
+                        input.value = formatPhoneForDisplay(initialDigits);
+                        if (initialDigits) {
+                            input.classList.add('has-value');
+                        } else {
+                            input.classList.remove('has-value');
+                        }
+                    } else if (input.type === 'password') {
+                        input.value = '';
+                        input.classList.remove('has-value');
+                    } else {
+                        if (input.value && input.value.trim() !== '') {
+                            input.classList.add('has-value');
+                        } else {
+                            input.classList.remove('has-value');
+                        }
+                    }
+                    input.removeAttribute('aria-invalid');
+                });
+
+                form.querySelectorAll('.user-form-field').forEach(field => {
+                    field.classList.remove('error', 'success');
+                    const errEl = field.querySelector('.error');
+                    if (errEl) {
+                        errEl.textContent = '';
+                        errEl.setAttribute('aria-hidden', 'true');
+                    }
+                });
+
+                const pwdField = form.querySelector('#user-password-field');
+                if (pwdField) {
+                    pwdField.type = 'password';
+                }
+                const pwdEye = form.querySelector('[data-target="#user-password-field"] i');
+                if (pwdEye) {
+                    pwdEye.classList.remove('fa-eye-slash');
+                    pwdEye.classList.add('fa-eye');
+                }
+
+                clearFormErrors(form);
+
+                setLocked(true);
+
+                requestAnimationFrame(() => {
+                    if (typeof trigger.focus === 'function') {
+                        try {
+                            trigger.focus({ preventScroll: true });
+                        } catch (err) {
+                            trigger.focus();
+                        }
+                    }
                 });
             });
         }
@@ -585,6 +1005,21 @@
                     }
                     break;
 
+                case 'phone': {
+                    const digits = (input.dataset && input.dataset.cleanValue)
+                        ? input.dataset.cleanValue
+                        : value.replace(/\D/g, '');
+
+                    if (!digits) {
+                        setError('Phone number is required');
+                    } else if (!/^\d{7,11}$/.test(digits)) {
+                        setError('Phone must be 7–11 digits');
+                    } else {
+                        setSuccess();
+                    }
+                    break;
+                }
+
                 case 'email':
                     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                     if (!value) {
@@ -621,9 +1056,10 @@
         const createForm = document.querySelector('#create-modal form');
         if (createForm) {
             initUserFormValidation(createForm);
+            initUserFormLockState(createForm);
         }
-            }
-        }
+
+        toggleArchivedEmptyState();
     </script>
 
     <script>
@@ -660,20 +1096,25 @@
         
         function filterTable() {
             const searchTerm = (searchInput?.value || '').toLowerCase().trim();
+            const digitsTerm = searchTerm.replace(/\D/g, '');
             const rows = tableBody.querySelectorAll('tr[data-user-id]');
             
             let visibleCount = 0;
             
             rows.forEach(row => {
-                const nameCell = row.querySelector('td:nth-child(1)');
-                const emailCell = row.querySelector('td:nth-child(2)');
+                const nameCell = row.querySelector('td[data-column="name"]');
+                const phoneCell = row.querySelector('td[data-column="phone"]');
                 
-                if (!nameCell || !emailCell) return;
+                if (!nameCell || !phoneCell) return;
                 
                 const nameText = nameCell.textContent.toLowerCase();
-                const emailText = emailCell.textContent.toLowerCase();
+                const phoneText = phoneCell.textContent.toLowerCase();
+                const phoneDigits = (phoneCell.getAttribute('data-phone-digits') || '').toLowerCase();
                 
-                const matchesSearch = !searchTerm || nameText.includes(searchTerm) || emailText.includes(searchTerm);
+                const matchesSearch = !searchTerm
+                    || nameText.includes(searchTerm)
+                    || phoneText.includes(searchTerm)
+                    || (digitsTerm && phoneDigits.includes(digitsTerm));
                 const matchesLastActive = passesLastActiveFilter(row);
 
                 const shouldShow = matchesSearch && matchesLastActive;
@@ -718,7 +1159,7 @@
             });
             
             searchInput.addEventListener('blur', function() {
-                this.placeholder = 'Search users...';
+                this.placeholder = 'Search name or phone...';
             });
         }
 

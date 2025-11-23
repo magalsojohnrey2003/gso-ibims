@@ -1,6 +1,34 @@
 {{-- resources/views/admin/users/_form.blade.php --}}
 @props(['user' => null, 'action' => '#', 'method' => 'POST'])
 
+@php
+    $rawPhoneValue = old('phone', $user->phone ?? '');
+    $digitsOnlyPhone = preg_replace('/\D+/', '', (string) $rawPhoneValue);
+
+    $isEdit = (bool) $user;
+    $isAjax = !empty($ajax);
+    $shouldLock = $isEdit && $isAjax;
+
+    $formatPhone = static function (?string $digits): string {
+        $digits = preg_replace('/\D+/', '', (string) $digits);
+        if ($digits === '') {
+            return '';
+        }
+
+        if (strlen($digits) <= 4) {
+            return $digits;
+        }
+
+        if (strlen($digits) <= 7) {
+            return substr($digits, 0, 4) . '-' . substr($digits, 4);
+        }
+
+        return substr($digits, 0, 4) . '-' . substr($digits, 4, 3) . '-' . substr($digits, 7);
+    };
+
+    $formattedPhone = $formatPhone($digitsOnlyPhone);
+@endphp
+
 <style>
 /* Floating label styles for user modal */
 .user-form-field {
@@ -60,6 +88,7 @@
 }
 .user-form-field .password-eye:hover {
     color: #7e22ce;
+}
 
 /* Validation states */
 .user-form-field.error input {
@@ -91,10 +120,9 @@
     background: transparent;
     z-index: 3;
 }
-}
 </style>
 
-<form method="POST" action="{{ $action }}" id="user-form" @if(!empty($ajax)) data-ajax="true" @endif class="modern-user-form">
+<form method="POST" action="{{ $action }}" id="user-form" @if(!empty($ajax)) data-ajax="true" @endif @if($shouldLock) data-edit-lockable-form="true" @endif class="modern-user-form">
     @csrf
     @if(strtoupper($method) !== 'POST')
         @method($method)
@@ -106,14 +134,16 @@
                 <input name="first_name" 
                        value="{{ old('first_name', $user->first_name ?? '') }}" 
                        placeholder=" "
-                       required />
+                       required
+                       @if($shouldLock) readonly aria-readonly="true" data-edit-lockable="true" @endif />
                 <label>First name *</label>
                 <div class="error" aria-hidden="true"></div>
             </div>
             <div class="user-form-field">
                 <input name="middle_name" 
                        value="{{ old('middle_name', $user->middle_name ?? '') }}" 
-                       placeholder=" " />
+                       placeholder=" "
+                       @if($shouldLock) readonly aria-readonly="true" data-edit-lockable="true" @endif />
                 <label>Middle name</label>
                 <div class="error" aria-hidden="true"></div>
             </div>
@@ -121,19 +151,35 @@
                 <input name="last_name" 
                        value="{{ old('last_name', $user->last_name ?? '') }}" 
                        placeholder=" "
-                       required />
+                       required
+                       @if($shouldLock) readonly aria-readonly="true" data-edit-lockable="true" @endif />
                 <label>Last name *</label>
                 <div class="error" aria-hidden="true"></div>
             </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="user-form-field">
+                <input type="tel"
+                       name="phone"
+                       value="{{ $formattedPhone }}"
+                       placeholder=" "
+                       inputmode="numeric"
+                       maxlength="14"
+                       data-initial-clean="{{ $digitsOnlyPhone }}"
+                       required
+                       @if($shouldLock) readonly aria-readonly="true" data-edit-lockable="true" @endif />
+                <label>Phone # *</label>
+                <div class="error" aria-hidden="true"></div>
+            </div>
+
             <div class="user-form-field">
                 <input type="email"
                        name="email" 
                        value="{{ old('email', $user->email ?? '') }}" 
                        placeholder=" "
-                       required />
+                       required
+                       @if($shouldLock) readonly aria-readonly="true" data-edit-lockable @endif />
                 <label>Email *</label>
                 <div class="error" aria-hidden="true"></div>
             </div>
@@ -143,7 +189,8 @@
                        name="password" 
                        id="user-password-field"
                        placeholder=" "
-                       {{ $user ? '' : 'required' }} />
+                       {{ $user ? '' : 'required' }}
+                       @if($shouldLock) readonly aria-readonly="true" data-edit-lockable="true" @endif />
                 <label>Password {{ $user ? '' : '*' }}</label>
                 <span class="password-eye" data-target="#user-password-field">
                     <i class="fa-solid fa-eye"></i>
@@ -153,10 +200,27 @@
         </div>
     </div>
 
-    <div class="mt-8">
+    <div class="mt-8 space-y-3">
         <div id="form-errors" class="text-red-600 text-sm mb-3 bg-red-50 p-3 rounded-lg hidden"></div>
-        <button type="submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg">
-            {{ $user ? 'Save changes' : 'Create User' }}
-        </button>
+
+        @if($shouldLock)
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3" data-edit-form-actions>
+                <button type="button" class="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg" data-edit-form-trigger>
+                    Edit
+                </button>
+                <div class="flex flex-col sm:flex-row gap-3 w-full sm:w-auto hidden" data-edit-form-controls hidden>
+                    <button type="button" class="w-full sm:w-auto border border-gray-300 text-gray-700 hover:bg-gray-100 font-semibold py-3 px-6 rounded-lg transition-colors duration-200" data-edit-form-cancel>
+                        Cancel
+                    </button>
+                    <button type="submit" class="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg" data-edit-form-submit>
+                        Update
+                    </button>
+                </div>
+            </div>
+        @else
+            <button type="submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg">
+                {{ $isEdit ? 'Update' : 'Save' }}
+            </button>
+        @endif
     </div>
 </form>

@@ -4,9 +4,13 @@ namespace App\Services;
 
 use App\Models\Item;
 use App\Models\ManpowerRequest;
+use chillerlan\QRCode\QRCode;
+use chillerlan\QRCode\QROptions;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\URL;
 use RuntimeException;
 use setasign\Fpdi\Fpdi;
 use setasign\Fpdi\PdfParser\PdfParser;
@@ -107,6 +111,9 @@ class ManpowerRequestPdfService
                 $this->writeText($pdf, $size, Arr::get($layout, $field), $value);
             }
 
+            $qrRect = Arr::get($layout, 'form_qr_code') ?? Arr::get($layout, 'form_qr_code_af_image');
+            $this->renderQrCode($pdf, $size, $qrRect, $manpowerRequest);
+
             $binary = $pdf->Output('S');
 
             return [
@@ -189,8 +196,13 @@ class ManpowerRequestPdfService
         ];
 
         $roleLabel = trim((string) ($manpowerRequest->role ?? 'Manpower'));
-        $quantity = max((int) $manpowerRequest->quantity, 0);
-        $fields['item_1'] = sprintf('%s(x%d)', $roleLabel !== '' ? $roleLabel : 'Manpower', $quantity);
+        $baseLabel = $roleLabel !== '' ? $roleLabel : 'Manpower';
+        $approvedQuantity = (int) ($manpowerRequest->approved_quantity ?? 0);
+        $quantity = $approvedQuantity > 0 ? $approvedQuantity : max((int) $manpowerRequest->quantity, 0);
+        if ($quantity <= 0) {
+            $quantity = max((int) $manpowerRequest->quantity, 0);
+        }
+        $fields['item_1'] = sprintf('Manpower-%s(x%d)', $baseLabel, $quantity);
         $fields['check_1'] = 'Yes';
 
         $randomItems = Item::query()
@@ -306,6 +318,84 @@ class ManpowerRequestPdfService
         $pdf->SetTextColor(55, 65, 81);
         $pdf->SetFont('ZapfDingbats', '', $box);
         $pdf->Text($x, $y + $box, '4');
+    }
+
+    private function renderQrCode(Fpdi $pdf, array $pageSize, ?array $rect, ManpowerRequest $manpowerRequest): void
+    {
+        if ($rect === null) {
+            return;
+        }
+
+        $payload = trim($this->buildQrPayload($manpowerRequest));
+        if ($payload === '') {
+            return;
+        }
+
+        $options = new QROptions([
+            'outputType' => QRCode::OUTPUT_IMAGE_PNG,
+            'eccLevel' => QRCode::ECC_Q,
+            'scale' => 6,
+            'imageBase64' => false,
+            'addQuietzone' => true,
+            'dataModeOverride' => 'byte',
+        ]);
+
+        $binary = (new QRCode($options))->render($payload);
+        if (! is_string($binary) || $binary === '') {
+            return;
+        }
+
+        $tmp = tempnam(sys_get_temp_dir(), 'qr');
+        if ($tmp === false) {
+            return;
+        }
+
+        try {
+            file_put_contents($tmp, $binary);
+
+            $width = max($rect['urx'] - $rect['llx'], 24);
+            $height = max($rect['ury'] - $rect['lly'], 24);
+            $x = $rect['llx'];
+            $y = $pageSize['height'] - $rect['ury'];
+
+            $pdf->Image($tmp, $x, $y, $width, $height, 'PNG');
+        } finally {
+            @unlink($tmp);
+        }
+    }
+
+    private function buildQrPayload(ManpowerRequest $manpowerRequest): string
+    {
+        if ($manpowerRequest->exists && Route::has('admin.manpower.requests.scan')) {
+            try {
+                return URL::temporarySignedRoute(
+                    'admin.manpower.requests.scan',
+                    now()->addDays(30),
+                    ['manpowerRequest' => $manpowerRequest->id]
+                );
+            } catch (Throwable) {
+                // fall through to fallback payloads
+            }
+        }
+
+        if (method_exists($manpowerRequest, 'getPublicStatusUrlAttribute')) {
+            $url = $manpowerRequest->public_status_url;
+            if (is_string($url) && $url !== '') {
+                return $url;
+            }
+        }
+
+        if (is_string($manpowerRequest->public_token) && $manpowerRequest->public_token !== '') {
+            try {
+                if (Route::has('manpower.requests.public.show')) {
+                    return route('manpower.requests.public.show', $manpowerRequest->public_token);
+                }
+            } catch (Throwable) {
+                // ignore and fall back
+            }
+        }
+
+        return (string) $manpowerRequest->id;
     }
 
     private function resolveFontSize(float $width, float $height, string $value, float $min, float $max): float

@@ -62,7 +62,7 @@ class ManpowerRequestController extends Controller
             'start_time' => 'nullable|date_format:H:i',
             'end_date' => 'required|date|after_or_equal:start_date',
             'end_time' => 'nullable|date_format:H:i',
-            'letter' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
+            'letter_file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
         ]);
 
         $data['user_id'] = Auth::id();
@@ -94,15 +94,16 @@ class ManpowerRequestController extends Controller
         $data['municipality'] = $municipality['name'];
         $data['barangay'] = $barangay['name'];
 
-        if ($request->hasFile('letter')) {
-            $path = $request->file('letter')->store('manpower-letters', 'public');
+        $letterUpload = $request->file('letter_file') ?: $request->file('letter');
+        if ($letterUpload) {
+            $path = $letterUpload->store('manpower-letters', 'public');
             $data['letter_path'] = $path;
         }
 
         $data['public_token'] = (string) \Illuminate\Support\Str::uuid();
         $data['approved_quantity'] = null;
 
-        unset($data['start_date'], $data['start_time'], $data['end_date'], $data['end_time'], $data['municipality_id'], $data['barangay_id']);
+        unset($data['start_date'], $data['start_time'], $data['end_date'], $data['end_time'], $data['municipality_id'], $data['barangay_id'], $data['letter_file']);
 
         $model = ManpowerRequest::create($data);
 

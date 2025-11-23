@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
       render();
     } catch (e) {
       console.error(e);
-      tbody.innerHTML = `<tr><td colspan="8" class="py-4 text-red-600">Failed to load.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" class="py-4 text-red-600">Failed to load.</td></tr>`;
     }
   };
 
@@ -68,9 +68,55 @@ document.addEventListener('DOMContentLoaded', () => {
   const badgeHtml = (status) => {
     status = (status||'').toLowerCase();
     if (status === 'pending') return document.getElementById('badge-status-pending')?.innerHTML || status;
+    if (status === 'validated') return document.getElementById('badge-status-validated')?.innerHTML || status;
     if (status === 'approved') return document.getElementById('badge-status-approved')?.innerHTML || status;
     if (status === 'rejected') return document.getElementById('badge-status-rejected')?.innerHTML || status;
     return status || '—';
+  };
+
+  const escapeAttr = (value) => String(value ?? '').replace(/["'&<>]/g, (char) => {
+    switch (char) {
+      case '"': return '&quot;';
+      case "'": return '&#39;';
+      case '&': return '&amp;';
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      default: return char;
+    }
+  });
+
+  const buildLetterPreview = (url) => {
+    const noLetter = `<div class="inline-flex items-center gap-2 text-sm text-gray-500"><i class="fas fa-file-circle-xmark text-lg"></i><span>No letter uploaded.</span></div>`;
+    if (!url) {
+      return noLetter;
+    }
+
+    const safeUrl = escapeAttr(url);
+    const base = safeUrl.split('?')[0].toLowerCase();
+    const header = `<div class="inline-flex items-center gap-2 text-sm font-semibold text-sky-700"><i class="fas fa-file-alt text-base"></i><span>Uploaded Letter</span></div>`;
+    const linkHtml = `<a href='${safeUrl}' target='_blank' rel='noopener' class='inline-flex items-center gap-2 text-xs font-medium text-sky-600 hover:text-sky-700 transition-colors'><i class="fas fa-arrow-up-right-from-square text-[0.7rem]"></i><span>Open uploaded letter</span></a>`;
+
+    if (/(\.png|\.jpe?g|\.gif|\.webp|\.bmp|\.svg)$/.test(base)) {
+      return `<div class='space-y-2'>
+        ${header}
+        <figure class='rounded-lg border border-sky-100 bg-sky-50/60 p-3 shadow-sm'>
+          <img src='${safeUrl}' alt='Uploaded letter preview' loading='lazy' class='w-full max-h-72 object-contain rounded-md' />
+        </figure>
+        <div>${linkHtml}</div>
+      </div>`;
+    }
+
+    if (/\.pdf$/.test(base)) {
+      return `<div class='space-y-2'>
+        ${header}
+        <div class='rounded-lg border border-sky-100 bg-sky-50/60 shadow-sm overflow-hidden'>
+          <iframe src='${safeUrl}' title='Uploaded letter preview' class='w-full h-72'></iframe>
+        </div>
+        <div>${linkHtml}</div>
+      </div>`;
+    }
+
+    return `<div class='space-y-2'>${header}<div>${linkHtml}</div></div>`;
   };
 
   const render = () => {
@@ -80,7 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (template?.content?.firstElementChild) {
         tbody.appendChild(template.content.firstElementChild.cloneNode(true));
       } else {
-        tbody.innerHTML = `<tr><td colspan="8" class="py-10 text-center text-gray-500">No manpower requests found</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="py-10 text-center text-gray-500">No manpower requests found</td></tr>`;
       }
       return;
     }
@@ -92,7 +138,6 @@ document.addEventListener('DOMContentLoaded', () => {
         <td class='px-6 py-3 font-semibold text-gray-900'>${requestCode || ''}</td>
         <td class='px-6 py-3'>${r.user ? r.user.name : '—'}</td>
         <td class='px-6 py-3'>${r.role || r.role_type || '—'}</td>
-        <td class='px-6 py-3'>${r.quantity}</td>
         <td class='px-6 py-3 text-sm text-gray-700'>${borrowDate}</td>
         <td class='px-6 py-3 text-sm text-gray-700'>${returnDate}</td>
         <td class='px-6 py-3'>${badgeHtml(r.status)}</td>
@@ -102,10 +147,11 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const actionButtons = (r) => {
-    if (r.status === 'pending') {
+    const status = String(r.status || '').toLowerCase();
+    if (status === 'pending') {
       return `<div class="flex items-center justify-center gap-2">
-        <button data-action="approve" class="btn-action btn-accept h-10 w-10" title="Approve">
-          <span class="sr-only">Approve</span>
+        <button data-action="approve" class="btn-action btn-accept h-10 w-10" title="Validate">
+          <span class="sr-only">Validate</span>
           ${ICONS.check}
         </button>
         <button data-action="reject" class="btn-action btn-reject h-10 w-10" title="Reject">
@@ -113,6 +159,9 @@ document.addEventListener('DOMContentLoaded', () => {
           ${ICONS.xMark}
         </button>
       </div>`;
+    }
+    if (status === 'validated') {
+      return `<span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full border border-sky-200 bg-sky-50 text-sky-700"><i class="fas fa-clock text-[0.7rem]"></i><span>Pending Submission</span></span>`;
     }
     return `<div class="flex items-center justify-center gap-2">
       <button data-action="view" class="btn-action btn-view h-10 w-10" title="View">
@@ -156,11 +205,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } else if (key === 'return_date') {
         el.textContent = formatDateDisplay(row.end_at);
       } else if (key === 'letter') {
-        if (row.letter_url) {
-          el.innerHTML = `<a href='${row.letter_url}' target='_blank' class='text-indigo-600 hover:underline'>Open uploaded letter</a>`;
-        } else {
-          el.textContent = 'No letter uploaded.';
-        }
+        el.innerHTML = buildLetterPreview(row.letter_url);
       } else if (key === 'user') {
         el.textContent = row.user?.name || '—';
       } else if (key === 'quantity') {
@@ -182,11 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const approved = row.approved_quantity ? `${row.approved_quantity} / ` : '';
         el.textContent = `${approved}${row.quantity}`;
       } else if (key === 'letter') {
-        if (row.letter_url) {
-          el.innerHTML = `<a href='${row.letter_url}' target='_blank' class='text-indigo-600 hover:underline'>Open uploaded letter</a>`;
-        } else {
-          el.textContent = 'No letter uploaded.';
-        }
+        el.innerHTML = buildLetterPreview(row.letter_url);
       } else if (key === 'user') {
         el.textContent = row.user?.name || '—';
       } else if (key === 'status') {
@@ -213,7 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
       window.showToast?.('warning', 'Approved quantity cannot exceed requested quantity.');
       return;
     }
-    await updateStatus(ACTIVE_REQUEST.id, 'approved', {approved_quantity: qty});
+    await updateStatus(ACTIVE_REQUEST.id, 'validated', {approved_quantity: qty});
     closeModal('adminManpowerApproveModal');
     ACTIVE_REQUEST = null;
   });

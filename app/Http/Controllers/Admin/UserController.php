@@ -15,27 +15,40 @@ class UserController extends Controller
      */
     public function index(Request $request)
     {
-        $query = User::query();
-
-        // Only list regular users (exclude admin/super-admin). Support both legacy `role` column and spatie roles.
-        $query->where(function ($q) {
+        $roleFilter = function ($q) {
             $q->where('role', 'user')
               ->orWhereHas('roles', function ($q2) {
                   $q2->where('name', 'user');
               });
-        });
+        };
+
+        $query = User::query();
+
+        // Only list regular users (exclude admin/super-admin). Support both legacy `role` column and spatie roles.
+        $query->where($roleFilter);
 
         if ($search = $request->get('q')) {
-            $query->where(function ($q) use ($search) {
+            $digitsOnlySearch = preg_replace('/\D+/', '', (string) $search);
+
+            $query->where(function ($q) use ($search, $digitsOnlySearch) {
                 $q->where('first_name', 'like', "%{$search}%")
                     ->orWhere('last_name', 'like', "%{$search}%")
                     ->orWhere('email', 'like', "%{$search}%");
+
+                if ($digitsOnlySearch !== '') {
+                    $q->orWhere('phone', 'like', "%{$digitsOnlySearch}%");
+                }
             });
         }
 
         $users = $query->orderBy('created_at', 'desc')->paginate(15)->withQueryString();
 
-        return view('admin.users.index', compact('users'));
+        $archivedUsers = User::onlyTrashed()
+            ->where($roleFilter)
+            ->orderByDesc('deleted_at')
+            ->get();
+
+        return view('admin.users.index', compact('users', 'archivedUsers'));
     }
 
     /**
@@ -56,10 +69,12 @@ class UserController extends Controller
                 'first_name' => 'required|string|max:255',
                 'middle_name' => 'nullable|string|max:255',
                 'last_name' => 'required|string|max:255',
+                'phone' => ['required', 'string', 'regex:/^\d{7,11}$/'],
                 'email' => 'required|email|max:255|unique:users,email',
                 'password' => 'required|string|min:8',
             ]);
 
+            $data['phone'] = preg_replace('/\D+/', '', (string) ($data['phone'] ?? ''));
             $data['password'] = Hash::make($data['password']);
             $data['creation_source'] = 'Admin-Created';
 
@@ -115,7 +130,12 @@ class UserController extends Controller
     {
         // If requested via AJAX, return only the form partial so the index modal can load it
         if (request()->ajax()) {
-            return view('admin.users._form', ['user' => $user, 'action' => route('admin.users.update', $user), 'method' => 'PATCH']);
+            return view('admin.users._form', [
+                'user' => $user,
+                'action' => route('admin.users.update', $user),
+                'method' => 'PATCH',
+                'ajax' => true,
+            ]);
         }
 
         return view('admin.users.edit', compact('user'));
@@ -130,9 +150,12 @@ class UserController extends Controller
             'first_name' => 'required|string|max:255',
             'middle_name' => 'nullable|string|max:255',
             'last_name' => 'required|string|max:255',
+            'phone' => ['required', 'string', 'regex:/^\d{7,11}$/'],
             'email' => 'required|email|max:255|unique:users,email,' . $user->id,
             'password' => 'nullable|string|min:8',
         ]);
+
+        $data['phone'] = preg_replace('/\D+/', '', (string) ($data['phone'] ?? ''));
 
         if (!empty($data['password'])) {
             $data['password'] = Hash::make($data['password']);
@@ -178,10 +201,101 @@ class UserController extends Controller
         $user->delete();
 
         if (request()->ajax()) {
-            return response()->json(['success' => true, 'id' => $user->id]);
+            $archivedRow = view('admin.users._archived_row', ['user' => $user])->render();
+
+            return response()->json([
+                'success' => true,
+                'id' => $user->id,
+                'archivedHtml' => $archivedRow,
+                'message' => 'User archived successfully',
+            ]);
         }
 
-        return redirect()->route('admin.users.index')->with('success', 'User deleted.');
+        return redirect()->route('admin.users.index')->with('success', 'User archived.');
+    }
+
+    /**
+     * Restore a previously archived user.
+     */
+    public function restore(Request $request, string $userId)
+    {
+        $user = User::withTrashed()->findOrFail($userId);
+
+        if (! $user->trashed()) {
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User is not archived.',
+                ], 422);
+            }
+
+            return redirect()->route('admin.users.index')->with('error', 'User is not archived.');
+        }
+
+        $user->restore();
+        $user->refresh();
+
+        if ($user->roles()->count() === 0) {
+            $userRole = $this->ensureUserRoleExists();
+            $user->assignRole($userRole);
+        }
+
+        if ($request->ajax()) {
+            $row = view('admin.users._row', ['user' => $user])->render();
+
+            return response()->json([
+                'success' => true,
+                'id' => $user->id,
+                'html' => $row,
+                'message' => 'User restored successfully',
+            ]);
+        }
+
+        return redirect()->route('admin.users.index')->with('success', 'User restored.');
+    }
+
+    /**
+     * Permanently remove an archived user from storage.
+     */
+    public function forceDestroy(Request $request, string $userId)
+    {
+        $user = User::withTrashed()->findOrFail($userId);
+
+        if (auth()->id() === $user->id) {
+            $message = 'You cannot delete your own account.';
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $message,
+                ], 403);
+            }
+
+            return redirect()->route('admin.users.index')->with('error', $message);
+        }
+
+        if (! $user->trashed()) {
+            $message = 'User must be archived before it can be permanently deleted.';
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $message,
+                ], 422);
+            }
+
+            return redirect()->route('admin.users.index')->with('error', $message);
+        }
+
+        $user->forceDelete();
+
+        if ($request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'id' => $userId,
+                'message' => 'User deleted permanently',
+            ]);
+        }
+
+        return redirect()->route('admin.users.index')->with('success', 'User deleted permanently.');
     }
 
     /**

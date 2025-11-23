@@ -145,11 +145,14 @@ class BorrowRequestController extends Controller
     {
         $walkInRequest = WalkInRequest::findOrFail($id);
 
+        $scanTimestamp = now();
+
         if (!$walkInRequest->isPending()) {
             return view('admin.walk-in.qr-result', [
                 'success' => false,
                 'message' => 'This request has already been processed.',
                 'request' => $walkInRequest,
+                'scanTimestamp' => $scanTimestamp,
             ]);
         }
 
@@ -164,6 +167,7 @@ class BorrowRequestController extends Controller
                 'success' => true,
                 'message' => 'Walk-in request approved successfully!',
                 'request' => $walkInRequest,
+                'scanTimestamp' => $scanTimestamp,
             ]);
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -176,6 +180,7 @@ class BorrowRequestController extends Controller
                 'success' => false,
                 'message' => 'Failed to approve the request. Please try again.',
                 'request' => $walkInRequest,
+                'scanTimestamp' => $scanTimestamp,
             ]);
         }
     }
@@ -653,6 +658,7 @@ class BorrowRequestController extends Controller
     {
         $oldStatus = $borrowRequest->status ?? 'pending';
         $wasUpdated = false;
+        $scanTimestamp = now();
 
         if ($borrowRequest->status !== 'approved') {
             $borrowRequest->status = 'approved';
@@ -671,7 +677,7 @@ class BorrowRequestController extends Controller
 
         try {
             $result = $formPdf->render($borrowRequest);
-            $timestamp = now()->format('YmdHis');
+            $timestamp = $scanTimestamp->format('YmdHis');
             $path = "qr-verified-forms/request-{$borrowRequest->id}/borrow-request-{$borrowRequest->id}-{$timestamp}.pdf";
             $disk = Storage::disk('public');
 
@@ -696,6 +702,7 @@ class BorrowRequestController extends Controller
                 'updated' => $wasUpdated,
                 'qr_verified_form_url' => $downloadUrl,
                 'approved_form_url' => $downloadUrl,
+                'scan_timestamp' => $scanTimestamp->toIso8601String(),
             ]);
         }
 
@@ -704,6 +711,7 @@ class BorrowRequestController extends Controller
             'updated' => $wasUpdated,
             'message' => $message,
             'downloadUrl' => $downloadUrl,
+            'scanTimestamp' => $scanTimestamp,
         ]);
     }
 
@@ -853,7 +861,47 @@ class BorrowRequestController extends Controller
         }
 
         if (Storage::disk('public')->exists($path)) {
-            return Storage::disk('public')->url($path);
+            $disk = Storage::disk('public');
+            $diskUrl = $disk->url($path);
+            $httpRequest = null;
+
+            try {
+                $httpRequest = request();
+            } catch (\Throwable $e) {
+                $httpRequest = null;
+            }
+
+            if ($diskUrl && filter_var($diskUrl, FILTER_VALIDATE_URL)) {
+                if ($httpRequest) {
+                    $parsed = parse_url($diskUrl) ?: [];
+                    $port = $httpRequest->getPort();
+
+                    $isDefaultPort = in_array($port, [null, 80, 443], true);
+                    $missingPort = empty($parsed['port']);
+
+                    if ($missingPort && ! $isDefaultPort) {
+                        $scheme = $httpRequest->getScheme();
+                        $host = $httpRequest->getHost();
+                        $pathPart = $parsed['path'] ?? '';
+                        $query = isset($parsed['query']) ? '?' . $parsed['query'] : '';
+
+                        return sprintf('%s://%s:%d%s%s', $scheme, $host, $port, $pathPart, $query);
+                    }
+                }
+
+                return $diskUrl;
+            }
+
+            $relative = $diskUrl ?: ('/storage/' . ltrim($path, '/'));
+            if ($relative && $relative[0] !== '/') {
+                $relative = '/' . ltrim($relative, '/');
+            }
+
+            if ($httpRequest) {
+                return rtrim($httpRequest->getSchemeAndHttpHost(), '/') . $relative;
+            }
+
+            return $relative;
         }
 
         if (filter_var($path, FILTER_VALIDATE_URL)) {

@@ -28,7 +28,7 @@ class UserFactory extends Factory
             'first_name' => fake()->firstName(),
             'middle_name' => fake()->optional()->firstName(),
             'last_name' => fake()->lastName(),
-            'phone' => null,
+            'phone' => preg_replace('/\D+/', '', (string) fake()->numerify('09#########')),
             'address' => null,
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),

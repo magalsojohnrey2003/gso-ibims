@@ -1,17 +1,27 @@
 @php
-    $borrowerName = optional($borrowRequest->user)->full_name ?: optional($borrowRequest->user)->name ?: 'Borrower information unavailable';
+    $requestor = optional($manpowerRequest->user)->full_name
+        ?: optional($manpowerRequest->user)->name
+        ?: 'Requestor information unavailable';
+    $statusValue = $manpowerRequest->status ?? 'pending';
+    $statusLabel = ucwords(str_replace('_', ' ', $statusValue));
+    $badgeType = match ($statusValue) {
+        'approved' => 'accepted',
+        'rejected' => 'rejected',
+        'pending' => 'pending',
+        default => 'info',
+    };
 @endphp
 
 <x-app-layout>
-    <div class="py-10 px-6 bg-sky-50 min-h-screen">
+    <div class="py-10 px-6 bg-teal-50 min-h-screen">
         <div class="max-w-2xl mx-auto">
             <div class="bg-white shadow-lg rounded-2xl p-8 text-center space-y-6">
                 <div class="space-y-2">
-                    <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-sky-100 text-sky-600">
+                    <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-teal-100 text-teal-600">
                         <i class="fas {{ $updated ? 'fa-qrcode' : 'fa-info-circle' }} text-2xl"></i>
                     </div>
                     <h1 class="text-2xl font-bold text-gray-800">
-                        QR Verification {{ $updated ? 'Complete' : 'Already Verified' }}
+                        QR Verification {{ $updated ? 'Complete' : 'Already Processed' }}
                     </h1>
                     <p class="text-gray-600">
                         {{ $message }}
@@ -19,27 +29,13 @@
                 </div>
 
                 <div class="space-y-2 text-sm text-gray-600">
-                    @php
-                        $statusValue = $borrowRequest->status === 'qr_verified'
-                            ? 'approved'
-                            : ($borrowRequest->status ?? 'pending');
-                        $statusLabel = ucwords(str_replace('_', ' ', $statusValue));
-                        $badgeType = match ($statusValue) {
-                            'approved' => 'accepted',
-                            'validated' => 'info',
-                            'pending' => 'pending',
-                            'returned' => 'success',
-                            'rejected' => 'rejected',
-                            default => 'info',
-                        };
-                    @endphp
                     <div>
                         <span class="font-semibold text-gray-800">Request ID:</span>
-                        <span class="ml-1 text-gray-700">#{{ $borrowRequest->id }}</span>
+                        <span class="ml-1 text-gray-700">#{{ $manpowerRequest->id }}</span>
                     </div>
                     <div>
                         <span class="font-semibold text-gray-800">Borrower:</span>
-                        <span class="ml-1 text-gray-700">{{ $borrowerName }}</span>
+                        <span class="ml-1 text-gray-700">{{ $requestor }}</span>
                     </div>
                     <div class="inline-flex items-center gap-2">
                         <span class="font-semibold text-gray-800">Current Status:</span>
@@ -62,8 +58,8 @@
                 @endif
 
                 <div class="pt-4 flex justify-center">
-                    <x-button as="a" href="{{ route('borrow.requests') }}" variant="secondary" iconName="arrow-left">
-                        Back to Borrow Requests
+                    <x-button as="a" href="{{ route('admin.manpower.requests.index') }}" variant="secondary" iconName="arrow-left">
+                        Back to Manpower Requests
                     </x-button>
                 </div>
             </div>

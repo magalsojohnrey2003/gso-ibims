@@ -19,6 +19,7 @@
                             <select id="admin-manpower-status" class="gov-input pl-4 pr-4 py-2.5 text-sm transition duration-200 appearance-none focus:outline-none focus:ring-0">
                                 <option value="">All Status</option>
                                 <option value="pending">Pending</option>
+                                <option value="validated">Validated</option>
                                 <option value="approved">Approved</option>
                                 <option value="rejected">Rejected</option>
                             </select>
@@ -40,7 +41,6 @@
                                 <th class="px-6 py-3 text-center">Request ID</th>
                                 <th class="px-6 py-3 text-center">User</th>
                                 <th class="px-6 py-3 text-center">Role</th>
-                                <th class="px-6 py-3 text-center">Qty (Requested)</th>
                                 <th class="px-6 py-3 text-center">Borrowed Date</th>
                                 <th class="px-6 py-3 text-center">Return Date</th>
                                 <th class="px-6 py-3 text-center">Status</th>
@@ -48,7 +48,7 @@
                             </tr>
                         </thead>
                         <tbody id="adminManpowerTableBody" class="text-center">
-                            <x-table-loading-state colspan="8" />
+                            <x-table-loading-state colspan="7" />
                         </tbody>
                     </table>
                 </div>
@@ -57,10 +57,11 @@
     </div>
 
     <template id="admin-manpower-empty-state-template">
-        <x-table-empty-state colspan="8" />
+        <x-table-empty-state colspan="7" />
     </template>
 
     <template id="badge-status-pending"><x-status-badge type="pending" text="Pending" /></template>
+    <template id="badge-status-validated"><x-status-badge type="info" text="Validated" /></template>
     <template id="badge-status-approved"><x-status-badge type="accepted" text="Approved" /></template>
     <template id="badge-status-rejected"><x-status-badge type="rejected" text="Rejected" /></template>
 
@@ -165,7 +166,7 @@
             </div>
             <div class="flex justify-end gap-3">
                 <x-button variant="secondary" @click="$dispatch('close-modal','adminManpowerApproveModal')">Cancel</x-button>
-                <x-button id="confirmAdminApproval" variant="success">Confirm Approval</x-button>
+                <x-button id="confirmAdminApproval" variant="success">Confirm Validation</x-button>
             </div>
         </div>
     </x-modal>
