@@ -794,7 +794,7 @@ function openAssignManpowerModal(id) {
         if (letterUrl.startsWith('http')) {
             try {
                 const urlObj = new URL(letterUrl);
-                letterUrl = urlObj.href;  // Get just the path (e.g., /storage/borrow-letters/file.jpg)
+                letterUrl = urlObj.pathname; // Get just the path (e.g., /storage/borrow-letters/file.jpg)
             } catch (e) {
                 console.warn('Failed to parse letter URL:', letterUrl);
             }
@@ -804,7 +804,7 @@ function openAssignManpowerModal(id) {
         if (req.letter_path.startsWith('http')) {
             try {
                 const urlObj = new URL(req.letter_path);
-                letterUrl = urlObj.href; 
+                letterUrl = urlObj.pathname;
             } catch (e) {
                 letterUrl = req.letter_path;
             }
