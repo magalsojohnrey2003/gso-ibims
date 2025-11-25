@@ -96,7 +96,7 @@
     <div class="pb-2">
         <div class="px-2">
           <div class="rounded-2xl shadow-lg border border-gray-200 table-wrapper">
-              <div class="overflow-x-auto relative shadow-md sm:rounded-lg">
+              <div class="table-container-no-scroll">
                   <table class="w-full text-sm text-center text-gray-600 gov-table" data-items-table>
                       <thead class="bg-purple-600 text-white text-xs uppercase font-semibold text-center">
                           <tr>

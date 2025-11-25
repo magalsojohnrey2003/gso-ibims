@@ -57,6 +57,8 @@
     $usageReturnDisplayDefault = $oldReturnDateValue
         ? \Illuminate\Support\Carbon::parse($oldReturnDateValue)->format('M. j, Y')
         : 'Select on calendar';
+
+    $noMainScroll = true;
 @endphp
 
 <x-app-layout>
