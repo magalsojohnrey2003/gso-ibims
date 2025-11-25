@@ -425,12 +425,18 @@
             <div class="grid gap-4 md:grid-cols-2">
                 <div class="space-y-4">
                     <div class="space-y-2">
-                        <label class="text-xs font-semibold tracking-wide text-gray-600 uppercase">Delivery Location</label>
+                        <label class="text-xs font-semibold tracking-wide text-gray-600 uppercase inline-flex items-center gap-1">
+                            <i class="fas fa-location-dot text-purple-500"></i>
+                            <span>Delivery Location</span>
+                        </label>
                         <div id="assignManpowerLocation" class="text-sm text-gray-800 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">--</div>
                     </div>
 
                     <div class="space-y-2">
-                        <label class="text-xs font-semibold tracking-wide text-gray-600 uppercase">Borrow Period</label>
+                        <label class="text-xs font-semibold tracking-wide text-gray-600 uppercase inline-flex items-center gap-1">
+                            <i class="fas fa-calendar-alt text-purple-500"></i>
+                            <span>Borrow Period</span>
+                        </label>
                         <div class="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
                             <div class="grid grid-cols-2 gap-3 text-sm">
                                 <div>
@@ -446,7 +452,10 @@
                     </div>
 
                     <div class="space-y-2">
-                        <label class="text-xs font-semibold tracking-wide text-gray-600 uppercase">Requested Items</label>
+                        <label class="text-xs font-semibold tracking-wide text-gray-600 uppercase inline-flex items-center gap-1">
+                            <i class="fas fa-boxes-stacked text-purple-500"></i>
+                            <span>Requested Items</span>
+                        </label>
                         <div id="assignItemsList" class="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 max-h-40 overflow-y-auto">
                             <ul class="list-disc pl-4 space-y-1 text-sm text-gray-800">
                                 <!-- Items will be populated by JavaScript -->
@@ -456,7 +465,10 @@
                 </div>
 
                 <div class="space-y-2">
-                    <label class="text-xs font-semibold tracking-wide text-gray-600 uppercase">Uploaded Letter</label>
+                    <label class="text-xs font-semibold tracking-wide text-gray-600 uppercase inline-flex items-center gap-1">
+                        <i class="fas fa-file-upload text-purple-500"></i>
+                        <span>Uploaded Letter</span>
+                    </label>
                     <div id="assignLetterPreviewWrapper" class="flex items-center justify-center border border-dashed border-gray-300 rounded-lg bg-white p-3 min-h-[200px]">
                         <img id="assignLetterPreview" 
                              src="" 

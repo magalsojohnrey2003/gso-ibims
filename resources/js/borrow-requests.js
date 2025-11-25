@@ -812,7 +812,7 @@ function openAssignManpowerModal(id) {
         if (letterUrl.startsWith('http')) {
             try {
                 const urlObj = new URL(letterUrl);
-                letterUrl = urlObj.pathname; // Get just the path (e.g., /storage/borrow-letters/file.jpg)
+                letterUrl = urlObj.pathname.replace(/^\/+/, '/');
             } catch (e) {
                 console.warn('Failed to parse letter URL:', letterUrl);
             }
