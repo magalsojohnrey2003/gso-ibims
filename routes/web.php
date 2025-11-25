@@ -85,6 +85,9 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
         Route::patch('item-instances/{instance}', [ItemInstanceController::class, 'update'])
             ->name('admin.item-instances.update');
 
+        Route::patch('item-instances/{instance}/condition', [ItemInstanceController::class, 'updateCondition'])
+            ->name('admin.item-instances.update-condition');
+
         Route::delete('item-instances/{instance}', [ItemInstanceController::class, 'destroy'])
             ->name('admin.item-instances.destroy');
 

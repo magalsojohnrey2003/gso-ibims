@@ -103,6 +103,60 @@ class ItemInstanceController extends Controller
         }
     }
 
+    public function updateCondition(Request $request, ItemInstance $instance)
+    {
+        $data = $request->validate([
+            'condition' => 'required|in:good,minor_damage,damage,missing',
+        ]);
+
+        $condition = $data['condition'];
+        $nextStatus = $this->mapConditionToInstanceStatus($condition);
+
+        if (strtolower((string) $instance->status) === 'borrowed') {
+            return response()->json([
+                'message' => 'Cannot update condition while the item is currently borrowed.',
+            ], 422);
+        }
+
+        DB::beginTransaction();
+
+        try {
+            $instance->status = $nextStatus;
+            $instance->save();
+
+            $item = $instance->item;
+            if ($item) {
+                $item->available_qty = $item->instances()->where('status', 'available')->count();
+                $item->save();
+            }
+
+            $this->logger->log($instance, 'condition_updated', [
+                'condition' => $condition,
+                'status' => $nextStatus,
+            ], $request->user());
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Condition updated successfully.',
+                'condition' => $condition,
+                'condition_label' => $this->formatConditionLabel($condition),
+                'inventory_status' => $instance->status,
+                'inventory_status_label' => $this->formatStatusLabel($instance->status),
+                'item_instance_id' => $instance->id,
+                'item_id' => $item->id ?? null,
+                'available_qty' => $item->available_qty ?? null,
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Failed to update condition.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     // DELETE admin/item-instances/{instance}
     public function destroy(Request $request, ItemInstance $instance)
     {
@@ -144,5 +198,36 @@ class ItemInstanceController extends Controller
             DB::rollBack();
             return response()->json(['message' => 'Failed to delete instance: ' . $e->getMessage()], 500);
         }
+    }
+
+    private function formatConditionLabel(string $condition): string
+    {
+        return match ($condition) {
+            'good' => 'Good',
+            'missing' => 'Missing',
+            'damage' => 'Damage',
+            'minor_damage' => 'Minor Damage',
+            default => ucwords(str_replace('_', ' ', $condition)),
+        };
+    }
+
+    private function formatStatusLabel(?string $status): string
+    {
+        if (! $status) {
+            return 'Unknown';
+        }
+
+        return ucwords(str_replace('_', ' ', strtolower($status)));
+    }
+
+    private function mapConditionToInstanceStatus(string $condition): string
+    {
+        return match ($condition) {
+            'good' => 'available',
+            'minor_damage' => 'damaged',
+            'damage' => 'damaged',
+            'missing' => 'missing',
+            default => 'borrowed',
+        };
     }
 }
