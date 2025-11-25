@@ -61,16 +61,25 @@ function updateInstanceStatus(itemInstanceId, status) {
 function updateAvailableCount(itemId, qty) {
   if (!itemId || qty === undefined || qty === null) return;
   const row = document.querySelector(`[data-item-row="${itemId}"]`);
-  if (!row) return;
-  const cell = row.querySelector('[data-item-available]');
-  if (!cell) return;
-  const span = cell.querySelector('span');
-  if (!span) return;
-
+  const cell = row?.querySelector('[data-item-available]');
+  const span = cell?.querySelector('span');
+  const detail = document.querySelector(`[data-item-available-display][data-item-id="${itemId}"]`);
   const value = Number(qty);
-  span.textContent = Number.isFinite(value) ? value : qty;
-  span.classList.remove('text-green-600', 'text-red-600');
-  span.classList.add(value > 0 ? 'text-green-600' : 'text-red-600', 'font-semibold');
+  const numericText = Number.isFinite(value) ? value : qty;
+
+  if (span) {
+    span.textContent = numericText;
+    span.classList.remove('text-green-600', 'text-red-600');
+    span.classList.add(value > 0 ? 'text-green-600' : 'text-red-600', 'font-semibold');
+  }
+
+  if (detail) {
+    detail.textContent = numericText;
+    const positiveClass = detail.dataset.positiveClass || 'text-green-600';
+    const negativeClass = detail.dataset.negativeClass || 'text-red-600';
+    detail.classList.remove(positiveClass, negativeClass);
+    detail.classList.add(value > 0 ? positiveClass : negativeClass);
+  }
 }
 
 function handleCollected(event) {
@@ -93,7 +102,21 @@ function handleConditionUpdated(event) {
   }
 }
 
+function updateCoLocatedStatus(instanceId, status) {
+  if (!instanceId) return;
+  const row = document.querySelector(`[data-item-instance-id="${instanceId}"]`);
+  if (!row) return;
+  const badge = row.querySelector('[data-instance-status]');
+  applyStatusToBadge(badge, status);
+}
+
+function handleInstanceConditionUpdated(event) {
+  const detail = event?.detail || {};
+  updateCoLocatedStatus(detail.instanceId, detail.status);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('return-items:collected', handleCollected);
   window.addEventListener('return-items:condition-updated', handleConditionUpdated);
+  window.addEventListener('item-overview:condition-updated', handleInstanceConditionUpdated);
 });

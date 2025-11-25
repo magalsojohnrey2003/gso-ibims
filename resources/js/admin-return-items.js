@@ -12,10 +12,10 @@ let MANAGE_ITEMS = [];
 let MANAGE_BORROW_ID = null;
 let MANAGE_FILTER = '';
 let PENDING_COLLECT_ID = null;
-let MANAGE_SORT_CONDITION = '';
 let SELECTION_ENABLED = false;
 let SELECTED_INSTANCES = new Set();
 let CHECKBOXES_VISIBLE = false;
+let MANAGE_SEARCH_TERM = { raw: '', normalized: '' };
 
 function cloneTemplate(id, fallbackText) {
     const tpl = document.getElementById(id);
@@ -38,6 +38,12 @@ function renderConditionBadge(condition, label) {
     const key = String(condition || 'pending').toLowerCase();
     const fragment = cloneTemplate(`badge-condition-${key}`, label || condition || 'Pending');
     return fragment;
+}
+
+function normalizeSearchTerm(value) {
+    return String(value || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
 }
 
 function formatInventoryStatusLabel(status) {
@@ -123,6 +129,8 @@ function formatDeliveryStatus(status) {
     switch (String(status).toLowerCase()) {
         case 'dispatched':
             return 'Borrowed';
+        case 'delivered':
+            return 'Delivered';
         case 'returned':
             return 'Returned';
         case 'not_received':
@@ -301,37 +309,37 @@ function populateManageModal(data) {
     // Reset selection state
     SELECTED_INSTANCES.clear();
     SELECTION_ENABLED = false;
-    MANAGE_SORT_CONDITION = '';
     CHECKBOXES_VISIBLE = false;
     
     // Reset UI controls
     const enableSelectionCheckbox = document.getElementById('manage-enable-selection');
-    const selectAllCheckbox = document.getElementById('manage-select-all');
-    const selectAllHeader = document.getElementById('manage-select-all-header');
     const bulkConditionSelect = document.getElementById('manage-bulk-condition');
-    const sortConditionSelect = document.getElementById('manage-sort-condition');
     
     if (enableSelectionCheckbox) enableSelectionCheckbox.checked = false;
-    if (selectAllCheckbox) selectAllCheckbox.checked = false;
-    if (selectAllHeader) selectAllHeader.checked = false;
     if (bulkConditionSelect) bulkConditionSelect.value = '';
-    if (sortConditionSelect) sortConditionSelect.value = '';
 
     MANAGE_BORROW_ID = data.id ?? data.borrow_request_id ?? null;
-    MANAGE_ITEMS = (Array.isArray(data.items) ? data.items : []).map((item) => ({
-        ...item,
-        inventory_status_label: item.inventory_status_label || formatInventoryStatusLabel(item.inventory_status),
-    }));
+    MANAGE_ITEMS = (Array.isArray(data.items) ? data.items : []).map((item) => {
+        const propertySource = item.property_number ?? item.property_label ?? '';
+        const serialSource = item.serial ?? '';
+        return {
+            ...item,
+            inventory_status_label: item.inventory_status_label || formatInventoryStatusLabel(item.inventory_status),
+            _search: {
+                propertyRaw: String(propertySource || '').toLowerCase(),
+                propertyNormalized: normalizeSearchTerm(propertySource),
+                serialRaw: String(serialSource || '').toLowerCase(),
+                serialNormalized: normalizeSearchTerm(serialSource),
+            },
+        };
+    });
     MANAGE_FILTER = data.default_item || '';
 
     const requestDisplay = formatRequestCode(data) || (data.borrow_request_id ?? data.id ?? '--');
     setText('manage-request-id', requestDisplay);
     setText('manage-borrower', data.borrower ?? 'Unknown');
 
-    const addressInput = document.getElementById('manage-address');
-    if (addressInput) {
-        addressInput.value = data.address ?? '';
-    }
+    setText('manage-address', data.address);
 
     const statusBadge = document.getElementById('manage-status-badge');
     if (statusBadge) {
@@ -339,9 +347,28 @@ function populateManageModal(data) {
         statusBadge.appendChild(renderStatusBadge(data.status));
     }
 
-    setText('manage-delivery-status', formatDeliveryStatus(data.delivery_status));
-    setText('manage-borrow-date', formatDate(data.borrow_date));
     setText('manage-return-timestamp', formatDateTime(data.return_timestamp));
+
+    MANAGE_SEARCH_TERM = { raw: '', normalized: '' };
+    const searchInput = document.getElementById('manage-items-search');
+    if (searchInput) {
+        searchInput.value = '';
+        searchInput.placeholder = 'Search property number';
+        searchInput.onfocus = () => {
+            searchInput.placeholder = 'Type to Search';
+        };
+        searchInput.onblur = () => {
+            searchInput.placeholder = 'Search property number';
+        };
+        searchInput.oninput = (event) => {
+            const rawValue = String(event.target.value || '');
+            MANAGE_SEARCH_TERM = {
+                raw: rawValue.toLowerCase(),
+                normalized: normalizeSearchTerm(rawValue),
+            };
+            renderManageRows();
+        };
+    }
 
     const filterWrapper = document.getElementById('manage-item-filter-wrapper');
     const filterSelect = document.getElementById('manage-item-filter');
@@ -376,15 +403,84 @@ function renderManageRows() {
     if (!tbody) return;
 
     tbody.innerHTML = '';
-    let rows = MANAGE_ITEMS.filter((item) => !MANAGE_FILTER || item.item_name === MANAGE_FILTER);
+    const searchRaw = (MANAGE_SEARCH_TERM.raw || '').trim();
+    const searchNormalized = MANAGE_SEARCH_TERM.normalized || '';
+    const hasRawSearch = searchRaw.length > 0;
+    const hasNormalizedSearch = searchNormalized.length > 0;
+    const hasSearch = hasRawSearch || hasNormalizedSearch;
 
-    // Apply sorting by condition
-    if (MANAGE_SORT_CONDITION) {
-        rows = rows.filter((item) => {
-            const condition = (item.condition || 'pending').toLowerCase();
-            return condition === MANAGE_SORT_CONDITION.toLowerCase();
+    const filteredEntries = [];
+
+    MANAGE_ITEMS.forEach((item) => {
+        const matchesFilter = !MANAGE_FILTER || item.item_name === MANAGE_FILTER;
+        if (!matchesFilter) return;
+
+        const searchMeta = item._search || {
+            propertyRaw: String(item.property_number || item.property_label || '').toLowerCase(),
+            propertyNormalized: normalizeSearchTerm(item.property_number || item.property_label || ''),
+            serialRaw: String(item.serial || '').toLowerCase(),
+            serialNormalized: normalizeSearchTerm(item.serial),
+        };
+
+        const { propertyRaw, propertyNormalized, serialRaw, serialNormalized } = searchMeta;
+
+        let matchPriority = 0;
+        let bestIndex = Number.POSITIVE_INFINITY;
+
+        if (hasRawSearch) {
+            const propertyIndex = propertyRaw.indexOf(searchRaw);
+            if (propertyIndex >= 0) {
+                matchPriority = Math.max(matchPriority, 3);
+                bestIndex = Math.min(bestIndex, propertyIndex);
+            }
+
+            const serialIndex = serialRaw.indexOf(searchRaw);
+            if (serialIndex >= 0) {
+                matchPriority = Math.max(matchPriority, 1);
+                bestIndex = Math.min(bestIndex, serialIndex);
+            }
+        }
+
+        if (hasNormalizedSearch) {
+            const propertyNormalizedIndex = propertyNormalized.indexOf(searchNormalized);
+            if (propertyNormalizedIndex >= 0) {
+                matchPriority = Math.max(matchPriority, 2);
+                bestIndex = Math.min(bestIndex, propertyNormalizedIndex);
+            }
+
+            const serialNormalizedIndex = serialNormalized.indexOf(searchNormalized);
+            if (serialNormalizedIndex >= 0) {
+                matchPriority = Math.max(matchPriority, 1);
+                bestIndex = Math.min(bestIndex, serialNormalizedIndex);
+            }
+        }
+
+        if (hasSearch && matchPriority === 0 && !Number.isFinite(bestIndex)) {
+            return;
+        }
+
+        filteredEntries.push({
+            item,
+            priority: matchPriority,
+            index: Number.isFinite(bestIndex) ? bestIndex : Number.POSITIVE_INFINITY,
+        });
+    });
+
+    if (hasSearch) {
+        filteredEntries.sort((a, b) => {
+            if (a.priority !== b.priority) {
+                return b.priority - a.priority;
+            }
+            if (a.index !== b.index) {
+                return a.index - b.index;
+            }
+            const labelA = String(a.item.property_label || a.item.property_number || '').toLowerCase();
+            const labelB = String(b.item.property_label || b.item.property_number || '').toLowerCase();
+            return labelA.localeCompare(labelB);
         });
     }
+
+    const rows = filteredEntries.map((entry) => entry.item);
 
     // Show/hide checkbox column
     const checkboxHeader = document.getElementById('manage-checkbox-header');
@@ -418,7 +514,7 @@ function renderManageRows() {
             tdCheckbox.className = 'px-4 py-3 text-center';
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
-            checkbox.className = 'manage-row-checkbox w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500';
+            checkbox.className = 'manage-row-checkbox w-4 h-4 text-purple-600 border-2 border-purple-300 bg-white rounded shadow focus:ring-purple-500';
             checkbox.dataset.instanceId = item.id;
             checkbox.checked = SELECTED_INSTANCES.has(item.id);
             checkbox.disabled = !SELECTION_ENABLED && !CHECKBOXES_VISIBLE;
@@ -429,7 +525,6 @@ function renderManageRows() {
                     SELECTED_INSTANCES.delete(item.id);
                 }
                 updateRowHighlight(tr, e.target.checked);
-                updateSelectAllState();
                 updateBulkUpdateButton();
             });
             tdCheckbox.appendChild(checkbox);
@@ -466,7 +561,6 @@ function renderManageRows() {
                     if (checkbox) checkbox.checked = true;
                 }
                 
-                updateSelectAllState();
                 updateBulkUpdateButton();
             });
         }
@@ -489,7 +583,6 @@ function renderManageRows() {
         tbody.appendChild(tr);
     });
 
-    updateSelectAllState();
     updateBulkUpdateButton();
 }
 
@@ -500,24 +593,6 @@ function updateRowHighlight(tr, isSelected) {
     } else {
         tr.classList.remove('bg-purple-200', 'bg-purple-100');
     }
-}
-
-function updateSelectAllState() {
-    const selectAllCheckbox = document.getElementById('manage-select-all');
-    const selectAllHeader = document.getElementById('manage-select-all-header');
-    const rows = document.querySelectorAll('#manage-items-tbody tr[data-instance-id]');
-    
-    if (rows.length === 0) {
-        if (selectAllCheckbox) selectAllCheckbox.checked = false;
-        if (selectAllHeader) selectAllHeader.checked = false;
-        return;
-    }
-
-    const selectedCount = Array.from(rows).filter(tr => SELECTED_INSTANCES.has(tr.dataset.instanceId)).length;
-    const allChecked = selectedCount === rows.length && rows.length > 0;
-    
-    if (selectAllCheckbox) selectAllCheckbox.checked = allChecked;
-    if (selectAllHeader) selectAllHeader.checked = allChecked;
 }
 
 function updateBulkUpdateButton() {
@@ -648,7 +723,6 @@ async function bulkUpdateInstances() {
         SELECTED_INSTANCES.clear();
         bulkConditionSelect.value = '';
         renderManageRows();
-        updateSelectAllState();
         updateBulkUpdateButton();
         if (finalResult) {
             applyBorrowSummaryUpdate(finalResult);
@@ -704,7 +778,6 @@ async function updateInstance(instanceId, condition, options = {}) {
         });
         if (renderRows) {
             renderManageRows();
-            updateSelectAllState();
             updateBulkUpdateButton();
         }
         if (updateTable) {
@@ -780,92 +853,22 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Show/hide checkboxes function
+    // Show or hide checkboxes when selection mode changes
     const showCheckboxes = (show) => {
         CHECKBOXES_VISIBLE = show;
         renderManageRows();
     };
 
-    // Select All checkbox (works independently)
-    const selectAllCheckbox = document.getElementById('manage-select-all');
-    const selectAllHeader = document.getElementById('manage-select-all-header');
-    
-    const handleSelectAll = (checked) => {
-        // Show checkboxes when Select All is clicked
-        if (checked && !CHECKBOXES_VISIBLE) {
-            showCheckboxes(true);
-        } else if (!checked) {
-            // Hide checkboxes if Select All is unchecked AND Select is also unchecked
-            const enableSelectionCheckbox = document.getElementById('manage-enable-selection');
-            const selectChecked = enableSelectionCheckbox && enableSelectionCheckbox.checked;
-            if (!selectChecked && CHECKBOXES_VISIBLE) {
-                showCheckboxes(false);
-            }
-        }
-        
-        const rows = document.querySelectorAll('#manage-items-tbody tr[data-instance-id]');
-        rows.forEach(tr => {
-            const instanceId = tr.dataset.instanceId;
-            if (checked) {
-                SELECTED_INSTANCES.add(instanceId);
-                updateRowHighlight(tr, true);
-                // Update checkbox if visible
-                const checkbox = tr.querySelector('.manage-row-checkbox');
-                if (checkbox) checkbox.checked = true;
-            } else {
-                SELECTED_INSTANCES.delete(instanceId);
-                updateRowHighlight(tr, false);
-                // Update checkbox if visible
-                const checkbox = tr.querySelector('.manage-row-checkbox');
-                if (checkbox) checkbox.checked = false;
-            }
-        });
-        updateSelectAllState();
-        updateBulkUpdateButton();
-    };
-
-    if (selectAllCheckbox) {
-        selectAllCheckbox.addEventListener('change', (e) => {
-            handleSelectAll(e.target.checked);
-        });
-    }
-
-    if (selectAllHeader) {
-        selectAllHeader.addEventListener('change', (e) => {
-            handleSelectAll(e.target.checked);
-        });
-    }
-
-    // Enable/Disable selection mode (for individual row clicks)
     const enableSelectionCheckbox = document.getElementById('manage-enable-selection');
     if (enableSelectionCheckbox) {
         enableSelectionCheckbox.addEventListener('change', (e) => {
             SELECTION_ENABLED = e.target.checked;
-            
-            // Show checkboxes when Select is enabled
-            if (SELECTION_ENABLED && !CHECKBOXES_VISIBLE) {
+
+            if (SELECTION_ENABLED) {
                 showCheckboxes(true);
-            }
-            
-            // Re-render rows to update click handlers and checkbox states
-            renderManageRows();
-            
-            // Hide checkboxes and clear selection when disabling (but keep checkboxes visible if Select All is checked)
-            if (!SELECTION_ENABLED) {
-                const selectAllCheckbox = document.getElementById('manage-select-all');
-                const selectAllChecked = selectAllCheckbox && selectAllCheckbox.checked;
-                
-                if (!selectAllChecked) {
-                    // Hide checkboxes if Select All is also unchecked
-                    if (CHECKBOXES_VISIBLE) {
-                        showCheckboxes(false);
-                    }
-                    SELECTED_INSTANCES.clear();
-                    const rows = document.querySelectorAll('#manage-items-tbody tr');
-                    rows.forEach(tr => updateRowHighlight(tr, false));
-                    updateSelectAllState();
-                    updateBulkUpdateButton();
-                }
+            } else {
+                SELECTED_INSTANCES.clear();
+                showCheckboxes(false);
             }
         });
     }
@@ -880,15 +883,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const bulkConditionSelect = document.getElementById('manage-bulk-condition');
     if (bulkConditionSelect) {
         bulkConditionSelect.addEventListener('change', updateBulkUpdateButton);
-    }
-
-    // Sort by condition
-    const sortConditionSelect = document.getElementById('manage-sort-condition');
-    if (sortConditionSelect) {
-        sortConditionSelect.addEventListener('change', (e) => {
-            MANAGE_SORT_CONDITION = e.target.value;
-            renderManageRows();
-        });
     }
 });
 

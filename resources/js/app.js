@@ -18,6 +18,7 @@ import './item-instances-manager';
 import './items-edit-modal';
 import './items-print';
 import './items-overview-sync';
+import './items-overview-manager';
 import '../css/admin-dashboard.css';
 import '../css/ui.css';
 import './user-dashboard';

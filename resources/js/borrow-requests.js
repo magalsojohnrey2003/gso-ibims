@@ -177,7 +177,7 @@ function renderRejectionReasonList() {
             </label>
             <div class="flex items-center gap-2 shrink-0">
                 <button type="button" class="text-sm text-indigo-600 hover:text-indigo-700" data-action="view" data-reason-id="${escapeHtml(String(reason.id))}">View</button>
-                <button type="button" class="text-sm text-red-500 hover:text-red-600" data-action="remove" data-reason-id="${escapeHtml(String(reason.id))}">?</button>
+                <button type="button" class="text-sm text-red-500 hover:text-red-600" data-action="remove" data-reason-id="${escapeHtml(String(reason.id))}">Remove</button>
             </div>
         `;
         container.appendChild(wrapper);
@@ -307,13 +307,31 @@ async function deleteRejectionReason(reasonId, button) {
     }
 }
 
-async function submitRejectionDecision({ requestId, reasonId, subject, detail, button }) {
+async function submitRejectionDecision({ requestId, reasonId, subject, detail, button, modalsToClose = [] }) {
     if (!requestId) {
         showError('No borrow request selected.');
         return;
     }
 
+    const modalList = Array.isArray(modalsToClose) ? modalsToClose.filter(Boolean) : [];
+    let closedModals = [];
+
+    const closeModalsBeforeUpdate = () => {
+        closedModals = modalList.slice();
+        closedModals.forEach((modalName) => {
+            window.dispatchEvent(new CustomEvent('close-modal', { detail: modalName }));
+        });
+    };
+
+    const reopenModalsOnFailure = () => {
+        if (!closedModals.length) return;
+        closedModals.forEach((modalName) => {
+            window.dispatchEvent(new CustomEvent('open-modal', { detail: modalName }));
+        });
+    };
+
     try {
+        closeModalsBeforeUpdate();
         await updateRequest(Number(requestId), 'rejected', {
             button,
             rejectReasonId: reasonId != null ? Number(reasonId) : null,
@@ -331,10 +349,9 @@ async function submitRejectionDecision({ requestId, reasonId, subject, detail, b
             }
         }
 
-        window.dispatchEvent(new CustomEvent('close-modal', { detail: 'rejectReasonCustomModal' }));
-        window.dispatchEvent(new CustomEvent('close-modal', { detail: 'rejectReasonSelectModal' }));
         resetRejectionFlow();
     } catch (error) {
+        reopenModalsOnFailure();
         console.error('Failed to reject borrow request', error);
         showError(error?.message || 'Failed to reject the borrow request.');
     }
@@ -408,6 +425,7 @@ async function saveCustomRejectionReason(button) {
             subject: subjectForUpdate,
             detail: detailForUpdate,
             button,
+            modalsToClose: ['rejectReasonCustomModal', 'rejectReasonSelectModal'],
         });
 
         if (subjectInput) subjectInput.value = '';
@@ -517,8 +535,8 @@ function buildStatusBadge(status, deliveryStatus) {
     if (deliveryKey === 'delivered') {
         return {
             label: 'Delivered',
-            classes: 'bg-emerald-100 text-emerald-700',
-            icon: getIcon('fa-check-circle')
+            classes: 'bg-blue-100 text-blue-800',
+            icon: getIcon('fa-truck')
         };
     }
     if (statusKey === 'validated') {
@@ -872,34 +890,110 @@ function fillRequestModal(req) {
     const setText = (id, value) => {
         const el = document.getElementById(id);
         if (!el) return;
-        el.textContent = value ?? '�';
+        const normalized = value === undefined || value === null || value === '' ? '—' : value;
+        el.textContent = normalized;
+    };
+    const pickText = (...values) => {
+        for (const value of values) {
+            if (typeof value === 'string') {
+                const trimmed = value.trim();
+                if (trimmed.length) return trimmed;
+            }
+        }
+        return '';
     };
 
     const fullName = [req.user?.first_name, req.user?.last_name].filter(Boolean).join(' ').trim() || 'Unknown';
+    const requestCode = formatBorrowRequestCode(req) || (req.id ? `#${req.id}` : '—');
     setText('requestTitle', 'Borrow Request Details');
-    setText('requestShortStatus', `Borrow Request ${formatBorrowRequestCode(req) || `#${req.id}`}`);
-    setText('borrowerName', fullName);
-    setText('manpowerCount', req.manpower_count ?? '�');
-    setText('requestLocation', req.location ?? '�');
-    setText('borrowDate', formatDate(req.borrow_date));
-    setText('returnDate', formatDate(req.return_date));
+    setText('requestShortStatus', `Borrow Request ${requestCode}`);
+    setText('requestSummaryCode', requestCode);
+    setText('requestSummaryBorrower', fullName);
 
-    const statusBadge = document.getElementById('statusBadge');
-    if (statusBadge) {
+    const itemsArray = Array.isArray(req.items) ? req.items : [];
+    const itemsLabel = itemsArray.length === 1 ? '1 item' : `${itemsArray.length} items`;
+    setText('requestSummaryItems', itemsLabel);
+
+    const purposeValue = pickText(req.purpose, req.purpose_description, req.purpose_text, req.purpose_detail);
+    setText('requestSummaryPurpose', purposeValue || '—');
+
+    const statusContainer = document.getElementById('requestSummaryStatus');
+    if (statusContainer) {
         const { label, classes, icon } = buildStatusBadge(req.status, req.delivery_status);
-        statusBadge.className = `inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-full ${classes}`;
-        statusBadge.innerHTML = `${icon || ''}<span>${escapeHtml(label)}</span>`;
+        statusContainer.innerHTML = `<span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-full ${classes}">${icon || ''}<span>${escapeHtml(label)}</span></span>`;
     }
 
-    const itemsEl = document.getElementById('itemsList');
+    setText('requestScheduleBorrow', formatDate(req.borrow_date));
+    setText('requestScheduleReturn', formatDate(req.return_date));
+
+    const rawUsageValue = pickText(req.time_of_usage);
+    const hasUsage = rawUsageValue.length > 0;
+    const scheduleTimeEl = document.getElementById('requestScheduleTime');
+    if (scheduleTimeEl) {
+        scheduleTimeEl.textContent = hasUsage ? formatUsageRange(rawUsageValue) : '—';
+    }
+    const scheduleTimeRow = document.getElementById('requestScheduleTimeRow');
+    if (scheduleTimeRow) {
+        scheduleTimeRow.classList.toggle('hidden', !hasUsage);
+    }
+
+    let municipality = pickText(
+        req.municipality,
+        req.municipality_name,
+        req.municipality_label,
+        req.location_municipality,
+        req.delivery_municipality
+    );
+    let barangay = pickText(
+        req.barangay,
+        req.barangay_name,
+        req.location_barangay,
+        req.delivery_barangay
+    );
+    let specificArea = pickText(
+        req.specific_area,
+        req.location_specific_area,
+        req.delivery_specific_area,
+        req.address_specific_area
+    );
+    const compositeLocation = pickText(
+        req.delivery_location,
+        req.location,
+        req.address,
+        req.full_location
+    );
+
+    if (compositeLocation) {
+        const parts = compositeLocation.split(',').map((part) => part.trim()).filter(Boolean);
+
+        if (!municipality && parts.length) {
+            municipality = parts.shift();
+        }
+        if (!barangay && parts.length) {
+            barangay = parts.shift();
+        }
+        if (!specificArea && parts.length) {
+            specificArea = parts.join(', ');
+        }
+
+        if (!specificArea && !parts.length) {
+            specificArea = compositeLocation.trim();
+        }
+    }
+
+    setText('requestLocationMunicipality', municipality || '—');
+    setText('requestLocationBarangay', barangay || '—');
+    setText('requestLocationArea', specificArea || '—');
+
+    const itemsEl = document.getElementById('requestItemsList');
     if (itemsEl) {
-        const itemsHtml = (req.items || []).map((item) => {
+        const itemsHtml = itemsArray.map((item) => {
             const name = escapeHtml(item.item?.name ?? 'Unknown');
             const qty = escapeHtml(String(item.quantity ?? 0));
             const condition = item.quantity_reason ? ` - Reason: ${escapeHtml(item.quantity_reason)}` : '';
             return `<li>${name} (x${qty})${condition}</li>`;
         }).join('');
-        itemsEl.innerHTML = itemsHtml ? `<ul class="list-disc list-inside text-gray-600">${itemsHtml}</ul>` : '<div class="text-gray-500">No items recorded.</div>';
+        itemsEl.innerHTML = itemsHtml || '<li class="list-none text-gray-500">No items recorded.</li>';
     }
 
     const rejectionCard = document.getElementById('rejectionReasonCard');
@@ -1111,15 +1205,24 @@ async function updateRequest(id, status, options = {}) {
                     return;
                 }
 
-                // Simply validate the request without any item assignments
-                await updateRequest(Number(requestId), 'validated', {
-                    button: submitBtn,
-                });
+                const modalName = 'assignManpowerModal';
+                let modalClosed = false;
+                try {
+                    window.dispatchEvent(new CustomEvent('close-modal', { detail: modalName }));
+                    modalClosed = true;
 
-                window.dispatchEvent(new CustomEvent('close-modal', { detail: 'assignManpowerModal' }));
+                    // Simply validate the request without any item assignments
+                    await updateRequest(Number(requestId), 'validated', {
+                        button: submitBtn,
+                    });
+                } catch (updateError) {
+                    if (modalClosed) {
+                        window.dispatchEvent(new CustomEvent('open-modal', { detail: modalName }));
+                    }
+                    throw updateError;
+                }
             } catch (error) {
                 console.error(error);
-                if (error?.message) showError(error.message);
             } finally {
                 submitBtn.disabled = false;
             }
@@ -1221,6 +1324,7 @@ async function updateRequest(id, status, options = {}) {
                         subject: reason.subject,
                         detail: reason.detail,
                         button: selectConfirmBtn,
+                        modalsToClose: ['rejectReasonSelectModal'],
                     });
                 } finally {
                     selectConfirmBtn.disabled = false;
@@ -1278,16 +1382,20 @@ async function updateRequest(id, status, options = {}) {
 
         confirmBtn.addEventListener('click', async () => {
             const id = confirmBtn.dataset.requestId;
-            const status = String(confirmBtn.dataset.status || '').toLowerCase();
-                if (!id || !status) {
+            const actionStatus = String(confirmBtn.dataset.status || '').toLowerCase();
+            if (!id || !actionStatus) {
                 showError('Invalid request or action. Please try again.');
                 return;
             }
 
+            const modalName = 'confirmActionModal';
+            let modalClosed = false;
             confirmBtn.disabled = true;
             try {
-                // Handle 'delivered' status differently - call dispatch endpoint without reason
-                if (status === 'dispatch' || status === 'dispatched') {
+                window.dispatchEvent(new CustomEvent('close-modal', { detail: modalName }));
+                modalClosed = true;
+
+                if (actionStatus === 'dispatch' || actionStatus === 'dispatched') {
                     const res = await fetch(`/admin/borrow-requests/${encodeURIComponent(id)}/dispatch`, {
                         method: 'POST',
                         headers: {
@@ -1303,8 +1411,7 @@ async function updateRequest(id, status, options = {}) {
                     }
                     showSuccess(payload?.message || 'Items dispatched successfully.');
                     await loadBorrowRequests();
-                    window.dispatchEvent(new CustomEvent('close-modal', { detail: 'confirmActionModal' }));
-                } else if (status === 'delivered') {
+                } else if (actionStatus === 'delivered') {
                     const res = await fetch(`/admin/borrow-requests/${encodeURIComponent(id)}/deliver`, {
                         method: 'POST',
                         headers: {
@@ -1320,14 +1427,17 @@ async function updateRequest(id, status, options = {}) {
                     }
                     showSuccess(payload?.message || 'Items marked as delivered successfully.');
                     await loadBorrowRequests();
-                    window.dispatchEvent(new CustomEvent('close-modal', { detail: 'confirmActionModal' }));
                 } else {
-                    await updateRequest(Number(id), status, { button: confirmBtn });
-                    window.dispatchEvent(new CustomEvent('close-modal', { detail: 'confirmActionModal' }));
+                    await updateRequest(Number(id), actionStatus, { button: confirmBtn });
                 }
             } catch (error) {
                 console.error('Confirm action failed', error);
-                showError(error?.message || 'Failed to perform action. Please try again.');
+                if (modalClosed) {
+                    window.dispatchEvent(new CustomEvent('open-modal', { detail: modalName }));
+                }
+                if (actionStatus === 'dispatch' || actionStatus === 'dispatched' || actionStatus === 'delivered') {
+                    showError(error?.message || 'Failed to perform action. Please try again.');
+                }
             } finally {
                 confirmBtn.disabled = false;
             }

@@ -1,6 +1,6 @@
 <x-app-layout>
-    <div class="max-w-3xl mx-auto bg-white dark:bg-gray-900 theme-original:bg-purple-50
-                rounded-xl shadow-lg p-6 transition-colors duration-300">
+    <div class="max-w-5xl mx-auto bg-white dark:bg-gray-900 theme-original:bg-purple-50
+                rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 px-8 py-7 transition-colors duration-300">
 
         <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
             {{ __('Profile Information') }}

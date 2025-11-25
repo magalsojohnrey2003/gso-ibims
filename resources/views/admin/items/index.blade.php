@@ -97,14 +97,50 @@
         <div class="px-2">
           <div class="rounded-2xl shadow-lg border border-gray-200 table-wrapper">
               <div class="overflow-x-auto relative shadow-md sm:rounded-lg">
-                  <table class="w-full text-sm text-center text-gray-600 gov-table">
+                  <table class="w-full text-sm text-center text-gray-600 gov-table" data-items-table>
                       <thead class="bg-purple-600 text-white text-xs uppercase font-semibold text-center">
                           <tr>
                               <th class="px-6 py-3">Photo</th>
-                              <th class="px-6 py-3">Name</th>
-                              <th class="px-6 py-3">Category</th>
-                              <th class="px-6 py-3">Total Qty</th>
-                              <th class="px-6 py-3">Available</th>
+                              <th class="px-6 py-3">
+                                  <button
+                                      type="button"
+                                      class="inline-flex items-center justify-center gap-1 w-full uppercase tracking-wide text-xs font-semibold text-white/80 transition-opacity hover:text-white focus:outline-none"
+                                      data-items-sort-key="name"
+                                      data-sort-type="string">
+                                      <span>Name</span>
+                                      <span class="text-[10px] opacity-0 transition-opacity" aria-hidden="true" data-sort-indicator>▲</span>
+                                  </button>
+                              </th>
+                              <th class="px-6 py-3">
+                                  <button
+                                      type="button"
+                                      class="inline-flex items-center justify-center gap-1 w-full uppercase tracking-wide text-xs font-semibold text-white/80 transition-opacity hover:text-white focus:outline-none"
+                                      data-items-sort-key="category"
+                                      data-sort-type="string">
+                                      <span>Category</span>
+                                      <span class="text-[10px] opacity-0 transition-opacity" aria-hidden="true" data-sort-indicator>▲</span>
+                                  </button>
+                              </th>
+                              <th class="px-6 py-3">
+                                  <button
+                                      type="button"
+                                      class="inline-flex items-center justify-center gap-1 w-full uppercase tracking-wide text-xs font-semibold text-white/80 transition-opacity hover:text-white focus:outline-none"
+                                      data-items-sort-key="total"
+                                      data-sort-type="number">
+                                      <span>Total Qty</span>
+                                      <span class="text-[10px] opacity-0 transition-opacity" aria-hidden="true" data-sort-indicator>▲</span>
+                                  </button>
+                              </th>
+                              <th class="px-6 py-3">
+                                  <button
+                                      type="button"
+                                      class="inline-flex items-center justify-center gap-1 w-full uppercase tracking-wide text-xs font-semibold text-white/80 transition-opacity hover:text-white focus:outline-none"
+                                      data-items-sort-key="available"
+                                      data-sort-type="number">
+                                      <span>Available</span>
+                                      <span class="text-[10px] opacity-0 transition-opacity" aria-hidden="true" data-sort-indicator>▲</span>
+                                  </button>
+                              </th>
                               <th class="px-6 py-3">Actions</th>
                           </tr>
                       </thead>
@@ -433,78 +469,151 @@
 </x-modal>
 
 <script>
-// Live search functionality for Items Management table
-document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('items-live-search');
-    const table = document.querySelector('.gov-table tbody');
+// Live search and sortable table for Items Management
+document.addEventListener('DOMContentLoaded', () => {
     const tableBody = document.getElementById('itemsTableBody');
-    
-    if (tableBody) {
-        const loadingRow = tableBody.querySelector('[data-items-loading-row]');
-        const emptyRow = tableBody.querySelector('[data-items-empty-row]');
-        const hideLoading = () => {
-            if (loadingRow) {
-                loadingRow.classList.add('hidden');
-            }
-            if (emptyRow) {
-                emptyRow.classList.remove('hidden');
-            }
-        };
-        if (document.readyState === 'complete') {
-            hideLoading();
-        } else {
-            window.addEventListener('load', hideLoading, { once: true });
-            setTimeout(hideLoading, 1200);
-        }
+    const tableElement = document.querySelector('[data-items-table]');
+    const searchInput = document.getElementById('items-live-search');
+    const sortControls = Array.from(document.querySelectorAll('[data-items-sort-key]'));
+
+    if (!tableBody || !tableElement) {
+        return;
     }
-    
-    if (!searchInput || !table) return;
-    
-    // Dynamic placeholder change on focus/blur
-    searchInput.addEventListener('focus', function() {
-        this.placeholder = 'Type to Search';
+
+    const loadingRow = tableBody.querySelector('[data-items-loading-row]');
+    const templateEmptyRow = tableBody.querySelector('[data-items-empty-row]');
+    const noResultsRowId = 'items-no-results-row';
+
+    let nextOriginalIndex = 0;
+
+    const assignOriginalIndex = (row) => {
+        if (!row.dataset.originalIndex) {
+            row.dataset.originalIndex = String(nextOriginalIndex);
+            nextOriginalIndex += 1;
+        }
+    };
+
+    Array.from(tableBody.querySelectorAll('tr[data-item-row]')).forEach((row) => {
+        assignOriginalIndex(row);
     });
-    
-    searchInput.addEventListener('blur', function() {
-        this.placeholder = 'Search by Name or Category';
-    });
-    
-    // Live search filtering
-    searchInput.addEventListener('input', function(e) {
-        const searchTerm = e.target.value.toLowerCase().trim();
-        const rows = table.querySelectorAll('tr[data-item-row]');
-        
-        rows.forEach(row => {
-            // Get item name and category from the row
-            const nameCell = row.querySelector('[data-item-name]');
-            const categoryCell = row.querySelector('[data-item-category]');
-            
-            if (!nameCell || !categoryCell) return;
-            
-            const itemName = nameCell.textContent.toLowerCase();
-            const itemCategory = categoryCell.textContent.toLowerCase();
-            
-            // Check if search term matches name or category
-            const matches = itemName.includes(searchTerm) || itemCategory.includes(searchTerm);
-            
-            // Show/hide row based on match
-            if (matches) {
-                row.style.display = '';
-            } else {
-                row.style.display = 'none';
+
+    const state = {
+        search: searchInput ? searchInput.value.trim().toLowerCase() : '',
+        sortKey: null,
+        sortDirection: 'asc',
+    };
+
+    const hideLoadingState = () => {
+        if (loadingRow) {
+            loadingRow.classList.add('hidden');
+        }
+        if (templateEmptyRow && nextOriginalIndex === 0) {
+            templateEmptyRow.classList.remove('hidden');
+            templateEmptyRow.style.display = '';
+        }
+    };
+
+    if (document.readyState === 'complete') {
+        hideLoadingState();
+    } else {
+        window.addEventListener('load', hideLoadingState, { once: true });
+        setTimeout(hideLoadingState, 1200);
+    }
+
+    const parseNumber = (value) => {
+        if (!value) {
+            return 0;
+        }
+        const cleaned = value.replace(/[^0-9.-]/g, '');
+        return cleaned === '' ? 0 : Number(cleaned);
+    };
+
+    const buildEntry = (row) => {
+        const nameCell = row.querySelector('[data-item-name]');
+        const categoryCell = row.querySelector('[data-item-category]');
+        const totalCell = row.querySelector('[data-item-total]');
+        const availableCell = row.querySelector('[data-item-available]');
+        const availableSpan = availableCell ? availableCell.querySelector('span') : null;
+
+        const name = nameCell ? nameCell.textContent.trim() : '';
+        const category = categoryCell ? categoryCell.textContent.trim() : '';
+        const total = totalCell ? parseNumber(totalCell.textContent) : 0;
+        const available = availableSpan
+            ? parseNumber(availableSpan.textContent)
+            : (availableCell ? parseNumber(availableCell.textContent) : 0);
+
+        return {
+            row,
+            name,
+            nameLower: name.toLowerCase(),
+            category,
+            categoryLower: category.toLowerCase(),
+            total,
+            available,
+            originalIndex: Number(row.dataset.originalIndex || 0),
+        };
+    };
+
+    const collectEntries = () => {
+        const rows = Array.from(tableBody.querySelectorAll('tr[data-item-row]'));
+        rows.forEach(assignOriginalIndex);
+        return rows.map(buildEntry);
+    };
+
+    const matchesSearch = (entry) => {
+        if (!state.search) {
+            return true;
+        }
+        return entry.nameLower.includes(state.search) || entry.categoryLower.includes(state.search);
+    };
+
+    const compareEntries = (a, b) => {
+        if (!state.sortKey) {
+            return a.originalIndex - b.originalIndex;
+        }
+
+        const direction = state.sortDirection === 'asc' ? 1 : -1;
+
+        if (state.sortKey === 'name') {
+            const comparison = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+            return comparison === 0 ? a.originalIndex - b.originalIndex : direction * comparison;
+        }
+
+        if (state.sortKey === 'category') {
+            const comparison = a.category.localeCompare(b.category, undefined, { sensitivity: 'base' });
+            return comparison === 0 ? a.originalIndex - b.originalIndex : direction * comparison;
+        }
+
+        if (state.sortKey === 'total') {
+            if (a.total === b.total) {
+                return a.originalIndex - b.originalIndex;
             }
-        });
-        
-        // Check if any rows are visible
-        const visibleRows = Array.from(rows).filter(row => row.style.display !== 'none');
-        
-        // Handle empty state
-        const emptyRow = table.querySelector('tr:not([data-item-row])');
-        if (visibleRows.length === 0 && !emptyRow) {
-            // Add "no results" message if all filtered out
-            const noResultsRow = document.createElement('tr');
-            noResultsRow.id = 'no-results-row';
-            noResultsRow.innerHTML = `
+            return direction * (a.total - b.total);
+        }
+
+        if (state.sortKey === 'available') {
+            if (a.available === b.available) {
+                return a.originalIndex - b.originalIndex;
+            }
+            return direction * (a.available - b.available);
+        }
+
+        return a.originalIndex - b.originalIndex;
+    };
+
+    const removeNoResultsRow = () => {
+        const existing = document.getElementById(noResultsRowId);
+        if (existing) {
+            existing.remove();
+        }
+    };
+
+    const getNoResultsRow = () => {
+        let row = document.getElementById(noResultsRowId);
+        if (!row) {
+            row = document.createElement('tr');
+            row.id = noResultsRowId;
+            row.innerHTML = `
                 <td colspan="6" class="px-6 py-8 text-center text-gray-500">
                     <div class="flex flex-col items-center gap-2">
                         <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -515,15 +624,120 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 </td>
             `;
-            table.appendChild(noResultsRow);
-        } else if (visibleRows.length > 0) {
-            // Remove "no results" message if items are visible
-            const noResultsRow = document.getElementById('no-results-row');
-            if (noResultsRow) {
-                noResultsRow.remove();
+        }
+        return row;
+    };
+
+    const updateEmptyState = (visibleCount, totalRows) => {
+        if (templateEmptyRow) {
+            if (totalRows === 0) {
+                templateEmptyRow.classList.remove('hidden');
+                templateEmptyRow.style.display = '';
+            } else {
+                templateEmptyRow.classList.add('hidden');
+                templateEmptyRow.style.display = 'none';
             }
         }
+
+        if (totalRows === 0) {
+            removeNoResultsRow();
+            return;
+        }
+
+        if (visibleCount === 0) {
+            const row = getNoResultsRow();
+            tableBody.appendChild(row);
+        } else {
+            removeNoResultsRow();
+        }
+    };
+
+    const updateSortIndicators = () => {
+        sortControls.forEach((control) => {
+            const indicator = control.querySelector('[data-sort-indicator]');
+            const isActive = control.dataset.itemsSortKey === state.sortKey;
+            control.classList.toggle('text-white', isActive);
+            control.classList.toggle('text-white/80', !isActive);
+            if (indicator) {
+                if (isActive) {
+                    indicator.textContent = state.sortDirection === 'asc' ? '▲' : '▼';
+                    indicator.classList.remove('opacity-0');
+                } else {
+                    indicator.classList.add('opacity-0');
+                }
+            }
+            const headerCell = control.closest('th');
+            if (headerCell) {
+                headerCell.setAttribute('aria-sort', isActive ? (state.sortDirection === 'asc' ? 'ascending' : 'descending') : 'none');
+            }
+        });
+    };
+
+    const applyFiltersAndSort = () => {
+        const entries = collectEntries();
+        const fragment = document.createDocumentFragment();
+        let visibleCount = 0;
+
+        entries.sort(compareEntries);
+
+        entries.forEach((entry) => {
+            const isVisible = matchesSearch(entry);
+            entry.row.style.display = isVisible ? '' : 'none';
+            if (isVisible) {
+                visibleCount += 1;
+            }
+            fragment.appendChild(entry.row);
+        });
+
+        tableBody.appendChild(fragment);
+        updateEmptyState(visibleCount, entries.length);
+        updateSortIndicators();
+    };
+
+    if (searchInput) {
+        searchInput.addEventListener('focus', function () {
+            this.placeholder = 'Type to Search';
+        });
+
+        searchInput.addEventListener('blur', function () {
+            this.placeholder = 'Search by Name or Category';
+        });
+
+        searchInput.addEventListener('input', (event) => {
+            state.search = event.target.value.trim().toLowerCase();
+            applyFiltersAndSort();
+        });
+    }
+
+    sortControls.forEach((control) => {
+        const headerCell = control.closest('th');
+        if (headerCell) {
+            headerCell.setAttribute('aria-sort', 'none');
+        }
+
+        control.addEventListener('click', () => {
+            const key = control.dataset.itemsSortKey;
+            if (!key) {
+                return;
+            }
+
+            if (state.sortKey === key) {
+                if (state.sortDirection === 'asc') {
+                    state.sortDirection = 'desc';
+                } else {
+                    state.sortKey = null;
+                    state.sortDirection = 'asc';
+                }
+            } else {
+                state.sortKey = key;
+                state.sortDirection = 'asc';
+            }
+
+            applyFiltersAndSort();
+        });
     });
+
+    applyFiltersAndSort();
 });
 </script>
 

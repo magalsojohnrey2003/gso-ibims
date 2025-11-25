@@ -16,8 +16,10 @@ export function formatDate(dateStr) {
 }
 
 function formatUsageRange(range) {
-    if (!range || typeof range !== 'string' || !range.includes('-')) return '—';
-    const [startRaw, endRaw] = range.split('-');
+    if (!range || typeof range !== 'string') return '—';
+    const trimmed = range.trim();
+    if (!trimmed.includes('-')) return trimmed || '—';
+    const [startRaw, endRaw] = trimmed.split('-');
 
     const formatTime = (value) => {
         if (!value) return null;
@@ -31,8 +33,17 @@ function formatUsageRange(range) {
 
     const startLabel = formatTime(startRaw);
     const endLabel = formatTime(endRaw);
-    if (!startLabel || !endLabel) return '—';
+    if (!startLabel || !endLabel) return trimmed || '—';
     return `${startLabel} - ${endLabel}`;
+}
+
+function formatBorrowRequestCodeLocal(req) {
+    if (!req) return '';
+    const formatted = typeof req.formatted_request_id === 'string' ? req.formatted_request_id.trim() : '';
+    if (formatted) return formatted;
+    const rawId = req.id ?? null;
+    if (!rawId) return '';
+    return `BR-${String(rawId).padStart(4, '0')}`;
 }
 
 function escapeHtml(unsafe) {
@@ -64,7 +75,7 @@ function getBadgeHtml(status) {
         'qr_verified': 'fa-check-circle',
         'validated': 'fa-check-circle',
         'dispatched': 'fa-truck',
-        'delivered': 'fa-check-circle',
+        'delivered': 'fa-truck',
     };
     const statusColors = {
         'approved': 'bg-green-100 text-green-700',
@@ -75,7 +86,7 @@ function getBadgeHtml(status) {
         'qr_verified': 'bg-green-100 text-green-700',
         'validated': 'bg-blue-100 text-blue-700',
         'dispatched': 'bg-indigo-100 text-indigo-700',
-        'delivered': 'bg-emerald-100 text-emerald-700',
+        'delivered': 'bg-blue-100 text-blue-800',
     };
     const icon = statusIcons[st] || 'fa-question-circle';
     const color = statusColors[st] || 'bg-gray-100 text-gray-700';
@@ -157,8 +168,8 @@ function renderItems() {
     const searchEl = document.getElementById('my-borrowed-items-live-search');
     const term = (searchEl?.value || '').toLowerCase().trim();
     const list = ITEMS_CACHE.filter(req => {
-        const idText = String(req.id ?? '').toLowerCase();
-        return !term || idText.includes(term);
+        const formattedId = (formatBorrowRequestCodeLocal(req) || String(req.id ?? '')).toLowerCase();
+        return !term || formattedId.includes(term);
     });
 
     if (!list.length) {
@@ -171,7 +182,8 @@ function renderItems() {
         tr.className = "transition hover:bg-purple-50 hover:shadow-md";
         tr.dataset.requestId = String(req.id);
 
-        const tdId = `<td class="px-4 py-3">${escapeHtml(String(req.id))}</td>`;
+        const requestCode = formatBorrowRequestCodeLocal(req) || `#${req.id ?? ''}`;
+        const tdId = `<td class="px-4 py-3">${escapeHtml(requestCode)}</td>`;
         const tdBorrowDate = `<td class="px-4 py-3">${escapeHtml(formatDate(req.borrow_date))}</td>`;
         const tdReturnDate = `<td class="px-4 py-3">${escapeHtml(formatDate(req.return_date))}</td>`;
 
@@ -194,10 +206,6 @@ function renderItems() {
         }
 
         const deliveryStatus = (req.delivery_status || '').toLowerCase();
-        if (deliveryStatus === 'dispatched' || deliveryStatus === 'delivered' || req.status === 'return_pending') {
-            wrapper.appendChild(createButtonFromTemplate("btn-return-template", req.id));
-        }
-
         tdActions.appendChild(wrapper);
 
         tr.innerHTML = tdId + tdBorrowDate + tdReturnDate + tdStatus;
@@ -212,7 +220,9 @@ export function fillBorrowModal(data) {
     if (!data) return;
     const setText = (id, value) => {
         const el = document.getElementById(id);
-        if (el) el.textContent = value ?? '—';
+        if (!el) return;
+        const normalized = value === undefined || value === null || value === '' ? '—' : value;
+        el.textContent = normalized;
     };
 
     const modalRoot = document.getElementById('borrowDetailsModalRoot');
@@ -220,35 +230,103 @@ export function fillBorrowModal(data) {
         modalRoot.dataset.requestId = data.id ? String(data.id) : '';
     }
 
-    setText('mbi-location', data.location ?? '—');
-    setText('mbi-short-status', `Request ID #${data.id ?? '—'}`);
-    setText('mbi-borrow-date', formatDate(data.borrow_date));
-    setText('mbi-return-date', formatDate(data.return_date));
-    setText('mbi-usage-range', formatUsageRange(data.time_of_usage));
+    const pickText = (...values) => {
+        for (const value of values) {
+            if (typeof value === 'string') {
+                const trimmed = value.trim();
+                if (trimmed.length) return trimmed;
+            }
+        }
+        return '';
+    };
 
-    // status badge
-    const sb = document.getElementById('mbi-status-badge');
-    if (sb) {
-        const delivery = (data.delivery_status || '').toLowerCase();
-        const st = ['dispatched','delivered'].includes(delivery) ? delivery : (data.status || '').toLowerCase();
+    const requestCode = formatBorrowRequestCodeLocal(data) || (data.id ? `#${data.id}` : '—');
+    setText('mbi-short-status', `Borrow Request ${requestCode}`);
+    setText('mbi-summary-id', requestCode);
+
+    const itemsArray = Array.isArray(data.items) ? data.items : [];
+    const itemsLabel = itemsArray.length === 1 ? '1 item' : `${itemsArray.length} items`;
+    setText('mbi-summary-items', itemsLabel);
+    const itemsSummary = document.getElementById('mbi-items-summary');
+    if (itemsSummary) itemsSummary.textContent = itemsLabel;
+
+    const purposeValue = pickText(data.purpose, data.purpose_description, data.purpose_text, data.purpose_detail);
+    setText('mbi-summary-purpose', purposeValue || '—');
+
+    const delivery = (data.delivery_status || '').toLowerCase();
+    const statusKey = ['dispatched', 'delivered'].includes(delivery) ? delivery : (data.status || '').toLowerCase();
+    const statusContainer = document.getElementById('mbi-summary-status');
+    if (statusContainer) {
         try {
-            sb.innerHTML = getBadgeHtml(st);
+            statusContainer.innerHTML = getBadgeHtml(statusKey);
         } catch (err) {
-            const stText = st ? st.toUpperCase() : '—';
-            sb.className = 'inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700';
-            sb.textContent = stText;
+            statusContainer.textContent = statusKey ? statusKey.toUpperCase() : '—';
         }
     }
 
-    const itemsList = document.getElementById('mbi-items');
-    const itemsSummary = document.getElementById('mbi-items-summary');
-    const itemsArray = Array.isArray(data.items) ? data.items : [];
+    setText('mbi-schedule-borrow', formatDate(data.borrow_date));
+    setText('mbi-schedule-return', formatDate(data.return_date));
 
-    if (itemsSummary) {
-        const count = itemsArray.length;
-        itemsSummary.textContent = count === 1 ? '1 item' : `${count} items`;
+    const rawUsageValue = pickText(data.time_of_usage);
+    const hasUsage = rawUsageValue.length > 0;
+    const scheduleTimeEl = document.getElementById('mbi-schedule-time');
+    if (scheduleTimeEl) {
+        scheduleTimeEl.textContent = hasUsage ? formatUsageRange(rawUsageValue) : '—';
+    }
+    const scheduleTimeRow = document.getElementById('mbi-schedule-time-row');
+    if (scheduleTimeRow) {
+        scheduleTimeRow.classList.toggle('hidden', !hasUsage);
     }
 
+    let municipality = pickText(
+        data.municipality,
+        data.municipality_name,
+        data.municipality_label,
+        data.location_municipality,
+        data.delivery_municipality
+    );
+    let barangay = pickText(
+        data.barangay,
+        data.barangay_name,
+        data.location_barangay,
+        data.delivery_barangay
+    );
+    let specificArea = pickText(
+        data.specific_area,
+        data.location_specific_area,
+        data.delivery_specific_area,
+        data.address_specific_area
+    );
+    const compositeLocation = pickText(
+        data.delivery_location,
+        data.location,
+        data.address,
+        data.full_location
+    );
+
+    if (compositeLocation) {
+        const parts = compositeLocation.split(',').map(part => part.trim()).filter(Boolean);
+
+        if (!municipality && parts.length) {
+            municipality = parts.shift();
+        }
+        if (!barangay && parts.length) {
+            barangay = parts.shift();
+        }
+        if (!specificArea && parts.length) {
+            specificArea = parts.join(', ');
+        }
+
+        if (!specificArea && !parts.length) {
+            specificArea = compositeLocation.trim();
+        }
+    }
+
+    setText('mbi-location-municipality', municipality || '—');
+    setText('mbi-location-barangay', barangay || '—');
+    setText('mbi-location-area', specificArea || '—');
+
+    const itemsList = document.getElementById('mbi-items');
     if (itemsList) {
         const itemsHtml = itemsArray.map((i) => {
             const name = escapeHtml(i.item?.name ?? 'Unknown');
@@ -273,10 +351,10 @@ export function fillBorrowModal(data) {
         if (status === 'rejected' && hasReason) {
             rejBlock.classList.remove('hidden');
             if (rejSummary) {
-                rejSummary.textContent = subjectValue !== '' ? subjectValue : 'View details';
+                rejSummary.textContent = 'Tap to view details';
             }
             if (rejSubject) {
-                rejSubject.textContent = subjectValue || 'Reason';
+                rejSubject.textContent = subjectValue ? `Subject: ${subjectValue}` : 'Subject: Not provided';
             }
             if (rejReason) {
                 rejReason.textContent = detailValue || 'No detailed reason provided.';

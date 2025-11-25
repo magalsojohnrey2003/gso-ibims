@@ -39,7 +39,12 @@
                 </div>
                 <div>
                     <span class="text-xs uppercase tracking-wide text-gray-500">Available</span>
-                    <p class="text-base font-semibold {{ $item->available_qty > 0 ? 'text-green-600' : 'text-red-600' }}">
+                    <p
+                        class="text-base font-semibold {{ $item->available_qty > 0 ? 'text-green-600' : 'text-red-600' }}"
+                        data-item-available-display
+                        data-item-id="{{ $item->id }}"
+                        data-positive-class="text-green-600"
+                        data-negative-class="text-red-600">
                         {{ $item->available_qty }}
                     </p>
                 </div>
@@ -84,17 +89,56 @@
         @endif
     </section>
 
-    <section class="space-y-4">
+    <section
+        class="space-y-4"
+        data-item-instance-manager
+        data-item-id="{{ $item->id }}"
+        data-update-base="{{ url('/admin/item-instances') }}"
+    >
         <div class="flex items-center justify-between">
             <h4 class="text-lg font-semibold text-gray-900">Property Numbers</h4>
             <span class="text-xs text-gray-500">{{ $item->instances->count() }} item{{ $item->instances->count() === 1 ? '' : 's' }}</span>
         </div>
 
+        <div class="flex flex-wrap items-center gap-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input
+                    type="checkbox"
+                    class="w-4 h-4 text-purple-600 border-2 border-purple-300 bg-white rounded shadow focus:ring-purple-500"
+                    data-instance-enable-selection
+                >
+                <span class="text-sm font-medium text-gray-700">Select</span>
+            </label>
+            <div class="flex items-center gap-3">
+                <select
+                    data-instance-condition
+                    class="rounded-lg border-gray-300 text-sm focus:border-purple-500 focus:ring-purple-500">
+                    <option value="">Select Condition</option>
+                    <option value="good">Good</option>
+                    <option value="minor_damage">Minor Damage</option>
+                    <option value="damage">Damage</option>
+                    <option value="missing">Missing</option>
+                </select>
+                <button
+                    type="button"
+                    class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-md bg-purple-600 text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    data-instance-update
+                    data-spinner
+                    disabled
+                >
+                    Update
+                </button>
+            </div>
+        </div>
+
         <div class="rounded-2xl shadow-lg border border-gray-200 table-wrapper">
             <div class="table-container-no-scroll" style="max-height: 18rem;">
-                <table class="w-full text-sm text-center text-gray-600 gov-table">
+                <table class="w-full text-sm text-center text-gray-600 gov-table" data-instance-table>
                     <thead class="bg-purple-600 text-white text-xs uppercase font-semibold text-center">
                         <tr>
+                            <th class="px-6 py-3 text-left w-12 hidden" data-instance-select-header>
+                                <span class="sr-only">Select</span>
+                            </th>
                             <th class="px-6 py-3 whitespace-nowrap">Property Numbers</th>
                             <th class="px-6 py-3">Serial No.</th>
                             <th class="px-6 py-3">Model No.</th>
@@ -102,9 +146,23 @@
                             <th class="px-6 py-3">History</th>
                         </tr>
                     </thead>
-                    <tbody class="text-center">
+                    <tbody class="text-center" data-instance-tbody>
                         @forelse($item->instances as $instance)
-                            <tr class="hover:bg-gray-50" data-item-instance-id="{{ $instance->id }}">
+                            <tr
+                                class="hover:bg-gray-50"
+                                data-item-instance-id="{{ $instance->id }}"
+                                data-instance-row
+                                data-instance-status="{{ strtolower($instance->status ?? 'unknown') }}">
+                                <td class="px-6 py-4 text-center hidden" data-instance-select-cell>
+                                    <input
+                                        type="checkbox"
+                                        class="w-4 h-4 text-purple-600 border-2 border-purple-300 bg-white rounded shadow focus:ring-purple-500"
+                                        data-instance-checkbox
+                                        data-instance-status="{{ strtolower($instance->status ?? 'unknown') }}"
+                                        value="{{ $instance->id }}"
+                                        disabled
+                                    >
+                                </td>
                                 <td class="px-6 py-4 whitespace-nowrap">{{ $instance->property_number }}</td>
                                 <td class="px-6 py-4">
                                     @php $sn = $instance->serial_no ?? '—'; @endphp
@@ -161,7 +219,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="4" class="px-6 py-6 text-center text-sm text-gray-500">
+                                <td colspan="6" class="px-6 py-6 text-center text-sm text-gray-500">
                                     No Property Numbers are currently linked to this item.
                                 </td>
                             </tr>

@@ -1,5 +1,6 @@
 @php
     $borrowerName = optional($borrowRequest->user)->full_name ?: optional($borrowRequest->user)->name ?: 'Borrower information unavailable';
+    $requestCode = $borrowRequest->formatted_request_id ?? ($borrowRequest->id ? sprintf('BR-%04d', $borrowRequest->id) : null);
 @endphp
 
 <x-app-layout>
@@ -35,7 +36,7 @@
                     @endphp
                     <div>
                         <span class="font-semibold text-gray-800">Request ID:</span>
-                        <span class="ml-1 text-gray-700">#{{ $borrowRequest->id }}</span>
+                        <span class="ml-1 text-gray-700">{{ $requestCode ?? '—' }}</span>
                     </div>
                     <div>
                         <span class="font-semibold text-gray-800">Borrower:</span>

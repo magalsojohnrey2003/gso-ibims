@@ -60,19 +60,16 @@
 @endphp
 
 <x-app-layout>
-    <x-title
-        level="h2"
-        size="2xl"
-        weight="bold"
-        icon="shopping-cart"
-        variant="s"
-        iconStyle="circle"
-        iconBg="title-purple"
-        iconColor="white">
-        Borrow List
-    </x-title>
-
     <div class="px-4 sm:px-6 lg:px-10 py-6 space-y-6">
+         <x-title
+            level="h2"
+            size="2xl"
+            weight="bold"
+            icon="shopping-cart"
+            variant="s"
+            iconColor="title-purple">
+            Borrow List
+        </x-title>
         @if(session('success'))
             <x-alert type="success" :message="session('success')" />
         @endif
@@ -480,22 +477,27 @@
         @endforeach
     </div>
 
-    <x-modal name="borrowConfirmModal" maxWidth="3xl">
-        <div class="p-6 space-y-6">
-            <div class="flex items-center justify-between border-b border-gray-200 pb-3">
-                <h3 class="text-xl font-semibold text-gray-800 flex items-center gap-3">
-                    <i class="fas fa-file-circle-check text-purple-600"></i>
-                    <span>Confirm Borrow Request</span>
-                </h3>
+    <x-modal name="borrowConfirmModal" maxWidth="3xl" background="transparent">
+        <div class="w-full max-h-[85vh] bg-[#4C1D95] dark:bg-gray-900 flex flex-col overflow-hidden rounded-2xl shadow-2xl">
+            <div class="relative px-6 py-4 bg-[#4C1D95] text-white sticky top-0 z-30 flex items-start gap-3">
+                <div class="flex-1">
+                    <h3 class="text-xl font-semibold leading-snug flex items-center gap-2">
+                        <i class="fas fa-file-circle-check"></i>
+                        <span>Confirm Borrow Request</span>
+                    </h3>
+                    <p class="text-sm text-purple-100 mt-1">Review schedule, letter, and items before submitting.</p>
+                </div>
                 <button
                     type="button"
-                    class="text-gray-400 hover:text-gray-600 transition"
-                    @click="$dispatch('close-modal', 'borrowConfirmModal')">
+                    class="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition"
+                    @click="$dispatch('close-modal', 'borrowConfirmModal')"
+                >
+                    <span class="sr-only">Close modal</span>
                     <i class="fas fa-times text-lg"></i>
                 </button>
             </div>
 
-                    <div class="space-y-5 text-sm text-gray-700">
+            <div class="flex-1 overflow-y-auto bg-white dark:bg-gray-900 px-6 py-5 space-y-5 text-sm text-gray-700 dark:text-gray-300">
                 <div class="grid md:grid-cols-2 gap-5">
                     <div class="space-y-4">
                         <div>
@@ -542,12 +544,12 @@
                 </div>
             </div>
 
-            <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
+            <div class="sticky bottom-0 z-30 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex flex-wrap justify-end gap-3">
                 <x-button type="button" variant="secondary" class="px-4 py-2 text-sm" @click="$dispatch('close-modal', 'borrowConfirmModal')">
                     Cancel
                 </x-button>
                 <x-button type="button" id="confirmBorrowRequestBtn" variant="primary" class="px-4 py-2 text-sm">
-                    Confirm
+                    Submit Request
                 </x-button>
             </div>
         </div>

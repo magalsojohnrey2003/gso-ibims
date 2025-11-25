@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ManpowerRequest;
+use App\Models\RejectionReason;
 use App\Services\ManpowerRequestPdfService;
+use App\Services\PhilSmsService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
 
@@ -143,37 +146,114 @@ class ManpowerRequestController extends Controller
         ]);
     }
 
-    public function updateStatus(Request $request, ManpowerRequest $manpowerRequest)
+    public function updateStatus(Request $request, ManpowerRequest $manpowerRequest, PhilSmsService $philSms)
     {
         $data = $request->validate([
             'status' => 'required|in:validated,approved,rejected',
             'approved_quantity' => 'nullable|integer|min:1',
+            'rejection_reason_id' => 'nullable|integer',
+            'rejection_reason_subject' => 'nullable|string|max:255',
+            'rejection_reason_detail' => 'nullable|string|max:2000',
         ]);
 
-        if ($data['status'] === 'validated' || $data['status'] === 'approved') {
-            $approved = $data['approved_quantity'] ?? $manpowerRequest->quantity;
-            if ($approved > $manpowerRequest->quantity) {
-                return response()->json([
-                    'message' => 'Approved quantity cannot exceed requested quantity.',
-                ], 422);
+        $status = $data['status'];
+
+        DB::beginTransaction();
+
+        try {
+            if ($status === 'validated' || $status === 'approved') {
+                $approved = $data['approved_quantity'] ?? $manpowerRequest->quantity;
+                if ($approved > $manpowerRequest->quantity) {
+                    DB::rollBack();
+                    return response()->json([
+                        'message' => 'Approved quantity cannot exceed requested quantity.',
+                    ], 422);
+                }
+
+                $manpowerRequest->approved_quantity = $approved;
+                $manpowerRequest->status = $status === 'validated' ? 'validated' : 'approved';
+                $manpowerRequest->rejection_reason_subject = null;
+                $manpowerRequest->rejection_reason_detail = null;
+            } else {
+                $templateId = $data['rejection_reason_id'] ?? null;
+                $resolvedTemplate = null;
+
+                if ($templateId) {
+                    $resolvedTemplate = RejectionReason::query()
+                        ->lockForUpdate()
+                        ->find($templateId);
+
+                    if (! $resolvedTemplate) {
+                        DB::rollBack();
+                        return response()->json([
+                            'message' => 'The selected rejection reason is no longer available.',
+                        ], 422);
+                    }
+                }
+
+                $subject = trim((string) ($data['rejection_reason_subject'] ?? ''));
+                $detail = trim((string) ($data['rejection_reason_detail'] ?? ''));
+
+                if ($resolvedTemplate) {
+                    $subject = $resolvedTemplate->subject;
+                    $detail = $resolvedTemplate->detail;
+                }
+
+                if ($subject === '' || $detail === '') {
+                    DB::rollBack();
+                    return response()->json([
+                        'message' => 'Please provide both a rejection subject and detailed explanation.',
+                    ], 422);
+                }
+
+                $manpowerRequest->status = 'rejected';
+                $manpowerRequest->approved_quantity = null;
+                $manpowerRequest->rejection_reason_subject = $subject;
+                $manpowerRequest->rejection_reason_detail = $detail;
+
+                if ($resolvedTemplate) {
+                    $resolvedTemplate->usage_count = ($resolvedTemplate->usage_count ?? 0) + 1;
+                    $resolvedTemplate->save();
+                }
             }
-            $manpowerRequest->approved_quantity = $approved;
-            $manpowerRequest->status = $data['status'] === 'validated' ? 'validated' : 'approved';
-        } else {
-            $manpowerRequest->status = 'rejected';
-            $manpowerRequest->approved_quantity = null;
+
+            $manpowerRequest->save();
+            DB::commit();
+        } catch (Throwable $e) {
+            DB::rollBack();
+            throw $e;
         }
 
-        $manpowerRequest->rejection_reason_subject = null;
-        $manpowerRequest->rejection_reason_detail = null;
+        $philSms->notifyRequesterManpowerStatus($manpowerRequest);
 
-        $manpowerRequest->save();
+        $message = match ($manpowerRequest->status) {
+            'validated' => 'Request marked as validated. The requester will prepare for deployment.',
+            'approved' => 'Request approved. Personnel can now be dispatched.',
+            'rejected' => $this->buildRejectionToastMessage(
+                (string) $manpowerRequest->rejection_reason_subject
+            ),
+            default => 'Status updated.',
+        };
 
         return response()->json([
-            'message' => 'Status updated.',
+            'message' => $message,
             'status' => $manpowerRequest->status,
             'approved_quantity' => $manpowerRequest->approved_quantity,
+            'rejection_reason_subject' => $manpowerRequest->rejection_reason_subject,
+            'rejection_reason_detail' => $manpowerRequest->rejection_reason_detail,
         ]);
+    }
+
+    private function buildRejectionToastMessage(string $subject): string
+    {
+        $cleanSubject = trim($subject);
+        if ($cleanSubject === '') {
+            return 'Request rejected. The requester has been notified.';
+        }
+
+        $trimmed = rtrim($cleanSubject, ".!?\- ");
+
+        return sprintf('Request rejected - %s.', $trimmed);
     }
 
     private function makeStorageUrl(?string $path): ?string

@@ -7,9 +7,15 @@ use App\Models\BorrowItemInstance;
 use App\Models\BorrowRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Services\ItemInstanceEventLogger;
+use Illuminate\Contracts\Auth\Authenticatable;
 
 class ReturnItemsController extends Controller
 {
+    public function __construct(private ItemInstanceEventLogger $eventLogger)
+    {
+    }
+
     public function index()
     {
         return view('admin.return-items.index');
@@ -130,7 +136,7 @@ class ReturnItemsController extends Controller
         ]);
     }
 
-    public function collect(BorrowRequest $borrowRequest)
+    public function collect(Request $request, BorrowRequest $borrowRequest)
     {
         // Allow collection for both dispatched and delivered requests
         if (! in_array($borrowRequest->delivery_status, ['dispatched', 'delivered'], true)) {
@@ -157,6 +163,10 @@ class ReturnItemsController extends Controller
 
                 $instance->loadMissing(['item', 'instance']);
                 $this->syncInventoryForConditionChange($instance, $previousCondition, 'good');
+
+                $this->logConditionEvent($instance, 'returned', $request->user(), [
+                    'trigger' => 'admin_collect',
+                ]);
             }
 
             $borrowRequest->status = 'returned';
@@ -252,7 +262,7 @@ class ReturnItemsController extends Controller
         ]);
     }
 
-    public function collectWalkIn($id)
+    public function collectWalkIn(Request $request, $id)
     {
         $walkInRequest = \App\Models\WalkInRequest::findOrFail($id);
 
@@ -275,6 +285,10 @@ class ReturnItemsController extends Controller
 
                 // Sync inventory based on condition change
                 $this->syncInventoryForConditionChange($instance, $previousCondition, 'good');
+
+                $this->logConditionEvent($instance, 'returned', $request->user(), [
+                    'trigger' => 'walkin_collect',
+                ]);
             }
 
             // Update walk-in request status to 'returned'
@@ -342,6 +356,10 @@ class ReturnItemsController extends Controller
             if ($borrowRequest) {
                 $this->maybeMarkReturned($borrowRequest);
             }
+
+            $this->logConditionEvent($borrowItemInstance, 'condition_updated', $request->user(), [
+                'trigger' => 'admin_condition_update',
+            ]);
 
             DB::commit();
 
@@ -521,5 +539,53 @@ class ReturnItemsController extends Controller
 
         $name = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
         return $name !== '' ? $name : 'Unknown';
+    }
+
+    private function logConditionEvent(BorrowItemInstance $borrowItemInstance, string $action, ?Authenticatable $actor = null, array $extra = []): void
+    {
+        $borrowItemInstance->loadMissing('instance', 'item', 'borrowRequest.user', 'walkInRequest');
+
+        $itemInstance = $borrowItemInstance->instance;
+        if (! $itemInstance) {
+            return;
+        }
+
+        $payload = array_merge([
+            'borrow_request_id' => $borrowItemInstance->borrow_request_id,
+            'walk_in_request_id' => $borrowItemInstance->walk_in_request_id,
+            'borrower_name' => $this->resolveBorrowerName($borrowItemInstance),
+            'item_condition' => $borrowItemInstance->return_condition ?? 'pending',
+            'date_returned' => optional($borrowItemInstance->returned_at)->toDateTimeString(),
+            'condition_updated_at' => optional($borrowItemInstance->condition_updated_at)->toDateTimeString(),
+            'item_id' => $borrowItemInstance->item_id,
+            'item_name' => $borrowItemInstance->item?->name,
+            'property_number' => $itemInstance->property_number,
+            'status' => $itemInstance->status,
+        ], $extra);
+
+        $this->eventLogger->log($itemInstance, $action, array_filter($payload, fn ($value) => $value !== null && $value !== ''), $actor);
+    }
+
+    private function resolveBorrowerName(BorrowItemInstance $borrowItemInstance): ?string
+    {
+        $borrowRequest = $borrowItemInstance->borrowRequest;
+        if ($borrowRequest?->user) {
+            $first = $borrowRequest->user->first_name ?? '';
+            $last = $borrowRequest->user->last_name ?? '';
+            $full = trim("$first $last");
+            if ($full !== '') {
+                return $full;
+            }
+            if (! empty($borrowRequest->user->name)) {
+                return $borrowRequest->user->name;
+            }
+        }
+
+        $walkIn = $borrowItemInstance->walkInRequest;
+        if ($walkIn && ! empty($walkIn->borrower_name)) {
+            return $walkIn->borrower_name;
+        }
+
+        return null;
     }
 }

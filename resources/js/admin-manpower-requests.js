@@ -1,6 +1,7 @@
 // resources/js/admin-manpower-requests.js
 document.addEventListener('DOMContentLoaded', () => {
   if (!window.ADMIN_MANPOWER) return;
+  const CSRF_TOKEN = window.ADMIN_MANPOWER?.csrf || document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
   const tbody = document.getElementById('adminManpowerTableBody');
   const search = document.getElementById('admin-manpower-search');
   const statusFilter = document.getElementById('admin-manpower-status');
@@ -12,6 +13,23 @@ document.addEventListener('DOMContentLoaded', () => {
   const viewFields = document.querySelectorAll('[data-view-field]');
   const approvedQuantityInput = document.getElementById('adminApprovedQuantity');
   const confirmApproveBtn = document.getElementById('confirmAdminApproval');
+  const rejectionCard = document.getElementById('adminManpowerRejectionCard');
+  const rejectionSubjectView = document.querySelector('[data-view-field="rejection_subject"]');
+  const rejectionDetailView = document.querySelector('[data-view-field="rejection_detail"]');
+  const rejectReasonOptions = document.getElementById('manpowerRejectReasonOptions');
+  const rejectReasonSelectConfirmBtn = document.getElementById('manpowerRejectReasonSelectConfirmBtn');
+  const rejectReasonSelectCancelBtn = document.getElementById('manpowerRejectReasonSelectCancelBtn');
+  const rejectReasonOtherRadio = document.getElementById('manpowerRejectReasonOtherOption');
+  const rejectReasonSubjectInput = document.getElementById('manpowerRejectSubjectInput');
+  const rejectReasonDetailInput = document.getElementById('manpowerRejectDetailInput');
+  const rejectReasonCustomBackBtn = document.getElementById('manpowerRejectReasonCustomBackBtn');
+  const rejectReasonCustomConfirmBtn = document.getElementById('manpowerRejectReasonCustomConfirmBtn');
+  const rejectReasonViewSubject = document.getElementById('manpowerRejectReasonViewSubject');
+  const rejectReasonViewDetail = document.getElementById('manpowerRejectReasonViewDetail');
+  const rejectReasonDeleteName = document.getElementById('manpowerRejectReasonDeleteName');
+  const rejectReasonDeleteUsage = document.getElementById('manpowerRejectReasonDeleteUsage');
+  const rejectReasonDeleteCancelBtn = document.getElementById('manpowerRejectReasonDeleteCancelBtn');
+  const rejectReasonDeleteConfirmBtn = document.getElementById('manpowerRejectReasonDeleteConfirmBtn');
   const ICONS = {
     check: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>',
     xMark: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>',
@@ -20,6 +38,15 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   let CACHE = [];
   let ACTIVE_REQUEST = null;
+  let REJECT_REQUEST = null;
+  const OTHER_REJECTION_REASON_KEY = '__other__';
+  const REJECTION_REASONS_ENDPOINT = window.REJECTION_REASONS_ENDPOINT || '/admin/rejection-reasons';
+  let REJECTION_REASONS_CACHE = [];
+  const rejectionFlowState = {
+    requestId: null,
+    selectedReasonId: null,
+    prevModal: null,
+  };
 
   const SHORT_MONTHS = ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May.', 'Jun.', 'Jul.', 'Aug.', 'Sept.', 'Oct.', 'Nov.', 'Dec.'];
 
@@ -119,6 +146,527 @@ document.addEventListener('DOMContentLoaded', () => {
     return `<div class='space-y-2'>${header}<div>${linkHtml}</div></div>`;
   };
 
+  const setRejectionReasonsCache = (reasons) => {
+    REJECTION_REASONS_CACHE = Array.isArray(reasons) ? reasons.slice() : [];
+    REJECTION_REASONS_CACHE.sort((a, b) => {
+      const usageA = Number(a?.usage_count ?? 0);
+      const usageB = Number(b?.usage_count ?? 0);
+      if (usageA !== usageB) {
+        return usageB - usageA;
+      }
+      const subjectA = (a?.subject ?? '').toLowerCase();
+      const subjectB = (b?.subject ?? '').toLowerCase();
+      if (subjectA < subjectB) return -1;
+      if (subjectA > subjectB) return 1;
+      return 0;
+    });
+  };
+
+  const fetchRejectionReasons = async (force = false) => {
+    if (!force && REJECTION_REASONS_CACHE.length) {
+      return REJECTION_REASONS_CACHE;
+    }
+
+    const res = await fetch(REJECTION_REASONS_ENDPOINT, { headers: { Accept: 'application/json' } });
+    let payload = null;
+    try {
+      payload = await res.json();
+    } catch (error) {
+      payload = null;
+    }
+
+    if (!res.ok) {
+      throw new Error(payload?.message || `Failed to load rejection reasons (status ${res.status})`);
+    }
+
+    const reasons = Array.isArray(payload) ? payload : [];
+    setRejectionReasonsCache(reasons);
+    return REJECTION_REASONS_CACHE;
+  };
+
+  const getRejectionReasonById = (reasonId) => {
+    const numeric = Number(reasonId);
+    if (Number.isNaN(numeric)) return null;
+    return REJECTION_REASONS_CACHE.find((reason) => Number(reason.id) === numeric) || null;
+  };
+
+  const resetRejectionFlow = () => {
+    rejectionFlowState.requestId = null;
+    rejectionFlowState.selectedReasonId = null;
+    rejectionFlowState.prevModal = null;
+    REJECT_REQUEST = null;
+
+    const radios = document.querySelectorAll('input[name="manpowerRejectReasonChoice"]');
+    radios.forEach((radio) => {
+      radio.checked = false;
+    });
+    if (rejectReasonOtherRadio) {
+      rejectReasonOtherRadio.checked = false;
+    }
+    if (rejectReasonSubjectInput) {
+      rejectReasonSubjectInput.value = '';
+    }
+    if (rejectReasonDetailInput) {
+      rejectReasonDetailInput.value = '';
+    }
+    updateRejectConfirmButton();
+  };
+
+  const renderRejectionReasonList = () => {
+    if (!rejectReasonOptions) return;
+
+    rejectReasonOptions.innerHTML = '';
+
+    if (!REJECTION_REASONS_CACHE.length) {
+      const empty = document.createElement('p');
+      empty.className = 'text-sm text-gray-500';
+      empty.textContent = 'No saved rejection reasons yet.';
+      rejectReasonOptions.appendChild(empty);
+      return;
+    }
+
+    REJECTION_REASONS_CACHE.forEach((reason) => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'flex items-start justify-between gap-3 border border-gray-200 rounded-lg p-3 hover:border-purple-300 transition';
+      const radioId = `manpowerRejectReason${reason.id}`;
+      wrapper.innerHTML = `
+        <label class="flex items-start gap-3 flex-1 cursor-pointer" for="${radioId}">
+          <input type="radio" id="${radioId}" class="mt-1 text-purple-600 focus:ring-purple-500" name="manpowerRejectReasonChoice" value="${escapeAttr(String(reason.id))}">
+          <div>
+            <div class="text-sm font-semibold text-gray-900">${escapeAttr(reason.subject || 'Untitled reason')}</div>
+            <div class="text-xs text-gray-500 mt-0.5">Used ${escapeAttr(String(reason.usage_count ?? 0))} time(s)</div>
+          </div>
+        </label>
+        <div class="flex items-center gap-2 shrink-0">
+          <button type="button" class="text-sm text-indigo-600 hover:text-indigo-700" data-action="view" data-reason-id="${escapeAttr(String(reason.id))}">View</button>
+          <button type="button" class="text-sm text-red-500 hover:text-red-600" data-action="remove" data-reason-id="${escapeAttr(String(reason.id))}">Remove</button>
+        </div>
+      `;
+      rejectReasonOptions.appendChild(wrapper);
+    });
+
+    if (rejectionFlowState.selectedReasonId) {
+      const selector = `input[name="manpowerRejectReasonChoice"][value="${rejectionFlowState.selectedReasonId}"]`;
+      const radio = rejectReasonOptions.querySelector(selector);
+      if (radio) {
+        radio.checked = true;
+      }
+    }
+  };
+
+  const updateRejectConfirmButton = () => {
+    if (!rejectReasonSelectConfirmBtn) return;
+    const selected = rejectionFlowState.selectedReasonId;
+    rejectReasonSelectConfirmBtn.disabled = !selected;
+    let label = 'Confirm Reject';
+    if (selected === OTHER_REJECTION_REASON_KEY) {
+      label = 'Next';
+    }
+    rejectReasonSelectConfirmBtn.textContent = label;
+  };
+
+  const openRejectionSelectModal = (requestId, options = {}) => {
+    if (!REJECTION_REASONS_CACHE.length) {
+      openRejectionCustomModal(requestId, { fromSelection: false });
+      return;
+    }
+
+    const preserveSelection = Boolean(options.preserveSelection);
+    if (!preserveSelection) {
+      rejectionFlowState.selectedReasonId = null;
+    }
+
+    rejectionFlowState.requestId = requestId;
+    rejectionFlowState.prevModal = null;
+
+    renderRejectionReasonList();
+    updateRejectConfirmButton();
+
+    if (rejectionFlowState.selectedReasonId === OTHER_REJECTION_REASON_KEY && rejectReasonOtherRadio) {
+      rejectReasonOtherRadio.checked = true;
+    }
+
+    window.dispatchEvent(new CustomEvent('open-modal', { detail: 'adminManpowerRejectSelectModal' }));
+  };
+
+  const openRejectionCustomModal = (requestId, options = {}) => {
+    rejectionFlowState.requestId = requestId;
+    rejectionFlowState.prevModal = options.fromSelection ? 'select' : null;
+    if (options.fromSelection) {
+      rejectionFlowState.selectedReasonId = OTHER_REJECTION_REASON_KEY;
+    }
+
+    if (rejectReasonSubjectInput) {
+      rejectReasonSubjectInput.value = options.subject ?? '';
+    }
+    if (rejectReasonDetailInput) {
+      rejectReasonDetailInput.value = options.detail ?? '';
+    }
+
+    if (rejectReasonSubjectInput) {
+      rejectReasonSubjectInput.focus();
+    }
+
+    window.dispatchEvent(new CustomEvent('open-modal', { detail: 'adminManpowerRejectCustomModal' }));
+  };
+
+  const openRejectionDetailModal = (reason) => {
+    if (rejectReasonViewSubject) {
+      rejectReasonViewSubject.textContent = reason?.subject ?? '';
+    }
+    if (rejectReasonViewDetail) {
+      rejectReasonViewDetail.textContent = reason?.detail ?? '';
+    }
+    window.dispatchEvent(new CustomEvent('open-modal', { detail: 'adminManpowerRejectViewModal' }));
+  };
+
+  const openRejectionDeleteModal = (reasonId) => {
+    const reason = getRejectionReasonById(reasonId);
+    if (!reason) {
+      window.showToast?.('The selected rejection reason is no longer available.', 'error');
+      return;
+    }
+    if (rejectReasonDeleteName) {
+      rejectReasonDeleteName.textContent = reason.subject || 'Untitled reason';
+    }
+    if (rejectReasonDeleteUsage) {
+      rejectReasonDeleteUsage.textContent = `Used ${Number(reason.usage_count ?? 0)} time(s)`;
+    }
+    if (rejectReasonDeleteConfirmBtn) {
+      rejectReasonDeleteConfirmBtn.dataset.reasonId = String(reason.id);
+    }
+    window.dispatchEvent(new CustomEvent('open-modal', { detail: 'adminManpowerRejectDeleteModal' }));
+  };
+
+  const deleteRejectionReason = async (reasonId, button) => {
+    if (!reasonId) return;
+    if (button) button.disabled = true;
+    try {
+      const res = await fetch(`${REJECTION_REASONS_ENDPOINT}/${encodeURIComponent(reasonId)}`, {
+        method: 'DELETE',
+        headers: {
+          'X-CSRF-TOKEN': CSRF_TOKEN,
+          Accept: 'application/json',
+        },
+      });
+      let payload = null;
+      try {
+        payload = await res.json();
+      } catch (error) {
+        payload = null;
+      }
+
+      if (!res.ok) {
+        throw new Error(payload?.message || `Failed to remove rejection reason (status ${res.status})`);
+      }
+
+      const numericId = Number(reasonId);
+      const index = REJECTION_REASONS_CACHE.findIndex((reason) => Number(reason.id) === numericId);
+      if (index > -1) {
+        REJECTION_REASONS_CACHE.splice(index, 1);
+      }
+
+      if (REJECTION_REASONS_CACHE.length) {
+        const nextIndex = index >= 0 ? Math.min(index, REJECTION_REASONS_CACHE.length - 1) : 0;
+        const nextReason = REJECTION_REASONS_CACHE[nextIndex] ?? null;
+        rejectionFlowState.selectedReasonId = nextReason ? String(nextReason.id) : null;
+      } else {
+        rejectionFlowState.selectedReasonId = null;
+      }
+
+      setRejectionReasonsCache(REJECTION_REASONS_CACHE);
+      renderRejectionReasonList();
+      updateRejectConfirmButton();
+
+      window.dispatchEvent(new CustomEvent('close-modal', { detail: 'adminManpowerRejectDeleteModal' }));
+      window.showToast?.(payload?.message || 'Rejection reason removed.', 'success');
+
+      if (!REJECTION_REASONS_CACHE.length) {
+        window.dispatchEvent(new CustomEvent('close-modal', { detail: 'adminManpowerRejectSelectModal' }));
+        if (rejectionFlowState.requestId) {
+          openRejectionCustomModal(rejectionFlowState.requestId, { fromSelection: false });
+        } else {
+          resetRejectionFlow();
+        }
+      }
+    } catch (error) {
+      console.error(error);
+      window.showToast?.(error?.message || 'Failed to remove rejection reason.', 'error');
+    } finally {
+      if (button) button.disabled = false;
+    }
+  };
+
+  const submitRejectionDecision = async ({ requestId, reasonId, subject, detail, button, modalsToClose = [] }) => {
+    if (!requestId) {
+      window.showToast?.('No manpower request selected.', 'error');
+      return;
+    }
+
+    const closingList = Array.isArray(modalsToClose) ? modalsToClose : [];
+    closingList.forEach((modalName) => {
+      window.dispatchEvent(new CustomEvent('close-modal', { detail: modalName }));
+    });
+
+    if (button) button.disabled = true;
+    try {
+      await updateStatus(requestId, 'rejected', {
+        rejection_reason_id: reasonId ?? null,
+        rejection_reason_subject: subject ?? null,
+        rejection_reason_detail: detail ?? null,
+      });
+
+      if (reasonId != null) {
+        const idx = REJECTION_REASONS_CACHE.findIndex((reason) => Number(reason.id) === Number(reasonId));
+        if (idx > -1) {
+          const updated = { ...REJECTION_REASONS_CACHE[idx] };
+          updated.usage_count = Number(updated.usage_count ?? 0) + 1;
+          REJECTION_REASONS_CACHE[idx] = updated;
+          setRejectionReasonsCache(REJECTION_REASONS_CACHE);
+          renderRejectionReasonList();
+        }
+      }
+      resetRejectionFlow();
+    } catch (error) {
+      console.error(error);
+      if (closingList.length) {
+        closingList.forEach((modalName) => {
+          window.dispatchEvent(new CustomEvent('open-modal', { detail: modalName }));
+        });
+      }
+    } finally {
+      if (button) button.disabled = false;
+    }
+  };
+
+  const saveCustomRejectionReason = async (button) => {
+    if (!rejectionFlowState.requestId) {
+      window.showToast?.('No manpower request selected.', 'error');
+      return;
+    }
+
+    const subject = rejectReasonSubjectInput?.value?.trim() || '';
+    const detail = rejectReasonDetailInput?.value?.trim() || '';
+
+    if (!subject) {
+      window.showToast?.('Please enter a rejection subject.', 'warning');
+      rejectReasonSubjectInput?.focus();
+      return;
+    }
+
+    if (!detail) {
+      window.showToast?.('Please provide the detailed rejection reason.', 'warning');
+      rejectReasonDetailInput?.focus();
+      return;
+    }
+
+    if (button) button.disabled = true;
+
+    try {
+      const res = await fetch(REJECTION_REASONS_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'X-CSRF-TOKEN': CSRF_TOKEN,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({ subject, detail }),
+      });
+
+      let payload = null;
+      try {
+        payload = await res.json();
+      } catch (error) {
+        payload = null;
+      }
+
+      if (!res.ok) {
+        throw new Error(payload?.message || `Failed to save rejection reason (status ${res.status})`);
+      }
+
+      const reasonData = payload?.reason ?? null;
+      if (reasonData) {
+        const idx = REJECTION_REASONS_CACHE.findIndex((reason) => Number(reason.id) === Number(reasonData.id));
+        if (idx > -1) {
+          REJECTION_REASONS_CACHE[idx] = reasonData;
+        } else {
+          REJECTION_REASONS_CACHE.push(reasonData);
+        }
+        setRejectionReasonsCache(REJECTION_REASONS_CACHE);
+      }
+
+      const subjectForUpdate = reasonData?.subject ?? subject;
+      const detailForUpdate = reasonData?.detail ?? detail;
+
+      await submitRejectionDecision({
+        requestId: rejectionFlowState.requestId,
+        reasonId: reasonData?.id ?? null,
+        subject: subjectForUpdate,
+        detail: detailForUpdate,
+        button,
+        modalsToClose: ['adminManpowerRejectCustomModal', 'adminManpowerRejectSelectModal'],
+      });
+
+      if (rejectReasonSubjectInput) rejectReasonSubjectInput.value = '';
+      if (rejectReasonDetailInput) rejectReasonDetailInput.value = '';
+    } catch (error) {
+      console.error(error);
+      window.showToast?.(error?.message || 'Failed to save rejection reason.', 'error');
+    } finally {
+      if (button) button.disabled = false;
+    }
+  };
+
+  const handleCustomRejectionBack = () => {
+    window.dispatchEvent(new CustomEvent('close-modal', { detail: 'adminManpowerRejectCustomModal' }));
+
+    if (rejectionFlowState.prevModal === 'select' && REJECTION_REASONS_CACHE.length) {
+      rejectionFlowState.selectedReasonId = OTHER_REJECTION_REASON_KEY;
+      openRejectionSelectModal(rejectionFlowState.requestId, { preserveSelection: true });
+      if (rejectReasonOtherRadio) {
+        rejectReasonOtherRadio.checked = true;
+      }
+      updateRejectConfirmButton();
+    } else {
+      resetRejectionFlow();
+    }
+  };
+
+  const beginRejectionFlow = async (row) => {
+    if (!row) return;
+    REJECT_REQUEST = row;
+    rejectionFlowState.requestId = row.id;
+
+    try {
+      const reasons = await fetchRejectionReasons(false);
+      if (!reasons.length) {
+        rejectionFlowState.selectedReasonId = OTHER_REJECTION_REASON_KEY;
+        openRejectionCustomModal(row.id, {
+          fromSelection: false,
+          subject: row.rejection_reason_subject || '',
+          detail: row.rejection_reason_detail || '',
+        });
+        return;
+      }
+
+      rejectionFlowState.selectedReasonId = null;
+      renderRejectionReasonList();
+      updateRejectConfirmButton();
+
+      window.dispatchEvent(new CustomEvent('open-modal', { detail: 'adminManpowerRejectSelectModal' }));
+    } catch (error) {
+      console.error(error);
+      window.showToast?.(error?.message || 'Failed to load rejection reasons.', 'error');
+    }
+  };
+
+  const bindRejectionReasonEvents = () => {
+    if (rejectReasonOptions) {
+      rejectReasonOptions.addEventListener('change', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement)) return;
+        if (target.name !== 'manpowerRejectReasonChoice') return;
+        rejectionFlowState.selectedReasonId = target.value;
+        updateRejectConfirmButton();
+      });
+
+      rejectReasonOptions.addEventListener('click', (event) => {
+        const button = event.target instanceof HTMLElement ? event.target.closest('button[data-action]') : null;
+        if (!button) return;
+        event.preventDefault();
+        event.stopPropagation();
+
+        const reasonId = button.dataset.reasonId;
+        if (!reasonId) return;
+        const action = button.dataset.action;
+
+        if (action === 'view') {
+          const reason = getRejectionReasonById(reasonId);
+          if (!reason) {
+            window.showToast?.('The selected rejection reason is no longer available.', 'error');
+            return;
+          }
+          openRejectionDetailModal(reason);
+        } else if (action === 'remove') {
+          openRejectionDeleteModal(reasonId);
+        }
+      });
+    }
+
+    rejectReasonOtherRadio?.addEventListener('change', (event) => {
+      const input = event.target;
+      if (!(input instanceof HTMLInputElement)) return;
+      if (input.checked) {
+        rejectionFlowState.selectedReasonId = OTHER_REJECTION_REASON_KEY;
+        updateRejectConfirmButton();
+      }
+    });
+
+    rejectReasonSelectConfirmBtn?.addEventListener('click', async () => {
+      if (!rejectionFlowState.requestId) {
+        window.showToast?.('No manpower request selected.', 'error');
+        return;
+      }
+
+      const selected = rejectionFlowState.selectedReasonId;
+      if (!selected) {
+        window.showToast?.('Please select a rejection reason.', 'warning');
+        return;
+      }
+
+      if (selected === OTHER_REJECTION_REASON_KEY) {
+        window.dispatchEvent(new CustomEvent('close-modal', { detail: 'adminManpowerRejectSelectModal' }));
+        openRejectionCustomModal(rejectionFlowState.requestId, { fromSelection: true });
+        return;
+      }
+
+      const reason = getRejectionReasonById(selected);
+      if (!reason) {
+        window.showToast?.('The selected rejection reason is no longer available.', 'error');
+        return;
+      }
+
+      rejectReasonSelectConfirmBtn.disabled = true;
+      try {
+        await submitRejectionDecision({
+          requestId: rejectionFlowState.requestId,
+          reasonId: reason.id,
+          subject: reason.subject,
+          detail: reason.detail,
+          button: rejectReasonSelectConfirmBtn,
+          modalsToClose: ['adminManpowerRejectSelectModal'],
+        });
+      } finally {
+        rejectReasonSelectConfirmBtn.disabled = false;
+      }
+    });
+
+    rejectReasonSelectCancelBtn?.addEventListener('click', () => {
+      resetRejectionFlow();
+    });
+
+    rejectReasonCustomConfirmBtn?.addEventListener('click', async () => {
+      await saveCustomRejectionReason(rejectReasonCustomConfirmBtn);
+    });
+
+    rejectReasonCustomBackBtn?.addEventListener('click', () => {
+      handleCustomRejectionBack();
+    });
+
+    rejectReasonDeleteConfirmBtn?.addEventListener('click', async () => {
+      const reasonId = rejectReasonDeleteConfirmBtn.dataset.reasonId;
+      if (!reasonId) {
+        window.showToast?.('Unable to remove the selected reason.', 'error');
+        return;
+      }
+      await deleteRejectionReason(reasonId, rejectReasonDeleteConfirmBtn);
+    });
+
+    rejectReasonDeleteCancelBtn?.addEventListener('click', () => {
+      window.dispatchEvent(new CustomEvent('close-modal', { detail: 'adminManpowerRejectDeleteModal' }));
+    });
+  };
+
   const render = () => {
     if (!CACHE.length) {
       const template = document.getElementById('admin-manpower-empty-state-template');
@@ -186,7 +734,7 @@ document.addEventListener('DOMContentLoaded', () => {
       hydrateApproveModal(row);
       openModal('adminManpowerApproveModal');
     } else if (action === 'reject') {
-      confirmReject(row);
+      beginRejectionFlow(row);
     } else if (action === 'view') {
       hydrateViewModal(row);
       openModal('adminManpowerViewModal');
@@ -198,22 +746,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const hydrateApproveModal = (row) => {
     approvedQuantityInput.value = row.quantity;
-    approveFields.forEach(el => {
-      const key = el.dataset.approveField;
-      if (key === 'borrow_date') {
-        el.textContent = formatDateDisplay(row.start_at);
-      } else if (key === 'return_date') {
-        el.textContent = formatDateDisplay(row.end_at);
-      } else if (key === 'letter') {
-        el.innerHTML = buildLetterPreview(row.letter_url);
-      } else if (key === 'user') {
-        el.textContent = row.user?.name || '—';
-      } else if (key === 'quantity') {
-        el.textContent = row.quantity;
-      } else {
-        el.textContent = row[key] || '—';
-      }
-    });
+    if (approvedQuantityInput) {
+      approvedQuantityInput.max = row.quantity;
+    }
+      approveFields.forEach(el => {
+        const key = el.dataset.approveField;
+        if (key === 'borrow_date') {
+          el.textContent = formatDateDisplay(row.start_at);
+        } else if (key === 'return_date') {
+          el.textContent = formatDateDisplay(row.end_at);
+        } else if (key === 'letter') {
+          el.innerHTML = buildLetterPreview(row.letter_url);
+        } else if (key === 'user') {
+          el.textContent = row.user?.name || '—';
+        } else if (key === 'quantity') {
+          el.textContent = row.quantity;
+        } else if (key === 'status') {
+          el.innerHTML = badgeHtml(row.status);
+        } else {
+          el.textContent = row[key] || '—';
+        }
+      });
   };
 
   const hydrateViewModal = (row) => {
@@ -231,33 +784,72 @@ document.addEventListener('DOMContentLoaded', () => {
       } else if (key === 'user') {
         el.textContent = row.user?.name || '—';
       } else if (key === 'status') {
-        el.textContent = row.status ? row.status.charAt(0).toUpperCase() + row.status.slice(1) : '—';
+        el.innerHTML = badgeHtml(row.status);
       } else {
         el.textContent = row[key] || '—';
       }
     });
-  };
 
-  const confirmReject = async (row) => {
-    if (!window.confirm('Reject this request?')) return;
-    await updateStatus(row.id, 'rejected');
+    const hasRejection = Boolean((row.rejection_reason_subject || '').trim() || (row.rejection_reason_detail || '').trim());
+    if (rejectionCard) {
+      if (hasRejection) {
+        rejectionCard.classList.remove('hidden');
+        if (rejectionSubjectView) {
+          rejectionSubjectView.textContent = row.rejection_reason_subject || '—';
+        }
+        if (rejectionDetailView) {
+          rejectionDetailView.textContent = row.rejection_reason_detail || '—';
+        }
+      } else {
+        rejectionCard.classList.add('hidden');
+        if (rejectionSubjectView) rejectionSubjectView.textContent = '—';
+        if (rejectionDetailView) rejectionDetailView.textContent = '—';
+      }
+    }
   };
 
   confirmApproveBtn?.addEventListener('click', async () => {
     if (!ACTIVE_REQUEST) return;
     const qty = parseInt(approvedQuantityInput.value, 10);
     if (!qty || qty < 1) {
-      window.showToast?.('warning', 'Approved quantity must be at least 1.');
+      window.showToast?.('Approved quantity must be at least 1.', 'warning');
       return;
     }
     if (qty > ACTIVE_REQUEST.quantity) {
-      window.showToast?.('warning', 'Approved quantity cannot exceed requested quantity.');
+      window.showToast?.('Approved quantity cannot exceed requested quantity.', 'warning');
       return;
     }
-    await updateStatus(ACTIVE_REQUEST.id, 'validated', {approved_quantity: qty});
     closeModal('adminManpowerApproveModal');
-    ACTIVE_REQUEST = null;
+    try {
+      await updateStatus(ACTIVE_REQUEST.id, 'validated', { approved_quantity: qty });
+      ACTIVE_REQUEST = null;
+    } catch (error) {
+      console.error(error);
+      openModal('adminManpowerApproveModal');
+    }
   });
+
+  const enforceQuantityBounds = () => {
+    if (!approvedQuantityInput) return;
+    const raw = parseInt(approvedQuantityInput.value, 10);
+    if (Number.isNaN(raw)) return;
+    const maxAttr = approvedQuantityInput.max;
+    const maxCandidate = Number(ACTIVE_REQUEST?.quantity ?? (maxAttr !== '' ? maxAttr : NaN));
+    const max = Number.isFinite(maxCandidate) ? maxCandidate : null;
+    if (max !== null && raw > max) {
+      approvedQuantityInput.value = max;
+      return;
+    }
+    const minAttr = approvedQuantityInput.min;
+    const minCandidate = Number(minAttr !== '' ? minAttr : NaN);
+    const min = Number.isFinite(minCandidate) ? minCandidate : 1;
+    if (raw < min) {
+      approvedQuantityInput.value = min;
+    }
+  };
+
+  approvedQuantityInput?.addEventListener('input', enforceQuantityBounds);
+  approvedQuantityInput?.addEventListener('change', enforceQuantityBounds);
 
   const updateStatus = async (id, status, extra = {}) => {
     try {
@@ -268,11 +860,29 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed');
-      window.showToast?.('success', `Request ${status}.`);
+
+      const normalizedStatus = String(status || '').toLowerCase();
+      const fallbackMessages = {
+        validated: 'Manpower request validated.',
+        approved: 'Manpower request approved.',
+        rejected: 'Manpower request rejected.',
+        pending: 'Manpower request moved back to pending.',
+      };
+      const fallbackTypes = {
+        rejected: 'info',
+        pending: 'info',
+      };
+
+      const toastMessage = data.message || fallbackMessages[normalizedStatus] || 'Manpower request status updated.';
+      const toastType = fallbackTypes[normalizedStatus] || 'success';
+      window.showToast?.(toastMessage, toastType);
+
       await fetchRows();
+      return true;
     } catch (e) { 
       console.error(e); 
-      window.showToast?.('error', e.message || 'Status update failed'); 
+      window.showToast?.(e.message || 'Status update failed', 'error');
+      throw e;
     }
   };
 
@@ -321,18 +931,18 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed');
-      window.showToast?.('success', 'Role deleted.');
+      window.showToast?.('Role deleted.', 'success');
       await fetchRoles();
     } catch (err) {
       console.error(err);
-      window.showToast?.('error', err.message || 'Failed to delete role.');
+      window.showToast?.(err.message || 'Failed to delete role.', 'error');
     }
   });
 
   saveRoleBtn?.addEventListener('click', async () => {
     const name = roleNameInput.value.trim();
     if (!name) {
-      window.showToast?.('warning', 'Role type is required.');
+      window.showToast?.('Role type is required.', 'warning');
       return;
     }
     try {
@@ -344,11 +954,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed');
       roleNameInput.value = '';
-      window.showToast?.('success', 'Role added.');
+      window.showToast?.('Role added.', 'success');
       await fetchRoles();
     } catch (err) {
       console.error(err);
-      window.showToast?.('error', err.message || 'Failed to save role.');
+      window.showToast?.(err.message || 'Failed to save role.', 'error');
     }
   });
 
@@ -360,5 +970,6 @@ document.addEventListener('DOMContentLoaded', () => {
   search?.addEventListener('input', () => { fetchRows(); });
   statusFilter?.addEventListener('change', () => { fetchRows(); });
 
+  bindRejectionReasonEvents();
   fetchRows();
 });

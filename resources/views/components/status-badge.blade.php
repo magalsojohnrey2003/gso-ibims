@@ -1,5 +1,5 @@
 @props([ 
-    'type' => 'info',   // success | info | warning | danger | gray | accepted | rejected | pending
+    'type' => 'info',   // success | info | delivered | warning | danger | gray | accepted | rejected | pending
     'text' => '',
 ])
 
@@ -8,6 +8,7 @@
     $styles = [
         'success'  => 'bg-green-100 text-green-800 ring-green-200',
         'info'     => 'bg-blue-100 text-blue-800 ring-blue-200',
+        'delivered'=> 'bg-blue-100 text-blue-800 ring-blue-200',
         'warning'  => 'bg-yellow-100 text-yellow-800 ring-yellow-200',
         'danger'   => 'bg-red-100 text-red-800 ring-red-200',
         'gray'     => 'bg-gray-100 text-gray-800 ring-gray-200',
@@ -21,6 +22,7 @@
     $icons = [
         'success'  => 'fa-check-circle',
         'info'     => 'fa-info-circle',
+        'delivered'=> 'fa-truck',
         'warning'  => 'fa-clock',
         'danger'   => 'fa-exclamation-triangle',
         'gray'     => 'fa-question-circle',

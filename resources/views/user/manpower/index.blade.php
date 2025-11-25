@@ -294,15 +294,15 @@
         </div>
     </x-modal>
 
-    <x-modal name="userManpowerViewModal" maxWidth="2xl">
-        <div class="w-full max-h-[85vh] bg-gray-100 dark:bg-gray-900 flex flex-col overflow-hidden rounded-2xl">
+    <x-modal name="userManpowerViewModal" maxWidth="2xl" background="transparent">
+        <div class="w-full max-h-[85vh] bg-[#4C1D95] dark:bg-gray-900 flex flex-col overflow-hidden rounded-2xl shadow-2xl">
             <div class="relative px-6 py-4 bg-[#4C1D95] text-white sticky top-0 z-30 flex items-start gap-3">
                 <div class="flex-1">
                     <h3 class="text-xl font-semibold leading-snug flex items-center gap-2">
                         <i class="fas fa-users"></i>
-                        <span>Request Details</span>
+                        <span>My Manpower Request</span>
                     </h3>
-                    <p class="text-sm text-purple-100 mt-1">See your manpower request status and relevant documents.</p>
+                    <p class="text-sm text-purple-100 mt-1">Review approval status, schedule, and assigned personnel for this request.</p>
                 </div>
                 <button
                     type="button"
@@ -314,22 +314,25 @@
                 </button>
             </div>
 
-            <div class="flex-1 overflow-y-auto px-6 py-5 space-y-5 text-sm text-gray-700 dark:text-gray-300">
+            <div class="flex-1 overflow-y-auto bg-gray-100 dark:bg-gray-900 px-6 py-5 space-y-5 text-sm text-gray-700 dark:text-gray-300">
                 <div class="grid gap-4 md:grid-cols-2">
                     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 md:col-span-2">
-                        <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Request Summary</h4>
+                        <div class="flex items-center gap-2 text-purple-700">
+                            <i class="fas fa-clipboard-list text-sm"></i>
+                            <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Request Summary</h4>
+                        </div>
                         <dl class="mt-3 grid gap-3 sm:grid-cols-2">
                             <div>
                                 <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Request ID</dt>
                                 <dd class="mt-1 font-medium text-gray-900 dark:text-white" data-user-view="id">—</dd>
                             </div>
                             <div>
-                                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Status</dt>
-                                <dd class="mt-1 font-medium text-gray-900 dark:text-white" data-user-view="status">—</dd>
-                            </div>
-                            <div>
                                 <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Role</dt>
                                 <dd class="mt-1 font-medium text-gray-900 dark:text-white" data-user-view="role">—</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Status</dt>
+                                <dd class="mt-1 font-medium text-gray-900 dark:text-white" data-user-view="status">—</dd>
                             </div>
                             <div>
                                 <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Qty (Approved / Requested)</dt>
@@ -339,7 +342,10 @@
                     </div>
 
                     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
-                        <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Schedule</h4>
+                        <div class="flex items-center gap-2 text-purple-700">
+                            <i class="fas fa-calendar-alt text-sm"></i>
+                            <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Schedule</h4>
+                        </div>
                         <dl class="mt-3 space-y-3">
                             <div>
                                 <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Borrow Date</dt>
@@ -353,7 +359,10 @@
                     </div>
 
                     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
-                        <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Location</h4>
+                        <div class="flex items-center gap-2 text-purple-700">
+                            <i class="fas fa-map-marker-alt text-sm"></i>
+                            <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Location</h4>
+                        </div>
                         <dl class="mt-3 space-y-3">
                             <div>
                                 <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Municipality</dt>
@@ -371,12 +380,35 @@
                     </div>
 
                     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 md:col-span-2">
-                        <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Purpose</h4>
+                        <div class="flex items-center gap-2 text-purple-700">
+                            <i class="fas fa-bullseye text-sm"></i>
+                            <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Purpose</h4>
+                        </div>
                         <p class="mt-2 text-gray-600 dark:text-gray-300" data-user-view="purpose">—</p>
                     </div>
 
+                    <div id="userManpowerRejectionCard" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 md:col-span-2 hidden">
+                        <div class="flex items-center gap-2 text-red-600">
+                            <i class="fas fa-circle-xmark text-sm"></i>
+                            <h4 class="text-sm font-semibold tracking-wide uppercase">Rejection Reason</h4>
+                        </div>
+                        <dl class="mt-3 space-y-3">
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Subject</dt>
+                                <dd class="mt-1 font-medium text-gray-900 dark:text-white" data-user-view="rejection_subject">—</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Explanation</dt>
+                                <dd class="mt-1 text-gray-600 dark:text-gray-300 whitespace-pre-line" data-user-view="rejection_detail">—</dd>
+                            </div>
+                        </dl>
+                    </div>
+
                     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 md:col-span-2 text-center">
-                        <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">QR Status</h4>
+                        <div class="flex items-center gap-2 justify-center text-purple-700">
+                            <i class="fas fa-qrcode text-sm"></i>
+                            <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">QR Status</h4>
+                        </div>
                         <div id="userManpowerQr" class="mt-3 flex items-center justify-center bg-gray-50 dark:bg-gray-700 rounded-lg min-h-[160px]">
                             <div class="text-sm text-gray-400">QR code unavailable.</div>
                         </div>

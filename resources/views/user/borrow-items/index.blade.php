@@ -85,6 +85,8 @@
                     <!-- Item Image -->
                     @php
                         $photoUrl = $item->photo_url;
+                        $safeMaxQty = max(0, (int) ($item->safe_borrow_qty ?? $item->total_qty));
+                        $differsFromTotal = $safeMaxQty < (int) $item->total_qty;
                     @endphp
                     <div class="relative">
                         <img src="{{ $photoUrl }}"
@@ -119,6 +121,12 @@
                                         <p class="font-semibold text-purple-300">Category:</p>
                                         <p class="text-gray-200">{{ $item->category_name }}</p>
                                     </div>
+                                    @if($differsFromTotal)
+                                        <div>
+                                            <p class="font-semibold text-purple-300">Usable units:</p>
+                                            <p class="text-gray-200">{{ $safeMaxQty }} (damaged or missing items excluded)</p>
+                                        </div>
+                                    @endif
                                 </div>
                                 <!-- Arrow -->
                                 <div class="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-gray-900"></div>
@@ -131,9 +139,7 @@
                         $isAvailable = ($item->available_qty ?? 0) > 0;
                         $iconClass = 'w-4 h-4 ' . ($isAvailable ? 'text-green-600' : 'text-red-600');
                         $availTextClass = $isAvailable ? 'text-green-700' : 'text-red-700';
-                        $safeMaxQty = max(0, (int) ($item->safe_borrow_qty ?? $item->total_qty));
                         $inputMaxQty = max($safeMaxQty, 1);
-                        $differsFromTotal = $safeMaxQty < (int) $item->total_qty;
                         $disableBorrow = $safeMaxQty <= 0;
                     @endphp
 
@@ -151,10 +157,6 @@
                             </span>
                         </span>
                     </div>
-
-                    @if($differsFromTotal)
-                        <p class="text-xs text-amber-600 font-medium mb-3">Usable units: {{ $safeMaxQty }} (damaged or missing items excluded)</p>
-                    @endif
 
                     <!-- Borrow Form -->
                     <form action="{{ route('borrowList.add', $item->id) }}"
