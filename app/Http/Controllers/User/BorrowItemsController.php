@@ -14,6 +14,7 @@ use App\Notifications\RequestNotification;
 use Illuminate\Support\Facades\Notification;
 use App\Models\User;
 use App\Services\BorrowRequestFormPdf; 
+use App\Services\PhilSmsService;
 use Illuminate\Support\Facades\Storage;
 
 class BorrowItemsController extends Controller
@@ -231,7 +232,7 @@ class BorrowItemsController extends Controller
     }
 
     // ✅ Submit borrow request
-    public function submitRequest(Request $request)
+    public function submitRequest(Request $request, PhilSmsService $philSms)
     {
         $borrowList = Session::get('borrowList', []);
         if (empty($borrowList)) {
@@ -361,6 +362,8 @@ class BorrowItemsController extends Controller
         ];
 
         Notification::send($admins, new RequestNotification($payload));
+
+        $philSms->notifyAdminsBorrowRequest($borrowRequest);
 
         return redirect()->route('borrow.items')
             ->with('success', 'Borrow request submitted successfully!');

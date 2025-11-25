@@ -71,6 +71,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const endTimeInput = document.getElementById('mp_end_time');
   const userViewFields = document.querySelectorAll('[data-user-view]');
   const qrContainer = document.getElementById('userManpowerQr');
+  const userRejectionCard = document.getElementById('userManpowerRejectionCard');
+  const userRejectionSubject = document.querySelector('[data-user-view="rejection_subject"]');
+  const userRejectionDetail = document.querySelector('[data-user-view="rejection_detail"]');
   const MUNICIPALITY_ALIASES = {
     'cagayan-de-oro': 'cagayan-de-oro-city',
   };
@@ -428,23 +431,23 @@ document.addEventListener('DOMContentLoaded', () => {
   const validateStepOne = () => {
     const quantityValue = parseInt(quantityInput?.value ?? '', 10);
     if (!Number.isInteger(quantityValue) || quantityValue < 1) {
-      window.showToast?.('warning', 'Quantity must be at least 1');
+      window.showToast?.('Quantity must be at least 1', 'warning');
       quantityInput?.focus();
       return false;
     }
     if (quantityValue > 999) {
-      window.showToast?.('warning', 'Maximum of 999 personnel only');
+      window.showToast?.('Maximum of 999 personnel only', 'warning');
       quantityInput?.focus();
       return false;
     }
     if (!roleSelect?.value) {
-      window.showToast?.('warning', 'Please select a manpower role');
+      window.showToast?.('Please select a manpower role', 'warning');
       roleSelect?.focus();
       return false;
     }
     const purposeValue = (purposeInput?.value || '').trim();
     if (!purposeValue) {
-      window.showToast?.('warning', 'Purpose is required');
+      window.showToast?.('Purpose is required', 'warning');
       purposeInput?.focus();
       return false;
     }
@@ -453,37 +456,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const validateStepTwo = () => {
     if (!municipalitySelect?.value) {
-      window.showToast?.('warning', 'Please select a municipality/city');
+      window.showToast?.('Please select a municipality/city', 'warning');
       municipalitySelect?.focus();
       return false;
     }
     if (!barangaySelect?.value) {
-      window.showToast?.('warning', 'Please select a barangay');
+      window.showToast?.('Please select a barangay', 'warning');
       barangaySelect?.focus();
       return false;
     }
     const locationValue = (locationInput?.value || '').trim();
     if (!locationValue) {
-      window.showToast?.('warning', 'Specific area is required');
+      window.showToast?.('Specific area is required', 'warning');
       locationInput?.focus();
       return false;
     }
     const startDateValue = startDateInput?.value || '';
     const endDateValue = endDateInput?.value || '';
     if (!startDateValue) {
-      window.showToast?.('warning', 'Start date is required');
+      window.showToast?.('Start date is required', 'warning');
       startDateInput?.focus();
       return false;
     }
     if (!endDateValue) {
-      window.showToast?.('warning', 'End date is required');
+      window.showToast?.('End date is required', 'warning');
       endDateInput?.focus();
       return false;
     }
     const startAtValue = buildDateTimeString(startDateValue, startTimeInput?.value || '00:00', '00:00');
     const endAtValue = buildDateTimeString(endDateValue, endTimeInput?.value || '23:59', '23:59');
     if (startAtValue && endAtValue && new Date(endAtValue) < new Date(startAtValue)) {
-      window.showToast?.('warning', 'End schedule must be on or after the start schedule.');
+      window.showToast?.('End schedule must be on or after the start schedule.', 'warning');
       endDateInput?.focus();
       return false;
     }
@@ -678,7 +681,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const v = collectFormData();
     if (!v.ok) {
-      window.showToast?.('warning', v.message);
+      window.showToast?.(v.message, 'warning');
       return;
     }
     PENDING_PAYLOAD = v.data;
@@ -701,10 +704,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!res.ok) throw new Error(data.message || 'Failed');
       closeModal('userManpowerConfirmModal');
       closeModal('userManpowerCreateModal');
+      window.showToast?.(data.message || 'Your manpower request has been submitted.', 'success');
       await fetchRows();
       PENDING_PAYLOAD = null;
     } catch(e) {
-      window.showToast?.('error', e.message || 'Failed to submit manpower request.');
+      window.showToast?.(e.message || 'Failed to submit manpower request.', 'error');
     }
   });
 
@@ -731,7 +735,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } else if (key === 'return_date') {
         el.textContent = formatDateDisplay(row.end_at);
       } else if (key === 'status') {
-        el.textContent = row.status ? row.status.charAt(0).toUpperCase() + row.status.slice(1) : '—';
+        el.innerHTML = badgeHtml(row.status);
       } else if (key === 'id') {
         el.textContent = formatRequestCode(row) || `#${row.id}`;
       } else if (key === 'location') {
@@ -758,6 +762,23 @@ document.addEventListener('DOMContentLoaded', () => {
       if (link) {
         link.href = '#';
         link.classList.add('hidden');
+      }
+    }
+
+    const hasRejection = Boolean((row.rejection_reason_subject || '').trim() || (row.rejection_reason_detail || '').trim());
+    if (userRejectionCard) {
+      if (hasRejection) {
+        userRejectionCard.classList.remove('hidden');
+        if (userRejectionSubject) {
+          userRejectionSubject.textContent = row.rejection_reason_subject || '—';
+        }
+        if (userRejectionDetail) {
+          userRejectionDetail.textContent = row.rejection_reason_detail || '—';
+        }
+      } else {
+        userRejectionCard.classList.add('hidden');
+        if (userRejectionSubject) userRejectionSubject.textContent = '—';
+        if (userRejectionDetail) userRejectionDetail.textContent = '—';
       }
     }
   };

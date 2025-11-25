@@ -1,4 +1,4 @@
-<x-app-layout> 
+<x-app-layout>
     @php
         $noMainScroll = false; // Enable main content scrolling since we removed table scrollbar
     @endphp
@@ -89,18 +89,18 @@
         <x-table-empty-state colspan="5" />
     </template>
 
-    <!-- Modal (refreshed styling) -->
-    <x-modal name="borrowDetailsModal" maxWidth="lg">
+    <!-- Borrow request details modal -->
+    <x-modal name="borrowDetailsModal" maxWidth="2xl" background="transparent">
         <div
             id="borrowDetailsModalRoot"
             x-data="{ itemsOpen: false, rejectionOpen: false }"
             x-on:open-modal.window="if ($event.detail === 'borrowDetailsModal') { itemsOpen = false; rejectionOpen = false; }"
-            class="w-full max-h-[85vh] bg-gray-100 dark:bg-gray-900 flex flex-col overflow-hidden rounded-2xl"
+            class="w-full max-h-[85vh] bg-[#4C1D95] dark:bg-gray-900 flex flex-col overflow-hidden rounded-2xl shadow-2xl"
         >
             <div class="relative px-6 py-4 bg-[#4C1D95] text-white sticky top-0 z-30 flex items-start gap-3 rounded-t-2xl">
                 <div class="flex-1">
                     <h3 class="text-xl font-semibold leading-snug flex items-center gap-2">
-                        <i class="fa-solid fa-box"></i>
+                        <i class="fas fa-box"></i>
                         <span>Request Item Details</span>
                     </h3>
                     <p class="text-sm text-purple-100 mt-1">Track schedule, status, and items included in this request.</p>
@@ -115,86 +115,101 @@
                 </button>
             </div>
 
-            <div class="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-                <div id="mbi-status-banner" class="flex items-start gap-3 rounded-lg border border-purple-100 bg-purple-50 p-4 text-sm">
+            <div class="flex-1 overflow-y-auto bg-gray-100 dark:bg-gray-900 px-6 py-5 space-y-5 text-sm text-gray-700 dark:text-gray-300">
+                <div id="mbi-status-banner" class="flex items-start gap-3 rounded-lg border border-purple-100 bg-purple-50 p-4">
                     <i class="fas fa-info-circle text-purple-600 text-lg"></i>
-                    <p id="mbi-short-status" class="font-semibold text-purple-800">Request ID #</p>
+                    <p id="mbi-short-status" class="font-semibold text-purple-800">Borrow Request</p>
                 </div>
 
-                <div id="mbi-modal-content" class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-gray-700 dark:text-gray-300">
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex items-start gap-3">
-                        <div class="h-10 w-10 flex items-center justify-center rounded-full bg-purple-100 text-purple-700">
-                            <i class="fas fa-calendar-day"></i>
+                <div class="grid gap-4 md:grid-cols-2">
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 md:col-span-2">
+                        <div class="flex items-center gap-2 text-purple-700">
+                            <i class="fas fa-clipboard-list text-sm"></i>
+                            <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Request Summary</h4>
                         </div>
-                        <div>
-                            <div class="font-medium text-gray-900 dark:text-white">Borrow Date</div>
-                            <div class="text-gray-600 dark:text-gray-300" id="mbi-borrow-date">—</div>
-                        </div>
-                    </div>
-
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex items-start gap-3">
-                        <div class="h-10 w-10 flex items-center justify-center rounded-full bg-purple-100 text-purple-700">
-                            <i class="fas fa-calendar-check"></i>
-                        </div>
-                        <div>
-                            <div class="font-medium text-gray-900 dark:text-white">Return Date</div>
-                            <div class="text-gray-600 dark:text-gray-300" id="mbi-return-date">—</div>
-                        </div>
-                    </div>
-
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex items-start gap-3">
-                        <div class="h-10 w-10 flex items-center justify-center rounded-full bg-purple-100 text-purple-700">
-                            <i class="fas fa-map-marker-alt"></i>
-                        </div>
-                        <div>
-                            <div class="font-medium text-gray-900 dark:text-white">Delivery Location</div>
-                            <div class="text-gray-600 dark:text-gray-300" id="mbi-location">—</div>
-                        </div>
-                    </div>
-
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex items-start gap-3">
-                        <div class="h-10 w-10 flex items-center justify-center rounded-full bg-purple-100 text-purple-700">
-                            <i class="fas fa-clock"></i>
-                        </div>
-                        <div>
-                            <div class="font-medium text-gray-900 dark:text-white">Time of Usage</div>
-                            <div class="text-gray-600 dark:text-gray-300" id="mbi-usage-range">—</div>
-                        </div>
-                    </div>
-
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex items-start gap-3">
-                        <div class="h-10 w-10 flex items-center justify-center rounded-full bg-purple-100 text-purple-700">
-                            <i class="fas fa-tag"></i>
-                        </div>
-                        <div>
-                            <div class="font-medium text-gray-900 dark:text-white">Status</div>
-                            <div id="mbi-status-badge" class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">—</div>
-                        </div>
-                    </div>
-
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 sm:col-span-2">
-                        <button
-                            type="button"
-                            class="w-full flex items-center justify-between text-left"
-                            @click="itemsOpen = !itemsOpen"
-                        >
-                            <div class="flex items-start gap-3">
-                                <div class="h-10 w-10 flex items-center justify-center rounded-full bg-purple-100 text-purple-700">
-                                    <i class="fas fa-box-open"></i>
-                                </div>
-                                <div>
-                                    <div class="font-medium text-gray-900 dark:text-white">Items</div>
-                                    <p id="mbi-items-summary" class="text-sm text-gray-500 dark:text-gray-400">0 items</p>
-                                </div>
+                        <dl class="mt-3 grid gap-3 sm:grid-cols-2">
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Request ID</dt>
+                                <dd id="mbi-summary-id" class="mt-1 font-medium text-gray-900 dark:text-white">—</dd>
                             </div>
-                            <i class="fas" :class="itemsOpen ? 'fa-chevron-up text-purple-600' : 'fa-chevron-down text-gray-400'"></i>
-                        </button>
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Status</dt>
+                                <dd id="mbi-summary-status" class="mt-1 font-medium text-gray-900 dark:text-white">—</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Items</dt>
+                                <dd id="mbi-summary-items" class="mt-1 font-medium text-gray-900 dark:text-white">—</dd>
+                            </div>
+                            <div class="sm:col-span-2">
+                                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Purpose</dt>
+                                <dd id="mbi-summary-purpose" class="mt-1 text-gray-700 dark:text-gray-300">—</dd>
+                            </div>
+                        </dl>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+                        <div class="flex items-center gap-2 text-purple-700">
+                            <i class="fas fa-calendar-alt text-sm"></i>
+                            <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Schedule</h4>
+                        </div>
+                        <dl class="mt-3 space-y-3">
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Borrow Date</dt>
+                                <dd id="mbi-schedule-borrow" class="mt-1 font-medium text-gray-900 dark:text-white">—</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Return Date</dt>
+                                <dd id="mbi-schedule-return" class="mt-1 font-medium text-gray-900 dark:text-white">—</dd>
+                            </div>
+                            <div id="mbi-schedule-time-row">
+                                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Time of Usage</dt>
+                                <dd id="mbi-schedule-time" class="mt-1 font-medium text-gray-900 dark:text-white">—</dd>
+                            </div>
+                        </dl>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+                        <div class="flex items-center gap-2 text-purple-700">
+                            <i class="fas fa-map-marker-alt text-sm"></i>
+                            <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Location</h4>
+                        </div>
+                        <dl class="mt-3 space-y-3">
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Municipality / City</dt>
+                                <dd id="mbi-location-municipality" class="mt-1 font-medium text-gray-900 dark:text-white">—</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Barangay</dt>
+                                <dd id="mbi-location-barangay" class="mt-1 font-medium text-gray-900 dark:text-white">—</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Specific Area</dt>
+                                <dd id="mbi-location-area" class="mt-1 font-medium text-gray-900 dark:text-white">—</dd>
+                            </div>
+                        </dl>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 md:col-span-2">
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-2 text-purple-700">
+                                <i class="fas fa-boxes text-sm"></i>
+                                <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Items</h4>
+                            </div>
+                            <button
+                                type="button"
+                                class="text-xs font-semibold uppercase tracking-wide text-purple-600 hover:text-purple-700"
+                                @click="itemsOpen = !itemsOpen"
+                            >
+                                <span x-text="itemsOpen ? 'Hide' : 'Show'"></span>
+                            </button>
+                        </div>
+                        <p id="mbi-items-summary" class="mt-2 text-sm text-gray-500 dark:text-gray-400">0 items</p>
                         <div x-show="itemsOpen" x-cloak class="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
                             <ul id="mbi-items" class="space-y-1 text-gray-600 dark:text-gray-300 list-disc list-inside"></ul>
                         </div>
                     </div>
 
-                    <div id="mbi-rejection-block" class="sm:col-span-2 hidden">
+                    <div id="mbi-rejection-block" class="hidden md:col-span-2">
                         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-red-200/70 dark:border-red-500/40 p-4">
                             <button
                                 type="button"
@@ -202,19 +217,19 @@
                                 @click="rejectionOpen = !rejectionOpen"
                             >
                                 <div class="flex items-start gap-3">
-                                    <div class="h-10 w-10 flex items-center justify-center rounded-full bg-red-100 text-red-600">
-                                        <i class="fas fa-circle-xmark"></i>
+                                    <div class="flex items-center gap-2 text-red-600">
+                                        <i class="fas fa-circle-xmark text-sm"></i>
+                                        <span class="text-sm font-semibold tracking-wide uppercase">Rejection Reason</span>
                                     </div>
-                                    <div>
-                                        <div class="font-medium text-red-700">Rejection Reason</div>
-                                        <p id="mbi-rejection-summary" class="text-sm text-red-600/80">Tap to view details</p>
+                                    <div class="mt-0.5">
+                                        <p id="mbi-rejection-summary" class="text-sm text-gray-600 dark:text-gray-300">Tap to view details</p>
                                     </div>
                                 </div>
                                 <i class="fas" :class="rejectionOpen ? 'fa-chevron-up text-red-500' : 'fa-chevron-down text-red-300'"></i>
                             </button>
                             <div x-show="rejectionOpen" x-cloak class="mt-4 border-t border-red-200 dark:border-red-600 pt-4 space-y-2 text-sm">
-                                <p id="mbi-rejection-subject" class="font-semibold text-red-700"></p>
-                                <p id="mbi-rejection-reason" class="text-red-600 dark:text-red-300 whitespace-pre-line"></p>
+                                <p id="mbi-rejection-subject" class="font-semibold text-gray-900 dark:text-gray-100"></p>
+                                <p id="mbi-rejection-reason" class="text-gray-700 dark:text-gray-300 whitespace-pre-line"></p>
                             </div>
                         </div>
                     </div>
@@ -267,10 +282,6 @@
     <template id="btn-print-template">
         <x-button variant="secondary" iconName="printer" class="btn-action btn-print h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="print" title="Open printable slip">Print</x-button>
     </template>
-    <template id="btn-return-template">
-        <x-button variant="secondary" iconName="arrow-uturn-left" class="btn-action btn-utility h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="return" title="Start return">Return Items</x-button>
-    </template>
-
     <!-- Alert templates -->
     <template id="alert-success-template">
         <div><x-alert type="success"><span data-alert-message></span></x-alert></div>
@@ -296,8 +307,7 @@
         <template data-status="default"><x-status-badge type="gray" text="—" /></template>
         <template data-status="validated"><x-status-badge type="info" text="Validated" /></template>
         <template data-status="dispatched"><x-status-badge type="info" text="Dispatched" /></template>
-        <template data-status="delivered"><x-status-badge type="success" text="Delivered" /></template>
-
+        <template data-status="delivered"><x-status-badge type="delivered" text="Delivered" /></template>
     </div>
 
     <!-- Small bootstrap variables for the module -->

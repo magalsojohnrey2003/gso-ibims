@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ManpowerRequest;
 use App\Models\ManpowerRole;
 use App\Services\ManpowerRequestPdfService;
+use App\Services\PhilSmsService;
 use App\Support\MisOrLocations;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
@@ -48,7 +49,7 @@ class ManpowerRequestController extends Controller
         return response()->json($rows);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, PhilSmsService $philSms)
     {
         $data = $request->validate([
             'quantity' => 'required|integer|min:1|max:999',
@@ -107,8 +108,11 @@ class ManpowerRequestController extends Controller
 
         $model = ManpowerRequest::create($data);
 
+        // Notify administrators via SMS when enabled.
+        $philSms->notifyNewManpowerRequest($model);
+
         return response()->json([
-            'message' => 'Manpower request submitted.',
+            'message' => 'Your manpower request has been submitted. We will notify you once it is reviewed.',
             'id' => $model->id,
         ]);
     }

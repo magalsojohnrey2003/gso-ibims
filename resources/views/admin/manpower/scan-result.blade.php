@@ -10,6 +10,7 @@
         'pending' => 'pending',
         default => 'info',
     };
+    $requestCode = $manpowerRequest->formatted_request_id ?? ($manpowerRequest->id ? sprintf('MP-%04d', $manpowerRequest->id) : null);
 @endphp
 
 <x-app-layout>
@@ -31,7 +32,7 @@
                 <div class="space-y-2 text-sm text-gray-600">
                     <div>
                         <span class="font-semibold text-gray-800">Request ID:</span>
-                        <span class="ml-1 text-gray-700">#{{ $manpowerRequest->id }}</span>
+                        <span class="ml-1 text-gray-700">{{ $requestCode ?? '—' }}</span>
                     </div>
                     <div>
                         <span class="font-semibold text-gray-800">Borrower:</span>

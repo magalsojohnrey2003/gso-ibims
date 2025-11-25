@@ -21,7 +21,7 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <!-- Items selection table -->
-            <section class="lg:col-span-2 bg-white rounded-2xl shadow-md border border-gray-200 p-4">
+            <section class="lg:col-span-2 bg-white rounded-2xl shadow-md border border-gray-200 p-4 flex flex-col lg:h-[calc(100vh-200px)] lg:max-h-[calc(100vh-200px)]">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                     <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
                         <i class="fas fa-boxes-stacked text-purple-600"></i>
@@ -34,13 +34,13 @@
                     </div>
                 </div>
 
-                <div class="overflow-auto max-h-[60vh] rounded-xl border border-gray-200">
+                <div class="flex-1 overflow-y-auto rounded-xl border border-gray-200">
                     <table class="min-w-full text-sm">
-                        <thead class="bg-gray-50 sticky top-0 z-10">
+                        <thead class="bg-purple-600 text-white sticky top-0 z-10">
                             <tr>
-                                <th class="px-4 py-3 text-left font-semibold text-gray-700">Item</th>
-                                <th class="px-4 py-3 text-left font-semibold text-gray-700">Available</th>
-                                <th class="px-4 py-3 text-left font-semibold text-gray-700">Quantity</th>
+                                <th class="px-4 py-3 text-left font-semibold">Item</th>
+                                <th class="px-4 py-3 text-left font-semibold">Available</th>
+                                <th class="px-4 py-3 text-left font-semibold">Quantity</th>
                             </tr>
                         </thead>
                         <tbody id="walkinItemsBody" class="divide-y divide-gray-100">
@@ -66,10 +66,12 @@
                                     <td class="px-4 py-3 align-middle">
                                         @php $max = max(0, (int)($item->available_qty ?? 0)); @endphp
                                         <div class="flex items-center gap-2">
-                                            <input type="number" min="0" max="{{ $max }}" value="0"
-                                                   data-qty-input data-item-id="{{ $item->id }}"
-                                                   class="w-24 rounded-lg border border-gray-300 px-2 py-1 text-sm text-gray-800 focus:ring-purple-500 focus:border-purple-500"
-                                                   aria-label="Quantity for {{ $item->name }}" />
+                                            <div class="w-24">
+                                                <input type="number" min="0" max="{{ $max }}" value="0"
+                                                       data-qty-input data-item-id="{{ $item->id }}"
+                                                       class="gov-input w-full text-sm"
+                                                       aria-label="Quantity for {{ $item->name }}" />
+                                            </div>
                                         </div>
                                     </td>
                                 </tr>
@@ -80,7 +82,7 @@
             </section>
 
             <!-- Walk-in details sidebar -->
-            <aside class="lg:col-span-1 bg-white rounded-2xl shadow-md border border-gray-200 p-4 lg:sticky lg:top-6 h-max">
+            <aside class="lg:col-span-1 bg-white rounded-2xl shadow-md border border-gray-200 p-4 lg:sticky lg:top-6 lg:h-[calc(100vh-200px)] lg:max-h-[calc(100vh-200px)] overflow-y-auto" style="background-color:#fff;">
                 <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                     <i class="fas fa-id-card text-purple-600"></i>
                     Walk-in Details
@@ -110,23 +112,23 @@
 
                     <div>
                         <x-input-label for="purpose" value="Purpose" />
-                        <textarea id="purpose" name="purpose" rows="3" maxlength="500" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:ring-purple-500 focus:border-purple-500"></textarea>
+                        <textarea id="purpose" name="purpose" rows="3" maxlength="500" class="gov-input w-full min-h-[6rem] mt-1"></textarea>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
                             <x-input-label for="borrowed_date" value="Borrowed Date" />
                             <div class="mt-1 flex flex-col gap-2">
-                                <input id="borrowed_date" name="borrowed_date" type="date" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-purple-500 focus:border-purple-500" />
-                                <input id="borrowed_time" name="borrowed_time" type="time" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-purple-500 focus:border-purple-500" placeholder="Select time (optional)" />
+                                <input id="borrowed_date" name="borrowed_date" type="date" class="gov-input w-full" />
+                                <input id="borrowed_time" name="borrowed_time" type="time" class="gov-input w-full" placeholder="Select time (optional)" />
                                 <p class="text-xs text-gray-500">Start Time (optional)</p>
                             </div>
                         </div>
                         <div>
                             <x-input-label for="returned_date" value="Returned Date" />
                             <div class="mt-1 flex flex-col gap-2">
-                                <input id="returned_date" name="returned_date" type="date" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-purple-500 focus:border-purple-500" />
-                                <input id="returned_time" name="returned_time" type="time" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-purple-500 focus:border-purple-500" placeholder="Select time (optional)" />
+                                <input id="returned_date" name="returned_date" type="date" class="gov-input w-full" />
+                                <input id="returned_time" name="returned_time" type="time" class="gov-input w-full" placeholder="Select time (optional)" />
                                 <p class="text-xs text-gray-500">End Time (optional)</p>
                             </div>
                         </div>

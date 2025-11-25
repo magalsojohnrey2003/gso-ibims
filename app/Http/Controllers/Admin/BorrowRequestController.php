@@ -13,6 +13,7 @@ use App\Models\BorrowItemInstance;
 use App\Models\BorrowRequestItem;
 use App\Models\WalkInRequest;
 use App\Services\BorrowRequestFormPdf;
+use App\Services\PhilSmsService;
 use App\Models\RejectionReason;
 use App\Support\StatusRank;
 use App\Services\WalkInRequestPdfService;
@@ -349,7 +350,7 @@ class BorrowRequestController extends Controller
         return response()->json($requests);
     }
 
-    public function updateStatus(Request $request, BorrowRequest $borrowRequest)
+    public function updateStatus(Request $request, BorrowRequest $borrowRequest, PhilSmsService $philSms)
     {
         $request->validate([
             'status' => 'required|in:pending,validated,approved,rejected,returned,return_pending,qr_verified'
@@ -533,6 +534,7 @@ class BorrowRequestController extends Controller
                             'borrow_request_id' => $borrowRequest->id,
                             'item_id'           => $item->id,
                             'item_instance_id'  => $inst->id,
+                            'borrowed_qty'      => 1,
                             'checked_out_at'    => now(),
                             'expected_return_at'=> $borrowRequest->return_date,
                             'return_condition'  => 'pending',
@@ -585,6 +587,13 @@ class BorrowRequestController extends Controller
             event(new BorrowRequestStatusUpdated($borrowRequest, $old, $new));
 
             DB::commit();
+
+            if (in_array($new, ['validated', 'approved', 'rejected'], true)) {
+                $borrowerForSms = $borrowRequest->fresh(['user']);
+                if ($borrowerForSms) {
+                    $philSms->notifyBorrowerStatus($borrowerForSms, $new, $notificationReason);
+                }
+            }
 
             try {
                 $user = $borrowRequest->user;
@@ -654,7 +663,7 @@ class BorrowRequestController extends Controller
         }
     }
 
-    public function scan(Request $request, BorrowRequest $borrowRequest, BorrowRequestFormPdf $formPdf)
+    public function scan(Request $request, BorrowRequest $borrowRequest, BorrowRequestFormPdf $formPdf, PhilSmsService $philSms)
     {
         $oldStatus = $borrowRequest->status ?? 'pending';
         $wasUpdated = false;
@@ -667,6 +676,13 @@ class BorrowRequestController extends Controller
             event(new BorrowRequestStatusUpdated($borrowRequest->fresh(), $oldStatus, $borrowRequest->status));
             $borrowRequest->refresh();
             $wasUpdated = true;
+        }
+
+        if ($wasUpdated) {
+            $freshForSms = $borrowRequest->fresh(['user']);
+            if ($freshForSms) {
+                $philSms->notifyBorrowerStatus($freshForSms, 'approved');
+            }
         }
 
         $message = $wasUpdated
@@ -715,29 +731,50 @@ class BorrowRequestController extends Controller
         ]);
     }
 
-    protected function allocateInstancesForBorrowRequest(BorrowRequest $borrowRequest): void
+    protected function allocateInstancesForBorrowRequest(BorrowRequest $borrowRequest): ?array
     {
         // Assumes $borrowRequest->load('items.item') has been called by caller if needed.
         foreach ($borrowRequest->items as $requestItem) {
             $item = $requestItem->item;
-            if (!$item) {
+            if (! $item) {
+                return [
+                    'message' => 'One of the requested items could not be found. Allocation aborted.',
+                ];
+            }
+
+            $needed = (int) $requestItem->quantity;
+            if ($needed <= 0) {
                 continue;
             }
 
-            $needed = $requestItem->quantity;
             $instances = $item->instances()
                 ->where('status', 'available')
+                ->lockForUpdate()
                 ->take($needed)
                 ->get();
 
+            $availableCount = $instances->count();
+            if ($availableCount < $needed) {
+                $shortfall = max(0, $needed - $availableCount);
+                return [
+                    'message' => $availableCount > 0
+                        ? "Only {$availableCount} of {$item->name} available right now (needed {$needed})."
+                        : "No available instances for {$item->name}.",
+                    'available_instances' => $availableCount,
+                    'requested_quantity' => $needed,
+                    'shortfall' => $shortfall,
+                ];
+            }
+
             foreach ($instances as $inst) {
-                $inst->status = 'allocated';  // Changed from 'borrowed' to 'allocated'
+                $inst->status = 'allocated';
                 $inst->save();
 
                 BorrowItemInstance::create([
                     'borrow_request_id' => $borrowRequest->id,
                     'item_id'           => $item->id,
                     'item_instance_id'  => $inst->id,
+                    'borrowed_qty'      => 1,
                     'checked_out_at'    => now(),
                     'expected_return_at'=> $borrowRequest->return_date,
                     'return_condition'  => 'pending',
@@ -745,9 +782,11 @@ class BorrowRequestController extends Controller
             }
             // Stock deduction happens on delivery, not allocation
         }
+
+        return null;
     }
 
-    public function dispatch(Request $request, BorrowRequest $borrowRequest)
+    public function dispatch(Request $request, BorrowRequest $borrowRequest, PhilSmsService $philSms)
     {
         // Normalize status if QR-verified
         if ($borrowRequest->status === 'qr_verified') {
@@ -781,6 +820,7 @@ class BorrowRequestController extends Controller
         try {
             // ensure we have items loaded
             $borrowRequest->load('items.item');
+            $statusBeforeDispatch = $borrowRequest->status;
 
             // Only check available quantity if status is not already approved
             // If already approved, items are already allocated, so we can proceed
@@ -800,7 +840,11 @@ class BorrowRequestController extends Controller
                     }
                 }
                 // allocate (instances marked allocated, no stock deduction yet)
-                $this->allocateInstancesForBorrowRequest($borrowRequest);
+                $allocationError = $this->allocateInstancesForBorrowRequest($borrowRequest);
+                if ($allocationError) {
+                    DB::rollBack();
+                    return response()->json($allocationError, 422);
+                }
             }
 
             // set approved status and delivery meta (dispatch step only)
@@ -825,6 +869,8 @@ class BorrowRequestController extends Controller
             
             $borrowRequest->save();
 
+            $becameApproved = $statusBeforeDispatch !== 'approved' && $borrowRequest->status === 'approved';
+
             // notify user - dispatched only (two-step flow)
             $user = $borrowRequest->user;
             if ($user) {
@@ -842,9 +888,14 @@ class BorrowRequestController extends Controller
             }
 
             DB::commit();
+            if ($becameApproved) {
+                $freshForSms = $borrowRequest->fresh(['user']);
+                if ($freshForSms) {
+                    $philSms->notifyBorrowerStatus($freshForSms, 'approved');
+                }
+            }
             return response()->json(['message' => 'Items dispatched successfully.']);
         } catch (\Throwable $e) {
-            DB::rollBack();
             Log::error('borrow.dispatch_failed', [
                 'borrow_request_id' => $borrowRequest->id,
                 'error' => $e->getMessage(),
@@ -911,7 +962,7 @@ class BorrowRequestController extends Controller
         return null;
     }
 
-    public function markDelivered(Request $request, BorrowRequest $borrowRequest)
+    public function markDelivered(Request $request, BorrowRequest $borrowRequest, PhilSmsService $philSms)
     {
         // If already delivered, make idempotent for legacy callers
         if ($borrowRequest->delivery_status === 'delivered') {
@@ -925,6 +976,18 @@ class BorrowRequestController extends Controller
         DB::beginTransaction();
         try {
             $borrowRequest->load('items.item', 'borrowedInstances.instance');
+
+            // Fallback: if no allocation records exist (legacy flows or data drift), allocate now
+            if ($borrowRequest->borrowedInstances->isEmpty()) {
+                $allocationError = $this->allocateInstancesForBorrowRequest($borrowRequest);
+                if ($allocationError) {
+                    DB::rollBack();
+                    return response()->json($allocationError, 422);
+                }
+
+                // Reload relationships to include the freshly allocated instances
+                $borrowRequest->load('items.item', 'borrowedInstances.instance');
+            }
 
             // Update statuses from 'allocated' to 'borrowed' and deduct stock
             foreach ($borrowRequest->items as $requestItem) {
@@ -972,6 +1035,10 @@ class BorrowRequestController extends Controller
             }
 
             DB::commit();
+            $freshForSms = $borrowRequest->fresh(['user']);
+            if ($freshForSms) {
+                $philSms->notifyBorrowerDelivery($freshForSms);
+            }
             return response()->json(['message' => 'Items marked as delivered successfully.']);
         } catch (\Throwable $e) {
             DB::rollBack();

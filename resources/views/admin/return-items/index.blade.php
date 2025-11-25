@@ -92,6 +92,9 @@
     <template id="badge-status-dispatched">
         <x-status-badge type="info" text="Borrowed" />
     </template>
+    <template id="badge-status-delivered">
+        <x-status-badge type="delivered" text="Delivered" />
+    </template>
     <template id="badge-status-returned">
         <x-status-badge type="success" text="Returned" />
     </template>
@@ -156,18 +159,18 @@
     <!-- Manage Modal -->
     <x-modal name="manageReturnItemsModal" maxWidth="3xl">
         <div class="flex flex-col max-h-[90vh] bg-white">
-            <div class="px-6 pt-6 pb-4 border-b border-gray-200 sticky top-0 bg-white z-10">
+            <div class="px-6 pt-6 pb-4 border-b border-purple-700 sticky top-0 bg-purple-600 text-white z-10">
                 <div class="flex items-start justify-between gap-3">
                     <div>
-                        <h3 class="text-xl font-semibold text-gray-900 flex items-center gap-3">
-                            <i class="fa-solid fa-screwdriver-wrench text-purple-600"></i>
+                        <h3 class="text-xl font-semibold text-white flex items-center gap-3">
+                            <i class="fa-solid fa-screwdriver-wrench text-white"></i>
                             <span>Manage Return</span>
                         </h3>
-                        <p class="mt-1 text-sm text-gray-500">Review items and update their condition after collection.</p>
+                        <p class="mt-1 text-sm text-purple-100">Review items and update their condition after collection.</p>
                     </div>
                     <button
                         type="button"
-                        class="text-gray-400 hover:text-gray-600 transition"
+                        class="text-white/80 hover:text-white transition"
                         @click="$dispatch('close-modal', 'manageReturnItemsModal')"
                         aria-label="Close dialog">
                         <i class="fas fa-times text-lg"></i>
@@ -195,7 +198,7 @@
                         <i class="fas fa-map-marker-alt text-purple-600 mt-1"></i>
                         <div class="w-full">
                             <div class="font-medium text-gray-800">Address</div>
-                            <x-text-input id="manage-address" type="text" class="mt-1 block w-full" readonly />
+                            <div class="text-gray-600" id="manage-address">--</div>
                         </div>
                     </div>
                     <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
@@ -203,20 +206,6 @@
                         <div>
                             <div class="font-medium text-gray-800">Status</div>
                             <div id="manage-status-badge" class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">--</div>
-                        </div>
-                    </div>
-                    <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
-                        <i class="fas fa-truck text-purple-600 mt-1"></i>
-                        <div>
-                            <div class="font-medium text-gray-800">Delivery Status</div>
-                            <div id="manage-delivery-status" class="text-gray-700">--</div>
-                        </div>
-                    </div>
-                    <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
-                        <i class="fas fa-calendar-day text-purple-600 mt-1"></i>
-                        <div>
-                            <div class="font-medium text-gray-800">Borrow Date</div>
-                            <div class="text-gray-600" id="manage-borrow-date">--</div>
                         </div>
                     </div>
                     <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
@@ -234,38 +223,28 @@
                 </div>
 
                 <!-- Bulk Selection and Sorting Controls -->
-                <div class="flex items-center justify-between gap-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                    <div class="flex items-center gap-4">
+                <div class="flex flex-wrap items-center gap-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                    <div class="flex flex-wrap items-center gap-4">
                         <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="checkbox" id="manage-select-all" class="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500" />
-                            <span class="text-sm font-medium text-gray-700">Select All</span>
-                        </label>
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="checkbox" id="manage-enable-selection" class="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500" />
+                            <input type="checkbox" id="manage-enable-selection" class="w-4 h-4 text-purple-600 border-2 border-purple-300 bg-white rounded shadow focus:ring-purple-500" />
                             <span class="text-sm font-medium text-gray-700">Select</span>
                         </label>
-                        <div class="flex items-center gap-2">
-                            <label for="manage-sort-condition" class="text-sm font-medium text-gray-700">Sort by Condition:</label>
-                            <select id="manage-sort-condition" class="rounded-lg border-gray-300 text-sm focus:border-purple-500 focus:ring-purple-500">
-                                <option value="">All</option>
+                        <div class="flex items-center gap-3">
+                            <select id="manage-bulk-condition" class="rounded-lg border-gray-300 text-sm focus:border-purple-500 focus:ring-purple-500">
+                                <option value="">Select Condition</option>
                                 <option value="good">Good</option>
                                 <option value="minor_damage">Minor Damage</option>
                                 <option value="damage">Damage</option>
                                 <option value="missing">Missing</option>
                             </select>
+                            <button id="manage-bulk-update-btn" type="button" disabled class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-md bg-purple-600 text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                                Update
+                            </button>
                         </div>
                     </div>
-                    <div class="flex items-center gap-3">
-                        <select id="manage-bulk-condition" class="rounded-lg border-gray-300 text-sm focus:border-purple-500 focus:ring-purple-500">
-                            <option value="">Select Condition</option>
-                            <option value="good">Good</option>
-                            <option value="minor_damage">Minor Damage</option>
-                            <option value="damage">Damage</option>
-                            <option value="missing">Missing</option>
-                        </select>
-                        <button id="manage-bulk-update-btn" type="button" disabled class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-md bg-purple-600 text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-300 disabled:opacity-50 disabled:cursor-not-allowed">
-                            Update
-                        </button>
+                    <div class="relative w-full md:w-auto md:min-w-[240px] md:ml-auto">
+                        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                        <input type="text" id="manage-items-search" placeholder="Search property number" autocomplete="off" class="gov-input pl-9 pr-4 py-2.5 text-sm w-full transition duration-200 focus:outline-none focus:ring-0" />
                     </div>
                 </div>
 
@@ -276,7 +255,7 @@
                             <thead class="bg-gray-100 text-xs uppercase text-gray-600 sticky top-0 z-10">
                                 <tr>
                                     <th class="px-4 py-2 text-left w-12" id="manage-checkbox-header" style="display: none;">
-                                        <input type="checkbox" id="manage-select-all-header" class="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500" />
+                                        <span class="sr-only">Select</span>
                                     </th>
                                     <th class="px-4 py-2 text-left">Property Number</th>
                                     <th class="px-4 py-2 text-left">Item Name</th>

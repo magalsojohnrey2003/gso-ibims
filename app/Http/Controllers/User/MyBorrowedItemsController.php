@@ -59,10 +59,12 @@ class MyBorrowedItemsController extends Controller
 
                 return [
                     'id' => $borrowRequest->id,
+                    'formatted_request_id' => $borrowRequest->formatted_request_id,
                     'borrow_date' => $borrowRequest->borrow_date,
                     'return_date' => $borrowRequest->return_date,
                     'time_of_usage' => $borrowRequest->time_of_usage,
                     'status' => $status,
+                    'delivery_status' => $borrowRequest->delivery_status,
                     'manpower_count' => $borrowRequest->manpower_count,
                     'location' => $borrowRequest->location, 
                     'purpose_office' => $borrowRequest->purpose_office,
@@ -105,10 +107,12 @@ class MyBorrowedItemsController extends Controller
 
         return response()->json([
             'id' => $borrowRequest->id,
+            'formatted_request_id' => $borrowRequest->formatted_request_id,
             'borrow_date' => $borrowRequest->borrow_date,
             'return_date' => $borrowRequest->return_date,
             'time_of_usage' => $borrowRequest->time_of_usage,
             'status' => $status,
+            'delivery_status' => $borrowRequest->delivery_status,
             'manpower_count' => $borrowRequest->manpower_count,
             'location' => $borrowRequest->location,
             'purpose_office' => $borrowRequest->purpose_office,

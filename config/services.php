@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    'philsms' => [
+        'api_key' => env('PHILSMS_API_KEY'),
+        'sender_id' => env('PHILSMS_SENDER_ID'),
+        'base_url' => env('PHILSMS_BASE_URL', 'https://app.philsms.com/api/v3'),
+        'fallback_sender_id' => env('PHILSMS_FALLBACK_SENDER_ID', 'PhilSMS'),
+        'admin_numbers' => env('PHILSMS_ADMIN_NUMBERS'),
+    ],
+
 ];
