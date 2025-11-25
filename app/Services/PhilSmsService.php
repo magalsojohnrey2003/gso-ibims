@@ -45,6 +45,42 @@ class PhilSmsService
     }
 
     /**
+     * Notify a user via SMS that an administrator created an account for them.
+     */
+    public function notifyNewUserAccount(User $user, string $plainPassword): void
+    {
+        if (! $this->isEnabled()) {
+            return;
+        }
+
+        $numbers = $this->normalizeNumbers([(string) ($user->phone ?? '')]);
+        if (! $numbers) {
+            Log::info('PhilSMS: account creation SMS skipped - user has no valid phone.', [
+                'user_id' => $user->id,
+                'raw_phone' => $user->phone,
+            ]);
+            return;
+        }
+
+        $name = $this->resolveUserName($user);
+        $email = trim((string) ($user->email ?? '')) ?: 'N/A';
+        $passwordFragment = trim($plainPassword) !== '' ? $plainPassword : '***';
+
+        $message = sprintf(
+            'GSO IBIMS: Hi %s! Your account has been created. Email: %s Password: %s. Please log in and update your password.',
+            $name,
+            $email,
+            $passwordFragment
+        );
+
+        $message = $this->limitText($message, 155);
+
+        foreach ($numbers as $recipient) {
+            $this->sendSms($recipient, $message);
+        }
+    }
+
+    /**
      * Notify all configured administrators when a borrow request is submitted.
      */
     public function notifyAdminsBorrowRequest(BorrowRequest $request): void
@@ -667,5 +703,32 @@ class PhilSmsService
         }
 
         return 'Unknown requester';
+    }
+
+    protected function resolveUserName(User $user): string
+    {
+        $first = trim((string) ($user->first_name ?? ''));
+        $last = trim((string) ($user->last_name ?? ''));
+
+        if ($first !== '' || $last !== '') {
+            return trim($first . ' ' . $last);
+        }
+
+        $fullName = trim((string) ($user->full_name ?? ''));
+        if ($fullName !== '') {
+            return $fullName;
+        }
+
+        $name = trim((string) ($user->name ?? ''));
+        if ($name !== '') {
+            return $name;
+        }
+
+        $email = trim((string) ($user->email ?? ''));
+        if ($email !== '') {
+            return $email;
+        }
+
+        return 'User';
     }
 }

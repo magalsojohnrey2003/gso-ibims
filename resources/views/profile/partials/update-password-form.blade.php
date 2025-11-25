@@ -64,18 +64,8 @@
         </div>
 
         <!-- Save Button -->
-        <div class="flex items-center gap-4">
-            <x-primary-button>{{ __('Save') }}</x-primary-button>
-
-            @if (session('status') === 'password-updated')
-                <p
-                    x-data="{ show: true }"
-                    x-show="show"
-                    x-transition
-                    x-init="setTimeout(() => show = false, 2000)"
-                    class="text-sm muted"
-                >{{ __('Saved.') }}</p>
-            @endif
+        <div class="flex items-center justify-center pt-2">
+            <x-primary-button class="px-8 py-2.5 text-base">{{ __('Save') }}</x-primary-button>
         </div>
     </form>
 </section>
@@ -96,4 +86,12 @@
             icon.classList.add("fa-eye");
         }
     }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        if (@json(session('status') === 'password-updated')) {
+            window.requestAnimationFrame(function () {
+                window.showToast?.('Password updated successfully.', 'success');
+            });
+        }
+    });
 </script>

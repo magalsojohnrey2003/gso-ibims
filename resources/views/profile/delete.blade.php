@@ -2,7 +2,8 @@
     <div class="max-w-3xl mx-auto bg-white dark:bg-gray-900 theme-original:bg-purple-50
                 rounded-xl shadow-lg p-6 transition-colors duration-300">
 
-        <h2 class="text-lg font-medium text-red-600 dark:text-red-500">
+        <h2 class="text-lg font-semibold text-red-600 dark:text-red-500 flex items-center gap-2">
+            <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
             {{ __('Delete Account') }}
         </h2>
         <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">

@@ -119,22 +119,18 @@
         <!-- Save Button -->
             <div class="flex items-center justify-center pt-2">
                 <x-primary-button class="px-8 py-2.5 text-base">{{ __('Save') }}</x-primary-button>
-
-            @if (session('status') === 'profile-updated')
-                <p
-                    x-data="{ show: true }"
-                    x-show="show"
-                    x-transition
-                    x-init="setTimeout(() => show = false, 2000)"
-                    class="text-sm muted"
-                >{{ __('Saved.') }}</p>
-            @endif
         </div>
     </form>
 </section>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    if (@json(session('status') === 'profile-updated')) {
+        window.requestAnimationFrame(function () {
+            window.showToast?.('Profile information saved successfully.', 'success');
+        });
+    }
+
     const photoInput = document.querySelector('[data-profile-photo-input]');
     const photoTrigger = document.querySelector('[data-profile-photo-trigger]');
     const photoPreview = document.querySelector('[data-profile-photo-preview]');

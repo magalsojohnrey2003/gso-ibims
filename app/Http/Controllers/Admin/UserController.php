@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\PhilSmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
@@ -62,7 +64,7 @@ class UserController extends Controller
     /**
      * Store a newly created user in storage.
      */
-    public function store(Request $request)
+    public function store(Request $request, PhilSmsService $philSms)
     {
         try {
             $data = $request->validate([
@@ -75,7 +77,8 @@ class UserController extends Controller
             ]);
 
             $data['phone'] = preg_replace('/\D+/', '', (string) ($data['phone'] ?? ''));
-            $data['password'] = Hash::make($data['password']);
+            $plainPassword = $data['password'];
+            $data['password'] = Hash::make($plainPassword);
             $data['creation_source'] = 'Admin-Created';
 
             $user = User::create($data);
@@ -83,6 +86,15 @@ class UserController extends Controller
             // Ensure the basic borrower role exists before assignment.
             $userRole = $this->ensureUserRoleExists();
             $user->assignRole($userRole);
+
+            try {
+                $philSms->notifyNewUserAccount($user, $plainPassword);
+            } catch (\Throwable $smsException) {
+                Log::warning('Failed to dispatch account creation SMS.', [
+                    'user_id' => $user->id,
+                    'error' => $smsException->getMessage(),
+                ]);
+            }
 
             if ($request->ajax()) {
                 $row = view('admin.users._row', compact('user'))->render();
