@@ -2,22 +2,23 @@
 
 @section('content')
 @php
-    $initial = 'login'; // ✅ Default to login
+    $initial = 'login'; // Default to login unless explicitly switching to register
+    $requestAction = request()->query('action');
 
-    if (old('auth_form') === 'login') {
-        $initial = 'login';
+    if ($requestAction === 'register') {
+        $initial = 'register';
     } elseif (old('auth_form') === 'register') {
         $initial = 'register';
-    } elseif ($errors->getBag('login')->any()) {
-        $initial = 'login';
     } elseif ($errors->getBag('register')->any()) {
         $initial = 'register';
-    } else {
-        if (old('first_name') || old('password_confirmation')) {
-            $initial = 'register';
-        } elseif (old('email') && !old('first_name')) {
-            $initial = 'login';
-        }
+    } elseif (old('auth_form') === 'login') {
+        $initial = 'login';
+    } elseif ($errors->getBag('login')->any()) {
+        $initial = 'login';
+    } elseif (old('first_name') || old('password_confirmation')) {
+        $initial = 'register';
+    } elseif (old('email') && !old('first_name')) {
+        $initial = 'login';
     }
 @endphp
 
@@ -184,9 +185,6 @@
 
                     <button type="submit" class="btn-primary w-full mt-4">Log In</button>
 
-                    <div class="register mt-4 text-center">
-                        <p>Don't have an account? <a href="#" class="switch-text" data-target="register">Register</a></p>
-                    </div>
                 </form>
             </div>
         </div>
@@ -220,7 +218,7 @@
 <script>
 (function () {
     var wrapperEl = document.getElementById('authWrapper');
-    var serverInitial = 'register';
+    var serverInitial = 'login';
     if (wrapperEl && wrapperEl.getAttribute) {
         var di = wrapperEl.getAttribute('data-initial');
         if (di) serverInitial = di;
@@ -329,7 +327,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }, 60);
     } else {
         // normal init focus
-        showPanel((wrapper && wrapper.getAttribute && wrapper.getAttribute('data-initial')) || 'register');
+        showPanel((wrapper && wrapper.getAttribute && wrapper.getAttribute('data-initial')) || 'login');
         setTimeout(function () {
             var el = (wrapper && wrapper.getAttribute && wrapper.getAttribute('data-initial') === 'register') ? document.querySelector('#register_first_name') : document.querySelector('#login_email');
             if (el && typeof el.focus === 'function') { try { el.focus(); } catch (_) {} }

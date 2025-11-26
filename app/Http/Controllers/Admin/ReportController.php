@@ -14,7 +14,9 @@ use App\Models\Category;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Carbon\Carbon;
+use DateTimeInterface;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\ReportsExport;
@@ -91,45 +93,6 @@ class ReportController extends Controller
                 'meta'    => $meta,
             ])->setPaper('a4', 'portrait'); // or 'landscape' if you prefer
 
-            /*
-            * Add page numbers using Dompdf canvas.
-            * The placeholders {PAGE_NUM} and {PAGE_COUNT} work with page_text().
-            * We'll choose a font available to Dompdf (DejaVu Sans used in blade).
-            */
-           // --- Page numbering: centered "1 / 2" style (small, light gray) ---
-           // --- Page numbering: centered "1 / 2" style (small, light gray) ---
-            $dompdf = $pdf->getDomPDF();
-            $canvas = $dompdf->get_canvas();
-
-            // Use the same font family as the document (DejaVu Sans included)
-            $font = $dompdf->getFontMetrics()->get_font("DejaVu Sans", "normal");
-
-            // Desired display text: "1 / 2" (Dompdf will replace placeholders)
-            $text = "{PAGE_NUM} / {PAGE_COUNT}";
-
-            // Choose font size (points)
-            $size = 9;
-
-            // Compute approximate text width so we can center precisely.
-            // Note: width is measured for the placeholder string; works well for centering.
-            $textWidth = $dompdf->getFontMetrics()->getTextWidth($text, $font, $size);
-
-            // Canvas dimensions (points)
-            $canvasWidth = $canvas->get_width();
-            $canvasHeight = $canvas->get_height();
-
-            // Center horizontally, place a bit above bottom margin
-            $x = ($canvasWidth - $textWidth) / 2;
-            $y = $canvasHeight - 26; // tweak ±2-4 if you want it higher/lower
-
-            // Light gray color (RGB as floats 0..1)
-            $color = [0.45, 0.45, 0.45];
-
-            // Draw page text on every page, centered
-            $canvas->page_text($x, $y, $text, $font, $size, $color);
-
-
-
             // Finally return the download
             return $pdf->download($this->fileName($meta, 'pdf'));
 
@@ -177,16 +140,24 @@ class ReportController extends Controller
     {
         return [
             'title' => $this->availableReports[$reportType] ?? 'Report',
-            'start' => $start->toDateString(),
-            'end' => $end->toDateString(),
-            'generated_at' => Carbon::now()->toDateTimeString(),
+            'start' => $this->formatDisplayDate($start),
+            'end' => $this->formatDisplayDate($end),
+            'start_iso' => $start->toDateString(),
+            'end_iso' => $end->toDateString(),
+            'generated_at' => $this->formatDisplayDate(Carbon::now(), true),
         ];
     }
 
     protected function fileName(array $meta, string $ext): string
     {
         $base = str_replace(' ', '_', strtolower($meta['title'] ?? 'report'));
-        return "{$base}_{$meta['start']}_to_{$meta['end']}.{$ext}";
+        $startSlug = $meta['start_iso'] ?? $meta['start'] ?? Carbon::now()->toDateString();
+        $endSlug = $meta['end_iso'] ?? $meta['end'] ?? Carbon::now()->toDateString();
+
+        $startSlug = preg_replace('/[^0-9\-]/', '', (string) $startSlug) ?: Carbon::now()->toDateString();
+        $endSlug = preg_replace('/[^0-9\-]/', '', (string) $endSlug) ?: Carbon::now()->toDateString();
+
+        return "{$base}_{$startSlug}_to_{$endSlug}.{$ext}";
     }
 
     protected function getRange(string $period, $from = null, $to = null): array
@@ -227,50 +198,86 @@ class ReportController extends Controller
         switch ($type) {
             case 'borrowed_items':
                 $now = Carbon::now()->startOfDay();
-                $records = DB::table('borrow_item_instances as bii')
+
+                $query = DB::table('borrow_item_instances as bii')
                     ->join('items as i', 'bii.item_id', '=', 'i.id')
                     ->leftJoin('item_instances as inst', 'bii.item_instance_id', '=', 'inst.id')
                     ->leftJoin('borrow_requests as br', 'bii.borrow_request_id', '=', 'br.id')
                     ->leftJoin('users as u', 'br.user_id', '=', 'u.id')
+                    ->leftJoin('walk_in_requests as wir', 'bii.walk_in_request_id', '=', 'wir.id')
                     ->whereNull('bii.returned_at')
-                    ->whereBetween(DB::raw("DATE(COALESCE(bii.checked_out_at, bii.created_at))"), [$start->toDateString(), $end->toDateString()])
-                    ->select(
-                        'i.name as item_name',
-                        'inst.property_number as property_number',
-                        DB::raw("TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) as borrower_name"),
-                        'br.purpose_office as office_agency',
-                        DB::raw("COALESCE(bii.checked_out_at, bii.created_at) as borrowed_at"),
-                        'br.return_date as due_date'
-                    )
+                    ->whereBetween(DB::raw("DATE(COALESCE(bii.checked_out_at, bii.created_at))"), [$start->toDateString(), $end->toDateString()]);
+
+                $selects = [
+                    'i.name as item_name',
+                    'inst.property_number as property_number',
+                    DB::raw("TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) as borrower_name"),
+                    'u.phone as borrower_phone',
+                    DB::raw("COALESCE(bii.checked_out_at, bii.created_at) as borrowed_at"),
+                    'br.return_date as due_date',
+                    'br.purpose_office as purpose_office',
+                    'wir.borrower_name as walk_in_borrower_name',
+                    'wir.contact_number as walk_in_contact',
+                    'wir.office_agency as walk_in_office',
+                    'wir.borrowed_at as walk_in_borrowed_at',
+                    'wir.returned_at as walk_in_due_at',
+                ];
+
+                if (Schema::hasColumn('users', 'phone_number')) {
+                    $selects[] = 'u.phone_number as borrower_phone_number';
+                } else {
+                    $selects[] = DB::raw('NULL as borrower_phone_number');
+                }
+
+                if (Schema::hasColumn('users', 'office_id')) {
+                    $query->leftJoin('offices as office', 'u.office_id', '=', 'office.id');
+                    $selects[] = 'office.name as user_office_name';
+                } else {
+                    $selects[] = DB::raw('NULL as user_office_name');
+                }
+
+                $records = $query->select($selects)
                     ->orderByDesc(DB::raw("COALESCE(bii.checked_out_at, bii.created_at)"))
                     ->get();
 
-                $rows = $records->map(function ($row) use ($now) {
-                    $borrowedDate = $row->borrowed_at ? Carbon::parse($row->borrowed_at)->toDateString() : null;
-                    $daysOverdue = 0;
-                    $dueDate = null;
-                    if ($row->due_date) {
-                        $dueCarbon = Carbon::parse($row->due_date)->endOfDay();
-                        $dueDate = $dueCarbon->toDateString();
+                $overdueCount = 0;
+                $rows = [];
+
+                foreach ($records as $row) {
+                    $borrower = $row->borrower_name ?: $row->walk_in_borrower_name ?: '—';
+
+                    $contact = $row->borrower_phone_number ?: $row->borrower_phone;
+                    if (! $contact) {
+                        $contact = $row->walk_in_contact ?: '—';
+                    }
+
+                    $office = $row->user_office_name ?: $row->purpose_office ?: $row->walk_in_office ?: '—';
+
+                    $borrowedSource = $row->borrowed_at ?: $row->walk_in_borrowed_at;
+                    $borrowedDate = $this->formatDateCell($borrowedSource);
+
+                    $dueSource = $row->due_date ?: $row->walk_in_due_at;
+                    $dueDate = $this->formatDateCell($dueSource);
+
+                    if ($dueSource) {
+                        $dueCarbon = Carbon::parse($dueSource)->endOfDay();
                         if ($dueCarbon->lt($now)) {
-                            $daysOverdue = $dueCarbon->diffInDays($now);
+                            $overdueCount++;
                         }
                     }
 
-                    return [
+                    $rows[] = [
                         $row->item_name,
                         $row->property_number ?? '—',
-                        $row->borrower_name ?: '—',
-                        $row->office_agency ?: '—',
+                        $borrower,
+                        $contact ?: '—',
+                        $office ?: '—',
                         $borrowedDate,
                         $dueDate,
-                        $daysOverdue,
                     ];
-                })->toArray();
+                }
 
-                $overdueCount = collect($rows)->filter(fn ($row) => ($row[6] ?? 0) > 0)->count();
-
-                $columns = ['Item Name', 'Property Number', 'Borrower Name', 'Office/Agency', 'Date Borrowed', 'Date Due', 'Days Overdue'];
+                $columns = ['Item Name', 'Property No.', 'Borrower', 'Contact #', 'Office/Agency', 'Date Borrowed', 'Due Date'];
                 $extra = ['kpis' => [
                     ['label' => 'Active Loans', 'value' => count($rows)],
                     ['label' => 'Overdue Items', 'value' => $overdueCount],
@@ -278,38 +285,64 @@ class ReportController extends Controller
                 return compact('columns', 'rows', 'extra');
 
             case 'returned_items':
-                $records = DB::table('borrow_item_instances as bii')
+                $query = DB::table('borrow_item_instances as bii')
                     ->join('items as i', 'bii.item_id', '=', 'i.id')
                     ->leftJoin('item_instances as inst', 'bii.item_instance_id', '=', 'inst.id')
                     ->leftJoin('borrow_requests as br', 'bii.borrow_request_id', '=', 'br.id')
                     ->leftJoin('users as u', 'br.user_id', '=', 'u.id')
+                    ->leftJoin('walk_in_requests as wir', 'bii.walk_in_request_id', '=', 'wir.id')
                     ->whereNotNull('bii.returned_at')
-                    ->whereBetween(DB::raw("DATE(bii.returned_at)"), [$start->toDateString(), $end->toDateString()])
-                    ->select(
-                        'i.name as item_name',
-                        'inst.property_number as property_number',
-                        DB::raw("TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) as borrower_name"),
-                        DB::raw("COALESCE(bii.checked_out_at, bii.created_at) as borrowed_at"),
-                        'bii.returned_at as returned_at',
-                        'bii.return_condition as condition'
-                    )
+                    ->whereBetween(DB::raw("DATE(bii.returned_at)"), [$start->toDateString(), $end->toDateString()]);
+
+                $selects = [
+                    'i.name as item_name',
+                    'inst.property_number as property_number',
+                    DB::raw("TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) as borrower_name"),
+                    DB::raw("COALESCE(bii.checked_out_at, bii.created_at) as borrowed_at"),
+                    'bii.returned_at as returned_at',
+                    'bii.return_condition as condition',
+                    'br.purpose_office as purpose_office',
+                    'wir.borrower_name as walk_in_borrower_name',
+                    'wir.office_agency as walk_in_office',
+                    'wir.returned_at as walk_in_returned_at',
+                ];
+
+                if (Schema::hasColumn('users', 'office_id')) {
+                    $query->leftJoin('offices as office', 'u.office_id', '=', 'office.id');
+                    $selects[] = 'office.name as user_office_name';
+                } else {
+                    $selects[] = DB::raw('NULL as user_office_name');
+                }
+
+                $records = $query->select($selects)
                     ->orderByDesc('bii.returned_at')
                     ->get();
 
-                $rows = $records->map(function ($row) {
-                    return [
+                $damagedCount = 0;
+                $rows = [];
+
+                foreach ($records as $row) {
+                    $borrower = $row->borrower_name ?: $row->walk_in_borrower_name ?: '—';
+                    $office = $row->user_office_name ?: $row->purpose_office ?: $row->walk_in_office ?: '—';
+
+                    $returnedSource = $row->returned_at ?: $row->walk_in_returned_at;
+
+                    $conditionLabel = $this->formatConditionLabel($row->condition);
+                    if (in_array(strtolower($row->condition ?? ''), ['damage', 'minor_damage', 'missing'], true)) {
+                        $damagedCount++;
+                    }
+
+                    $rows[] = [
                         $row->item_name,
                         $row->property_number ?? '—',
-                        $row->borrower_name ?: '—',
-                        $row->borrowed_at ? Carbon::parse($row->borrowed_at)->toDateString() : null,
-                        $row->returned_at ? Carbon::parse($row->returned_at)->toDateString() : null,
-                        $this->formatConditionLabel($row->condition),
+                        $borrower,
+                        $office ?: '—',
+                        $this->formatDateCell($returnedSource),
+                        $conditionLabel,
                     ];
-                })->toArray();
+                }
 
-                $damagedCount = $records->filter(fn ($row) => in_array(strtolower($row->condition ?? ''), ['damage', 'minor_damage', 'missing'], true))->count();
-
-                $columns = ['Item Name', 'Property Number', 'Borrower Name', 'Date Borrowed', 'Date Returned', 'Return Condition'];
+                $columns = ['Item Name', 'Property Number', 'Borrower', 'Office/Agency', 'Date Returned', 'Condition'];
                 $extra = ['kpis' => [
                     ['label' => 'Returned Items', 'value' => count($rows)],
                     ['label' => 'Damaged / Lost', 'value' => $damagedCount],
@@ -319,20 +352,20 @@ class ReportController extends Controller
             case 'inventory_summary':
                 $items = Item::with('instances')->orderBy('name')->get();
                 $rows = $items->map(function (Item $item) {
-                    $total = (int) $item->total_qty;
-                    $available = max(0, (int) $item->available_qty);
-                    $inUse = max(0, $total - $available);
+                    $acquisitionDate = $this->formatDateCell($item->acquisition_date);
+                    $unitValue = $item->acquisition_cost;
 
                     return [
                         $item->name,
                         $item->category_name ?? 'Uncategorized',
-                        $total,
-                        $available,
-                        $inUse,
+                        (int) $item->total_qty,
+                        max(0, (int) $item->available_qty),
+                        $acquisitionDate,
+                        $unitValue !== null ? number_format((int) $unitValue, 2) : '—',
                     ];
                 })->toArray();
 
-                $columns = ['Item Name', 'Category', 'Total Quantity', 'Available Quantity', 'Quantity In Use'];
+                $columns = ['Item Name', 'Category', 'Total QTY', 'Available QTY', 'Acquisition Date', 'Unit Value'];
                 $extra = ['kpis' => [
                     ['label' => 'Total Units', 'value' => $items->sum('total_qty')],
                     ['label' => 'Available Units', 'value' => $items->sum('available_qty')],
@@ -368,13 +401,12 @@ class ReportController extends Controller
                         $row->office_agency ?: '—',
                         $row->item_name,
                         $row->property_number ?? '—',
-                        $row->returned_at ? Carbon::parse($row->returned_at)->toDateString() : null,
+                        $this->formatDateCell($row->returned_at),
                         $this->mapDamageOrLoss($row->condition),
-                        $row->return_notes ?: '—',
                     ];
                 })->toArray();
 
-                $columns = ['Borrower Name', 'Office/Agency', 'Item Name', 'Property Number', 'Date Returned', 'Reported Condition', 'Return Notes'];
+                $columns = ['Borrower', 'Office/Agency', 'Item Name', 'Property Number', 'Date Returned', 'Condition'];
                 $extra = ['kpis' => [
                     ['label' => 'Borrowers Reported', 'value' => $records->pluck('borrower_name')->filter()->unique()->count()],
                     ['label' => 'Damaged / Lost Items', 'value' => count($rows)],
@@ -422,7 +454,7 @@ class ReportController extends Controller
                     ];
                 })->values()->toArray();
 
-                $columns = ['Item Name', 'Category', 'Available Quantity', 'Total Quantity', 'Status'];
+                $columns = ['Item Name', 'Category', 'Available QTY', 'Total QTY', 'Status'];
                 $extra = ['kpis' => [
                     ['label' => 'Threshold', 'value' => $threshold],
                     ['label' => 'Flagged Items', 'value' => count($rows)],
@@ -448,7 +480,7 @@ class ReportController extends Controller
 
                 $rows = $records->map(function ($row) {
                     return [
-                        $row->borrowed_date,
+                        $this->formatDateCell($row->borrowed_date),
                         $row->item_name,
                         $row->property_number ?? 'N/A',
                         $row->borrower_name ?: 'N/A',
@@ -458,7 +490,7 @@ class ReportController extends Controller
 
                 $returnedCount = $records->filter(fn ($row) => $row->status_label === 'Returned')->count();
 
-                $columns = ['Date Borrowed', 'Item Name', 'Property Number', 'Borrower Name', 'Status'];
+                $columns = ['Date Borrowed', 'Item Name', 'Property No.', 'Borrower', 'Status'];
                 $extra = ['kpis' => [
                     ['label' => 'Borrows Logged', 'value' => count($rows)],
                     ['label' => 'Returned', 'value' => $returnedCount],
@@ -495,7 +527,7 @@ class ReportController extends Controller
                         $instance->property_number ?? 'N/A',
                         $instance->serial_no ?? $instance->serial ?? 'N/A',
                         $borrower ?: 'N/A',
-                        $instance->updated_at?->toDateString(),
+                        $this->formatDateCell($instance->updated_at),
                     ];
                 })->toArray();
 
@@ -517,12 +549,15 @@ class ReportController extends Controller
                             ? $this->formatFullName($report->reporter->first_name ?? null, $report->reporter->last_name ?? null)
                             : 'N/A';
 
+                        $instance = $report->itemInstance;
+                        $serial = $instance?->serial_no ?? $instance?->serial ?? 'N/A';
+
                         return [
-                            $report->itemInstance?->item?->name ?? 'Unknown Item',
-                            $report->itemInstance?->property_number ?? 'N/A',
                             $reporter,
-                            $report->created_at?->toDateTimeString(),
-                            $report->description ?? '',
+                            $instance?->item?->name ?? 'Unknown Item',
+                            $instance?->property_number ?? 'N/A',
+                            $serial ?: 'N/A',
+                            $this->formatDateCell($report->created_at, true),
                             ucfirst(str_replace('_', ' ', $report->status ?? 'reported')),
                         ];
                     })->toArray();
@@ -540,6 +575,8 @@ class ReportController extends Controller
                         ->select(
                             'i.name as item_name',
                             'inst.property_number as property_number',
+                            'inst.serial_no as serial_no',
+                            'inst.serial as serial_alt',
                             DB::raw("TRIM(CONCAT(COALESCE(u.first_name,''), ' ', COALESCE(u.last_name,''))) as reporter_name"),
                             DB::raw("COALESCE(bii.condition_updated_at, bii.returned_at, bii.updated_at) as reported_at"),
                             'bii.return_condition as condition'
@@ -549,18 +586,20 @@ class ReportController extends Controller
 
                     $rows = $fallback->map(function ($row) {
                         $status = $this->mapDamageOrLoss($row->condition);
+                        $serial = $row->serial_no ?? $row->serial_alt ?? 'N/A';
+
                         return [
+                            $row->reporter_name ?: 'N/A',
                             $row->item_name,
                             $row->property_number ?? 'N/A',
-                            $row->reporter_name ?: 'N/A',
-                            $row->reported_at ? Carbon::parse($row->reported_at)->toDateTimeString() : null,
-                            'Condition recorded as ' . $status,
+                            $serial ?: 'N/A',
+                            $this->formatDateCell($row->reported_at, true),
                             $status,
                         ];
                     })->toArray();
                 }
 
-                $columns = ['Item Name', 'Property Number', 'Reported By', 'Date Reported', 'Description of Damage', 'Status'];
+                $columns = ['Reported By', 'Item Name', 'Property Number', 'Serial No.', 'Date Reported', 'Status'];
                 $extra = ['kpis' => [
                     ['label' => 'Reports Logged', 'value' => count($rows)],
                 ]];
@@ -581,15 +620,15 @@ class ReportController extends Controller
                         $request->office_agency ?: 'N/A',
                         $request->purpose ?? 'N/A',
                         (int) $request->quantity,
-                        $request->start_at?->toDateString() ?? $request->created_at?->toDateString(),
-                        $request->end_at?->toDateString(),
+                        $this->formatDateCell($request->start_at ?? $request->created_at),
+                        $this->formatDateCell($request->end_at),
                         ucfirst($request->status ?? 'pending'),
                     ];
                 })->toArray();
 
                 $statusBreakdown = $requests->groupBy(fn ($req) => strtolower($req->status ?? 'pending'))->map->count();
 
-                $columns = ['Requester Name', 'Office/Agency', 'Purpose of Request', 'Quantity Requested', 'Start Date', 'End Date', 'Status'];
+                $columns = ['Requester Name', 'Office/Agency', 'Purpose of Request', 'Requested QTY', 'Start Date', 'End Date', 'Status'];
                 $extra = ['kpis' => [
                     ['label' => 'Total Requests', 'value' => count($rows)],
                     ['label' => 'Approved', 'value' => $statusBreakdown['approved'] ?? 0],
@@ -641,5 +680,54 @@ class ReportController extends Controller
     protected function mapDamageOrLoss(?string $condition): string
     {
         return strtolower($condition ?? '') === 'missing' ? 'Lost' : 'Damaged';
+    }
+
+    protected function formatDateCell($value, bool $withTime = false): string
+    {
+        $formatted = $this->formatDisplayDate($value, $withTime);
+        return $formatted ?? '—';
+    }
+
+    protected function formatDisplayDate($value, bool $withTime = false): ?string
+    {
+        if ($value === null || $value === '' || (is_string($value) && strtoupper(trim($value)) === 'N/A')) {
+            return null;
+        }
+
+        if ($value instanceof Carbon) {
+            $carbon = $value->copy();
+        } elseif ($value instanceof DateTimeInterface) {
+            $carbon = Carbon::instance($value);
+        } else {
+            try {
+                $carbon = Carbon::parse($value);
+            } catch (Throwable $e) {
+                return null;
+            }
+        }
+
+        $monthMap = [
+            1 => 'Jan.',
+            2 => 'Feb.',
+            3 => 'Mar.',
+            4 => 'Apr.',
+            5 => 'May',
+            6 => 'Jun.',
+            7 => 'Jul.',
+            8 => 'Aug.',
+            9 => 'Sep.',
+            10 => 'Oct.',
+            11 => 'Nov.',
+            12 => 'Dec.',
+        ];
+
+        $month = $monthMap[$carbon->month] ?? $carbon->format('M');
+        $dateString = sprintf('%s %d, %s', $month, (int) $carbon->format('j'), $carbon->format('Y'));
+
+        if ($withTime) {
+            $dateString .= ' ' . $carbon->format('g:i A');
+        }
+
+        return $dateString;
     }
 }

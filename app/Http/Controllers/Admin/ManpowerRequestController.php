@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ManpowerRequest;
 use App\Models\RejectionReason;
+use App\Notifications\RequestNotification;
 use App\Services\ManpowerRequestPdfService;
 use App\Services\PhilSmsService;
 use Illuminate\Http\Request;
@@ -226,6 +227,45 @@ class ManpowerRequestController extends Controller
 
         $philSms->notifyRequesterManpowerStatus($manpowerRequest);
 
+        $manpowerRequest->refresh(['user']);
+
+        $actor = $request->user();
+        $actorName = $this->resolveActorName($actor);
+        $requester = $manpowerRequest->user;
+        $requesterName = $this->resolveActorName($requester) ?? 'Requester';
+        $statusLabel = $this->formatManpowerStatusLabel($manpowerRequest->status);
+
+        if ($requester) {
+            $payload = [
+                'type' => 'manpower_status_changed',
+                'message' => $actorName
+                    ? sprintf('%s set %s to %s.', $actorName, $manpowerRequest->formatted_request_id ?? ('Request #' . $manpowerRequest->id), $statusLabel ?? $manpowerRequest->status)
+                    : sprintf('%s is now %s.', $manpowerRequest->formatted_request_id ?? ('Request #' . $manpowerRequest->id), $statusLabel ?? $manpowerRequest->status),
+                'manpower_request_id' => $manpowerRequest->id,
+                'formatted_request_id' => $manpowerRequest->formatted_request_id,
+                'status' => $manpowerRequest->status,
+                'status_label' => $statusLabel,
+                'approved_quantity' => $manpowerRequest->approved_quantity,
+                'quantity' => $manpowerRequest->quantity,
+                'role' => $manpowerRequest->role,
+                'location' => $manpowerRequest->location,
+                'municipality' => $manpowerRequest->municipality,
+                'barangay' => $manpowerRequest->barangay,
+                'rejection_reason_subject' => $manpowerRequest->rejection_reason_subject,
+                'rejection_reason_detail' => $manpowerRequest->rejection_reason_detail,
+                'start_at' => optional($manpowerRequest->start_at)->toDateTimeString(),
+                'end_at' => optional($manpowerRequest->end_at)->toDateTimeString(),
+                'actor_id' => $actor?->id,
+                'actor_role' => $actor?->role,
+                'actor_name' => $actorName,
+                'user_id' => $manpowerRequest->user_id,
+                'user_name' => $requesterName,
+                'updated_at' => optional($manpowerRequest->updated_at)->toDateTimeString(),
+            ];
+
+            $requester->notify(new RequestNotification($payload));
+        }
+
         $message = match ($manpowerRequest->status) {
             'validated' => 'Request marked as validated. The requester will prepare for deployment.',
             'approved' => 'Request approved. Personnel can now be dispatched.',
@@ -315,5 +355,39 @@ class ManpowerRequestController extends Controller
         }
 
         return null;
+    }
+
+    private function resolveActorName(?\App\Models\User $actor): ?string
+    {
+        if (! $actor) {
+            return null;
+        }
+
+        $preferred = trim((string) ($actor->full_name ?? ''));
+        if ($preferred !== '') {
+            return $preferred;
+        }
+
+        $fallback = trim((string) (($actor->first_name ?? '') . ' ' . ($actor->last_name ?? '')));
+        if ($fallback !== '') {
+            return $fallback;
+        }
+
+        return $actor->email ?? null;
+    }
+
+    private function formatManpowerStatusLabel(?string $status): ?string
+    {
+        if (! $status) {
+            return null;
+        }
+
+        return match ($status) {
+            'pending' => 'Pending Review',
+            'validated' => 'Validated',
+            'approved' => 'Approved',
+            'rejected' => 'Rejected',
+            default => ucwords(str_replace('_', ' ', $status)),
+        };
     }
 }
