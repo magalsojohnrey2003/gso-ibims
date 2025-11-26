@@ -48,6 +48,323 @@ async function apiJson(url, method = 'GET', body = null) {
   return res.json().catch(()=>null);
 }
 
+const VIEWER_ROLE = (document.querySelector('meta[name="user-role"]')?.getAttribute('content') || '').toLowerCase();
+const VIEWER_IS_ADMIN = VIEWER_ROLE === 'admin';
+let notificationRoutes = {};
+
+function parseDate(input) {
+  if (!input) return null;
+  if (input instanceof Date) return Number.isNaN(input.getTime()) ? null : input;
+
+  const trimmed = typeof input === 'string' ? input.trim() : '';
+  if (trimmed === '') return null;
+
+  let date = new Date(trimmed);
+  if (Number.isNaN(date.getTime()) && /^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    date = new Date(`${trimmed}T00:00:00`);
+  }
+
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
+}
+
+function formatDateValue(date, { includeTime = false } = {}) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+  const options = includeTime
+    ? { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }
+    : { month: 'short', day: 'numeric' };
+  return date.toLocaleString(undefined, options);
+}
+
+function formatDateRange(start, end, { includeTime = false } = {}) {
+  const left = parseDate(start);
+  const right = parseDate(end);
+  if (!left && !right) return '';
+  if (left && !right) return formatDateValue(left, { includeTime });
+  if (!left && right) return formatDateValue(right, { includeTime });
+
+  const sameDay = left.toDateString() === right.toDateString();
+  if (sameDay) {
+    if (!includeTime) {
+      return formatDateValue(left, { includeTime: false });
+    }
+    return `${formatDateValue(left, { includeTime: true })} – ${formatDateValue(right, { includeTime: true })}`;
+  }
+
+  return `${formatDateValue(left, { includeTime })} → ${formatDateValue(right, { includeTime })}`;
+}
+
+function formatBorrowStatusLabel(status) {
+  if (!status) return '';
+  const map = {
+    pending: 'Pending Review',
+    validated: 'Validated',
+    approved: 'Approved',
+    rejected: 'Rejected',
+    returned: 'Returned',
+    return_pending: 'Awaiting Return',
+    qr_verified: 'QR Verified',
+  };
+  return map[status] || status.replaceAll('_', ' ').replace(/\b\w/g, ch => ch.toUpperCase());
+}
+
+function formatManpowerStatusLabel(status) {
+  if (!status) return '';
+  const map = {
+    pending: 'Pending Review',
+    validated: 'Validated',
+    approved: 'Approved',
+    rejected: 'Rejected',
+  };
+  return map[status] || status.replaceAll('_', ' ').replace(/\b\w/g, ch => ch.toUpperCase());
+}
+
+function summarizeItems(items) {
+  if (!Array.isArray(items) || items.length === 0) return '';
+  const first = items[0] ?? {};
+  const qty = first.quantity ? `${first.quantity}× ` : '';
+  const name = first.name || '';
+  let summary = `${qty}${name}`.trim();
+  if (items.length > 1) {
+    summary += ` +${items.length - 1} more`;
+  }
+  return summary.trim();
+}
+
+function deriveInitials(name) {
+  if (!name) return 'NA';
+  const clean = String(name).trim();
+  if (clean === '') return 'NA';
+  const parts = clean.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return clean.substring(0, 2).toUpperCase();
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function determineCategory(type) {
+  if (!type) return 'Updates';
+  if (type.startsWith('borrow') || type.startsWith('delivery')) return 'Borrow Items';
+  if (type === 'manpower_submitted') return 'Manpower Requests';
+  if (type === 'manpower_status_changed') return 'Request Manpower';
+  if (type.startsWith('manpower')) return 'Manpower';
+  if (type === 'user_registered') return 'Manage Users';
+  if (type.startsWith('user_')) return 'User Accounts';
+  return 'Updates';
+}
+
+function appendQuery(url, key, value) {
+  if (!url || !key || value === undefined || value === null || value === '') return url;
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+}
+
+function resolveNotificationTarget(notification) {
+  const raw = notification?.data ?? notification ?? {};
+  const type = String(raw.type || '').toLowerCase();
+
+  if (raw.url) return raw.url;
+  if (raw.link) return raw.link;
+
+  if (type.startsWith('manpower') && notificationRoutes.manpower) {
+    const identifier = raw.manpower_request_uuid || raw.manpower_request_id || raw.request_id;
+    return appendQuery(notificationRoutes.manpower, 'highlight', identifier);
+  }
+
+  if (type.startsWith('borrow') && notificationRoutes.borrow) {
+    const identifier = raw.borrow_request_uuid || raw.borrow_request_id || raw.request_id;
+    return appendQuery(notificationRoutes.borrow, 'highlight', identifier);
+  }
+
+  if (type.startsWith('delivery') && notificationRoutes.returnItems) {
+    return appendQuery(notificationRoutes.returnItems, 'highlight', raw.borrow_request_id || raw.request_id);
+  }
+
+  if (type.startsWith('user_') && notificationRoutes.users) {
+    return notificationRoutes.users;
+  }
+
+  if (notificationRoutes.updates) {
+    return notificationRoutes.updates;
+  }
+
+  return null;
+}
+
+function buildManpowerLocation(data) {
+  const parts = [];
+  if (data.location) parts.push(data.location);
+  if (data.barangay) parts.push(data.barangay);
+  if (data.municipality) parts.push(data.municipality);
+  return parts.join(', ');
+}
+
+function shapeNotificationDisplay(notification) {
+  const raw = notification?.data ?? notification ?? {};
+  const type = String(raw.type || '').toLowerCase();
+  const category = determineCategory(type);
+
+  const actorName = raw.actor_name || '';
+  const requesterName = raw.user_name || '';
+  const formattedId = raw.formatted_request_id
+    || (raw.borrow_request_id ? `Request #${raw.borrow_request_id}` : (raw.manpower_request_id ? `Request #${raw.manpower_request_id}` : ''));
+
+  const display = {
+    category,
+    title: raw.message || 'Notification',
+    description: '',
+    metaLeft: category,
+    badge: null,
+    avatarText: deriveInitials(actorName || requesterName || category),
+  };
+
+  const addDescription = (...segments) => {
+    const safe = segments.filter(Boolean).map(seg => String(seg).trim()).filter(Boolean);
+    if (safe.length) {
+      display.description = safe.join(' · ');
+    }
+  };
+
+  switch (type) {
+    case 'borrow_submitted': {
+      const schedule = formatDateRange(raw.borrow_date, raw.return_date, { includeTime: false });
+      const items = summarizeItems(raw.items);
+      const pendingLabel = 'Pending Review';
+      display.title = VIEWER_IS_ADMIN
+        ? `${requesterName || 'Borrower'} submitted a borrow request`
+        : 'Borrow request submitted';
+      addDescription(
+        formattedId,
+        schedule ? `Schedule: ${schedule}` : '',
+        items ? `Items: ${items}` : '',
+        raw.purpose_office ? `Office: ${raw.purpose_office}` : ''
+      );
+      display.metaLeft = VIEWER_IS_ADMIN
+        ? `${category} · ${requesterName || 'Borrower'}`
+        : category;
+      display.badge = pendingLabel;
+      display.avatarText = deriveInitials(requesterName || actorName || category);
+      break;
+    }
+    case 'borrow_status_changed': {
+      const statusLabel = raw.status_label || formatBorrowStatusLabel(raw.new_status);
+      const items = summarizeItems(raw.items);
+      display.title = `${statusLabel || formatBorrowStatusLabel('updated')} — ${formattedId || 'Borrow Request'}`;
+      addDescription(
+        actorName ? `Handled by ${actorName}` : '',
+        items ? `Items: ${items}` : '',
+        raw.reason && raw.new_status === 'rejected' ? `Reason: ${raw.reason}` : ''
+      );
+      display.metaLeft = `${category} · ${statusLabel || 'Updated'}`;
+      display.badge = statusLabel || null;
+      display.avatarText = deriveInitials(actorName || requesterName || category);
+      break;
+    }
+    case 'borrow_dispatched': {
+      const schedule = formatDateRange(raw.borrow_date, raw.return_date, { includeTime: false });
+      display.title = `Dispatched — ${formattedId || 'Borrow Request'}`;
+      addDescription(
+        actorName ? `Marked by ${actorName}` : '',
+        schedule ? `Schedule: ${schedule}` : ''
+      );
+      display.metaLeft = `${category} · Dispatched`;
+      display.badge = 'Dispatched';
+      display.avatarText = deriveInitials(actorName || requesterName || category);
+      break;
+    }
+    case 'borrow_delivered': {
+      const when = raw.delivered_at ? formatDateRange(raw.delivered_at, raw.delivered_at, { includeTime: true }) : '';
+      display.title = `Delivered — ${formattedId || 'Borrow Request'}`;
+      addDescription(
+        actorName ? `Marked by ${actorName}` : '',
+        when ? `Delivered ${when}` : ''
+      );
+      display.metaLeft = `${category} · Delivered`;
+      display.badge = 'Delivered';
+      display.avatarText = deriveInitials(actorName || requesterName || category);
+      break;
+    }
+    case 'borrow_dispatch_canceled': {
+      display.title = `Dispatch canceled — ${formattedId || 'Borrow Request'}`;
+      addDescription(actorName ? `Updated by ${actorName}` : '');
+      display.metaLeft = `${category} · Canceled`;
+      display.badge = 'Canceled';
+      display.avatarText = deriveInitials(actorName || requesterName || category);
+      break;
+    }
+    case 'delivery_confirmed': {
+      display.title = `Delivery confirmed — ${formattedId || 'Borrow Request'}`;
+      addDescription(requesterName ? `Confirmed by ${requesterName}` : '', actorName && actorName !== requesterName ? `Reviewed by ${actorName}` : '');
+      display.metaLeft = `${category} · Delivery`;
+      display.avatarText = deriveInitials(requesterName || actorName || category);
+      break;
+    }
+    case 'delivery_reported': {
+      display.title = `Delivery issue reported — ${formattedId || 'Borrow Request'}`;
+      addDescription(
+        requesterName ? `Reported by ${requesterName}` : '',
+        raw.reason ? `Reason: ${raw.reason}` : ''
+      );
+      display.metaLeft = `${category} · Delivery`;
+      display.badge = 'Attention';
+      display.avatarText = deriveInitials(requesterName || actorName || category);
+      break;
+    }
+    case 'manpower_submitted': {
+      const schedule = formatDateRange(raw.start_at, raw.end_at, { includeTime: true });
+      const location = buildManpowerLocation(raw);
+      display.title = `${requesterName || 'Requester'} submitted a manpower request`;
+      addDescription(
+        formattedId,
+        raw.role ? `Role: ${raw.role}` : '',
+        raw.quantity ? `Qty: ${raw.quantity}` : '',
+        schedule ? `Schedule: ${schedule}` : '',
+        location ? `Location: ${location}` : ''
+      );
+      display.metaLeft = `${category} · Pending Review`;
+      display.badge = 'Pending Review';
+      display.avatarText = deriveInitials(requesterName || category);
+      break;
+    }
+    case 'manpower_status_changed': {
+      const statusLabel = raw.status_label || formatManpowerStatusLabel(raw.status);
+      const schedule = formatDateRange(raw.start_at, raw.end_at, { includeTime: true });
+      const location = buildManpowerLocation(raw);
+      display.title = `${statusLabel || 'Updated'} — ${formattedId || 'Manpower Request'}`;
+      addDescription(
+        actorName ? `Handled by ${actorName}` : '',
+        raw.role ? `Role: ${raw.role}` : '',
+        raw.approved_quantity ? `Approved Qty: ${raw.approved_quantity}` : '',
+        schedule ? `Schedule: ${schedule}` : '',
+        location ? `Location: ${location}` : '',
+        raw.rejection_reason_subject && raw.status === 'rejected' ? `Reason: ${raw.rejection_reason_subject}` : ''
+      );
+      display.metaLeft = `${category} · ${statusLabel || 'Updated'}`;
+      display.badge = statusLabel || null;
+      display.avatarText = deriveInitials(actorName || requesterName || category);
+      break;
+    }
+    case 'user_registered': {
+      display.title = `${requesterName || 'New user'} registered`;
+      addDescription(
+        raw.email ? `Email: ${raw.email}` : '',
+        raw.creation_source ? `Source: ${raw.creation_source}` : ''
+      );
+      display.metaLeft = `${category} · Registration`;
+      display.badge = 'New';
+      display.avatarText = deriveInitials(requesterName || raw.email || category);
+      break;
+    }
+    default: {
+      display.title = raw.message || 'Notification';
+      display.metaLeft = category;
+      display.avatarText = deriveInitials(actorName || requesterName || category);
+      break;
+    }
+  }
+
+  return display;
+}
+
 /* ---------- rendering ---------- */
 function getBadge() {
   return document.getElementById('notificationBadge');
@@ -113,11 +430,12 @@ function createNotificationCard(notification) {
     wrapper.appendChild(accent);
   }
 
+  const display = shapeNotificationDisplay(notification);
+
   // Avatar (initials fallback)
   const avatar = document.createElement('div');
   avatar.className = 'flex-shrink-0 w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-sm font-semibold text-gray-700 dark:text-gray-200 border';
-  const initials = (data.user_name || '').split(' ').map(s => s.charAt(0)).join('').slice(0,2).toUpperCase() || 'U';
-  avatar.textContent = initials;
+  avatar.textContent = display.avatarText || 'NA';
 
   // Body
   const body = document.createElement('div');
@@ -125,14 +443,21 @@ function createNotificationCard(notification) {
 
   // Title/message (fully visible inline — no modal needed)
   const title = document.createElement('div');
-  title.className = 'text-sm font-medium text-gray-900 dark:text-gray-100';
-  title.textContent = data.message ?? 'Notification';
+  title.className = 'text-sm font-semibold text-gray-900 dark:text-gray-100';
+  title.textContent = display.title || data.message || 'Notification';
+
+  if (display.badge) {
+    const badge = document.createElement('span');
+    badge.className = 'ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-100 text-purple-700';
+    badge.textContent = display.badge;
+    title.appendChild(badge);
+  }
 
   const meta = document.createElement('div');
   meta.className = 'text-xs text-gray-500 dark:text-gray-300 mt-1 flex items-center justify-between';
 
   const leftMeta = document.createElement('div');
-  leftMeta.innerHTML = escapeHtml(data.user_name ?? '') + (Array.isArray(data.items) && data.items[0] ? ` • ${escapeHtml(data.items[0].name)}` : '');
+  leftMeta.textContent = display.metaLeft || display.category || '';
 
     const rightMeta = document.createElement('div');
   rightMeta.className = 'flex items-center';
@@ -150,17 +475,22 @@ function createNotificationCard(notification) {
   meta.appendChild(rightMeta);
 
   body.appendChild(title);
+  if (display.description) {
+    // ensure description appears between title and meta
+    const desc = document.createElement('div');
+    desc.className = 'text-xs text-gray-600 dark:text-gray-300 mt-1';
+    desc.textContent = display.description;
+    body.appendChild(desc);
+  }
   body.appendChild(meta);
 
   wrapper.appendChild(avatar);
   wrapper.appendChild(body);
 
-  // click: mark read (optimistic UI update). NO MODAL open
+  // click: mark read then navigate when applicable
   wrapper.addEventListener('click', async () => {
-    // quick toast (optional)
-    if (typeof showToast === 'function') {
-      try { showToast(data.message ?? 'Notification', 'success'); } catch(e){ /* ignore */ }
-    }
+
+    const targetUrl = resolveNotificationTarget(notification);
 
     // optimistic visual update to 'read' state
     if (!wrapper.classList.contains('bg-gray-50')) {
@@ -177,6 +507,19 @@ function createNotificationCard(notification) {
       } catch (e) {
         console.error('Failed to mark read', e);
       }
+    }
+
+    if (targetUrl) {
+      const dropdown = document.getElementById('notificationDropdown');
+      const trigger = document.getElementById('notificationBtn');
+      if (dropdown) dropdown.classList.add('hidden');
+      if (trigger) trigger.setAttribute('aria-expanded', 'false');
+      window.location.href = targetUrl;
+      return;
+    }
+
+    if (typeof showToast === 'function') {
+      try { showToast(data.message ?? 'Notification', 'success'); } catch(e){ /* ignore */ }
     }
 
     // re-fetch to ensure server is authoritative (will also reorder)
@@ -310,6 +653,17 @@ document.addEventListener('DOMContentLoaded', () => {
   // wire buttons
   const markAllBtn = document.getElementById('markAllReadBtn');
   if (markAllBtn) markAllBtn.addEventListener('click', markAllRead);
+
+  const listEl = document.getElementById('notificationList');
+  if (listEl) {
+    notificationRoutes = {
+      borrow: listEl.dataset.routeBorrow || null,
+      manpower: listEl.dataset.routeManpower || null,
+      returnItems: listEl.dataset.routeReturnItems || null,
+      users: listEl.dataset.routeUsers || null,
+      updates: listEl.dataset.routeUpdates || null,
+    };
+  }
 
   // Note: modal behavior removed — we do not open the modal on click anymore.
   // We therefore don't attach modal close/backdrop listeners.

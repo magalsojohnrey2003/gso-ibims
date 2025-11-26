@@ -3,7 +3,6 @@
 namespace App\Exports;
 
 use Maatwebsite\Excel\Concerns\FromArray;
-use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Events\AfterSheet;
@@ -13,23 +12,8 @@ use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class ReportsExport implements FromArray, ShouldAutoSize, WithEvents, WithHeadings
+class ReportsExport implements FromArray, ShouldAutoSize, WithEvents
 {
-    /**
-    * Return the column headings for the Excel export.
-    *
-    * @return array
-    */
-    public function headings(): array
-    {
-        return [
-            'Item Name',
-            'Category',
-            'Total Quantity',
-            'Available Quantity',
-            'Quantity In Use'
-        ];
-    }
     protected array $columns;
     protected array $rows;
     protected array $meta;
@@ -49,7 +33,8 @@ class ReportsExport implements FromArray, ShouldAutoSize, WithEvents, WithHeadin
         // Meta section
         if (!empty($this->meta['title'])) $out[] = [$this->meta['title']];
         if (!empty($this->meta['start']) || !empty($this->meta['end'])) {
-            $out[] = ['Period', trim(($this->meta['start'] ?? '') . ' to ' . ($this->meta['end'] ?? ''))];
+            $periodString = trim(($this->meta['start'] ?? '') . ' → ' . ($this->meta['end'] ?? ''));
+            $out[] = ['Period', $periodString];
         }
         if (!empty($this->meta['generated_at'])) $out[] = ['Generated', $this->meta['generated_at']];
         if (!empty($this->meta['title']) || !empty($this->meta['start']) || !empty($this->meta['generated_at'])) {
@@ -61,7 +46,13 @@ class ReportsExport implements FromArray, ShouldAutoSize, WithEvents, WithHeadin
 
         // Data rows
         foreach ($this->rows as $row) {
-            $out[] = array_map(fn($v) => is_scalar($v) ? $v : json_encode($v), (array) $row);
+            $out[] = array_map(function ($value) {
+                if ($value === null || $value === '') {
+                    return '—';
+                }
+
+                return is_scalar($value) ? $value : json_encode($value);
+            }, (array) $row);
         }
 
         $this->exportArray = $out;

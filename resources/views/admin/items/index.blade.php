@@ -389,9 +389,7 @@
             x-on:click="$dispatch('open-modal', 'manage-category'); open = false"
             class="group bg-white text-green-600 px-4 py-3 rounded-xl shadow-lg hover:shadow-xl border-2 border-green-200 hover:border-green-400 transition-all transform hover:scale-105 flex items-center space-x-3 min-w-[220px]">
             <div class="bg-green-100 p-2 rounded-lg group-hover:bg-green-200 transition-colors">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h18M3 12h18M3 17h18"/>
-                </svg>
+                <i class="fas fa-tags text-lg"></i>
             </div>
             <div class="text-left">
                 <div class="font-semibold text-sm">Category</div>
@@ -403,9 +401,7 @@
             x-on:click="$dispatch('open-modal', 'manage-office'); open = false"
             class="group bg-white text-yellow-600 px-4 py-3 rounded-xl shadow-lg hover:shadow-xl border-2 border-yellow-200 hover:border-yellow-400 transition-all transform hover:scale-105 flex items-center space-x-3 min-w-[220px]">
             <div class="bg-yellow-100 p-2 rounded-lg group-hover:bg-yellow-200 transition-colors">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6M9 16h6M9 8h6"/>
-                </svg>
+                <i class="fas fa-building text-lg"></i>
             </div>
             <div class="text-left">
                 <div class="font-semibold text-sm">Office Code</div>

@@ -598,6 +598,10 @@ class BorrowRequestController extends Controller
             try {
                 $user = $borrowRequest->user;
                 if ($user) {
+                    $actor = $request->user();
+                    $actorName = $this->resolveActorName($actor);
+                    $statusLabel = $this->formatBorrowStatusLabel($new);
+
                     $items = $borrowRequest->items->map(function($it) {
                         return [
                             'id' => $it->item->id ?? null,
@@ -611,15 +615,23 @@ class BorrowRequestController extends Controller
 
                     $payload = [
                         'type' => 'borrow_status_changed',
-                        'message' => "Your borrow request #{$borrowRequest->id} was changed to {$new}.",
+                        'message' => $actorName
+                            ? sprintf('%s set %s to %s.', $actorName, $borrowRequest->formatted_request_id ?? ('Request #' . $borrowRequest->id), $statusLabel ?? $new)
+                            : sprintf('%s is now %s.', $borrowRequest->formatted_request_id ?? ('Request #' . $borrowRequest->id), $statusLabel ?? $new),
                         'borrow_request_id' => $borrowRequest->id,
+                        'formatted_request_id' => $borrowRequest->formatted_request_id,
                         'old_status' => $old,
                         'new_status' => $new,
+                        'old_status_label' => $this->formatBorrowStatusLabel($old),
+                        'status_label' => $statusLabel,
                         'items' => $items,
                         'borrow_date' => $borrowRequest->borrow_date,
                         'return_date' => $borrowRequest->return_date,
                         'reason' => $notificationReason ?? $borrowRequest->reject_reason,
                         'reject_category' => $borrowRequest->reject_category,
+                        'actor_id' => $actor?->id,
+                        'actor_role' => $actor?->role,
+                        'actor_name' => $actorName,
                     ];
 
                     $user->notify(new RequestNotification($payload));
@@ -874,12 +886,20 @@ class BorrowRequestController extends Controller
             // notify user - dispatched only (two-step flow)
             $user = $borrowRequest->user;
             if ($user) {
+                $actor = $request->user();
+                $actorName = $this->resolveActorName($actor);
                 $payload = [
                     'type' => 'borrow_dispatched',
-                    'message' => "Your borrow request #{$borrowRequest->id} is on its way.",
+                    'message' => $actorName
+                        ? sprintf('%s dispatched %s.', $actorName, $borrowRequest->formatted_request_id ?? ('Request #' . $borrowRequest->id))
+                        : sprintf('%s has been dispatched.', $borrowRequest->formatted_request_id ?? ('Request #' . $borrowRequest->id)),
                     'borrow_request_id' => $borrowRequest->id,
+                    'formatted_request_id' => $borrowRequest->formatted_request_id,
                     'user_id' => $user->id,
                     'user_name' => trim($user->first_name . ' ' . ($user->last_name ?? '')),
+                    'actor_id' => $actor?->id,
+                    'actor_role' => $actor?->role,
+                    'actor_name' => $actorName,
                     'borrow_date' => (string) $borrowRequest->borrow_date,
                     'return_date' => (string) $borrowRequest->return_date,
                     'dispatched_at' => $borrowRequest->dispatched_at ? $borrowRequest->dispatched_at->toDateTimeString() : null,
@@ -1024,11 +1044,19 @@ class BorrowRequestController extends Controller
             // Notify the user
             $user = $borrowRequest->user;
             if ($user) {
+                $actor = $request->user();
+                $actorName = $this->resolveActorName($actor);
                 $payload = [
                     'type' => 'borrow_delivered',
-                    'message' => "Your borrow request #{$borrowRequest->id} has been delivered.",
+                    'message' => $actorName
+                        ? sprintf('%s marked %s as delivered.', $actorName, $borrowRequest->formatted_request_id ?? ('Request #' . $borrowRequest->id))
+                        : sprintf('%s has been marked as delivered.', $borrowRequest->formatted_request_id ?? ('Request #' . $borrowRequest->id)),
                     'borrow_request_id' => $borrowRequest->id,
+                    'formatted_request_id' => $borrowRequest->formatted_request_id,
                     'user_id' => $user->id,
+                    'actor_id' => $actor?->id,
+                    'actor_role' => $actor?->role,
+                    'actor_name' => $actorName,
                     'delivered_at' => $borrowRequest->delivered_at?->toDateTimeString(),
                 ];
                 $user->notify(new RequestNotification($payload));
@@ -1088,10 +1116,18 @@ class BorrowRequestController extends Controller
             // Notify user about cancellation
             $user = $borrowRequest->user;
             if ($user) {
+                $actor = $request->user();
+                $actorName = $this->resolveActorName($actor);
                 $payload = [
                     'type' => 'borrow_dispatch_canceled',
-                    'message' => "Dispatch for borrow request #{$borrowRequest->id} has been canceled.",
+                    'message' => $actorName
+                        ? sprintf('%s canceled the dispatch for %s.', $actorName, $borrowRequest->formatted_request_id ?? ('Request #' . $borrowRequest->id))
+                        : sprintf('Dispatch for %s has been canceled.', $borrowRequest->formatted_request_id ?? ('Request #' . $borrowRequest->id)),
                     'borrow_request_id' => $borrowRequest->id,
+                    'formatted_request_id' => $borrowRequest->formatted_request_id,
+                    'actor_id' => $actor?->id,
+                    'actor_role' => $actor?->role,
+                    'actor_name' => $actorName,
                 ];
                 $user->notify(new RequestNotification($payload));
             }
@@ -1105,5 +1141,42 @@ class BorrowRequestController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    private function resolveActorName(?\App\Models\User $actor): ?string
+    {
+        if (! $actor) {
+            return null;
+        }
+
+        $preferred = trim((string) ($actor->full_name ?? ''));
+        if ($preferred !== '') {
+            return $preferred;
+        }
+
+        $fallback = trim((string) (($actor->first_name ?? '') . ' ' . ($actor->last_name ?? '')));
+        if ($fallback !== '') {
+            return $fallback;
+        }
+
+        return $actor->email ?? null;
+    }
+
+    private function formatBorrowStatusLabel(?string $status): ?string
+    {
+        if (! $status) {
+            return null;
+        }
+
+        return match ($status) {
+            'pending' => 'Pending Review',
+            'validated' => 'Validated',
+            'approved' => 'Approved',
+            'rejected' => 'Rejected',
+            'returned' => 'Returned',
+            'return_pending' => 'Awaiting Return',
+            'qr_verified' => 'QR Verified',
+            default => ucwords(str_replace('_', ' ', $status)),
+        };
     }
 }

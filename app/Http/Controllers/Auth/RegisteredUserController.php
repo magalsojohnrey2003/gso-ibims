@@ -8,8 +8,10 @@ use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rules;
+use App\Notifications\RequestNotification;
 
 class RegisteredUserController extends Controller
 {
@@ -68,6 +70,29 @@ class RegisteredUserController extends Controller
         ]);
 
         event(new Registered($user));
+
+        $admins = User::where('role', 'admin')->get();
+        if ($admins->isNotEmpty()) {
+            $displayName = $user->full_name;
+            if (! $displayName) {
+                $displayName = trim((string) (($user->first_name ?? '') . ' ' . ($user->last_name ?? '')));
+            }
+            if ($displayName === '') {
+                $displayName = $user->email;
+            }
+
+            $payload = [
+                'type' => 'user_registered',
+                'message' => sprintf('%s registered an account.', $displayName),
+                'user_id' => $user->id,
+                'user_name' => $displayName,
+                'email' => $user->email,
+                'creation_source' => $user->creation_source,
+                'registered_at' => optional($user->created_at)->toDateTimeString(),
+            ];
+
+            Notification::send($admins, new RequestNotification($payload));
+        }
 
         // Redirect to the combined auth page (login-register) and show the register success banner.
         // 'login_message' intentionally does NOT include "Please log in." — client-side will auto-switch.

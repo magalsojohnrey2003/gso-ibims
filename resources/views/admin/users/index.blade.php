@@ -130,6 +130,45 @@
         </div>
     </div>
 
+    {{-- Registration QR Modal --}}
+    <div id="registration-qr-modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="registration-qr-title" aria-hidden="true">
+        <div class="bg-white rounded-2xl w-full max-w-lg shadow-2xl transform transition-all">
+            <div class="bg-purple-600 text-white px-6 py-5 rounded-t-2xl relative">
+                <button type="button" data-close-qr-modal class="absolute top-1/2 -translate-y-1/2 left-6 text-white hover:text-gray-200 transition-colors focus:outline-none">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+                <h3 id="registration-qr-title" class="text-2xl font-bold flex items-center gap-2 justify-center">
+                    <i class="fas fa-qrcode"></i>
+                    Registration QR Code
+                </h3>
+            </div>
+            <div class="px-6 py-6 text-center">
+                <p class="text-sm text-gray-500">Scan this code to open the restricted registration page.</p>
+                <div id="registration-qr-output" class="mx-auto my-6 flex items-center justify-center"></div>
+                <div class="text-xs sm:text-sm text-gray-600 break-all bg-gray-100 rounded-lg px-4 py-2">
+                    <span class="font-semibold text-gray-700">Link:</span>
+                    <a href="{{ url('/login') }}?action=register" class="text-purple-600 underline" target="_blank" rel="noopener">{{ url('/login') }}?action=register</a>
+                </div>
+                <div class="mt-6 flex flex-col sm:flex-row sm:justify-center gap-3">
+                    <button type="button" id="registration-qr-copy" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2 transition">
+                        <i class="fas fa-link"></i>
+                        <span class="text-sm font-semibold">Copy Link</span>
+                    </button>
+                    <button type="button" id="registration-qr-download" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2 transition">
+                        <i class="fas fa-download"></i>
+                        <span class="text-sm font-semibold">Download QR</span>
+                    </button>
+                    <button type="button" data-close-qr-modal class="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2 transition">
+                        <i class="fas fa-times"></i>
+                        <span class="text-sm font-semibold">Close</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {{-- Create Modal (hidden) --}}
     <div id="create-modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50 p-4">
         <div class="bg-white rounded-2xl w-full max-w-3xl shadow-2xl transform transition-all">
@@ -264,13 +303,23 @@
                 </div>
             </button>
             <button
+                data-open-registration-qr
+                @click="open = false"
+                class="group bg-white text-indigo-600 px-4 py-3 rounded-xl shadow-lg hover:shadow-xl border-2 border-indigo-200 hover:border-indigo-400 transition-all transform hover:scale-105 flex items-center space-x-3 min-w-[220px]">
+                <div class="bg-indigo-100 p-2 rounded-lg group-hover:bg-indigo-200 transition-colors">
+                    <i class="fas fa-qrcode text-lg"></i>
+                </div>
+                <div class="text-left">
+                    <div class="font-semibold text-sm">Registration QR</div>
+                    <div class="text-xs text-indigo-500">Share the sign-up link</div>
+                </div>
+            </button>
+            <button
                 data-open-archived-users
                 @click="open = false"
                 class="group bg-white text-amber-600 px-4 py-3 rounded-xl shadow-lg hover:shadow-xl border-2 border-amber-200 hover:border-amber-400 transition-all transform hover:scale-105 flex items-center space-x-3 min-w-[220px]">
                 <div class="bg-amber-100 p-2 rounded-lg group-hover:bg-amber-200 transition-colors">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v8m-4-4h8" />
-                    </svg>
+                    <i class="fas fa-archive text-lg"></i>
                 </div>
                 <div class="text-left">
                     <div class="font-semibold text-sm">Archived Accounts</div>
@@ -282,6 +331,7 @@
 
     {{-- SweetAlert2 for toasts --}}
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
     <script>
         // Toast configurations
@@ -341,8 +391,161 @@
         // Initialize password toggles on page load
         initPasswordToggles();
 
+        const registrationQrModal = document.getElementById('registration-qr-modal');
+        const registrationQrContainer = document.getElementById('registration-qr-output');
+        const registrationQrUrl = @json(url('/login').'?action=register');
+        const registrationQrCopyButton = document.getElementById('registration-qr-copy');
+        const registrationQrDownloadButton = document.getElementById('registration-qr-download');
+        let registrationQrInstance = null;
+
+        function openRegistrationQrModal() {
+            if (!registrationQrModal) {
+                return;
+            }
+            if (typeof QRCode === 'undefined') {
+                console.error('QRCode library unavailable');
+                if (typeof showError === 'function') {
+                    showError('Unable to generate the QR code. Please try again later.');
+                }
+                return;
+            }
+
+            registrationQrModal.classList.remove('hidden');
+            registrationQrModal.setAttribute('aria-hidden', 'false');
+
+            if (registrationQrContainer) {
+                registrationQrContainer.innerHTML = '';
+                registrationQrInstance = new QRCode(registrationQrContainer, {
+                    text: registrationQrUrl,
+                    width: 240,
+                    height: 240,
+                    colorDark: '#1f2937',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+            }
+
+            setTimeout(function() {
+                const closeBtn = registrationQrModal.querySelector('[data-close-qr-modal]');
+                if (closeBtn && typeof closeBtn.focus === 'function') {
+                    try {
+                        closeBtn.focus({ preventScroll: true });
+                    } catch (err) {
+                        closeBtn.focus();
+                    }
+                }
+            }, 120);
+        }
+
+        function closeRegistrationQrModal() {
+            if (!registrationQrModal) {
+                return;
+            }
+            registrationQrModal.classList.add('hidden');
+            registrationQrModal.setAttribute('aria-hidden', 'true');
+            if (registrationQrContainer) {
+                registrationQrContainer.innerHTML = '';
+            }
+            registrationQrInstance = null;
+        }
+
+        function copyRegistrationLinkFallback() {
+            try {
+                const tempInput = document.createElement('input');
+                tempInput.type = 'text';
+                tempInput.value = registrationQrUrl;
+                tempInput.setAttribute('aria-hidden', 'true');
+                tempInput.style.position = 'absolute';
+                tempInput.style.left = '-9999px';
+                document.body.appendChild(tempInput);
+                tempInput.select();
+                tempInput.setSelectionRange(0, tempInput.value.length);
+                const copied = document.execCommand && document.execCommand('copy');
+                document.body.removeChild(tempInput);
+
+                if (copied && typeof showSuccess === 'function') {
+                    showSuccess('Registration link copied to clipboard');
+                } else if (typeof showError === 'function') {
+                    showError('Copy failed. Please copy the link manually.');
+                }
+            } catch (err) {
+                if (typeof showError === 'function') {
+                    showError('Copy failed. Please copy the link manually.');
+                }
+            }
+        }
+
+        if (registrationQrCopyButton) {
+            registrationQrCopyButton.addEventListener('click', function() {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(registrationQrUrl)
+                        .then(function() {
+                            if (typeof showSuccess === 'function') {
+                                showSuccess('Registration link copied to clipboard');
+                            }
+                        })
+                        .catch(function() {
+                            copyRegistrationLinkFallback();
+                        });
+                } else {
+                    copyRegistrationLinkFallback();
+                }
+            });
+        }
+
+        if (registrationQrDownloadButton) {
+            registrationQrDownloadButton.addEventListener('click', function() {
+                if (!registrationQrContainer) {
+                    return;
+                }
+
+                let dataUrl = '';
+                const qrImage = registrationQrContainer.querySelector('img');
+                const qrCanvas = registrationQrContainer.querySelector('canvas');
+
+                if (qrImage && qrImage.currentSrc) {
+                    dataUrl = qrImage.currentSrc;
+                } else if (qrCanvas && qrCanvas.toDataURL) {
+                    dataUrl = qrCanvas.toDataURL('image/png');
+                }
+
+                if (!dataUrl) {
+                    if (typeof showError === 'function') {
+                        showError('Unable to download the QR code. Please try again.');
+                    }
+                    return;
+                }
+
+                const link = document.createElement('a');
+                link.href = dataUrl;
+                link.download = 'registration-qr.png';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            });
+        }
+
         // Simple modal handling
         document.addEventListener('click', function(e) {
+            const openQr = e.target.closest('[data-open-registration-qr]');
+            if (openQr) {
+                e.preventDefault();
+                openRegistrationQrModal();
+                return;
+            }
+
+            const closeQr = e.target.closest('[data-close-qr-modal]');
+            if (closeQr) {
+                e.preventDefault();
+                closeRegistrationQrModal();
+                return;
+            }
+
+            if (registrationQrModal && !registrationQrModal.classList.contains('hidden') && e.target === registrationQrModal) {
+                closeRegistrationQrModal();
+                return;
+            }
+
             const openCreate = e.target.closest('#open-create-modal, [data-open-create-user]');
             if (openCreate) {
                 const modal = document.getElementById('create-modal');
@@ -470,6 +673,7 @@
                 if (createModal) createModal.classList.add('hidden');
                 if (editModal) editModal.classList.add('hidden');
                 if (archivedModal) archivedModal.classList.add('hidden');
+                closeRegistrationQrModal();
             }
         });
 

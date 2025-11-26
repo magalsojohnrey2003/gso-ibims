@@ -347,18 +347,24 @@ class BorrowItemsController extends Controller
             ];
         }
 
+        $requesterName = trim(($request->user()->first_name ?? '') . ' ' . ($request->user()->last_name ?? '')) ?: ($request->user()->email ?? 'Borrower');
+
         $payload = [
             'type' => 'borrow_submitted',
-            'message' => "New borrow request #{$borrowRequest->id} submitted by " . ($request->user()->first_name ?? 'Someone'),
+            'message' => "New borrow request {$borrowRequest->formatted_request_id} submitted by {$requesterName}.",
             'borrow_request_id' => $borrowRequest->id,
+            'formatted_request_id' => $borrowRequest->formatted_request_id,
             'user_id' => $request->user()->id,
-            'user_name' => trim($request->user()->first_name . ' ' . ($request->user()->last_name ?? '')),
+            'user_name' => $requesterName,
+            'actor_id' => $request->user()->id,
+            'actor_name' => $requesterName,
             'time_of_usage' => $timeOfUsage,
             'purpose_office' => $validated['purpose_office'],
             'purpose' => $validated['purpose'],
             'items' => $itemsPayload,
             'borrow_date' => $borrowRequest->borrow_date,
             'return_date' => $borrowRequest->return_date,
+            'submitted_at' => optional($borrowRequest->created_at)->toDateTimeString(),
         ];
 
         Notification::send($admins, new RequestNotification($payload));
@@ -601,12 +607,17 @@ class BorrowItemsController extends Controller
 
         // Notify admins
         $admins = User::where('role', 'admin')->get();
+        $borrowerName = trim(($borrowRequest->user->first_name ?? '') . ' ' . ($borrowRequest->user->last_name ?? '')) ?: ($borrowRequest->user->email ?? 'Borrower');
+
         $payload = [
             'type' => 'delivery_confirmed',
-            'message' => "User confirmed receipt for borrow request #{$borrowRequest->id}.",
+            'message' => "Delivery confirmed for {$borrowRequest->formatted_request_id}.",
             'borrow_request_id' => $borrowRequest->id,
+            'formatted_request_id' => $borrowRequest->formatted_request_id,
             'user_id' => $borrowRequest->user_id,
-            'user_name' => trim($borrowRequest->user->first_name . ' ' . ($borrowRequest->user->last_name ?? '')),
+            'user_name' => $borrowerName,
+            'actor_id' => optional($request->user())->id,
+            'actor_name' => optional($request->user())->full_name ?: $borrowerName,
             'delivered_at' => $borrowRequest->delivered_at ? $borrowRequest->delivered_at->toDateTimeString() : null,
         ];
         Notification::send($admins, new RequestNotification($payload));
@@ -632,12 +643,17 @@ class BorrowItemsController extends Controller
 
         // Notify admins
         $admins = User::where('role', 'admin')->get();
+        $borrowerName = trim(($borrowRequest->user->first_name ?? '') . ' ' . ($borrowRequest->user->last_name ?? '')) ?: ($borrowRequest->user->email ?? 'Borrower');
+
         $payload = [
             'type' => 'delivery_reported',
-            'message' => "User reported not receiving borrow request #{$borrowRequest->id}.",
+            'message' => "Delivery issue reported for {$borrowRequest->formatted_request_id}.",
             'borrow_request_id' => $borrowRequest->id,
+            'formatted_request_id' => $borrowRequest->formatted_request_id,
             'user_id' => $borrowRequest->user_id,
-            'user_name' => trim($borrowRequest->user->first_name . ' ' . ($borrowRequest->user->last_name ?? '')),
+            'user_name' => $borrowerName,
+            'actor_id' => optional($request->user())->id,
+            'actor_name' => optional($request->user())->full_name ?: $borrowerName,
             'reason' => $reason,
             'reported_at' => $borrowRequest->delivery_reported_at ? $borrowRequest->delivery_reported_at->toDateTimeString() : null,
         ];
