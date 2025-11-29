@@ -47,6 +47,10 @@ class RequestNotification extends Notification implements ShouldQueue
     // Optional: set a custom broadcast type (helps Echo handlers)
     public function broadcastType(): string
     {
+        $type = strtolower((string) ($this->payload['type'] ?? ''));
+        if ($type === 'overdue') {
+            return 'request.overdue';
+        }
         return 'request.notification';
     }
 }

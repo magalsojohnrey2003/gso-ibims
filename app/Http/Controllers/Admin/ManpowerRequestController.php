@@ -22,7 +22,7 @@ class ManpowerRequestController extends Controller
 
     public function list(Request $request)
     {
-        $query = ManpowerRequest::with(['user', 'roleType'])->latest();
+        $query = ManpowerRequest::with(['user', 'roleType', 'roles'])->latest();
 
         if ($search = trim((string) $request->query('q', ''))) {
             $numericSearch = preg_replace('/\D+/', '', $search);
@@ -47,6 +47,10 @@ class ManpowerRequestController extends Controller
         }
 
         $rows = $query->get()->map(function(ManpowerRequest $row) {
+            $roleBreakdown = $row->role_breakdown;
+            $roleSummary = $row->buildRoleSummary();
+            $totalQuantity = $row->total_requested_quantity;
+
             return [
                 'id' => $row->id,
                 'user' => $row->user ? [
@@ -55,10 +59,12 @@ class ManpowerRequestController extends Controller
                     'email' => $row->user->email,
                 ] : null,
                 'formatted_request_id' => $row->formatted_request_id,
-                'quantity' => $row->quantity,
-                'approved_quantity' => $row->approved_quantity,
-                'role' => $row->role,
+                'quantity' => $totalQuantity,
+                'approved_quantity' => $this->computeApprovedQuantity($row),
+                'role' => $roleSummary,
                 'role_type' => $row->roleType ? $row->roleType->name : null,
+                'role_breakdown' => $roleBreakdown,
+                'has_multiple_roles' => $row->has_multiple_roles,
                 'purpose' => $row->purpose,
                 'location' => $row->location,
                 'municipality' => $row->municipality,
@@ -77,6 +83,25 @@ class ManpowerRequestController extends Controller
         });
 
         return response()->json($rows);
+    }
+
+    private function computeApprovedQuantity(ManpowerRequest $request): ?int
+    {
+        $roles = collect($request->role_breakdown ?? []);
+        if ($roles->isEmpty()) {
+            return $request->approved_quantity;
+        }
+
+        $sum = $roles
+            ->map(fn ($entry) => isset($entry['approved_quantity']) ? (int) $entry['approved_quantity'] : null)
+            ->filter(fn ($value) => $value !== null && $value >= 0)
+            ->sum();
+
+        if ($sum > 0) {
+            return $sum;
+        }
+
+        return $request->approved_quantity;
     }
 
     public function scan(Request $request, ManpowerRequest $manpowerRequest, ManpowerRequestPdfService $pdfService)

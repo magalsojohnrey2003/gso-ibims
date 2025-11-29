@@ -32,7 +32,9 @@ class StatusDowngradeGuardsTest extends TestCase
         ItemInstance::factory()->count(4)->available()->forItem($item)->create();
 
         $this->postJson('/admin/borrow-requests/' . $req->id . '/dispatch')->assertStatus(200);
-        $this->postJson('/admin/borrow-requests/' . $req->id . '/deliver')->assertStatus(200);
+        $this->actingAs($borrower);
+        $this->postJson('/user/my-borrowed-items/' . $req->id . '/confirm-delivery')->assertStatus(200);
+        $this->actingAs($admin);
 
         $req->refresh();
         $item->refresh();

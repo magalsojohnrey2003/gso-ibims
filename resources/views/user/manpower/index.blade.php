@@ -204,10 +204,9 @@
                                             <dt class="text-xs uppercase text-gray-500">Office / Purpose</dt>
                                             <dd id="mpSummaryOffice" class="mt-1 font-medium text-gray-900">—</dd>
                                             <dd id="mpSummaryPurpose" class="text-gray-600">—</dd>
-                                        </div>
                                         <div>
-                                            <dt class="text-xs uppercase text-gray-500">Location</dt>
-                                            <dd id="mpSummaryLocation" class="mt-1 font-medium text-gray-900">—</dd>
+                                            <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Role</dt>
+                                            <dd class="mt-1 font-medium text-gray-900 dark:text-white" data-user-view="role">—</dd>
                                         </div>
                                         <div>
                                             <dt class="text-xs uppercase text-gray-500">Schedule</dt>
@@ -329,6 +328,7 @@
                             <div>
                                 <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Role</dt>
                                 <dd class="mt-1 font-medium text-gray-900 dark:text-white" data-user-view="role">—</dd>
+                                <ul class="mt-1 space-y-1 text-xs text-gray-600 dark:text-gray-300 list-disc list-inside hidden" data-user-role-breakdown></ul>
                             </div>
                             <div>
                                 <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Status</dt>

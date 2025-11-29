@@ -195,8 +195,9 @@ class ManpowerRequestPdfService
             'form_name' => $name,
         ];
 
-        $roleLabel = trim((string) ($manpowerRequest->role ?? 'Manpower'));
-        $baseLabel = $roleLabel !== '' ? $roleLabel : 'Manpower';
+        $roleLabel = trim((string) ($manpowerRequest->role ?? ''));
+        $roleSummary = trim((string) $manpowerRequest->buildRoleSummary());
+        $baseLabel = $roleSummary !== '' ? $roleSummary : ($roleLabel !== '' ? $roleLabel : 'Manpower');
         $approvedQuantity = (int) ($manpowerRequest->approved_quantity ?? 0);
         $quantity = $approvedQuantity > 0 ? $approvedQuantity : max((int) $manpowerRequest->quantity, 0);
         if ($quantity <= 0) {

@@ -12,6 +12,7 @@ class WelcomeController extends Controller
     public function landing()
     {
         $featuredItems = Item::query()
+            ->where('is_borrowable', true)
             ->latest()
             ->take(3)
             ->get();
@@ -27,6 +28,7 @@ class WelcomeController extends Controller
     public function publicBorrowItems()
     {
         $items = Item::query()
+            ->where('is_borrowable', true)
             ->orderBy('name')
             ->get();
 

@@ -90,10 +90,11 @@ class AdminDispatchDeliverFlowTest extends TestCase
             $this->assertEquals('allocated', $row->instance->status, 'Instance marked allocated after dispatch');
         }
 
-        // === Deliver ===
-        $deliverRes = $this->postJson('/admin/borrow-requests/' . $borrowRequest->id . '/deliver');
-        if ($deliverRes->getStatusCode() !== 200) { $deliverRes->dump(); }
-        $deliverRes->assertStatus(200)->assertJson(['message' => 'Items marked as delivered successfully.']);
+        // === Borrower Confirms Receipt ===
+        $this->actingAs($borrower);
+        $confirmRes = $this->postJson('/user/my-borrowed-items/' . $borrowRequest->id . '/confirm-delivery');
+        if ($confirmRes->getStatusCode() !== 200) { $confirmRes->dump(); }
+        $confirmRes->assertStatus(200)->assertJson(['message' => 'Confirmed receipt.']);
 
         $borrowRequest->refresh();
         $item->refresh();
@@ -109,6 +110,7 @@ class AdminDispatchDeliverFlowTest extends TestCase
         }
 
         // === Return Items visibility ===
+        $this->actingAs($admin);
         // After marking delivered, the request should appear in Return Items list (delivered included in filter)
         $returnList = $this->getJson('/admin/return-items/list');
         $returnList->assertStatus(200);

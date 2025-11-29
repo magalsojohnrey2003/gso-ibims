@@ -28,6 +28,8 @@
 
     $hasModelNo = $item->instances->contains(fn ($inst) => filled($inst->model_no ?? null));
     $hasSerialNo = $item->instances->contains(fn ($inst) => filled($inst->serial_no ?? null));
+    $borrowableLocked = (int) ($item->available_qty ?? 0) < (int) ($item->total_qty ?? 0);
+    $borrowableWarning = 'Cannot hide item while units are currently borrowed or deployed.';
 @endphp
 
 <form
@@ -109,6 +111,32 @@
                     class="gov-input block w-full px-3 py-2 text-sm transition duration-200 mt-1"
                     data-edit-field="description">{{ old('description', $primaryInstance?->notes) }}</textarea>
                 <x-input-error :messages="$errors->get('description')" class="mt-2" />
+            </div>
+
+            <div>
+                <input type="hidden" name="is_borrowable" value="{{ $borrowableLocked ? (int) $item->is_borrowable : 0 }}">
+                <label class="flex items-start gap-3">
+                    <span class="flex items-center h-6">
+                        <input
+                            type="checkbox"
+                            name="is_borrowable"
+                            value="1"
+                            class="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            {{ old('is_borrowable', (int) $item->is_borrowable) ? 'checked' : '' }}
+                            {{ $borrowableLocked ? 'disabled' : '' }}
+                            data-edit-field="is_borrowable"
+                            @if($borrowableLocked) aria-describedby="borrowable-lock-msg-{{ $item->id }}" @endif>
+                    </span>
+                    <span>
+                        <span class="block text-sm font-semibold text-gray-700">Available for Borrowing</span>
+                        <span class="mt-1 block text-xs text-gray-500">If disabled, this item will remain in inventory but will be hidden from the public borrowing catalog.</span>
+                        @if($borrowableLocked)
+                            <span id="borrowable-lock-msg-{{ $item->id }}" class="mt-2 inline-flex items-center text-xs text-red-600 font-medium">
+                                <i class="fas fa-lock mr-1"></i>{{ $borrowableWarning }}
+                            </span>
+                        @endif
+                    </span>
+                </label>
             </div>
 
             <div>

@@ -3,11 +3,18 @@
 namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
+use App\Models\BorrowItemInstance;
 use App\Models\BorrowRequest;
+use App\Models\ItemInstance;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 use App\Services\BorrowRequestFormPdf;
+use App\Services\PhilSmsService;
+use App\Notifications\RequestNotification;
 
 class MyBorrowedItemsController extends Controller
 {
@@ -75,6 +82,9 @@ class MyBorrowedItemsController extends Controller
                     'borrowed_instances' => $instances,
                     'delivery_reason_type' => $borrowRequest->delivery_reason_type,
                     'delivery_reason_details' => $borrowRequest->delivery_reason_details,
+                    'delivered_at' => optional($borrowRequest->delivered_at)->toIso8601String(),
+                    'delivery_reported_at' => optional($borrowRequest->delivery_reported_at)->toIso8601String(),
+                    'delivery_report_reason' => $borrowRequest->delivery_report_reason,
                 ];
             });
 
@@ -123,7 +133,198 @@ class MyBorrowedItemsController extends Controller
             'borrowed_instances' => $instances,
             'delivery_reason_type' => $borrowRequest->delivery_reason_type,
             'delivery_reason_details' => $borrowRequest->delivery_reason_details,
+            'delivered_at' => optional($borrowRequest->delivered_at)->toIso8601String(),
+            'delivery_reported_at' => optional($borrowRequest->delivery_reported_at)->toIso8601String(),
+            'delivery_report_reason' => $borrowRequest->delivery_report_reason,
         ]);
+    }
+
+    public function confirmDelivery(Request $request, BorrowRequest $borrowRequest, PhilSmsService $philSms)
+    {
+        if ($borrowRequest->user_id !== Auth::id()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        if ($borrowRequest->delivery_status === 'delivered') {
+            return response()->json(['message' => 'Already confirmed delivered.'], 200);
+        }
+
+        if ($borrowRequest->delivery_status !== 'dispatched') {
+            return response()->json(['message' => 'Only dispatched requests can be confirmed.'], 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            $borrowRequest->load('items.item', 'borrowedInstances.instance');
+
+            if ($borrowRequest->borrowedInstances->isEmpty()) {
+                foreach ($borrowRequest->items as $requestItem) {
+                    $item = $requestItem->item;
+                    if (! $item) {
+                        throw new \RuntimeException('One of the requested items could not be found.');
+                    }
+
+                    $needed = (int) $requestItem->quantity;
+                    if ($needed <= 0) {
+                        continue;
+                    }
+
+                    $availableInstances = ItemInstance::where('item_id', $item->id)
+                        ->where('status', 'available')
+                        ->lockForUpdate()
+                        ->limit($needed)
+                        ->get();
+
+                    if ($availableInstances->count() < $needed) {
+                        throw new \RuntimeException("Not enough available instances for {$item->name}.");
+                    }
+
+                    foreach ($availableInstances as $instance) {
+                        $instance->status = 'allocated';
+                        $instance->save();
+
+                        BorrowItemInstance::create([
+                            'borrow_request_id' => $borrowRequest->id,
+                            'item_id' => $item->id,
+                            'item_instance_id' => $instance->id,
+                            'borrowed_qty' => 1,
+                            'checked_out_at' => now(),
+                            'expected_return_at' => $borrowRequest->return_date,
+                            'return_condition' => 'pending',
+                        ]);
+                    }
+                }
+
+                $borrowRequest->load('items.item', 'borrowedInstances.instance');
+            }
+
+            foreach ($borrowRequest->items as $requestItem) {
+                $item = $requestItem->item;
+                if (! $item) {
+                    continue;
+                }
+
+                $borrowRequest->borrowedInstances()
+                    ->where('item_id', $item->id)
+                    ->whereHas('instance', function ($query) {
+                        $query->where('status', 'allocated');
+                    })
+                    ->get()
+                    ->each(function (BorrowItemInstance $borrowInstance) {
+                        if ($borrowInstance->instance) {
+                            $borrowInstance->instance->status = 'borrowed';
+                            $borrowInstance->instance->save();
+                        }
+                    });
+
+                $item->available_qty = max(0, (int) $item->available_qty - (int) $requestItem->quantity);
+                $item->save();
+            }
+
+            $borrowRequest->delivery_status = 'delivered';
+            $borrowRequest->delivered_at = now();
+            $borrowRequest->delivery_reported_at = null;
+            $borrowRequest->delivery_report_reason = null;
+            $borrowRequest->save();
+
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            Log::error('user.confirm_delivery_failed', [
+                'borrow_request_id' => $borrowRequest->id,
+                'user_id' => Auth::id(),
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'message' => 'Failed to confirm delivery. Please try again.',
+            ], 500);
+        }
+
+        $borrowRequest->refresh();
+        $borrower = $borrowRequest->user;
+        $borrowerName = $borrower
+            ? trim(($borrower->first_name ?? '') . ' ' . ($borrower->last_name ?? ''))
+            : 'Borrower';
+
+        $payload = [
+            'type' => 'delivery_confirmed',
+            'message' => sprintf('%s confirmed receipt for %s.', $borrowerName ?: 'Borrower', $borrowRequest->formatted_request_id ?? ('Request #' . $borrowRequest->id)),
+            'borrow_request_id' => $borrowRequest->id,
+            'formatted_request_id' => $borrowRequest->formatted_request_id,
+            'user_id' => $borrowRequest->user_id,
+            'user_name' => $borrowerName,
+            'actor_id' => $borrower?->id,
+            'actor_name' => $borrowerName,
+            'delivered_at' => $borrowRequest->delivered_at?->toDateTimeString(),
+        ];
+
+        $admins = User::where('role', 'admin')->get();
+        Notification::send($admins, new RequestNotification($payload));
+
+        try {
+            $fresh = $borrowRequest->fresh(['user']);
+            if ($fresh) {
+                $philSms->notifyBorrowerDelivery($fresh);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('user.confirm_delivery_sms_failed', [
+                'borrow_request_id' => $borrowRequest->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return response()->json(['message' => 'Confirmed receipt.']);
+    }
+
+    public function reportNotReceived(Request $request, BorrowRequest $borrowRequest)
+    {
+        if ($borrowRequest->user_id !== Auth::id()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $validated = $request->validate([
+            'reason' => 'nullable|string|max:2000',
+        ]);
+
+        try {
+            $borrowRequest->markNotReceived($validated['reason'] ?? null);
+        } catch (\Throwable $e) {
+            Log::error('user.report_not_received_failed', [
+                'borrow_request_id' => $borrowRequest->id,
+                'user_id' => Auth::id(),
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'message' => 'Failed to submit report. Please try again.',
+            ], 500);
+        }
+
+        $borrowRequest->refresh();
+        $borrower = $borrowRequest->user;
+        $borrowerName = $borrower
+            ? trim(($borrower->first_name ?? '') . ' ' . ($borrower->last_name ?? ''))
+            : 'Borrower';
+
+        $payload = [
+            'type' => 'delivery_reported',
+            'message' => sprintf('%s reported a delivery issue for %s.', $borrowerName ?: 'Borrower', $borrowRequest->formatted_request_id ?? ('Request #' . $borrowRequest->id)),
+            'borrow_request_id' => $borrowRequest->id,
+            'formatted_request_id' => $borrowRequest->formatted_request_id,
+            'user_id' => $borrowRequest->user_id,
+            'user_name' => $borrowerName,
+            'actor_id' => $borrower?->id,
+            'actor_name' => $borrowerName,
+            'reason' => $borrowRequest->delivery_report_reason,
+            'reported_at' => $borrowRequest->delivery_reported_at?->toDateTimeString(),
+        ];
+
+        $admins = User::where('role', 'admin')->get();
+        Notification::send($admins, new RequestNotification($payload));
+
+        return response()->json(['message' => 'Reported not received.']);
     }
 
     protected function fetchBorrowedInstances(int $borrowRequestId)

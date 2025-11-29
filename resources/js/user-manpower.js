@@ -74,6 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const userRejectionCard = document.getElementById('userManpowerRejectionCard');
   const userRejectionSubject = document.querySelector('[data-user-view="rejection_subject"]');
   const userRejectionDetail = document.querySelector('[data-user-view="rejection_detail"]');
+  const userRoleBreakdownList = null;
   const MUNICIPALITY_ALIASES = {
     'cagayan-de-oro': 'cagayan-de-oro-city',
   };
@@ -91,6 +92,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let CACHE = [];
   let PENDING_PAYLOAD = null;
   const SHORT_MONTHS = ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May.', 'Jun.', 'Jul.', 'Aug.', 'Sept.', 'Oct.', 'Nov.', 'Dec.'];
+
+  // role column removed — helpers not required
 
   const openModal = (name) => window.dispatchEvent(new CustomEvent('open-modal', { detail: name }));
   const closeModal = (name) => window.dispatchEvent(new CustomEvent('close-modal', { detail: name }));
@@ -313,6 +316,8 @@ document.addEventListener('DOMContentLoaded', () => {
       summaryEls.role.textContent = roleLabel || '—';
     }
 
+    // role breakdown in review summary removed
+
     if (summaryEls.purpose) {
       const purposeValue = (purposeInput?.value || '').trim();
       summaryEls.purpose.textContent = purposeValue || '—';
@@ -505,7 +510,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (template?.content?.firstElementChild) {
       tbody.appendChild(template.content.firstElementChild.cloneNode(true));
     } else {
-      tbody.innerHTML = `<tr><td colspan="5" class="py-10 text-center text-gray-500">${fallback}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" class="py-10 text-center text-gray-500">${fallback}</td></tr>`;
     }
   };
 
@@ -561,6 +566,41 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!dateValue) return null;
     const time = timeValue || fallback;
     return `${dateValue}T${time}:00`;
+  };
+
+  const escapeHtml = (value) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+  const buildExpandableRoleHtml = (row, limit = 2) => {
+    const summary = String(row.role || '').trim();
+    const breakdown = Array.isArray(row.role_breakdown) ? row.role_breakdown : [];
+    if (!breakdown.length) {
+      return escapeHtml(summary) || '—';
+    }
+
+    const formatted = breakdown.map((entry) => {
+      const qty = Number(entry?.quantity ?? 0);
+      const label = escapeHtml(String((entry?.role_name ?? entry?.role) || 'Role'));
+      return qty > 0 ? `${qty} x ${label}` : `${label}`;
+    });
+
+    if (formatted.length <= limit) {
+      return escapeHtml(formatted.join(', '));
+    }
+
+    const leading = formatted.slice(0, limit).join(', ');
+    const remaining = formatted.length - limit;
+    const breakdownList = formatted.map((s) => `<li class="text-xs text-gray-600">${s}</li>`).join('');
+
+    return `
+      <div class="mp-role-summary">
+        <div class="text-xs text-gray-700">${escapeHtml(leading)} <a href="#" class="ml-1 mp-expand-more text-indigo-600 underline" data-request-id="${escapeHtml(String(row.id))}" data-limit="${limit}">+${remaining} more</a></div>
+        <ul class="mt-1 space-y-1 mp-role-breakdown hidden list-disc list-inside">${breakdownList}</ul>
+      </div>`;
   };
 
   const collectFormData = () => {
@@ -744,6 +784,9 @@ document.addEventListener('DOMContentLoaded', () => {
         el.textContent = row.municipality || '—';
       } else if (key === 'barangay') {
         el.textContent = row.barangay || '—';
+      } else if (key === 'role') {
+        // render expandable summary for role
+        el.innerHTML = buildExpandableRoleHtml(row, 2);
       } else {
         el.textContent = row[key] || '—';
       }
@@ -781,9 +824,24 @@ document.addEventListener('DOMContentLoaded', () => {
         if (userRejectionDetail) userRejectionDetail.textContent = '—';
       }
     }
+
+    // role breakdown list not used in user view
   };
 
   search?.addEventListener('input', render);
+
+  // Delegate clicks to toggle expanded role breakdowns
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('.mp-expand-more');
+    if (!a) return;
+    e.preventDefault();
+    const wrapper = a.closest('.mp-role-summary');
+    if (!wrapper) return;
+    const list = wrapper.querySelector('.mp-role-breakdown');
+    if (!list) return;
+    list.classList.toggle('hidden');
+    a.textContent = a.textContent.includes('more') ? a.textContent.replace('more', 'less') : a.textContent.replace('less', 'more');
+  });
 
   fetchRoles();
   loadMunicipalities();

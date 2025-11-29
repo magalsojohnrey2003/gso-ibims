@@ -4,7 +4,7 @@
     'description' => 'There are no records to display at this time.',
 ])
 
-<tr {{ $attributes->class('bg-white') }}>
+<tr data-table-state="empty" {{ $attributes->class('bg-white table-empty-row') }}>
     <td colspan="{{ (int) $colspan }}" class="table-state-cell text-center py-10 px-4">
         <div class="flex flex-col items-center justify-center text-center text-gray-500">
             <span class="inline-flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-500">

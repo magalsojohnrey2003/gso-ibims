@@ -79,13 +79,31 @@
                                 compact="true"> Items Management </x-title>
                     </div>
                     
-                    <!-- Live Search Bar -->
-                    <div class="flex-shrink-0 relative">
-                        <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
-                           <input type="text"
-                               id="items-live-search"
-                               placeholder="Search by Name or Category"
-                               class="gov-input pl-12 pr-4 py-2.5 text-sm w-64 transition duration-200 focus:outline-none focus:ring-0" />
+                    <!-- Live Search Bar + Borrowable Filter -->
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-3 w-full md:w-auto">
+                        <div class="flex-shrink-0 relative w-full sm:w-64">
+                            <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                            <input type="text"
+                                   id="items-live-search"
+                                   placeholder="Search by Name or Category"
+                                   class="gov-input pl-12 pr-4 py-2.5 text-sm w-full transition duration-200 focus:outline-none focus:ring-0" />
+                        </div>
+                        <div class="flex-shrink-0 w-full sm:w-52">
+                            <label for="items-borrowable-filter" class="sr-only">Catalog visibility filter</label>
+                            <div class="relative">
+                                <select
+                                    id="items-borrowable-filter"
+                                    class="gov-input pr-10 py-2.5 text-sm w-full appearance-none focus:outline-none focus:ring-0"
+                                    data-items-borrowable-filter>
+                                    <option value="all" selected>All Items</option>
+                                    <option value="borrowable">Borrowable Only</option>
+                                    <option value="hidden">Hidden from Catalog</option>
+                                </select>
+                                <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-400">
+                                    <i class="fas fa-chevron-down text-xs"></i>
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -157,7 +175,7 @@
                                   $displayCategory = $displayCategory ?? '';
                               }
                           @endphp
-                          <tr class="hover:bg-gray-50 text-center" data-item-row="{{ $item->id }}">
+                          <tr class="hover:bg-gray-50 text-center" data-item-row="{{ $item->id }}" data-item-borrowable="{{ $item->is_borrowable ? '1' : '0' }}">
                               <td class="px-6 py-4" data-item-photo>
                                   <div class="flex justify-center">
                                       <img src="{{ $item->photo_url }}" data-item-photo-img class="h-12 w-12 object-cover rounded-lg shadow-sm" alt="{{ $item->name }}">
@@ -471,6 +489,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const tableElement = document.querySelector('[data-items-table]');
     const searchInput = document.getElementById('items-live-search');
     const sortControls = Array.from(document.querySelectorAll('[data-items-sort-key]'));
+    const borrowableFilter = document.querySelector('[data-items-borrowable-filter]');
 
     if (!tableBody || !tableElement) {
         return;
@@ -497,6 +516,7 @@ document.addEventListener('DOMContentLoaded', () => {
         search: searchInput ? searchInput.value.trim().toLowerCase() : '',
         sortKey: null,
         sortDirection: 'asc',
+        filterBorrowable: borrowableFilter ? borrowableFilter.value : 'all',
     };
 
     const hideLoadingState = () => {
@@ -538,6 +558,8 @@ document.addEventListener('DOMContentLoaded', () => {
             ? parseNumber(availableSpan.textContent)
             : (availableCell ? parseNumber(availableCell.textContent) : 0);
 
+        const isBorrowable = row.dataset.itemBorrowable === '1' || row.dataset.itemBorrowable === 'true';
+
         return {
             row,
             name,
@@ -547,6 +569,7 @@ document.addEventListener('DOMContentLoaded', () => {
             total,
             available,
             originalIndex: Number(row.dataset.originalIndex || 0),
+            isBorrowable,
         };
     };
 
@@ -561,6 +584,22 @@ document.addEventListener('DOMContentLoaded', () => {
             return true;
         }
         return entry.nameLower.includes(state.search) || entry.categoryLower.includes(state.search);
+    };
+
+    const matchesBorrowable = (entry) => {
+        if (!borrowableFilter) {
+            return true;
+        }
+
+        if (state.filterBorrowable === 'borrowable') {
+            return entry.isBorrowable;
+        }
+
+        if (state.filterBorrowable === 'hidden') {
+            return !entry.isBorrowable;
+        }
+
+        return true;
     };
 
     const compareEntries = (a, b) => {
@@ -616,7 +655,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <p class="font-medium">No items found</p>
-                        <p class="text-sm">Try adjusting your search</p>
+                        <p class="text-sm">Try adjusting your search or filter</p>
                     </div>
                 </td>
             `;
@@ -677,7 +716,7 @@ document.addEventListener('DOMContentLoaded', () => {
         entries.sort(compareEntries);
 
         entries.forEach((entry) => {
-            const isVisible = matchesSearch(entry);
+            const isVisible = matchesSearch(entry) && matchesBorrowable(entry);
             entry.row.style.display = isVisible ? '' : 'none';
             if (isVisible) {
                 visibleCount += 1;
@@ -732,6 +771,13 @@ document.addEventListener('DOMContentLoaded', () => {
             applyFiltersAndSort();
         });
     });
+
+    if (borrowableFilter) {
+        borrowableFilter.addEventListener('change', (event) => {
+            state.filterBorrowable = event.target.value;
+            applyFiltersAndSort();
+        });
+    }
 
     applyFiltersAndSort();
 });

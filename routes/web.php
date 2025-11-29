@@ -115,13 +115,6 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
         // Dispatch action
         Route::post('borrow-requests/{borrowRequest}/dispatch', [BorrowRequestController::class, 'dispatch'])
             ->name('admin.borrow.requests.dispatch');
-        // Cancel dispatch (rollback allocations)
-        Route::post('borrow-requests/{borrowRequest}/cancel-dispatch', [BorrowRequestController::class, 'cancelDispatch'])
-            ->name('admin.borrow.requests.cancel-dispatch');
-            
-        // Mark items as delivered
-        Route::post('borrow-requests/{borrowRequest}/deliver', [BorrowRequestController::class, 'markDelivered'])
-            ->name('admin.borrow.requests.deliver');
 
         // Rejection Reasons
         Route::prefix('rejection-reasons')->name('admin.rejection-reasons.')->group(function () {

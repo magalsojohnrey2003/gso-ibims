@@ -25,15 +25,21 @@ class ManpowerRequestController extends Controller
     public function list(Request $request)
     {
         $user = Auth::user();
-        $query = ManpowerRequest::where('user_id', $user->id)->latest();
+        $query = ManpowerRequest::with('roles')->where('user_id', $user->id)->latest();
 
         $rows = $query->get()->map(function(ManpowerRequest $row) {
+            $roleBreakdown = $row->role_breakdown;
+            $roleSummary = $row->buildRoleSummary();
+            $totalQuantity = $row->total_requested_quantity;
+
             return [
                 'id' => $row->id,
                 'formatted_request_id' => $row->formatted_request_id,
-                'quantity' => $row->quantity,
-                'approved_quantity' => $row->approved_quantity,
-                'role' => $row->role,
+                'quantity' => $totalQuantity,
+            'approved_quantity' => $this->computeApprovedQuantity($row),
+                'role' => $roleSummary,
+                'role_breakdown' => $roleBreakdown,
+                'has_multiple_roles' => $row->has_multiple_roles,
                 'purpose' => $row->purpose,
                 'location' => $row->location,
                 'municipality' => $row->municipality,
@@ -50,6 +56,25 @@ class ManpowerRequestController extends Controller
         });
 
         return response()->json($rows);
+    }
+
+    private function computeApprovedQuantity(ManpowerRequest $request): ?int
+    {
+        $roles = collect($request->role_breakdown ?? []);
+        if ($roles->isEmpty()) {
+            return $request->approved_quantity;
+        }
+
+        $sum = $roles
+            ->map(fn ($entry) => isset($entry['approved_quantity']) ? (int) $entry['approved_quantity'] : null)
+            ->filter(fn ($value) => $value !== null && $value >= 0)
+            ->sum();
+
+        if ($sum > 0) {
+            return $sum;
+        }
+
+        return $request->approved_quantity;
     }
 
     public function store(Request $request, PhilSmsService $philSms)
@@ -111,6 +136,17 @@ class ManpowerRequestController extends Controller
 
         $model = ManpowerRequest::create($data);
         $model->load('user');
+
+        $model->roles()->create([
+            'manpower_role_id' => $role->id,
+            'role_name' => $role->name,
+            'quantity' => $data['quantity'],
+        ]);
+
+        $model->refresh();
+        $model->role = $model->buildRoleSummary();
+        $model->quantity = $model->total_requested_quantity;
+        $model->save();
 
         // Notify administrators via SMS when enabled.
         $philSms->notifyNewManpowerRequest($model);

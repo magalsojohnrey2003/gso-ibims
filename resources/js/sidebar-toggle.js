@@ -15,6 +15,7 @@
   var DESKTOP_BREAKPOINT = '(min-width: 1024px)';
   var COLLAPSED_CLASS = 'is-collapsed';
   var EXPANDED_CLASS = 'is-expanded';
+  var LOCALSTORAGE_KEY = 'gso.sidebar.desktopCollapsed';
 
   function warnMissing(el, name) {
     if (!el) {
@@ -38,12 +39,30 @@
 
   function getStoredDesktopCollapsed() {
     if (!sidebar) return true;
-    return sidebar.getAttribute('data-desktop-collapsed') !== 'false';
+    try {
+      var stored = window.localStorage.getItem(LOCALSTORAGE_KEY);
+      if (stored === 'true') return true;
+      if (stored === 'false') return false;
+    } catch (e) {
+      // ignore storage errors
+    }
+
+    var attr = sidebar.getAttribute('data-desktop-collapsed');
+    if (attr === 'false') return false;
+    if (attr === 'true') return true;
+
+    // Default: expanded on desktop (not collapsed)
+    return false;
   }
 
   function storeDesktopCollapsed(collapsed) {
     if (!sidebar) return;
     sidebar.setAttribute('data-desktop-collapsed', collapsed ? 'true' : 'false');
+    try {
+      window.localStorage.setItem(LOCALSTORAGE_KEY, collapsed ? 'true' : 'false');
+    } catch (e) {
+      // ignore storage errors (e.g., disabled storage)
+    }
   }
 
   function applyDesktopCollapsedState(collapsed) {
@@ -190,6 +209,15 @@
   function init() {
     bindToggleButton();
     bindOverlay();
+    // Apply stored desktop collapsed state early to reduce layout flicker
+    try {
+      if (isDesktopViewport()) {
+        applyDesktopCollapsedState(getStoredDesktopCollapsed());
+      }
+    } catch (e) {
+      // fallback to full resize handler
+    }
+
     handleResize();
 
     var resizeTimer = null;

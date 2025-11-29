@@ -1,6 +1,7 @@
 @props([ 
     'type' => 'info',   // success | info | delivered | warning | danger | gray | accepted | rejected | pending
     'text' => '',
+    'icon' => null,
 ])
 
 @php
@@ -34,7 +35,7 @@
 
     // Determine which style and icon to use
     $classes = $styles[$type] ?? $styles['info'];
-    $icon = $icons[$type] ?? $icons['info'];
+    $icon = $icon ?? ($icons[$type] ?? $icons['info']);
 @endphp
 
 <span {{ $attributes->merge(['class' => "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ring-1 ring-inset $classes"]) }}>

@@ -57,9 +57,10 @@ class AdminDispatchDeliveryStockTest extends TestCase
             $this->assertEquals('allocated', $row->instance->status);
         }
 
-        // Deliver (deducts stock & flips instance status to borrowed)
-        $deliverRes = $this->postJson('/admin/borrow-requests/' . $request->id . '/deliver');
-        $deliverRes->assertStatus(200);
+        // Borrower confirms delivery (deducts stock & flips instance status to borrowed)
+        $this->actingAs($borrower);
+        $confirmRes = $this->postJson('/user/my-borrowed-items/' . $request->id . '/confirm-delivery');
+        $confirmRes->assertStatus(200);
         $item->refresh();
         $request->refresh();
         $this->assertEquals('delivered', $request->delivery_status);

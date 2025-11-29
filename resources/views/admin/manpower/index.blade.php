@@ -40,7 +40,6 @@
                             <tr>
                                 <th class="px-6 py-3 text-center">Request ID</th>
                                 <th class="px-6 py-3 text-center">User</th>
-                                <th class="px-6 py-3 text-center">Role</th>
                                 <th class="px-6 py-3 text-center">Borrowed Date</th>
                                 <th class="px-6 py-3 text-center">Return Date</th>
                                 <th class="px-6 py-3 text-center">Status</th>
@@ -48,7 +47,7 @@
                             </tr>
                         </thead>
                         <tbody id="adminManpowerTableBody" class="text-center">
-                            <x-table-loading-state colspan="7" />
+                            <x-table-loading-state colspan="6" />
                         </tbody>
                     </table>
                 </div>
@@ -57,7 +56,7 @@
     </div>
 
     <template id="admin-manpower-empty-state-template">
-        <x-table-empty-state colspan="7" />
+        <x-table-empty-state colspan="6" />
     </template>
 
     <template id="badge-status-pending"><x-status-badge type="pending" text="Pending" /></template>
@@ -146,6 +145,7 @@
                             <div>
                                 <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Role</dt>
                                 <dd class="mt-1 font-medium text-gray-900 dark:text-white" data-approve-field="role">—</dd>
+                                <ul class="mt-1 space-y-1 text-xs text-gray-600 dark:text-gray-300" data-approve-role-breakdown></ul>
                             </div>
                             <div>
                                 <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Status</dt>
@@ -268,6 +268,7 @@
                             <div>
                                 <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Role</dt>
                                 <dd class="mt-1 font-medium text-gray-900 dark:text-white" data-view-field="role">—</dd>
+                                <ul class="mt-1 space-y-1 text-xs text-gray-600 dark:text-gray-300" data-view-role-breakdown></ul>
                             </div>
                             <div>
                                 <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Status</dt>

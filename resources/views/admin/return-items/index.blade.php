@@ -115,16 +115,16 @@
     </template>
 
     <template id="badge-condition-good">
-        <x-status-badge type="success" text="Good" />
+        <x-status-badge type="success" text="Good" icon="fa-check" />
     </template>
     <template id="badge-condition-missing">
-        <x-status-badge type="danger" text="Missing" />
+        <x-status-badge type="danger" text="Missing" icon="fa-question-circle" class="bg-orange-100 text-orange-700 ring-orange-200" />
     </template>
     <template id="badge-condition-damage">
-        <x-status-badge type="danger" text="Damage" />
+        <x-status-badge type="danger" text="Damage" icon="fa-exclamation-triangle" class="bg-rose-100 text-rose-700 ring-rose-200" />
     </template>
     <template id="badge-condition-minor_damage">
-        <x-status-badge type="warning" text="Minor Damage" />
+        <x-status-badge type="warning" text="Minor Damage" icon="fa-exclamation-circle" class="bg-amber-100 text-amber-700 ring-amber-200" />
     </template>
     <template id="badge-condition-pending">
         <x-status-badge type="gray" text="Pending" />
