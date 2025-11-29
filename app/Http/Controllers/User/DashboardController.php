@@ -55,7 +55,8 @@ class DashboardController extends Controller
             ->toArray();
 
         // === Available items preview (latest 3 recently added with stock) ===
-        $availableItemsPreview = Item::where('available_qty', '>', 0)
+        $availableItemsPreview = Item::where('is_borrowable', true)
+            ->where('available_qty', '>', 0)
             ->orderByDesc('created_at')
             ->take(3)
             ->get(['id', 'name', 'category', 'photo', 'available_qty']);
@@ -150,7 +151,8 @@ class DashboardController extends Controller
     // Available items preview
     public function availableItems()
     {
-        $items = Item::where('available_qty', '>', 0)
+        $items = Item::where('is_borrowable', true)
+            ->where('available_qty', '>', 0)
             ->orderByDesc('created_at')
             ->take(3)
             ->get(['id', 'name', 'category', 'photo', 'available_qty']);

@@ -362,6 +362,7 @@ public function store(Request $request, PropertyNumberService $numbers)
         'photo' => 'nullable|image|max:2048',
         'acquisition_date' => 'nullable|date',
         'acquisition_cost' => 'nullable|string|max:50',
+        'is_borrowable' => 'nullable|boolean',
         'include_serial_no' => 'nullable|boolean',
         'include_model_no' => 'nullable|boolean',
         // support per-row components (array)
@@ -593,6 +594,7 @@ public function store(Request $request, PropertyNumberService $numbers)
             'photo' => $photoPath,
             'acquisition_date' => $acquisitionDateValue,
             'acquisition_cost' => $acquisitionCostValue,
+            'is_borrowable' => $request->boolean('is_borrowable', true),
         ]);
 
         $created = [];
@@ -740,11 +742,22 @@ public function update(Request $request, Item $item)
         'existing_photo' => 'nullable|string',
         'acquisition_date' => 'nullable|date',
         'acquisition_cost' => 'nullable|string|max:50',
+        'is_borrowable' => 'nullable|boolean',
     ]);
 
     $originalPhoto = $item->photo;
     $photoPath = $originalPhoto && $originalPhoto !== $this->defaultPhoto ? $originalPhoto : null;
     $uploadedNewPhoto = false;
+
+    $requestedBorrowable = $request->boolean('is_borrowable', true);
+    $hasMissingStock = (int) ($item->available_qty ?? 0) < (int) ($item->total_qty ?? 0);
+    if ($hasMissingStock && ! $requestedBorrowable) {
+        $message = 'Cannot hide item while units are currently borrowed or deployed.';
+        if ($request->wantsJson()) {
+            return response()->json(['message' => $message], 422);
+        }
+        return redirect()->back()->withInput()->with('error', $message);
+    }
 
     if ($request->hasFile('photo')) {
         $photoPath = $request->file('photo')->store('items', 'public');
@@ -757,6 +770,7 @@ public function update(Request $request, Item $item)
         $item->category = $data['category'];
         $item->description = $data['description'] ?? null;
         $item->photo = $photoPath;
+        $item->is_borrowable = $requestedBorrowable;
 
         if ($request->has('acquisition_date')) {
             if ($request->filled('acquisition_date')) {
@@ -807,6 +821,7 @@ public function update(Request $request, Item $item)
                 'photo' => $photoUrl,
                 'photo_url' => $photoUrl,
                 'description' => $primaryInstance?->notes,
+                'is_borrowable' => (bool) $item->is_borrowable,
             ]);
         }
 

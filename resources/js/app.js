@@ -576,3 +576,76 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
+(function () {
+  const observedTbodies = new WeakSet();
+  const pendingRefresh = new WeakMap();
+
+  const isRowVisible = (row) => {
+    if (!(row instanceof HTMLElement)) return false;
+    if (row.hidden || row.classList.contains('hidden')) return false;
+    const style = window.getComputedStyle(row);
+    if (style.display === 'none' || style.visibility === 'hidden' || parseFloat(style.opacity || '1') === 0) {
+      return row.getClientRects().length > 0;
+    }
+    return true;
+  };
+
+  const refreshTableState = (tbody) => {
+    if (!(tbody instanceof HTMLElement)) return;
+    const rows = Array.from(tbody.children).filter((child) => child instanceof HTMLElement);
+    if (!rows.length) return;
+
+    const stateRows = rows.filter((row) => row.dataset && row.dataset.tableState);
+    if (!stateRows.length) return;
+
+    const hasVisibleDataRow = rows.some((row) => !row.dataset?.tableState && isRowVisible(row));
+    const hasVisibleLoadingRow = stateRows.some((row) => row.dataset.tableState === 'loading' && isRowVisible(row));
+
+    stateRows.forEach((row) => {
+      if (row.dataset.tableState === 'empty') {
+        row.style.display = (hasVisibleDataRow || hasVisibleLoadingRow) ? 'none' : '';
+      }
+    });
+  };
+
+  const scheduleRefresh = (tbody) => {
+    if (pendingRefresh.has(tbody)) return;
+    const rafId = requestAnimationFrame(() => {
+      pendingRefresh.delete(tbody);
+      refreshTableState(tbody);
+    });
+    pendingRefresh.set(tbody, rafId);
+  };
+
+  const observeTbody = (tbody) => {
+    if (observedTbodies.has(tbody)) return;
+    if (!tbody.querySelector('[data-table-state]')) return;
+    observedTbodies.add(tbody);
+
+    const observer = new MutationObserver(() => scheduleRefresh(tbody));
+    observer.observe(tbody, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'hidden', 'style'],
+    });
+    tbody.__tableStateObserver = observer;
+    refreshTableState(tbody);
+  };
+
+  const scanTbodies = () => {
+    document.querySelectorAll('tbody').forEach(observeTbody);
+  };
+
+  document.addEventListener('DOMContentLoaded', scanTbodies);
+  if (document.readyState !== 'loading') {
+    scanTbodies();
+  }
+
+  const rootObserver = new MutationObserver(() => scanTbodies());
+  rootObserver.observe(document.body, {
+    childList: true,
+    subtree: true,
+  });
+})();

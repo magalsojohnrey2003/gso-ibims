@@ -58,7 +58,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const summaryBorrowDates = document.getElementById('summaryBorrowDates');
     const summaryAddress = document.getElementById('summaryAddress');
-    const summaryManpower = document.getElementById('summaryManpower');
+    const summaryManpowerList = document.getElementById('summaryManpowerList');
+    const summaryManpowerEmpty = document.getElementById('summaryManpowerEmpty');
     const summaryItemsList = document.getElementById('summaryItemsList');
     const summaryPurposeOffice = document.getElementById('summaryPurposeOffice');
     const summaryPurpose = document.getElementById('summaryPurpose');
@@ -67,6 +68,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalBorrowDate = document.getElementById('modalBorrowDate');
     const modalReturnDate = document.getElementById('modalReturnDate');
     const modalItemsList = document.getElementById('modalItemsList');
+    const modalManpowerList = document.getElementById('modalManpowerList');
+    const modalManpowerEmpty = document.getElementById('modalManpowerEmpty');
     const modalAddress = document.getElementById('modalAddress');
     const modalLetterName = document.getElementById('modalLetterName');
     const modalPurposeOffice = document.getElementById('modalPurposeOffice');
@@ -76,11 +79,91 @@ document.addEventListener('DOMContentLoaded', () => {
     const borrowHidden = document.getElementById('borrow_date');
     const returnHidden = document.getElementById('return_date');
     const locationHidden = document.getElementById('location');
-    const manpowerInput = document.getElementById('manpower_count');
     const purposeOfficeInput = document.getElementById('purpose_office');
     const purposeInput = document.getElementById('purpose');
     const usageStartSelect = document.getElementById('usage_start');
     const usageEndSelect = document.getElementById('usage_end');
+    const manpowerList = document.getElementById('manpowerRequirementsList');
+    const manpowerTemplate = document.getElementById('manpowerRequirementTemplate');
+    const manpowerEmptyState = document.getElementById('manpowerRequirementsEmpty');
+    const addManpowerBtn = document.getElementById('addManpowerRequirementBtn');
+    const manpowerModalRoleSelect = document.getElementById('manpowerModalRole');
+    const manpowerModalQuantityInput = document.getElementById('manpowerModalQuantity');
+    const manpowerModalIndexInput = document.getElementById('manpowerModalIndex');
+    const manpowerModalConfirmBtn = document.getElementById('manpowerModalConfirmBtn');
+    const manpowerModalCancelBtn = document.getElementById('manpowerModalCancelBtn');
+    const manpowerModalTitle = document.getElementById('manpowerModalTitle');
+    const manpowerModalRoleEmpty = document.getElementById('manpowerModalRoleEmpty');
+    const manpowerModalDismissButtons = Array.from(document.querySelectorAll('[data-manpower-modal-dismiss]'));
+
+    const manpowerRoleChoices = manpowerModalRoleSelect
+        ? Array.from(manpowerModalRoleSelect.options)
+            .filter((option) => option.value)
+            .map((option) => ({
+                id: option.value,
+                label: option.textContent?.trim() || option.innerText?.trim() || option.value,
+            }))
+        : [];
+
+    const getSelectedRoleIds = () => {
+        return new Set(getManpowerEntries().map((entry) => String(entry.roleId)));
+    };
+
+    const getRoleOptionsForModal = (currentRoleId = null, currentRoleLabel = null) => {
+        const selectedIds = getSelectedRoleIds();
+        if (currentRoleId !== null && currentRoleId !== undefined && currentRoleId !== '') {
+            selectedIds.delete(String(currentRoleId));
+        }
+        const available = manpowerRoleChoices.filter((choice) => !selectedIds.has(String(choice.id)) || String(choice.id) === String(currentRoleId));
+
+        if (
+            currentRoleId !== null
+            && currentRoleId !== undefined
+            && currentRoleId !== ''
+            && !available.some((choice) => String(choice.id) === String(currentRoleId))
+        ) {
+            available.push({
+                id: String(currentRoleId),
+                label: currentRoleLabel || 'Selected role',
+            });
+        }
+
+        return available;
+    };
+
+    const rebuildModalRoleOptions = (options, selectedValue = '') => {
+        if (!manpowerModalRoleSelect) return;
+
+        while (manpowerModalRoleSelect.firstChild) {
+            manpowerModalRoleSelect.removeChild(manpowerModalRoleSelect.firstChild);
+        }
+
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = 'Select role';
+        manpowerModalRoleSelect.appendChild(placeholder);
+
+        options.forEach((choice) => {
+            const option = document.createElement('option');
+            option.value = choice.id;
+            option.textContent = choice.label;
+            manpowerModalRoleSelect.appendChild(option);
+        });
+
+        manpowerModalRoleSelect.value = selectedValue || '';
+    };
+
+    const updateManpowerAddButtonState = () => {
+        if (!addManpowerBtn) return;
+        const remainingOptions = getRoleOptionsForModal();
+        const hasAvailable = remainingOptions.length > 0;
+        addManpowerBtn.disabled = !hasAvailable || manpowerRoleChoices.length === 0;
+        addManpowerBtn.classList.toggle('opacity-50', addManpowerBtn.disabled);
+        addManpowerBtn.classList.toggle('cursor-not-allowed', addManpowerBtn.disabled);
+    };
+
+    let editingManpowerRow = null;
+    let manpowerModalMode = 'add';
 
     let currentStep = 0;
     let locationValid = !!(locationHidden?.value);
@@ -89,6 +172,284 @@ document.addEventListener('DOMContentLoaded', () => {
         usageStartSelect?.value || null,
         usageEndSelect?.value || null,
     ) || '--';
+
+    const getManpowerEntries = () => {
+        if (!manpowerList) return [];
+        return Array.from(manpowerList.querySelectorAll('[data-manpower-entry]'))
+            .map((row) => {
+                const roleInput = row.querySelector('[data-manpower-role-input]');
+                const quantityInput = row.querySelector('[data-manpower-quantity-input]');
+                const roleId = roleInput?.value?.trim() || row.dataset.roleId || '';
+                const quantityValue = quantityInput?.value?.trim() || row.dataset.quantity || '';
+                const quantity = quantityValue === '' ? NaN : parseInt(quantityValue, 10);
+                if (!roleId || Number.isNaN(quantity) || quantity < 1) {
+                    return null;
+                }
+                const roleNameEl = row.querySelector('[data-manpower-role-label]');
+                const roleName = roleNameEl?.textContent?.trim() || 'Role';
+                return {
+                    roleId,
+                    roleName,
+                    quantity,
+                    row,
+                };
+            })
+            .filter(Boolean);
+    };
+
+    const renderManpowerList = (listEl, emptyEl, entries) => {
+        if (!listEl || !emptyEl) return;
+        listEl.innerHTML = '';
+        if (!entries.length) {
+            emptyEl.hidden = false;
+            emptyEl.classList.remove('hidden');
+            listEl.classList.add('hidden');
+            return;
+        }
+
+        emptyEl.hidden = true;
+        emptyEl.classList.add('hidden');
+        listEl.classList.remove('hidden');
+        entries.forEach(({ roleName, quantity }) => {
+            const li = document.createElement('li');
+            li.textContent = `${quantity} × ${roleName}`;
+            listEl.appendChild(li);
+        });
+    };
+
+    const updateManpowerEmptyState = () => {
+        if (!manpowerEmptyState) return;
+        const hasRows = Boolean(manpowerList?.querySelector('[data-manpower-entry]'));
+        manpowerEmptyState.hidden = hasRows;
+        manpowerEmptyState.classList.toggle('hidden', hasRows);
+        updateManpowerAddButtonState();
+    };
+
+    const assignManpowerFieldNames = () => {
+        if (!manpowerList) return;
+        const rows = Array.from(manpowerList.querySelectorAll('[data-manpower-entry]'));
+        rows.forEach((row, index) => {
+            row.dataset.manpowerIndex = String(index);
+            const roleInput = row.querySelector('[data-manpower-role-input]');
+            const qtyInput = row.querySelector('[data-manpower-quantity-input]');
+            if (roleInput) {
+                roleInput.name = `manpower_requirements[${index}][role_id]`;
+            }
+            if (qtyInput) {
+                qtyInput.name = `manpower_requirements[${index}][quantity]`;
+            }
+        });
+        updateManpowerEmptyState();
+    };
+
+    const emitManpowerUpdated = () => {
+        const entries = getManpowerEntries();
+        window.dispatchEvent(new CustomEvent('borrow:manpower-updated', { detail: { entries } }));
+    };
+
+    const clampManpowerQuantity = (input) => {
+        if (!input) return;
+        const rawValue = parseInt(input.value || '0', 10);
+        if (Number.isNaN(rawValue) || rawValue < 1) {
+            input.value = '1';
+            return;
+        }
+        if (rawValue > 999) {
+            input.value = '999';
+        }
+    };
+
+    const closeManpowerModal = () => {
+        editingManpowerRow = null;
+        manpowerModalMode = 'add';
+        if (manpowerModalIndexInput) manpowerModalIndexInput.value = '';
+        window.dispatchEvent(new CustomEvent('close-modal', { detail: 'manpowerRequirementModal' }));
+    };
+
+    const openManpowerModal = ({ mode, row = null }) => {
+        if (!manpowerModalRoleSelect || !manpowerModalQuantityInput || !manpowerModalConfirmBtn) {
+            return;
+        }
+
+        manpowerModalMode = mode === 'edit' ? 'edit' : 'add';
+        editingManpowerRow = manpowerModalMode === 'edit' ? row : null;
+
+        const currentRoleId = manpowerModalMode === 'edit'
+            ? (row?.dataset.roleId || row?.querySelector('[data-manpower-role-input]')?.value || '')
+            : '';
+
+        const currentRoleLabel = manpowerModalMode === 'edit'
+            ? (row?.querySelector('[data-manpower-role-label]')?.textContent?.trim() || '')
+            : null;
+
+        const options = getRoleOptionsForModal(currentRoleId, currentRoleLabel);
+        const selectedValue = manpowerModalMode === 'edit' ? String(currentRoleId) : '';
+        rebuildModalRoleOptions(options, selectedValue);
+
+        const hasOptions = options.length > 0;
+        if (manpowerModalRoleEmpty) {
+            manpowerModalRoleEmpty.classList.toggle('hidden', hasOptions);
+        }
+        manpowerModalRoleSelect.disabled = !hasOptions;
+        if (manpowerModalConfirmBtn) {
+            manpowerModalConfirmBtn.disabled = !hasOptions;
+        }
+
+        if (manpowerModalTitle) {
+            manpowerModalTitle.textContent = manpowerModalMode === 'edit'
+                ? 'Edit Manpower Role'
+                : 'Add Manpower Role';
+        }
+
+        if (manpowerModalIndexInput) {
+            manpowerModalIndexInput.value = manpowerModalMode === 'edit' && row
+                ? (row.dataset.manpowerIndex || '')
+                : '';
+        }
+
+        let defaultQuantity = 1;
+        if (manpowerModalMode === 'edit' && row) {
+            const existingQuantity = parseInt(row.dataset.quantity || row.querySelector('[data-manpower-quantity-input]')?.value || '1', 10);
+            if (!Number.isNaN(existingQuantity) && existingQuantity > 0) {
+                defaultQuantity = Math.min(existingQuantity, 999);
+            }
+        }
+        manpowerModalQuantityInput.value = String(defaultQuantity);
+
+        if (manpowerModalMode === 'add' && hasOptions) {
+            manpowerModalRoleSelect.value = options[0]?.id || '';
+        }
+
+        setTimeout(() => manpowerModalRoleSelect.focus(), 0);
+
+        window.dispatchEvent(new CustomEvent('open-modal', { detail: 'manpowerRequirementModal' }));
+    };
+
+    const applyManpowerModalSelection = () => {
+        if (!manpowerModalRoleSelect || !manpowerModalQuantityInput) {
+            return;
+        }
+
+        if (manpowerModalRoleSelect.disabled) {
+            window.showToast?.('All available roles have already been added.', 'info');
+            return;
+        }
+
+        const roleId = manpowerModalRoleSelect.value?.trim();
+        if (!roleId) {
+            window.showToast?.('Please select a manpower role.', 'warning');
+            manpowerModalRoleSelect.focus();
+            return;
+        }
+
+        clampManpowerQuantity(manpowerModalQuantityInput);
+        const quantityValue = manpowerModalQuantityInput.value?.trim() || '1';
+        const quantity = parseInt(quantityValue, 10);
+        if (Number.isNaN(quantity) || quantity < 1 || quantity > 999) {
+            window.showToast?.('Manpower quantities must be between 1 and 999.', 'warning');
+            manpowerModalQuantityInput.focus();
+            return;
+        }
+
+        const roleChoice = manpowerRoleChoices.find((choice) => String(choice.id) === String(roleId));
+        const roleLabel = roleChoice?.label || manpowerModalRoleSelect.options[manpowerModalRoleSelect.selectedIndex]?.text?.trim() || 'Role';
+
+        if (manpowerModalMode === 'edit' && editingManpowerRow) {
+            editingManpowerRow.dataset.roleId = roleId;
+            editingManpowerRow.dataset.quantity = String(quantity);
+
+            const roleInput = editingManpowerRow.querySelector('[data-manpower-role-input]');
+            const quantityInput = editingManpowerRow.querySelector('[data-manpower-quantity-input]');
+            if (roleInput) roleInput.value = roleId;
+            if (quantityInput) quantityInput.value = String(quantity);
+
+            const roleLabelEl = editingManpowerRow.querySelector('[data-manpower-role-label]');
+            const quantityLabelEl = editingManpowerRow.querySelector('[data-manpower-quantity-label]');
+            if (roleLabelEl) roleLabelEl.textContent = roleLabel;
+            if (quantityLabelEl) quantityLabelEl.textContent = String(quantity);
+        } else {
+            const fragment = manpowerTemplate?.content?.cloneNode(true);
+            const newRow = fragment?.firstElementChild;
+            if (!newRow) {
+                window.showToast?.('Unable to add manpower role. Please try again.', 'error');
+                return;
+            }
+
+            newRow.dataset.roleId = roleId;
+            newRow.dataset.quantity = String(quantity);
+
+            const roleInput = newRow.querySelector('[data-manpower-role-input]');
+            const quantityInput = newRow.querySelector('[data-manpower-quantity-input]');
+            if (roleInput) roleInput.value = roleId;
+            if (quantityInput) quantityInput.value = String(quantity);
+
+            const roleLabelEl = newRow.querySelector('[data-manpower-role-label]');
+            const quantityLabelEl = newRow.querySelector('[data-manpower-quantity-label]');
+            if (roleLabelEl) roleLabelEl.textContent = roleLabel;
+            if (quantityLabelEl) quantityLabelEl.textContent = String(quantity);
+
+            manpowerList?.appendChild(newRow);
+            bindManpowerRow(newRow);
+        }
+
+        assignManpowerFieldNames();
+        emitManpowerUpdated();
+        closeManpowerModal();
+    };
+
+    const validateManpowerEntries = () => {
+        if (!manpowerList) return true;
+        const rows = Array.from(manpowerList.querySelectorAll('[data-manpower-entry]'));
+        const encounteredRoles = new Set();
+        for (const row of rows) {
+            const roleInput = row.querySelector('[data-manpower-role-input]');
+            const qtyInput = row.querySelector('[data-manpower-quantity-input]');
+            const roleValue = roleInput?.value?.trim() || '';
+            const quantityValue = qtyInput?.value?.trim() || '';
+
+            if (!roleValue || !quantityValue) {
+                window.showToast?.('Please complete each manpower role entry or remove it before continuing.', 'warning');
+                return false;
+            }
+
+            const quantity = parseInt(quantityValue, 10);
+            if (Number.isNaN(quantity) || quantity < 1 || quantity > 999) {
+                window.showToast?.('Manpower quantities must be between 1 and 999.', 'warning');
+                return false;
+            }
+
+            if (encounteredRoles.has(roleValue)) {
+                window.showToast?.('Each manpower role can only be added once.', 'warning');
+                return false;
+            }
+
+            encounteredRoles.add(roleValue);
+        }
+        return true;
+    };
+
+    function bindManpowerRow(row) {
+        const editBtn = row.querySelector('[data-edit-manpower]');
+        const removeBtn = row.querySelector('[data-remove-manpower]');
+
+        editBtn?.addEventListener('click', () => {
+            openManpowerModal({ mode: 'edit', row });
+        });
+
+        removeBtn?.addEventListener('click', () => {
+            row.remove();
+            assignManpowerFieldNames();
+            emitManpowerUpdated();
+        });
+    }
+
+    const requireManpowerCompletion = () => {
+        if (!validateManpowerEntries()) {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return false;
+        }
+        return true;
+    };
 
     const setIndicatorState = (index) => {
         indicatorItems.forEach((item) => {
@@ -153,9 +514,9 @@ document.addEventListener('DOMContentLoaded', () => {
             summaryAddress.textContent = locationHidden?.value || '--';
         }
 
-        if (summaryManpower) {
-            const value = manpowerInput?.value;
-            summaryManpower.textContent = value ? `${value} personnel` : 'No additional manpower requested';
+        if (summaryManpowerList && summaryManpowerEmpty) {
+            const manpowerEntries = getManpowerEntries();
+            renderManpowerList(summaryManpowerList, summaryManpowerEmpty, manpowerEntries);
         }
 
         if (summaryPurposeOffice) {
@@ -226,6 +587,11 @@ document.addEventListener('DOMContentLoaded', () => {
             modalUsage.textContent = currentUsageLabel || '--';
         }
 
+        if (modalManpowerList && modalManpowerEmpty) {
+            const manpowerEntries = getManpowerEntries();
+            renderManpowerList(modalManpowerList, modalManpowerEmpty, manpowerEntries);
+        }
+
         if (modalItemsList) {
             modalItemsList.innerHTML = '';
             const items = document.querySelectorAll('[data-item-entry]');
@@ -287,6 +653,45 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    if (manpowerList) {
+        Array.from(manpowerList.querySelectorAll('[data-manpower-entry]')).forEach((row) => {
+            bindManpowerRow(row);
+        });
+        assignManpowerFieldNames();
+        emitManpowerUpdated();
+    }
+
+    addManpowerBtn?.addEventListener('click', () => {
+        if (!manpowerList || !manpowerTemplate || !manpowerModalRoleSelect) return;
+        const availableOptions = getRoleOptionsForModal();
+        if (!availableOptions.length) {
+            window.showToast?.('All available roles have already been added.', 'info');
+            return;
+        }
+        openManpowerModal({ mode: 'add' });
+    });
+
+    manpowerModalConfirmBtn?.addEventListener('click', applyManpowerModalSelection);
+
+    const handleModalDismiss = () => {
+        closeManpowerModal();
+    };
+
+    manpowerModalCancelBtn?.addEventListener('click', handleModalDismiss);
+    manpowerModalDismissButtons.forEach((button) => {
+        button.addEventListener('click', handleModalDismiss);
+    });
+
+    manpowerModalQuantityInput?.addEventListener('input', () => {
+        if (!manpowerModalQuantityInput) return;
+        const numeric = manpowerModalQuantityInput.value.replace(/[^0-9]/g, '');
+        manpowerModalQuantityInput.value = numeric.slice(0, 3);
+    });
+
+    manpowerModalQuantityInput?.addEventListener('blur', () => {
+        clampManpowerQuantity(manpowerModalQuantityInput);
+    });
+
     if (step1NextBtn) {
         step1NextBtn.addEventListener('click', () => {
             if (!locationValid || !hasAtLeastOneItem()) return;
@@ -310,6 +715,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            if (!requireManpowerCompletion()) {
+                return;
+            }
+
             goToStep(1);
         });
     }
@@ -322,6 +731,10 @@ document.addEventListener('DOMContentLoaded', () => {
         step2NextBtn.addEventListener('click', () => {
             if (!borrowHidden?.value || !returnHidden?.value) {
                 window.showToast('Please select both borrow and return dates before proceeding.', 'warning');
+                return;
+            }
+            if (!requireManpowerCompletion()) {
+                goToStep(0);
                 return;
             }
             goToStep(2);
@@ -368,6 +781,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 goToStep(0);
                 return;
             }
+
+            if (!requireManpowerCompletion()) {
+                goToStep(0);
+                return;
+            }
             
             // Check for file in FilePond
             const pond = getLetterPond();
@@ -388,6 +806,11 @@ document.addEventListener('DOMContentLoaded', () => {
         confirmBorrowRequestBtn.addEventListener('click', async (e) => {
             e.preventDefault();
             
+            if (!requireManpowerCompletion()) {
+                goToStep(0);
+                return;
+            }
+
             // Get FilePond instance and check for uploaded file
             const pond = getLetterPond();
             const hasFileInPond = pond && pond.getFiles().length > 0;
@@ -493,6 +916,10 @@ document.addEventListener('DOMContentLoaded', () => {
         updateStep1NextState();
     });
 
+    window.addEventListener('borrow:manpower-updated', () => {
+        updateSummary();
+    });
+
     window.addEventListener('borrow:usage-updated', (event) => {
         currentUsageLabel = event.detail?.label || formatUsageLabel(
             usageStartSelect?.value || null,
@@ -500,10 +927,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ) || '--';
         updateSummary();
     });
-
-    if (manpowerInput) {
-        manpowerInput.addEventListener('input', updateSummary);
-    }
 
     if (purposeOfficeInput) {
         purposeOfficeInput.addEventListener('input', updateSummary);

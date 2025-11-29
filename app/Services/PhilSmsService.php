@@ -20,6 +20,8 @@ class PhilSmsService
             return;
         }
 
+        $request->loadMissing('roles');
+
         $recipients = $this->adminNumbers();
         if (empty($recipients)) {
             Log::info('PhilSMS: no admin numbers configured; skipping manpower request SMS.');
@@ -27,15 +29,30 @@ class PhilSmsService
         }
 
         $userName = $this->resolveRequesterName($request);
-        $role = $request->role ?: 'manpower';
-        $quantity = max((int) $request->quantity, 1);
+        $roleBreakdown = collect($request->role_breakdown ?? [])
+            ->filter(fn ($entry) => ! empty($entry['role_name']))
+            ->map(function ($entry) {
+                $qty = max((int) ($entry['quantity'] ?? 0), 0);
+                $label = trim((string) $entry['role_name']);
+                if ($qty > 0) {
+                    return sprintf('%d %s', $qty, $label);
+                }
+                return $label;
+            })
+            ->filter()
+            ->values();
+
+        $roleLabel = $roleBreakdown->isNotEmpty()
+            ? $roleBreakdown->implode('; ')
+            : ($request->role ?: 'manpower');
+
+        $quantity = max((int) $request->total_requested_quantity, 1);
         $schedule = $this->formatSchedule($request);
 
         $message = sprintf(
-            '%s requested "%d %s" personnel for %s. Please review the "Manpower Requests" section for further details.',
+            '%s requested manpower support (%s) for %s. Please review the "Manpower Requests" section for further details.',
             $userName,
-            $quantity,
-            $role,
+            $roleLabel,
             $schedule
         );
 
@@ -221,6 +238,51 @@ class PhilSmsService
             'GSO IBIMS: Request %s is being Delivered. Please await further updates. Thank you',
             $code
         );
+
+        foreach ($numbers as $recipient) {
+            $this->sendSms($recipient, $message);
+        }
+    }
+
+    /**
+     * Notify the borrower that their returned date has passed and the request is overdue.
+     */
+    public function notifyBorrowerOverdue(BorrowRequest $request, int $daysOverdue = 0): void
+    {
+        if (! $this->isEnabled()) {
+            return;
+        }
+
+        $request->loadMissing('user');
+        $user = $request->user;
+
+        if (! $user) {
+            Log::info('PhilSMS: overdue SMS skipped - borrower missing.', [
+                'borrow_request_id' => $request->id,
+            ]);
+            return;
+        }
+
+        $numbers = $this->normalizeNumbers([(string) ($user->phone ?? '')]);
+        if (! $numbers) {
+            Log::info('PhilSMS: overdue SMS skipped - borrower has no valid phone.', [
+                'borrow_request_id' => $request->id,
+                'raw_phone' => $user->phone,
+            ]);
+            return;
+        }
+
+        $code = $this->formatBorrowRequestCode($request);
+        $days = max(0, (int) $daysOverdue);
+
+        $message = sprintf(
+            'GSO IBIMS: Request %s is overdue by %d day%s. Please return the items or contact GSO to avoid penalties.',
+            $code,
+            $days,
+            $days === 1 ? '' : 's'
+        );
+
+        $message = $this->limitText($message, 155);
 
         foreach ($numbers as $recipient) {
             $this->sendSms($recipient, $message);

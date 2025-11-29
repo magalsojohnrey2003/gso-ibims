@@ -18,18 +18,22 @@
                     const data = await res.json().catch(() => null);
                     if (!res.ok) throw new Error(data?.message || 'Failed to load history');
                     this.propertyNumber = data?.property_number || pn || '';
-                    const rawEvents = Array.isArray(data?.events) ? data.events : [];
-                    this.events = rawEvents.map((evt) => {
+                        const rawEvents = Array.isArray(data?.events) ? data.events : [];
+                        this.events = rawEvents.map((evt) => {
                         const meta = this.getActionMeta(evt.action);
                         const chips = this.buildChips(evt);
                         const metrics = this.partitionChips(chips);
                         const { others, ...metricValues } = metrics;
+                            const conditionMeta = this.getConditionMeta(metricValues.condition);
+                            const dateLabel = this.getDateCardLabel(metricValues.condition);
                         return {
                             ...evt,
                             actionLabel: this.formatAction(evt.action),
                             formattedAt: this.formatTimestamp(evt.performed_at),
                             meta,
                             metrics: metricValues,
+                            conditionMeta,
+                            dateLabel,
                             additionalChips: others,
                         };
                     });
@@ -163,6 +167,54 @@
 
                 return result;
             },
+            getConditionMeta(label) {
+                const key = String(label || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+                const MAP = {
+                    good: {
+                        container: 'flex items-start gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/60 px-3 py-3',
+                        iconBg: 'flex h-9 w-9 items-center justify-center rounded-full bg-emerald-200 text-emerald-700',
+                        icon: 'fa-check',
+                        titleClass: 'text-[0.7rem] uppercase tracking-wide text-emerald-700 font-semibold',
+                        valueClass: 'text-sm font-medium text-emerald-900'
+                    },
+                    minor_damage: {
+                        container: 'flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50/60 px-3 py-3',
+                        iconBg: 'flex h-9 w-9 items-center justify-center rounded-full bg-amber-200 text-amber-700',
+                        icon: 'fa-exclamation-circle',
+                        titleClass: 'text-[0.7rem] uppercase tracking-wide text-amber-700 font-semibold',
+                        valueClass: 'text-sm font-medium text-amber-900'
+                    },
+                    damage: {
+                        container: 'flex items-start gap-3 rounded-2xl border border-rose-100 bg-rose-50/60 px-3 py-3',
+                        iconBg: 'flex h-9 w-9 items-center justify-center rounded-full bg-rose-200 text-rose-700',
+                        icon: 'fa-exclamation-triangle',
+                        titleClass: 'text-[0.7rem] uppercase tracking-wide text-rose-700 font-semibold',
+                        valueClass: 'text-sm font-medium text-rose-900'
+                    },
+                    missing: {
+                        container: 'flex items-start gap-3 rounded-2xl border border-rose-100 bg-rose-50/60 px-3 py-3',
+                        iconBg: 'flex h-9 w-9 items-center justify-center rounded-full bg-rose-200 text-rose-700',
+                        icon: 'fa-question-circle',
+                        titleClass: 'text-[0.7rem] uppercase tracking-wide text-rose-700 font-semibold',
+                        valueClass: 'text-sm font-medium text-rose-900'
+                    }
+                };
+                return MAP[key] || {
+                    container: 'flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50/60 px-3 py-3',
+                    iconBg: 'flex h-9 w-9 items-center justify-center rounded-full bg-slate-200 text-slate-700',
+                    icon: 'fa-clipboard-check',
+                    titleClass: 'text-[0.7rem] uppercase tracking-wide text-slate-700 font-semibold',
+                    valueClass: 'text-sm font-medium text-slate-900'
+                };
+            },
+            getDateCardLabel(condition) {
+                const key = String(condition || '').toLowerCase();
+                if (!key) return 'Date Returned';
+                // For Good or Minor Damage -> Date Returned, for Damaged or Missing -> Date Reported
+                if (key.includes('good') || key.includes('minor')) return 'Date Returned';
+                if (key.includes('damage') || key.includes('missing') || key.includes('damaged')) return 'Date Reported';
+                return 'Date Returned';
+            },
             
          }"
              x-init="
@@ -232,23 +284,23 @@
                                                     <p class="text-sm font-medium text-indigo-900" x-text="evt.metrics.borrower"></p>
                                                 </div>
                                             </div>
-                                            <div class="flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50/60 px-3 py-3">
-                                                <div class="flex h-9 w-9 items-center justify-center rounded-full bg-amber-200 text-amber-700">
-                                                    <i class="fas fa-clipboard-check"></i>
+                                            <div :class="evt.conditionMeta.container">
+                                                <div :class="evt.conditionMeta.iconBg">
+                                                    <i class="fas" :class="evt.conditionMeta.icon"></i>
                                                 </div>
                                                 <div>
-                                                    <p class="text-[0.7rem] uppercase tracking-wide text-amber-700 font-semibold">Item Condition</p>
-                                                    <p class="text-sm font-medium text-amber-900" x-text="evt.metrics.condition"></p>
+                                                    <p :class="evt.conditionMeta.titleClass">Item Condition</p>
+                                                    <p :class="evt.conditionMeta.valueClass" x-text="evt.metrics.condition"></p>
                                                 </div>
                                             </div>
                                             <div class="flex items-start gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/60 px-3 py-3">
                                                 <div class="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-200 text-emerald-700">
-                                                    <i class="fas fa-calendar-check"></i>
-                                                </div>
-                                                <div>
-                                                    <p class="text-[0.7rem] uppercase tracking-wide text-emerald-700 font-semibold">Date Returned</p>
-                                                    <p class="text-sm font-medium text-emerald-900" x-text="evt.metrics.returned"></p>
-                                                </div>
+                                                        <i class="fas fa-calendar-check"></i>
+                                                    </div>
+                                                    <div>
+                                                        <p class="text-[0.7rem] uppercase tracking-wide text-emerald-700 font-semibold" x-text="evt.dateLabel"></p>
+                                                        <p class="text-sm font-medium text-emerald-900" x-text="evt.metrics.returned"></p>
+                                                    </div>
                                             </div>
                                         </div>
                                         <template x-if="evt.actor">

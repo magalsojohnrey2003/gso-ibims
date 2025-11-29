@@ -10,7 +10,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const saveRoleBtn = document.getElementById('adminSaveRole');
   const roleNameInput = document.getElementById('adminRoleName');
   const approveFields = document.querySelectorAll('[data-approve-field]');
+  const approveRoleBreakdownList = document.querySelector('[data-approve-role-breakdown]');
   const viewFields = document.querySelectorAll('[data-view-field]');
+  const viewRoleBreakdownList = document.querySelector('[data-view-role-breakdown]');
   const approvedQuantityInput = document.getElementById('adminApprovedQuantity');
   const confirmApproveBtn = document.getElementById('confirmAdminApproval');
   const rejectionCard = document.getElementById('adminManpowerRejectionCard');
@@ -109,6 +111,33 @@ document.addEventListener('DOMContentLoaded', () => {
       case '<': return '&lt;';
       case '>': return '&gt;';
       default: return char;
+    }
+  });
+
+  // Toggle expand/collapse for role breakdown lists
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('.mp-expand-more');
+    if (!a) return;
+    e.preventDefault();
+    const wrapper = a.closest('.mp-role-summary');
+    if (!wrapper) return;
+    const list = wrapper.querySelector('.mp-role-breakdown');
+    if (!list) return;
+    list.classList.toggle('hidden');
+    // update link text from '+N more' to 'less' and back
+    if (a.dataset._toggled === '1') {
+      // revert
+      const remaining = a.dataset.remaining ?? '';
+      a.textContent = remaining ? `+${remaining} more` : 'more';
+      a.dataset._toggled = '0';
+    } else {
+      // store original remaining count
+      if (!a.dataset.remaining) {
+        const m = (a.textContent || '').match(/\+(\d+)\s+more/);
+        a.dataset.remaining = m ? m[1] : '';
+      }
+      a.textContent = 'less';
+      a.dataset._toggled = '1';
     }
   });
 
@@ -674,7 +703,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (template?.content?.firstElementChild) {
         tbody.appendChild(template.content.firstElementChild.cloneNode(true));
       } else {
-        tbody.innerHTML = `<tr><td colspan="7" class="py-10 text-center text-gray-500">No manpower requests found</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="py-10 text-center text-gray-500">No manpower requests found</td></tr>`;
       }
       return;
     }
@@ -685,7 +714,6 @@ document.addEventListener('DOMContentLoaded', () => {
       return `<tr data-manpower-id='${r.id}'>
         <td class='px-6 py-3 font-semibold text-gray-900'>${requestCode || ''}</td>
         <td class='px-6 py-3'>${r.user ? r.user.name : '—'}</td>
-        <td class='px-6 py-3'>${r.role || r.role_type || '—'}</td>
         <td class='px-6 py-3 text-sm text-gray-700'>${borrowDate}</td>
         <td class='px-6 py-3 text-sm text-gray-700'>${returnDate}</td>
         <td class='px-6 py-3'>${badgeHtml(r.status)}</td>
@@ -749,6 +777,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (approvedQuantityInput) {
       approvedQuantityInput.max = row.quantity;
     }
+      if (approveRoleBreakdownList) {
+        approveRoleBreakdownList.innerHTML = '';
+      }
       approveFields.forEach(el => {
         const key = el.dataset.approveField;
         if (key === 'borrow_date') {
@@ -759,6 +790,27 @@ document.addEventListener('DOMContentLoaded', () => {
           el.innerHTML = buildLetterPreview(row.letter_url);
         } else if (key === 'user') {
           el.textContent = row.user?.name || '—';
+        } else if (key === 'role') {
+            // show expandable role summary inside the role dd
+            const breakdown = Array.isArray(row.role_breakdown) ? row.role_breakdown : [];
+            if (!breakdown.length) {
+              el.textContent = row.role || '—';
+            } else {
+              const formatted = breakdown.map((entry) => {
+                const qty = Number(entry?.quantity ?? 0);
+                const label = String(entry?.role_name || entry?.role || 'Role');
+                return qty > 0 ? `${qty} x ${label}` : `${label}`;
+              });
+              const limit = 2;
+              if (formatted.length <= limit) {
+                el.textContent = formatted.join(', ');
+              } else {
+                const leading = formatted.slice(0, limit).join(', ');
+                const remaining = formatted.length - limit;
+                const breakdownList = formatted.map(s => `<li class="text-xs text-gray-600">${s}</li>`).join('');
+                el.innerHTML = `<div class="mp-role-summary"><div class="text-xs text-gray-700">${leading} <a href="#" class="ml-1 mp-expand-more text-indigo-600 underline" data-manpower-id="${escapeAttr(String(row.id))}" data-limit="${limit}">+${remaining} more</a></div><ul class="mt-1 space-y-1 mp-role-breakdown hidden list-disc list-inside">${breakdownList}</ul></div>`;
+              }
+            }
         } else if (key === 'quantity') {
           el.textContent = row.quantity;
         } else if (key === 'status') {
@@ -767,9 +819,13 @@ document.addEventListener('DOMContentLoaded', () => {
           el.textContent = row[key] || '—';
         }
       });
+      // approveRoleBreakdownList is no longer populated separately when role dd includes breakdown
   };
 
   const hydrateViewModal = (row) => {
+    if (viewRoleBreakdownList) {
+      viewRoleBreakdownList.innerHTML = '';
+    }
     viewFields.forEach(el => {
       const key = el.dataset.viewField;
       if (key === 'borrow_date') {
@@ -785,6 +841,26 @@ document.addEventListener('DOMContentLoaded', () => {
         el.textContent = row.user?.name || '—';
       } else if (key === 'status') {
         el.innerHTML = badgeHtml(row.status);
+      } else if (key === 'role') {
+        const breakdown = Array.isArray(row.role_breakdown) ? row.role_breakdown : [];
+        if (!breakdown.length) {
+          el.textContent = row.role || '—';
+        } else {
+          const formatted = breakdown.map((entry) => {
+            const qty = Number(entry?.quantity ?? 0);
+            const label = String(entry?.role_name || entry?.role || 'Role');
+            return qty > 0 ? `${qty} x ${label}` : `${label}`;
+          });
+          const limit = 2;
+          if (formatted.length <= limit) {
+            el.textContent = formatted.join(', ');
+          } else {
+            const leading = formatted.slice(0, limit).join(', ');
+            const remaining = formatted.length - limit;
+            const breakdownList = formatted.map(s => `<li class="text-xs text-gray-600">${s}</li>`).join('');
+            el.innerHTML = `<div class="mp-role-summary"><div class="text-xs text-gray-700">${leading} <a href="#" class="ml-1 mp-expand-more text-indigo-600 underline" data-manpower-id="${escapeAttr(String(row.id))}" data-limit="${limit}">+${remaining} more</a></div><ul class="mt-1 space-y-1 mp-role-breakdown hidden list-disc list-inside">${breakdownList}</ul></div>`;
+          }
+        }
       } else {
         el.textContent = row[key] || '—';
       }
@@ -805,6 +881,25 @@ document.addEventListener('DOMContentLoaded', () => {
         if (rejectionSubjectView) rejectionSubjectView.textContent = '—';
         if (rejectionDetailView) rejectionDetailView.textContent = '—';
       }
+    }
+
+    if (viewRoleBreakdownList && Array.isArray(row.role_breakdown) && row.role_breakdown.length) {
+      viewRoleBreakdownList.innerHTML = row.role_breakdown
+        .map((entry) => {
+          const quantity = Number(entry?.quantity ?? 0);
+          const approvedQty = Number(entry?.approved_quantity ?? 0);
+          const parts = [];
+          if (!Number.isNaN(quantity) && quantity > 0) {
+            parts.push(`${quantity}`);
+          }
+          const label = (entry?.role_name || '').trim() || 'Role';
+          parts.push(label);
+          if (!Number.isNaN(approvedQty) && approvedQty > 0) {
+            parts.push(`(Approved ${approvedQty})`);
+          }
+          return `<li>${parts.join(' ')}</li>`;
+        })
+        .join('');
     }
   };
 

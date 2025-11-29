@@ -92,6 +92,25 @@
                 >{{ old('description') }}</textarea>
                 <x-input-error :messages="$errors->get('description')" class="mt-2" />
             </div>
+
+            <div class="sm:col-span-2">
+                <input type="hidden" name="is_borrowable" value="0">
+                <label class="flex items-start gap-3">
+                    <span class="flex items-center h-6">
+                        <input
+                            type="checkbox"
+                            name="is_borrowable"
+                            value="1"
+                            class="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            {{ old('is_borrowable', 1) ? 'checked' : '' }}
+                        >
+                    </span>
+                    <span>
+                        <span class="block text-sm font-semibold text-gray-700">Available for Borrowing</span>
+                        <span class="mt-1 block text-xs text-gray-500">If disabled, this item will remain in inventory but will be hidden from the public borrowing catalog.</span>
+                    </span>
+                </label>
+            </div>
         </div>
     </div>
 </div>

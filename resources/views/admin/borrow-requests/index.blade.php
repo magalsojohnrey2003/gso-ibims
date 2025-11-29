@@ -43,6 +43,7 @@
                                 <option value="approved">Approved</option>
                                 <option value="validated">Validated</option>
                                 <option value="rejected">Rejected</option>
+                                <option value="overdue">Overdue</option>
                             </select>
                         </div>
                     </div>
@@ -141,6 +142,10 @@
                         <div class="flex items-center gap-2 text-purple-700">
                             <i class="fas fa-calendar-alt text-sm"></i>
                             <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Schedule</h4>
+                        </div>
+                        <div id="requestScheduleOverdueAlert" class="hidden mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-red-700 flex items-start gap-3">
+                            <i class="fas fa-triangle-exclamation text-red-600"></i>
+                            <div id="requestScheduleOverdueAlertText" class="text-sm font-semibold">This request is overdue.</div>
                         </div>
                         <dl class="mt-3 space-y-3">
                             <div>
@@ -524,13 +529,10 @@
         <x-button variant="secondary" iconName="x-circle" class="btn-action btn-reject h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="reject" title="Reject request">Reject</x-button>
     </template>
     <template id="btn-deliver-template">
-        <x-button variant="secondary" iconName="truck" class="btn-action btn-deliver h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="deliver" title="Dispatch items">Deliver Items</x-button>
+        <x-button variant="secondary" iconName="truck" class="btn-action btn-deliver h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="dispatch" title="Dispatch items">Dispatch Items</x-button>
     </template>
-    <template id="btn-mark-delivered-template">
-        <x-button variant="secondary" iconName="check-circle" class="btn-action btn-accept h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="mark-delivered" title="Mark request as delivered">Mark as Delivered</x-button>
-    </template>
-    <template id="btn-cancel-dispatch-template">
-        <x-button variant="secondary" iconName="arrow-uturn-left" class="btn-action btn-delete h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="cancel-dispatch" title="Cancel dispatch">Cancel Dispatch</x-button>
+    <template id="btn-print-template">
+        <x-button iconName="printer" variant="secondary" class="btn-action btn-print h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="print" title="Print">Print</x-button>
     </template>
     {{-- Alert templates --}}
     <template id="alert-success-template">
@@ -591,7 +593,16 @@
                 const searchMatches = borrowerText.includes(searchTerm) || requestIdText.includes(searchTerm);
                 
                 // Check status filter match
-                const statusMatches = !statusValue || statusText.includes(statusValue);
+                let statusMatches = false;
+                if (!statusValue) {
+                    statusMatches = true;
+                } else if (statusValue === 'overdue') {
+                    const returnCell = row.querySelector('td:nth-child(4)');
+                    const returnText = returnCell ? returnCell.textContent.toLowerCase() : '';
+                    statusMatches = returnText.includes('overdue');
+                } else {
+                    statusMatches = statusText.includes(statusValue);
+                }
                 
                 // Show/hide row
                 if (searchMatches && statusMatches) {

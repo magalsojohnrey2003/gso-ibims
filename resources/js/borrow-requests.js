@@ -26,6 +26,28 @@ function formatDate(value) {
     return `${month} ${day}, ${year}`;
 }
 
+function computeOverdueDays(req) {
+    if (!req) return 0;
+    // Only consider overdue when delivery_status (or status) is 'delivered'
+    const delivery = String(req.delivery_status || '').toLowerCase();
+    const status = String(req.status || '').toLowerCase();
+    if (delivery !== 'delivered' && status !== 'delivered') return 0;
+    const value = req.return_date || req.returnDate || null;
+    if (!value) return 0;
+    const ret = new Date(value);
+    if (Number.isNaN(ret.getTime())) return 0;
+    const now = new Date();
+    const startNow = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startRet = new Date(ret.getFullYear(), ret.getMonth(), ret.getDate());
+    const diffMs = startNow - startRet;
+    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    return days > 0 ? days : 0;
+}
+
+function isOverdue(req) {
+    return computeOverdueDays(req) > 0;
+}
+
 function humanizeStatus(status) {
     if (!status) return 'Pending';
     return String(status)
@@ -483,6 +505,8 @@ function createButtonFromTemplate(templateId, id) {
 
     if (action === 'view') {
         btn.addEventListener('click', (ev) => { ev.stopPropagation(); viewRequest(id); });
+    } else if (action === 'print') {
+        btn.addEventListener('click', (ev) => { ev.stopPropagation(); const url = `/admin/borrow-requests/${encodeURIComponent(id)}/print`; window.open(url, '_blank'); });
     } else if (action === 'validate') {
         btn.addEventListener('click', (ev) => { ev.stopPropagation(); openAssignManpowerModal(id); });
     } else if (action === 'approve') {
@@ -491,10 +515,6 @@ function createButtonFromTemplate(templateId, id) {
         btn.addEventListener('click', (ev) => { ev.stopPropagation(); openConfirmModal(id, 'rejected'); });
     } else if (['dispatch', 'deliver', 'deliver_items'].includes(action)) {
         btn.addEventListener('click', (ev) => { ev.stopPropagation(); openDeliverItemsModal(id); });
-    } else if (action === 'mark-delivered' || action === 'mark_delivered') {
-        btn.addEventListener('click', async (ev) => { ev.stopPropagation(); await markAsDelivered(id); });
-    } else if (action === 'cancel-dispatch' || action === 'cancel_dispatch') {
-        btn.addEventListener('click', async (ev) => { ev.stopPropagation(); await cancelDispatch(id); });
     } else {
         console.warn('Unknown button action in template', templateId, 'action=', action);
     }
@@ -537,6 +557,13 @@ function buildStatusBadge(status, deliveryStatus) {
             label: 'Delivered',
             classes: 'bg-blue-100 text-blue-800',
             icon: getIcon('fa-truck')
+        };
+    }
+    if (deliveryKey === 'not_received') {
+        return {
+            label: 'Not Received',
+            classes: 'bg-red-100 text-red-700',
+            icon: getIcon('fa-triangle-exclamation')
         };
     }
     if (statusKey === 'validated') {
@@ -603,7 +630,19 @@ function renderBorrowRequests() {
         const idText = `${String(req.id ?? '')} ${formatBorrowRequestCode(req)}`.toLowerCase();
         const statusText = String(req.status ?? '').toLowerCase();
         const matchesSearch = !normalizedSearch || borrowerName.includes(normalizedSearch) || idText.includes(normalizedSearch);
-        const matchesStatus = !normalizedStatus || statusText.includes(normalizedStatus) || (normalizedStatus === 'approved' && statusText === 'qr_verified');
+
+        // Normal status filtering
+        let matchesStatus = false;
+        if (!normalizedStatus) {
+            matchesStatus = true;
+        } else if (normalizedStatus === 'overdue') {
+            matchesStatus = isOverdue(req);
+        } else if (normalizedStatus === 'approved' && statusText === 'qr_verified') {
+            matchesStatus = true;
+        } else {
+            matchesStatus = statusText.includes(normalizedStatus);
+        }
+
         return matchesSearch && matchesStatus;
     });
 
@@ -629,7 +668,17 @@ function renderBorrowRequests() {
         const tdId = `<td class="px-4 py-3">${escapeHtml(requestCode || String(req.id ?? ''))}</td>`;
         const tdBorrower = `<td class="px-4 py-3">${escapeHtml(borrowerName)}</td>`;
         const tdBorrowDate = `<td class="px-4 py-3">${escapeHtml(formatDate(req.borrow_date))}</td>`;
-        const tdReturnDate = `<td class="px-4 py-3">${escapeHtml(formatDate(req.return_date))}</td>`;
+        // Return date with overdue label when applicable
+        const overdueDays = computeOverdueDays(req);
+        let tdReturnDate = '';
+        if (overdueDays > 0) {
+            tdReturnDate = `<td class="px-4 py-3 text-left text-red-600">
+                    <div class="font-medium">${escapeHtml(formatDate(req.return_date))}</div>
+                    <div class="mt-1 text-xs font-bold text-red-700">(${escapeHtml(String(overdueDays))} days overdue)</div>
+                </td>`;
+        } else {
+            tdReturnDate = `<td class="px-4 py-3">${escapeHtml(formatDate(req.return_date))}</td>`;
+        }
 
         const { label: statusLabel, classes: statusClasses, icon } = buildStatusBadge(req.status, req.delivery_status);
         const tdStatus = `<td class="px-4 py-3"><span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-full ${statusClasses}">${icon || ''}${escapeHtml(statusLabel)}</span></td>`;
@@ -654,10 +703,13 @@ function renderBorrowRequests() {
         } else if (statusKey === 'approved' && !['dispatched','delivered'].includes(deliveryKey)) {
             wrapper.appendChild(createButtonFromTemplate('btn-deliver-template', req.id));
         } else if (deliveryKey === 'dispatched') {
-            wrapper.appendChild(createButtonFromTemplate('btn-mark-delivered-template', req.id));
-            wrapper.appendChild(createButtonFromTemplate('btn-cancel-dispatch-template', req.id));
+            wrapper.appendChild(createButtonFromTemplate('btn-view-template', req.id));
         } else if (deliveryKey === 'delivered' || ['returned', 'rejected'].includes(statusKey)) {
             wrapper.appendChild(createButtonFromTemplate('btn-view-template', req.id));
+            // show print button for delivered requests or when status is explicitly 'returned'
+            if (deliveryKey === 'delivered' || statusKey === 'returned') {
+                wrapper.appendChild(createButtonFromTemplate('btn-print-template', req.id));
+            }
         } else {
             wrapper.appendChild(createButtonFromTemplate('btn-view-template', req.id));
         }
@@ -926,6 +978,23 @@ function fillRequestModal(req) {
     setText('requestScheduleBorrow', formatDate(req.borrow_date));
     setText('requestScheduleReturn', formatDate(req.return_date));
 
+    // Show overdue alert inside details modal when applicable
+    try {
+        const overdueAlert = document.getElementById('requestScheduleOverdueAlert');
+        const overdueText = document.getElementById('requestScheduleOverdueAlertText');
+        if (overdueAlert && overdueText) {
+            const days = computeOverdueDays(req);
+            if (days > 0) {
+                overdueText.textContent = `This request is overdue by ${days} day${days === 1 ? '' : 's'}.`;
+                overdueAlert.classList.remove('hidden');
+            } else {
+                overdueAlert.classList.add('hidden');
+            }
+        }
+    } catch (e) {
+        console.warn('Failed to update overdue alert', e);
+    }
+
     const rawUsageValue = pickText(req.time_of_usage);
     const hasUsage = rawUsageValue.length > 0;
     const scheduleTimeEl = document.getElementById('requestScheduleTime');
@@ -1070,10 +1139,6 @@ function openConfirmModal(id, status) {
         title = 'Dispatch Items';
         message = 'Confirm that the items are now on their way to the borrower.';
         iconClass = 'fas fa-truck text-indigo-600';
-    } else if (action === 'delivered') {
-        title = 'Mark as Delivered';
-        message = 'Confirm that the items have been handed over to the borrower.';
-        iconClass = 'fas fa-check-circle text-emerald-600';
     }
 
     if (iconEl) iconEl.className = iconClass;
@@ -1411,22 +1476,6 @@ async function updateRequest(id, status, options = {}) {
                     }
                     showSuccess(payload?.message || 'Items dispatched successfully.');
                     await loadBorrowRequests();
-                } else if (actionStatus === 'delivered') {
-                    const res = await fetch(`/admin/borrow-requests/${encodeURIComponent(id)}/deliver`, {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRF-TOKEN': CSRF_TOKEN,
-                            'Content-Type': 'application/json',
-                            Accept: 'application/json',
-                        },
-                        body: JSON.stringify({}),
-                    });
-                    const payload = await res.json().catch(() => null);
-                    if (!res.ok) {
-                        throw new Error(payload?.message || `Failed to mark delivered (status ${res.status})`);
-                    }
-                    showSuccess(payload?.message || 'Items marked as delivered successfully.');
-                    await loadBorrowRequests();
                 } else {
                     await updateRequest(Number(id), actionStatus, { button: confirmBtn });
                 }
@@ -1435,7 +1484,7 @@ async function updateRequest(id, status, options = {}) {
                 if (modalClosed) {
                     window.dispatchEvent(new CustomEvent('open-modal', { detail: modalName }));
                 }
-                if (actionStatus === 'dispatch' || actionStatus === 'dispatched' || actionStatus === 'delivered') {
+                if (actionStatus === 'dispatch' || actionStatus === 'dispatched') {
                     showError(error?.message || 'Failed to perform action. Please try again.');
                 }
             } finally {
@@ -1444,54 +1493,6 @@ async function updateRequest(id, status, options = {}) {
         });
     });
 })();
-
-async function markAsDelivered(id) {
-    if (!id) return;
-    try {
-        const res = await fetch(`/admin/borrow-requests/${encodeURIComponent(id)}/deliver`, {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': CSRF_TOKEN,
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-            },
-            body: JSON.stringify({}),
-        });
-        const payload = await res.json().catch(() => null);
-        if (!res.ok) {
-            throw new Error(payload?.message || `Failed to mark delivered (status ${res.status})`);
-        }
-        showSuccess(payload?.message || 'Items marked as delivered successfully.');
-        await loadBorrowRequests();
-    } catch (error) {
-        console.error('Mark as delivered failed', error);
-        showError(error?.message || 'Failed to mark as delivered.');
-    }
-}
-
-async function cancelDispatch(id) {
-    if (!id) return;
-    try {
-        const res = await fetch(`/admin/borrow-requests/${encodeURIComponent(id)}/cancel-dispatch`, {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': CSRF_TOKEN,
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
-            },
-            body: JSON.stringify({}),
-        });
-        const payload = await res.json().catch(() => null);
-        if (!res.ok) {
-            throw new Error(payload?.message || `Failed to cancel dispatch (status ${res.status})`);
-        }
-        showSuccess(payload?.message || 'Dispatch canceled.');
-        await loadBorrowRequests();
-    } catch (error) {
-        console.error('Cancel dispatch failed', error);
-        showError(error?.message || 'Failed to cancel dispatch.');
-    }
-}
 
 // ---------- boot ----------
 document.addEventListener('DOMContentLoaded', () => {

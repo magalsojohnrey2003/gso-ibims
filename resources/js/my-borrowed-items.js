@@ -3,6 +3,9 @@ const LIST_ROUTE = window.LIST_ROUTE || '/user/my-borrowed-items/list';
 const CSRF_TOKEN = window.CSRF_TOKEN || document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
 let ITEMS_CACHE = [];
+const confirmReceiveState = {
+    requestId: null,
+};
 
 // ---------- helpers ----------
 export function formatDate(dateStr) {
@@ -13,6 +16,28 @@ export function formatDate(dateStr) {
     const day = d.getDate();
     const year = d.getFullYear();
     return `${month}. ${day}, ${year}`;
+}
+
+function computeOverdueDays(req) {
+    if (!req) return 0;
+    // Only consider overdue when delivery has completed (delivered)
+    const delivery = (req.delivery_status || '').toLowerCase();
+    const status = (req.status || '').toLowerCase();
+    if (delivery !== 'delivered' && status !== 'delivered') return 0;
+    const value = req.return_date || req.returnDate || null;
+    if (!value) return 0;
+    const ret = new Date(value);
+    if (Number.isNaN(ret.getTime())) return 0;
+    const now = new Date();
+    const startNow = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startRet = new Date(ret.getFullYear(), ret.getMonth(), ret.getDate());
+    const diffMs = startNow - startRet;
+    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    return days > 0 ? days : 0;
+}
+
+function isOverdue(req) {
+    return computeOverdueDays(req) > 0;
 }
 
 function formatUsageRange(range) {
@@ -76,6 +101,7 @@ function getBadgeHtml(status) {
         'validated': 'fa-check-circle',
         'dispatched': 'fa-truck',
         'delivered': 'fa-truck',
+        'not_received': 'fa-triangle-exclamation',
     };
     const statusColors = {
         'approved': 'bg-green-100 text-green-700',
@@ -87,6 +113,7 @@ function getBadgeHtml(status) {
         'validated': 'bg-blue-100 text-blue-700',
         'dispatched': 'bg-indigo-100 text-indigo-700',
         'delivered': 'bg-blue-100 text-blue-800',
+        'not_received': 'bg-red-100 text-red-700',
     };
     const icon = statusIcons[st] || 'fa-question-circle';
     const color = statusColors[st] || 'bg-gray-100 text-gray-700';
@@ -149,9 +176,47 @@ function createButtonFromTemplate(templateId, id) {
             const url = `/user/my-borrowed-items/${encodeURIComponent(id)}/print`;
             window.open(url, '_blank');
         });
+    } else if (action === 'confirm-delivery') {
+        btn.addEventListener('click', (ev) => {
+            ev.preventDefault();
+            openConfirmReceiveModal(id);
+        });
+    } else if (action === 'report-not-received') {
+        btn.addEventListener('click', (ev) => {
+            ev.preventDefault();
+            openConfirmReportNotReceivedModal(id);
+        });
     }
     return frag;
 }
+
+function openConfirmReceiveModal(requestId) {
+    const numericId = Number(requestId);
+    if (!Number.isFinite(numericId)) {
+        confirmReceiveState.requestId = null;
+        return;
+    }
+
+    const request = ITEMS_CACHE.find((entry) => Number(entry?.id) === numericId) || null;
+    confirmReceiveState.requestId = numericId;
+
+    const labelEl = document.getElementById('confirmReceiveRequestLabel');
+    if (labelEl) {
+        const code = request ? (formatBorrowRequestCodeLocal(request) || `#${request.id}`) : `#${numericId}`;
+        labelEl.textContent = code;
+    }
+
+    window.dispatchEvent(new CustomEvent('open-modal', { detail: 'confirmReceiveModal' }));
+}
+
+function openConfirmReportNotReceivedModal(requestId) {
+    const numericId = Number(requestId);
+    if (!Number.isFinite(numericId)) return;
+    confirmReportState.requestId = numericId;
+    window.dispatchEvent(new CustomEvent('open-modal', { detail: 'confirmReportNotReceivedModal' }));
+}
+
+const confirmReportState = { requestId: null };
 
 // ---------- render table ----------
 function renderItems() {
@@ -185,10 +250,20 @@ function renderItems() {
         const requestCode = formatBorrowRequestCodeLocal(req) || `#${req.id ?? ''}`;
         const tdId = `<td class="px-4 py-3">${escapeHtml(requestCode)}</td>`;
         const tdBorrowDate = `<td class="px-4 py-3">${escapeHtml(formatDate(req.borrow_date))}</td>`;
-        const tdReturnDate = `<td class="px-4 py-3">${escapeHtml(formatDate(req.return_date))}</td>`;
+            // Show overdue styling only when delivered (computeOverdueDays enforces delivered check)
+            const overdueDays = computeOverdueDays(req);
+            let tdReturnDate = '';
+            if (overdueDays > 0) {
+                tdReturnDate = `<td class="px-4 py-3 text-left text-red-600">
+                        <div class="font-medium">${escapeHtml(formatDate(req.return_date))}</div>
+                        <div class="mt-1 text-xs font-bold text-red-700">(${escapeHtml(String(overdueDays))} days overdue)</div>
+                    </td>`;
+            } else {
+                tdReturnDate = `<td class="px-4 py-3">${escapeHtml(formatDate(req.return_date))}</td>`;
+            }
 
         // Display delivery progression overrides base status when in dispatched/delivered
-        const effectiveStatus = (req.delivery_status && ['dispatched','delivered'].includes(req.delivery_status.toLowerCase()))
+        const effectiveStatus = (req.delivery_status && ['dispatched','delivered','not_received'].includes(req.delivery_status.toLowerCase()))
             ? req.delivery_status.toLowerCase()
             : (req.status || '');
         const badgeHtml = getBadgeHtml(effectiveStatus);
@@ -201,11 +276,22 @@ function renderItems() {
 
         wrapper.appendChild(createButtonFromTemplate("btn-view-template", req.id));
 
-        if (req.status === "validated" || req.status === "approved") {
+        const statusKey = (req.status || '').toLowerCase();
+        const deliveryStatus = (req.delivery_status || '').toLowerCase();
+        const deliveredAt = req.delivered_at || null;
+
+        const shouldShowPrint = (statusKey === 'validated' && !['dispatched', 'not_received'].includes(deliveryStatus)) || deliveryStatus === 'delivered' || statusKey === 'returned';
+        if (shouldShowPrint) {
             wrapper.appendChild(createButtonFromTemplate("btn-print-template", req.id));
         }
 
-        const deliveryStatus = (req.delivery_status || '').toLowerCase();
+        const shouldShowConfirm = deliveryStatus === 'dispatched' && !deliveredAt;
+        if (shouldShowConfirm) {
+            wrapper.appendChild(createButtonFromTemplate("btn-confirm-delivery-template", req.id));
+            // add report not received action to the table actions as requested
+            wrapper.appendChild(createButtonFromTemplate("btn-report-not-received-template", req.id));
+        }
+
         tdActions.appendChild(wrapper);
 
         tr.innerHTML = tdId + tdBorrowDate + tdReturnDate + tdStatus;
@@ -266,6 +352,23 @@ export function fillBorrowModal(data) {
 
     setText('mbi-schedule-borrow', formatDate(data.borrow_date));
     setText('mbi-schedule-return', formatDate(data.return_date));
+
+    // Show overdue alert inside details modal when applicable
+    try {
+        const overdueAlert = document.getElementById('mbi-schedule-overdue-alert');
+        const overdueText = document.getElementById('mbi-schedule-overdue-alert-text');
+        if (overdueAlert && overdueText) {
+            const days = computeOverdueDays(data);
+            if (days > 0) {
+                overdueText.textContent = `This request is overdue by ${days} day${days === 1 ? '' : 's'}.`;
+                overdueAlert.classList.remove('hidden');
+            } else {
+                overdueAlert.classList.add('hidden');
+            }
+        }
+    } catch (e) {
+        console.warn('Failed to update overdue alert', e);
+    }
 
     const rawUsageValue = pickText(data.time_of_usage);
     const hasUsage = rawUsageValue.length > 0;
@@ -473,31 +576,7 @@ export function fillBorrowModal(data) {
         if (deliveryReasonContent) deliveryReasonContent.innerHTML = '';
     }
 
-    // Delivery buttons logic (confirm / report)
-    const confirmBtn = document.getElementById('mbi-confirm-received-btn');
-    const reportBtn = document.getElementById('mbi-report-not-received-btn');
-
-    // hide by default
-    if (confirmBtn) confirmBtn.classList.add('hidden');
-    if (reportBtn) reportBtn.classList.add('hidden');
-
-    // Show confirm/report only when delivery_status is dispatched and not yet delivered
-    const deliveryStatus = (data.delivery_status || '').toLowerCase();
-    const deliveredAt = data.delivered_at || null;
-
-    if (deliveryStatus === 'dispatched' && !deliveredAt) {
-        if (confirmBtn) {
-            confirmBtn.dataset.requestId = data.id;
-            confirmBtn.classList.remove('hidden');
-        }
-        if (reportBtn) {
-            reportBtn.dataset.requestId = data.id;
-            reportBtn.classList.remove('hidden');
-        }
-    } else {
-        if (confirmBtn) confirmBtn.dataset.requestId = '';
-        if (reportBtn) reportBtn.dataset.requestId = '';
-    }
+    // delivery buttons are now placed on the table action column; modal no longer contains report/confirm buttons
 }
 
 // ---------- view (fetch details & open modal) ----------
@@ -533,16 +612,45 @@ async function postJson(url, body = {}) {
     return json;
 }
 
-async function confirmDelivery(id) {
+async function confirmDelivery(id, options = {}) {
+    const {
+        button = null,
+        closeModals = ['borrowDetailsModal'],
+        silent = false,
+    } = options || {};
+
+    const spinnerMarkup = '<span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" aria-hidden="true"></span>';
+    let buttonSnapshot = null;
+
+    if (button) {
+        buttonSnapshot = {
+            html: button.innerHTML,
+            disabled: button.disabled,
+        };
+        button.disabled = true;
+        button.innerHTML = spinnerMarkup;
+    }
+
     try {
         await postJson(`/user/my-borrowed-items/${encodeURIComponent(id)}/confirm-delivery`);
-        showSuccess('Thank you — receipt confirmed.');
-        window.dispatchEvent(new Event('close-modal'));
-        // refresh
+        if (!silent) {
+            showSuccess('Thank you — receipt confirmed.');
+        }
+        closeModals.forEach((modalName) => {
+            if (!modalName) return;
+            window.dispatchEvent(new CustomEvent('close-modal', { detail: modalName }));
+        });
         await loadMyBorrowedItems();
+        return true;
     } catch (e) {
         console.error('confirmDelivery failed', e);
         showError('Failed to confirm receipt.');
+        return false;
+    } finally {
+        if (button && buttonSnapshot) {
+            button.disabled = buttonSnapshot.disabled;
+            button.innerHTML = buttonSnapshot.html;
+        }
     }
 }
 
@@ -552,7 +660,7 @@ async function reportNotReceived(id) {
         const body = { reason: reason || null };
         await postJson(`/user/my-borrowed-items/${encodeURIComponent(id)}/report-not-received`, body);
         showSuccess('Report submitted — admin will be notified.');
-        window.dispatchEvent(new Event('close-modal'));
+        window.dispatchEvent(new CustomEvent('close-modal', { detail: 'borrowDetailsModal' }));
         await loadMyBorrowedItems();
     } catch (e) {
         console.error('reportNotReceived failed', e);
@@ -566,28 +674,63 @@ document.addEventListener('DOMContentLoaded', () => {
     const reportBtn = document.getElementById('mbi-report-not-received-btn');
 
     if (confirmBtn) {
-        confirmBtn.addEventListener('click', async () => {
+        confirmBtn.addEventListener('click', () => {
             const id = confirmBtn.dataset.requestId;
             if (!id) return;
-            confirmBtn.disabled = true;
+            openConfirmReceiveModal(id);
+        });
+    }
+
+    // wire confirm report modal buttons
+    const modalReportConfirmBtn = document.getElementById('confirmReportNotReceivedConfirmBtn');
+    const modalReportCancelBtn = document.getElementById('confirmReportNotReceivedCancelBtn');
+
+    if (modalReportConfirmBtn) {
+        modalReportConfirmBtn.addEventListener('click', async () => {
+            const id = confirmReportState.requestId;
+            if (!id) return;
+            modalReportConfirmBtn.disabled = true;
             try {
-                await confirmDelivery(id);
+                // after confirmation prompt for optional reason and then submit
+                await reportNotReceived(id);
+                confirmReportState.requestId = null;
+                window.dispatchEvent(new CustomEvent('close-modal', { detail: 'confirmReportNotReceivedModal' }));
             } finally {
-                confirmBtn.disabled = false;
+                modalReportConfirmBtn.disabled = false;
             }
         });
     }
 
-    if (reportBtn) {
-        reportBtn.addEventListener('click', async () => {
-            const id = reportBtn.dataset.requestId;
-            if (!id) return;
-            reportBtn.disabled = true;
-            try {
-                await reportNotReceived(id);
-            } finally {
-                reportBtn.disabled = false;
+    if (modalReportCancelBtn) {
+        modalReportCancelBtn.addEventListener('click', () => {
+            confirmReportState.requestId = null;
+            window.dispatchEvent(new CustomEvent('close-modal', { detail: 'confirmReportNotReceivedModal' }));
+        });
+    }
+
+    const modalConfirmBtn = document.getElementById('confirmReceiveConfirmBtn');
+    const modalCancelBtn = document.getElementById('confirmReceiveCancelBtn');
+
+    if (modalConfirmBtn) {
+        modalConfirmBtn.addEventListener('click', async () => {
+            const id = confirmReceiveState.requestId;
+            if (!id) {
+                return;
             }
+            const success = await confirmDelivery(id, {
+                button: modalConfirmBtn,
+                closeModals: ['confirmReceiveModal', 'borrowDetailsModal'],
+            });
+            if (success) {
+                confirmReceiveState.requestId = null;
+            }
+        });
+    }
+
+    if (modalCancelBtn) {
+        modalCancelBtn.addEventListener('click', () => {
+            confirmReceiveState.requestId = null;
+            window.dispatchEvent(new CustomEvent('close-modal', { detail: 'confirmReceiveModal' }));
         });
     }
 });

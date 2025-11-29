@@ -53,6 +53,7 @@
                                 <option value="validated">Validated</option>
                                 <option value="returned">Returned</option>
                                 <option value="rejected">Rejected</option>
+                                <option value="overdue">Overdue</option>
                             </select>
                         </div>
                     </div>
@@ -151,6 +152,10 @@
                         <div class="flex items-center gap-2 text-purple-700">
                             <i class="fas fa-calendar-alt text-sm"></i>
                             <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Schedule</h4>
+                        </div>
+                        <div id="mbi-schedule-overdue-alert" class="hidden mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-red-700 flex items-start gap-3">
+                            <i class="fas fa-triangle-exclamation text-red-600"></i>
+                            <div id="mbi-schedule-overdue-alert-text" class="text-sm font-semibold">This request is overdue.</div>
                         </div>
                         <dl class="mt-3 space-y-3">
                             <div>
@@ -259,13 +264,7 @@
             </div>
 
             <div class="sticky bottom-0 z-30 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex flex-wrap justify-end gap-2">
-                <x-button id="mbi-report-not-received-btn" variant="danger" class="px-4 py-2 text-sm hidden">
-                    <i class="fa-solid fa-triangle-exclamation mr-1"></i> Report Not Received
-                </x-button>
-
-                <x-button id="mbi-confirm-received-btn" variant="success" class="px-4 py-2 text-sm hidden">
-                    <i class="fa-solid fa-check mr-1"></i> Confirm Received
-                </x-button>
+                {{-- Report/Confirm actions moved to table action column to reduce redundancy in modal --}}
 
                 <x-button variant="secondary" iconName="x-circle" class="px-4 py-2 text-sm" @click="$dispatch('close-modal', 'borrowDetailsModal')">
                     Close
@@ -278,10 +277,56 @@
     <template id="btn-view-template">
         <x-button iconName="eye" variant="secondary" class="btn-action btn-view h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="view" title="View request details">View</x-button>
     </template>
-
     <template id="btn-print-template">
-        <x-button variant="secondary" iconName="printer" class="btn-action btn-print h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="print" title="Open printable slip">Print</x-button>
+        <x-button iconName="printer" variant="secondary" class="btn-action btn-print h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="print" title="Open printable slip">Print</x-button>
     </template>
+    <template id="btn-confirm-delivery-template">
+        <x-button iconName="check-circle" variant="success" class="btn-action btn-confirm h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only hover:bg-emerald-600/10 focus:bg-emerald-600/10" data-action="confirm-delivery" title="Confirm items were received">
+            <span class="sr-only">Confirm Received</span>
+        </x-button>
+    </template>
+
+    <template id="btn-report-not-received-template">
+        <x-button variant="danger" class="btn-action btn-report h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="report-not-received" title="Report not received">
+            <x-slot name="icon">
+                <i class="fas fa-triangle-exclamation text-[0.8rem]"></i>
+            </x-slot>
+            <span class="sr-only">Report Not Received</span>
+        </x-button>
+    </template>
+
+    <x-modal name="confirmReportNotReceivedModal" maxWidth="md">
+        <div class="p-6 space-y-5">
+            <div class="flex items-center gap-3">
+                <i class="fas fa-triangle-exclamation text-red-600 text-xl"></i>
+                <h3 class="text-lg font-semibold text-gray-900">Report Not Received</h3>
+            </div>
+            <p class="text-sm text-gray-600">Are you sure you want to report that these items were not received?</p>
+            <div class="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                <x-button id="confirmReportNotReceivedCancelBtn" variant="secondary" class="px-4 py-2 text-sm">Cancel</x-button>
+                <x-button id="confirmReportNotReceivedConfirmBtn" variant="danger" class="px-4 py-2 text-sm">Report</x-button>
+            </div>
+        </div>
+    </x-modal>
+
+    <x-modal name="confirmReceiveModal" maxWidth="md">
+        <div class="p-6 space-y-5">
+            <div class="flex items-center gap-3">
+                <i class="fas fa-box-open text-indigo-600 text-xl"></i>
+                <h3 class="text-lg font-semibold text-gray-900">Confirm Receipt</h3>
+            </div>
+            <p class="text-sm text-gray-600">
+                You are about to confirm that all items for
+                <span id="confirmReceiveRequestLabel" class="font-semibold text-gray-900">this request</span>
+                have been received in good condition. Proceeding will notify the administrator.
+            </p>
+            <div class="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                <x-button id="confirmReceiveCancelBtn" variant="secondary" class="px-4 py-2 text-sm">Cancel</x-button>
+                <x-button id="confirmReceiveConfirmBtn" variant="success" class="px-4 py-2 text-sm">Confirm Receipt</x-button>
+            </div>
+        </div>
+    </x-modal>
+
     <!-- Alert templates -->
     <template id="alert-success-template">
         <div><x-alert type="success"><span data-alert-message></span></x-alert></div>
@@ -308,6 +353,7 @@
         <template data-status="validated"><x-status-badge type="info" text="Validated" /></template>
         <template data-status="dispatched"><x-status-badge type="info" text="Dispatched" /></template>
         <template data-status="delivered"><x-status-badge type="delivered" text="Delivered" /></template>
+        <template data-status="not_received"><x-status-badge type="warning" text="Not Received" /></template>
     </div>
 
     <!-- Small bootstrap variables for the module -->
@@ -355,7 +401,17 @@
                 const searchMatches = requestIdText.includes(searchTerm);
                 
                 // Check status filter match
-                const statusMatches = !statusValue || statusText.includes(statusValue);
+                let statusMatches = false;
+                if (!statusValue) {
+                    statusMatches = true;
+                } else if (statusValue === 'overdue') {
+                    // Determine overdue by checking return date cell text for the 'overdue' marker
+                    const returnCell = row.querySelector('td:nth-child(3)');
+                    const returnText = returnCell ? returnCell.textContent.toLowerCase() : '';
+                    statusMatches = returnText.includes('overdue');
+                } else {
+                    statusMatches = statusText.includes(statusValue);
+                }
                 
                 // Show/hide row
                 if (searchMatches && statusMatches) {

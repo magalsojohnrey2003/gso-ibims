@@ -18,6 +18,7 @@ class Item extends Model
         'photo',
         'acquisition_date',
         'acquisition_cost',
+        'is_borrowable',
     ];
 
     protected $casts = [

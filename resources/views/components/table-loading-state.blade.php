@@ -4,7 +4,8 @@
 
 <tr
     wire:loading.delay.longer
-    {{ $attributes->class('bg-white/80 transition-opacity duration-150') }}
+    data-table-state="loading"
+    {{ $attributes->class('bg-white/80 transition-opacity duration-150 table-loading-row') }}
 >
     <td colspan="{{ (int) $colspan }}" class="table-state-cell text-center py-10 px-4">
         <div class="flex flex-col items-center justify-center text-center text-gray-500">
