@@ -1,5 +1,5 @@
 <!-- resources/views/admin/items/modals/office.blade.php -->
-<x-modal name="manage-office" maxWidth="2xl">
+<x-modal name="manage-office" maxWidth="2xl" background="transparent">
   <div class="w-full bg-white dark:bg-gray-900 shadow-lg overflow-hidden flex flex-col max-h-[85vh]">
     <div class="bg-yellow-600 text-white px-6 py-5 sticky top-0 z-20 relative">
       <button 

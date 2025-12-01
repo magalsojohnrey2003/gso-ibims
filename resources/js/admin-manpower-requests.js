@@ -1,4 +1,3 @@
-// resources/js/admin-manpower-requests.js
 document.addEventListener('DOMContentLoaded', () => {
   if (!window.ADMIN_MANPOWER) return;
   const CSRF_TOKEN = window.ADMIN_MANPOWER?.csrf || document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
@@ -791,7 +790,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (key === 'user') {
           el.textContent = row.user?.name || '—';
         } else if (key === 'role') {
-            // show expandable role summary inside the role dd
             const breakdown = Array.isArray(row.role_breakdown) ? row.role_breakdown : [];
             if (!breakdown.length) {
               el.textContent = row.role || '—';
@@ -819,7 +817,6 @@ document.addEventListener('DOMContentLoaded', () => {
           el.textContent = row[key] || '—';
         }
       });
-      // approveRoleBreakdownList is no longer populated separately when role dd includes breakdown
   };
 
   const hydrateViewModal = (row) => {

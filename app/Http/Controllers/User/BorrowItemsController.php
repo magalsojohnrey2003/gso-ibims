@@ -7,7 +7,6 @@ use Illuminate\Http\Request;
 use App\Models\Item;
 use App\Models\BorrowRequest;
 use App\Models\BorrowRequestItem;
-use App\Models\ManpowerRequest;
 use App\Models\ManpowerRole;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Auth;
@@ -20,7 +19,6 @@ use App\Services\PhilSmsService;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Collection;
 
@@ -312,6 +310,9 @@ class BorrowItemsController extends Controller
 
         [$borrowDate, $returnDate] = [$validated['borrow_date'], $validated['return_date']];
 
+        $manpowerRows = $this->resolveManpowerSelectionRows($manpowerSelections, $manpowerRoleLookup);
+        $manpowerTotal = (int) $manpowerRows->sum('quantity');
+
         $items = Item::query()
             ->withCount([
                 'instances as non_borrowable_instances_count' => function ($query) {
@@ -354,19 +355,17 @@ class BorrowItemsController extends Controller
         }
 
         $borrowRequest = null;
-        $linkedManpowerRequest = null;
 
         DB::transaction(function () use (
             &$borrowRequest,
-            &$linkedManpowerRequest,
             $borrowDate,
             $returnDate,
             $timeOfUsage,
             $validated,
             $borrowList,
             $letterPath,
-            $manpowerSelections,
-            $manpowerRoleLookup
+            $manpowerRows,
+            $manpowerTotal
         ) {
             $borrowRequest = BorrowRequest::create([
                 'user_id'        => Auth::id(),
@@ -378,6 +377,7 @@ class BorrowItemsController extends Controller
                 'location'       => $validated['location'],
                 'letter_path'    => $letterPath,
                 'status'         => 'pending',
+                'manpower_count' => $manpowerTotal > 0 ? $manpowerTotal : null,
             ]);
 
             foreach ($borrowList as $itemId => $listItem) {
@@ -388,21 +388,19 @@ class BorrowItemsController extends Controller
                 ]);
             }
 
-            if ($manpowerSelections->isNotEmpty()) {
-                $linkedManpowerRequest = $this->createLinkedManpowerRequests(
-                    $borrowRequest,
-                    $manpowerSelections,
-                    $manpowerRoleLookup,
-                    [
-                        'purpose' => $validated['purpose'],
-                        'purpose_office' => $validated['purpose_office'],
-                        'location' => $validated['location'],
-                        'borrow_date' => $borrowDate,
-                        'return_date' => $returnDate,
-                        'time_of_usage' => $timeOfUsage,
-                        'letter_path' => $letterPath,
-                    ]
-                );
+            if ($manpowerRows->isNotEmpty()) {
+                $placeholderItemId = $this->getManpowerPlaceholderItemId();
+
+                foreach ($manpowerRows as $row) {
+                    BorrowRequestItem::create([
+                        'borrow_request_id' => $borrowRequest->id,
+                        'item_id'           => $placeholderItemId,
+                        'quantity'          => $row['quantity'],
+                        'is_manpower'       => true,
+                        'manpower_role_id'  => $row['role_id'],
+                        'manpower_role'     => $row['role_name'],
+                    ]);
+                }
             }
         });
 
@@ -416,6 +414,15 @@ class BorrowItemsController extends Controller
                 'id' => $itemId,
                 'name' => $listItem['name'],
                 'quantity' => $listItem['qty'],
+            ];
+        }
+
+        foreach ($manpowerRows as $row) {
+            $itemsPayload[] = [
+                'id' => null,
+                'name' => $row['role_name'],
+                'quantity' => $row['quantity'],
+                'is_manpower' => true,
             ];
         }
 
@@ -442,10 +449,6 @@ class BorrowItemsController extends Controller
         Notification::send($admins, new RequestNotification($payload));
 
         $philSms->notifyAdminsBorrowRequest($borrowRequest);
-
-        if ($linkedManpowerRequest instanceof ManpowerRequest) {
-            $this->notifyManpowerSubmission($linkedManpowerRequest, $philSms, $admins);
-        }
 
         return redirect()->route('borrow.items')
             ->with('success', 'Borrow request submitted successfully!');
@@ -501,79 +504,13 @@ class BorrowItemsController extends Controller
         return $rows->values();
     }
 
-    private function parseUsageRange(?string $range): array
+    private function resolveManpowerSelectionRows(Collection $selections, Collection $roleLookup): Collection
     {
-        if (!is_string($range) || !str_contains($range, '-')) {
-            return [null, null];
-        }
-
-        [$start, $end] = array_map('trim', explode('-', $range, 2));
-        $pattern = '/^(?:[01]\d|2[0-3]):[0-5]\d$/';
-
-        if (!preg_match($pattern, $start) || !preg_match($pattern, $end)) {
-            return [null, null];
-        }
-
-        return [$start, $end];
-    }
-
-    private function combineDateWithTime(string $date, string $time): Carbon
-    {
-        $pattern = '/^(?:[01]\d|2[0-3]):[0-5]\d$/';
-        $timeValue = preg_match($pattern, $time) ? $time : '00:00';
-
-        try {
-            return Carbon::createFromFormat('Y-m-d H:i', "{$date} {$timeValue}", config('app.timezone'))
-                ->seconds(0);
-        } catch (\Throwable $exception) {
-            return Carbon::parse($date, config('app.timezone'))->startOfDay();
-        }
-    }
-
-    private function resolveUsageWindow(string $borrowDate, string $returnDate, ?string $timeOfUsage): array
-    {
-        [$startTime, $endTime] = $this->parseUsageRange($timeOfUsage);
-
-        $startAt = $this->combineDateWithTime($borrowDate, $startTime ?? '00:00');
-        $endAt = $this->combineDateWithTime($returnDate, $endTime ?? '23:59');
-
-        if ($endAt->lt($startAt)) {
-            $endAt = (clone $startAt)->addHour();
-        }
-
-        return [$startAt, $endAt];
-    }
-
-    private function splitLocationParts(?string $location): array
-    {
-        $parts = array_values(array_filter(array_map('trim', explode(',', (string) $location))));
-
-        return [
-            'municipality' => $parts[0] ?? null,
-            'barangay'     => $parts[1] ?? null,
-            'purok'        => $parts[2] ?? null,
-        ];
-    }
-
-    private function createLinkedManpowerRequests(
-        BorrowRequest $borrowRequest,
-        Collection $selections,
-        Collection $roleLookup,
-        array $context
-    ): ?ManpowerRequest {
         if ($selections->isEmpty()) {
-            return null;
+            return collect();
         }
 
-        [$startAt, $endAt] = $this->resolveUsageWindow(
-            $context['borrow_date'],
-            $context['return_date'],
-            $context['time_of_usage'] ?? null
-        );
-
-        $locationParts = $this->splitLocationParts($context['location'] ?? '');
-
-        $roleItems = $selections->map(function (array $row) use ($roleLookup) {
+        return $selections->map(function (array $row) use ($roleLookup) {
             $role = $roleLookup->get($row['role_id']);
             if (! $role) {
                 throw ValidationException::withMessages([
@@ -581,130 +518,37 @@ class BorrowItemsController extends Controller
                 ]);
             }
 
-            $quantity = max((int) $row['quantity'], 1);
-
             return [
-                'model' => $role,
                 'role_id' => $role->id,
                 'role_name' => $role->name,
-                'quantity' => $quantity,
+                'quantity' => max(1, (int) $row['quantity']),
             ];
         })->values();
-
-        if ($roleItems->isEmpty()) {
-            return null;
-        }
-
-        $totalQuantity = (int) $roleItems->sum('quantity');
-        if ($totalQuantity < 1) {
-            $totalQuantity = 1;
-        }
-
-        $primaryItem = $roleItems->first();
-        $roleCount = $roleItems->count();
-
-        $summaryParts = $roleItems->map(static fn ($item) => sprintf('%s (%d)', $item['role_name'], $item['quantity']))->values();
-
-        if ($roleCount === 1) {
-            $roleSummary = $summaryParts->first() ?? $primaryItem['role_name'];
-        } elseif ($summaryParts->count() > 2) {
-            $roleSummary = sprintf('%s, +%d more', $summaryParts->take(2)->implode(', '), $summaryParts->count() - 2);
-        } else {
-            $roleSummary = $summaryParts->implode(', ');
-        }
-
-        $manpowerRequest = ManpowerRequest::create([
-            'user_id'          => $borrowRequest->user_id,
-            'quantity'         => $totalQuantity,
-            'role'             => $roleSummary,
-            'purpose'          => $context['purpose'],
-            'location'         => $context['location'],
-            'office_agency'    => $context['purpose_office'],
-            'start_at'         => (clone $startAt),
-            'end_at'           => (clone $endAt),
-            'letter_path'      => $context['letter_path'],
-            'status'           => 'pending',
-            'manpower_role_id' => $roleCount === 1 ? $primaryItem['role_id'] : null,
-            'public_token'     => (string) Str::uuid(),
-            'municipality'     => $locationParts['municipality'],
-            'barangay'         => $locationParts['barangay'],
-        ]);
-
-        $manpowerRequest->roles()->createMany(
-            $roleItems->map(fn ($item) => [
-                'manpower_role_id' => $item['role_id'],
-                'role_name' => $item['role_name'],
-                'quantity' => $item['quantity'],
-            ])->all()
-        );
-
-        $manpowerRequest->loadMissing('roles');
-        $manpowerRequest->role = $manpowerRequest->buildRoleSummary();
-        $manpowerRequest->quantity = $manpowerRequest->total_requested_quantity;
-        $manpowerRequest->save();
-
-        return $manpowerRequest->loadMissing('user', 'roles');
     }
 
-    private function notifyManpowerSubmission(ManpowerRequest $manpowerRequest, PhilSmsService $philSms, $admins): void
+    private function getManpowerPlaceholderItemId(): int
     {
-        try {
-            $philSms->notifyNewManpowerRequest($manpowerRequest);
-        } catch (\Throwable $exception) {
-            report($exception);
+        static $placeholderId = null;
+
+        if ($placeholderId) {
+            return $placeholderId;
         }
 
-        $recipients = $admins instanceof Collection ? $admins : collect($admins);
-        if ($recipients->isEmpty()) {
-            return;
-        }
+        $placeholder = Item::firstOrCreate(
+            ['name' => Item::SYSTEM_MANPOWER_PLACEHOLDER],
+            [
+                'description' => 'Virtual placeholder item used to store manpower roles inside borrow requests.',
+                'category' => 'System',
+                'total_qty' => 0,
+                'available_qty' => 0,
+                'photo' => null,
+                'is_borrowable' => false,
+            ]
+        );
 
-        $manpowerRequest->loadMissing('user');
+        $placeholderId = (int) $placeholder->id;
 
-        $requester = $manpowerRequest->user;
-        $requesterName = optional($requester)->full_name;
-        if (! $requesterName) {
-            $requesterName = $requester
-                ? trim((string) (($requester->first_name ?? '') . ' ' . ($requester->last_name ?? '')))
-                : '';
-        }
-        if ($requesterName === '') {
-            $requesterName = $requester?->email ?? 'Borrower';
-        }
-
-        $schedule = [
-            'start_at' => optional($manpowerRequest->start_at)->toDateTimeString(),
-            'end_at'   => optional($manpowerRequest->end_at)->toDateTimeString(),
-        ];
-
-        $payload = [
-            'type' => 'manpower_submitted',
-            'message' => sprintf(
-                'New manpower request %s submitted by %s.',
-                $manpowerRequest->formatted_request_id ?? ('Request #' . $manpowerRequest->id),
-                $requesterName
-            ),
-            'manpower_request_id'   => $manpowerRequest->id,
-            'formatted_request_id'  => $manpowerRequest->formatted_request_id,
-            'user_id'               => $manpowerRequest->user_id,
-            'user_name'             => $requesterName,
-            'actor_id'              => $manpowerRequest->user_id,
-            'actor_name'            => $requesterName,
-            'quantity'              => $manpowerRequest->quantity,
-            'role'                  => $manpowerRequest->role,
-            'role_breakdown'        => $manpowerRequest->role_breakdown,
-            'location'              => $manpowerRequest->location,
-            'municipality'          => $manpowerRequest->municipality,
-            'barangay'              => $manpowerRequest->barangay,
-            'purpose'               => $manpowerRequest->purpose,
-            'office_agency'         => $manpowerRequest->office_agency,
-            'schedule'              => $schedule,
-            'start_at'              => $schedule['start_at'],
-            'end_at'                => $schedule['end_at'],
-            'submitted_at'          => optional($manpowerRequest->created_at)->toDateTimeString(),
-        ];
-
-        Notification::send($recipients, new RequestNotification($payload));
+        return $placeholderId;
     }
 
     /**

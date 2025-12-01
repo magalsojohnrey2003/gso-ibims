@@ -155,6 +155,7 @@ class WalkInRequestPdfService
         $excludeIds = $walkInRequest->items->pluck('item_id')->filter()->unique()->all();
 
         $additional = Item::query()
+            ->excludeSystemPlaceholder()
             ->when($excludeIds !== [], function ($query) use ($excludeIds) {
                 $query->whereNotIn('id', $excludeIds);
             })

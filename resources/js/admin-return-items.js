@@ -8,6 +8,9 @@ const CSRF_TOKEN = CONFIG.csrf || document.querySelector('meta[name="csrf-token"
 
 let RETURN_ROWS = [];
 
+const LOCK_REASON_BORROWED_DEFAULT = 'Cannot update condition while the item is currently borrowed.';
+const LOCK_REASON_HISTORY_DEFAULT = 'This return record is read-only because a newer return update exists.';
+
 let MANAGE_ITEMS = [];
 let MANAGE_BORROW_ID = null;
 let MANAGE_FILTER = '';
@@ -16,6 +19,11 @@ let SELECTION_ENABLED = false;
 let SELECTED_INSTANCES = new Set();
 let CHECKBOXES_VISIBLE = false;
 let MANAGE_SEARCH_TERM = { raw: '', normalized: '' };
+let VIEW_DETAILS_CACHE = new Map();
+
+function normalizeInventoryStatus(value) {
+    return String(value || '').toLowerCase();
+}
 
 function cloneTemplate(id, fallbackText) {
     const tpl = document.getElementById(id);
@@ -165,6 +173,7 @@ function formatDateTime(value) {
 
 async function loadReturnItems() {
     try {
+        VIEW_DETAILS_CACHE.clear();
         const res = await fetch(LIST_ROUTE, { headers: { Accept: 'application/json' } });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
@@ -241,9 +250,18 @@ function renderTable() {
         const wrapper = document.createElement('div');
         wrapper.className = 'flex justify-center gap-2';
 
+        const viewTpl = document.getElementById('action-view-template');
+        if (viewTpl) {
+            const btnFrag = viewTpl.content.cloneNode(true);
+            const button = btnFrag.querySelector('[data-action="view"]');
+            if (button) {
+                const identifier = row.id ?? (row.walk_in_request_id ? `W${row.walk_in_request_id}` : row.borrow_request_id);
+                button.addEventListener('click', () => openViewModal(identifier));
+            }
+            wrapper.appendChild(btnFrag);
+        }
+
         const deliveryStatus = String(row.delivery_status || '').toLowerCase();
-        // Show "Mark as Collected" button if items haven't been returned yet
-        // Show "Manage" button only after items have been marked as collected (status = 'returned')
         if (deliveryStatus !== 'returned') {
             const collectTpl = document.getElementById('action-collect-template');
             if (collectTpl) {
@@ -273,18 +291,22 @@ function renderTable() {
     });
 }
 
-async function openManageModal(id) {
+async function fetchReturnDetails(identifier) {
+    const idStr = String(identifier ?? '');
+    if (!idStr) {
+        throw new Error('Missing borrow request identifier');
+    }
+
+    if (VIEW_DETAILS_CACHE.has(idStr)) {
+        return VIEW_DETAILS_CACHE.get(idStr);
+    }
+
     try {
-        // Detect if it's a walk-in request (ID starts with 'W')
-        const idStr = String(id);
         const isWalkIn = idStr.startsWith('W');
         const actualId = isWalkIn ? idStr.substring(1) : idStr;
-        
-        // Build the correct URL based on request type
-        const url = isWalkIn 
+        const url = isWalkIn
             ? `${SHOW_BASE}/walk-in/${encodeURIComponent(actualId)}`
             : `${SHOW_BASE}/${encodeURIComponent(actualId)}`;
-        
         const res = await fetch(url, {
             headers: { Accept: 'application/json' },
         });
@@ -292,11 +314,118 @@ async function openManageModal(id) {
             throw new Error(await res.text());
         }
         const data = await res.json();
+        VIEW_DETAILS_CACHE.set(idStr, data);
+        return data;
+    } catch (error) {
+        console.error('Failed to load return details', error);
+        throw error;
+    }
+}
+
+async function openManageModal(id) {
+    try {
+        const data = await fetchReturnDetails(id);
         populateManageModal(data);
         window.dispatchEvent(new CustomEvent('open-modal', { detail: 'manageReturnItemsModal' }));
     } catch (error) {
-        console.error('Failed to load return details', error);
         window.showToast('Failed to load return details. Please try again.', 'error');
+    }
+}
+
+async function openViewModal(id) {
+    try {
+        const data = await fetchReturnDetails(id);
+        populateViewModal(data);
+        window.dispatchEvent(new CustomEvent('open-modal', { detail: 'viewReturnItemsModal' }));
+    } catch (error) {
+        window.showToast('Failed to load request details. Please try again.', 'error');
+    }
+}
+
+function populateViewModal(data = {}) {
+    const setText = (id, value, fallback = '--') => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.textContent = value && value !== '' ? value : fallback;
+        }
+    };
+
+    const requestLabel = formatRequestCode(data) || data.formatted_request_id || `#${data.borrow_request_id ?? data.walk_in_request_id ?? '--'}`;
+    setText('view-request-id-display', requestLabel);
+    const typeLabel = String(data.request_type || '').toLowerCase() === 'walk-in' ? 'Walk-in Request' : 'Online Request';
+    setText('view-request-type-label', typeLabel);
+
+    setText('view-borrower-name', data.borrower || 'Unknown');
+    setText('view-borrower-email', data.borrower_email ? `Email: ${data.borrower_email}` : 'Email: --');
+    setText('view-borrower-phone', data.borrower_phone ? `Phone: ${data.borrower_phone}` : 'Phone: --');
+    setText('view-borrower-address', data.borrower_address ? `Address: ${data.borrower_address}` : 'Address: --');
+
+    const statusBadge = document.getElementById('view-status-badge');
+    if (statusBadge) {
+        statusBadge.innerHTML = '';
+        statusBadge.appendChild(renderStatusBadge(data.status, data.status));
+    }
+    const deliveryBadge = document.getElementById('view-delivery-status-badge');
+    if (deliveryBadge) {
+        deliveryBadge.innerHTML = '';
+        deliveryBadge.appendChild(renderStatusBadge(data.delivery_status, formatDeliveryStatus(data.delivery_status)));
+    }
+
+    setText('view-condition-summary', data.condition_summary || '--');
+    setText('view-borrow-date', formatDate(data.borrow_date));
+    setText('view-return-date', formatDate(data.return_date));
+    setText('view-usage-time', data.time_of_usage || '--');
+    setText('view-purpose-office', data.purpose_office || '--');
+    setText('view-purpose', data.purpose || '--');
+    setText('view-event-location', data.location || data.address || '--');
+    setText('view-manpower-count', data.manpower_count != null ? String(data.manpower_count) : '--');
+    setText('view-requested-at', formatDateTime(data.requested_at));
+    setText('view-dispatched-at', formatDateTime(data.dispatched_at));
+    setText('view-delivered-at', formatDateTime(data.delivered_at));
+
+    const items = Array.isArray(data.items) ? data.items : [];
+    const itemsCount = `${items.length || 0} item${items.length === 1 ? '' : 's'}`;
+    setText('view-items-count', itemsCount);
+
+    const tbody = document.getElementById('view-items-tbody');
+    if (tbody) {
+        tbody.innerHTML = '';
+        if (!items.length) {
+            const tr = document.createElement('tr');
+            const td = document.createElement('td');
+            td.colSpan = 4;
+            td.className = 'px-4 py-6 text-center text-gray-500';
+            td.textContent = 'No items recorded for this request.';
+            tr.appendChild(td);
+            tbody.appendChild(tr);
+        } else {
+            items.forEach((item) => {
+                const tr = document.createElement('tr');
+                tr.className = 'divide-x';
+
+                const tdProperty = document.createElement('td');
+                tdProperty.className = 'px-4 py-2 font-medium text-gray-800';
+                tdProperty.textContent = item.property_label || 'Untracked Item';
+                tr.appendChild(tdProperty);
+
+                const tdName = document.createElement('td');
+                tdName.className = 'px-4 py-2 text-gray-700';
+                tdName.textContent = item.item_name || 'Unknown';
+                tr.appendChild(tdName);
+
+                const tdCondition = document.createElement('td');
+                tdCondition.className = 'px-4 py-2';
+                tdCondition.appendChild(renderConditionBadge(item.condition, item.condition_label));
+                tr.appendChild(tdCondition);
+
+                const tdInventory = document.createElement('td');
+                tdInventory.className = 'px-4 py-2';
+                tdInventory.appendChild(renderInventoryStatusBadge(item.inventory_status, item.inventory_status_label));
+                tr.appendChild(tdInventory);
+
+                tbody.appendChild(tr);
+            });
+        }
     }
 }
 
@@ -319,12 +448,25 @@ function populateManageModal(data) {
     if (bulkConditionSelect) bulkConditionSelect.value = '';
 
     MANAGE_BORROW_ID = data.id ?? data.borrow_request_id ?? null;
+    if (MANAGE_BORROW_ID != null) {
+        VIEW_DETAILS_CACHE.set(String(MANAGE_BORROW_ID), data);
+    }
     MANAGE_ITEMS = (Array.isArray(data.items) ? data.items : []).map((item) => {
         const propertySource = item.property_number ?? item.property_label ?? '';
         const serialSource = item.serial ?? '';
+        const inventoryStatus = normalizeInventoryStatus(item.inventory_status);
+        const baseCanUpdate = item.can_update !== false && inventoryStatus !== 'borrowed';
+        const lockReason = baseCanUpdate
+            ? ''
+            : (item.lock_reason || (inventoryStatus === 'borrowed' ? LOCK_REASON_BORROWED_DEFAULT : LOCK_REASON_HISTORY_DEFAULT));
+
         return {
             ...item,
+            inventory_status: inventoryStatus,
             inventory_status_label: item.inventory_status_label || formatInventoryStatusLabel(item.inventory_status),
+            can_update: baseCanUpdate,
+            lock_reason: lockReason,
+            is_latest_record: item.is_latest_record !== false,
             _search: {
                 propertyRaw: String(propertySource || '').toLowerCase(),
                 propertyNormalized: normalizeSearchTerm(propertySource),
@@ -334,6 +476,25 @@ function populateManageModal(data) {
         };
     });
     MANAGE_FILTER = data.default_item || '';
+
+    const hasEditableItems = MANAGE_ITEMS.some((item) => item.can_update);
+    const bulkUpdateButtonEl = document.getElementById('manage-bulk-update-btn');
+
+    if (enableSelectionCheckbox) {
+        enableSelectionCheckbox.disabled = !hasEditableItems;
+        if (!hasEditableItems) {
+            enableSelectionCheckbox.checked = false;
+        }
+    }
+    if (bulkConditionSelect) {
+        bulkConditionSelect.disabled = !hasEditableItems;
+        if (!hasEditableItems) {
+            bulkConditionSelect.value = '';
+        }
+    }
+    if (bulkUpdateButtonEl) {
+        bulkUpdateButtonEl.disabled = true;
+    }
 
     const requestDisplay = formatRequestCode(data) || (data.borrow_request_id ?? data.id ?? '--');
     setText('manage-request-id', requestDisplay);
@@ -482,16 +643,23 @@ function renderManageRows() {
 
     const rows = filteredEntries.map((entry) => entry.item);
 
-    // Show/hide checkbox column
+    const selectionAllowed = MANAGE_ITEMS.some((entry) => entry.can_update);
+    const selectionActive = selectionAllowed && SELECTION_ENABLED;
+    const checkboxesEnabled = selectionAllowed && CHECKBOXES_VISIBLE;
+
+    if (!selectionActive && SELECTED_INSTANCES.size > 0) {
+        SELECTED_INSTANCES.clear();
+    }
+
     const checkboxHeader = document.getElementById('manage-checkbox-header');
     if (checkboxHeader) {
-        checkboxHeader.style.display = CHECKBOXES_VISIBLE ? '' : 'none';
+        checkboxHeader.style.display = checkboxesEnabled ? '' : 'none';
     }
 
     if (!rows.length) {
         const tr = document.createElement('tr');
         const td = document.createElement('td');
-        td.colSpan = CHECKBOXES_VISIBLE ? 4 : 3;
+        td.colSpan = checkboxesEnabled ? 4 : 3;
         td.className = 'px-4 py-4 text-center text-gray-500';
         td.textContent = 'No property numbers for this selection.';
         tr.appendChild(td);
@@ -500,25 +668,60 @@ function renderManageRows() {
     }
 
     rows.forEach((item) => {
+        const inventoryStatus = normalizeInventoryStatus(item.inventory_status);
+        const canUpdate = item.can_update !== false && inventoryStatus !== 'borrowed';
+        const lockReason = canUpdate
+            ? ''
+            : (item.lock_reason || (inventoryStatus === 'borrowed' ? LOCK_REASON_BORROWED_DEFAULT : LOCK_REASON_HISTORY_DEFAULT));
+
+        item.inventory_status = inventoryStatus;
+        item.can_update = canUpdate;
+        item.lock_reason = lockReason;
+
+        if (!canUpdate && SELECTED_INSTANCES.has(item.id)) {
+            SELECTED_INSTANCES.delete(item.id);
+        }
+
         const tr = document.createElement('tr');
         tr.className = 'divide-x transition-colors';
-        if (SELECTION_ENABLED) {
-            tr.classList.add('cursor-pointer');
-        }
         tr.dataset.instanceId = item.id;
         tr.dataset.condition = item.condition || 'pending';
+        tr.dataset.inventoryStatus = inventoryStatus;
+        tr.dataset.locked = canUpdate ? '0' : '1';
+        if (lockReason) {
+            tr.dataset.lockReason = lockReason;
+            tr.title = lockReason;
+        }
 
-        // Checkbox cell (only shown when CHECKBOXES_VISIBLE is true)
-        if (CHECKBOXES_VISIBLE) {
+        if (!canUpdate) {
+            tr.classList.add('opacity-70', 'cursor-not-allowed');
+        } else if (selectionActive) {
+            tr.classList.add('cursor-pointer');
+        }
+
+        if (checkboxesEnabled) {
             const tdCheckbox = document.createElement('td');
             tdCheckbox.className = 'px-4 py-3 text-center';
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
             checkbox.className = 'manage-row-checkbox w-4 h-4 text-purple-600 border-2 border-purple-300 bg-white rounded shadow focus:ring-purple-500';
             checkbox.dataset.instanceId = item.id;
-            checkbox.checked = SELECTED_INSTANCES.has(item.id);
-            checkbox.disabled = !SELECTION_ENABLED && !CHECKBOXES_VISIBLE;
+            checkbox.checked = canUpdate && selectionActive && SELECTED_INSTANCES.has(item.id);
+            checkbox.disabled = !canUpdate || !selectionActive;
+            if (!canUpdate) {
+                checkbox.dataset.blocked = '1';
+                if (lockReason) {
+                    checkbox.title = lockReason;
+                }
+            }
             checkbox.addEventListener('change', (e) => {
+                if (!canUpdate || !selectionActive) {
+                    e.target.checked = false;
+                    if (lockReason) {
+                        window.showToast(lockReason, 'warning');
+                    }
+                    return;
+                }
                 if (e.target.checked) {
                     SELECTED_INSTANCES.add(item.id);
                 } else {
@@ -531,36 +734,37 @@ function renderManageRows() {
             tr.appendChild(tdCheckbox);
         }
 
-        // Apply purple highlight if selected
-        if (SELECTED_INSTANCES.has(item.id)) {
+        if (selectionActive && SELECTED_INSTANCES.has(item.id) && canUpdate) {
             tr.classList.add('bg-purple-200');
         }
 
-        // Add click handler for individual row selection (only when selection mode is enabled)
-        if (SELECTION_ENABLED) {
+        if (selectionActive) {
             tr.addEventListener('click', (e) => {
-                // Don't trigger if clicking on checkbox, select, or button elements
                 if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'BUTTON' || e.target.closest('select') || e.target.closest('button') || e.target.closest('input[type="checkbox"]')) {
                     return;
                 }
-                
+                if (!canUpdate) {
+                    if (lockReason) {
+                        window.showToast(lockReason, 'warning');
+                    }
+                    return;
+                }
+
                 const instanceId = item.id;
                 const isSelected = SELECTED_INSTANCES.has(instanceId);
-                
+
                 if (isSelected) {
                     SELECTED_INSTANCES.delete(instanceId);
                     updateRowHighlight(tr, false);
-                    // Update checkbox if visible
                     const checkbox = tr.querySelector('.manage-row-checkbox');
                     if (checkbox) checkbox.checked = false;
                 } else {
                     SELECTED_INSTANCES.add(instanceId);
                     updateRowHighlight(tr, true);
-                    // Update checkbox if visible
                     const checkbox = tr.querySelector('.manage-row-checkbox');
                     if (checkbox) checkbox.checked = true;
                 }
-                
+
                 updateBulkUpdateButton();
             });
         }
@@ -578,10 +782,32 @@ function renderManageRows() {
         const tdCondition = document.createElement('td');
         tdCondition.className = 'px-4 py-3 text-left';
         tdCondition.appendChild(renderConditionBadge(item.condition, item.condition_label));
+        if (lockReason) {
+            const note = document.createElement('div');
+            note.className = 'mt-1 text-xs italic text-gray-500';
+            note.textContent = lockReason;
+            tdCondition.appendChild(note);
+        }
         tr.appendChild(tdCondition);
 
         tbody.appendChild(tr);
     });
+
+    const selectionToggle = document.getElementById('manage-enable-selection');
+    if (selectionToggle) {
+        selectionToggle.disabled = !selectionAllowed;
+        if (!selectionAllowed) {
+            selectionToggle.checked = false;
+        }
+    }
+
+    const bulkConditionSelect = document.getElementById('manage-bulk-condition');
+    if (bulkConditionSelect) {
+        bulkConditionSelect.disabled = !selectionAllowed;
+        if (!selectionAllowed) {
+            bulkConditionSelect.value = '';
+        }
+    }
 
     updateBulkUpdateButton();
 }
@@ -648,15 +874,93 @@ function applyBorrowSummaryUpdate(payload) {
     }
 }
 
-function showCollectConfirm(row) {
+async function showCollectConfirm(row) {
     PENDING_COLLECT_ID = row?.id ?? row?.borrow_request_id ?? null;
     const messageEl = document.getElementById('collectConfirmMessage');
+    const itemsWrapper = document.getElementById('collectItemsWrapper');
+    const itemsList = document.getElementById('collectItemsList');
+    const itemsCountEl = document.getElementById('collectItemsCount');
+
     if (messageEl) {
         const borrowId = row?.borrow_request_id ?? row?.id ?? '--';
         const requestLabel = formatRequestCode(row) || `#${borrowId}`;
         messageEl.textContent = `Are you sure request ${requestLabel} has been picked up?`;
     }
+
+    if (itemsWrapper) {
+        itemsWrapper.classList.remove('hidden');
+    }
+
+    if (itemsCountEl) {
+        itemsCountEl.textContent = 'Loading…';
+    }
+
+    if (itemsList) {
+        itemsList.innerHTML = '<li class="text-sm text-gray-500">Loading borrowed items...</li>';
+    }
+
     window.dispatchEvent(new CustomEvent('open-modal', { detail: 'collectConfirmModal' }));
+
+    if (!PENDING_COLLECT_ID || !itemsList) {
+        if (itemsList) {
+            itemsList.innerHTML = '<li class="text-sm text-red-600">Unable to load request details.</li>';
+        }
+        if (itemsCountEl) {
+            itemsCountEl.textContent = '0 items';
+        }
+        return;
+    }
+
+    const currentId = PENDING_COLLECT_ID;
+
+    try {
+        const details = await fetchReturnDetails(currentId);
+        if (PENDING_COLLECT_ID !== currentId) {
+            return;
+        }
+
+        const items = Array.isArray(details?.items) ? details.items : [];
+
+        if (!items.length) {
+            itemsList.innerHTML = '<li class="text-sm text-gray-500">No borrowed items recorded for this request.</li>';
+            if (itemsCountEl) {
+                itemsCountEl.textContent = '0 items';
+            }
+            return;
+        }
+
+        if (itemsCountEl) {
+            const label = items.length === 1 ? '1 item' : `${items.length} items`;
+            itemsCountEl.textContent = label;
+        }
+
+        itemsList.innerHTML = '';
+
+        items.forEach((item, index) => {
+            const li = document.createElement('li');
+            li.className = 'flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm';
+
+            const iconWrap = document.createElement('span');
+            iconWrap.className = 'flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl bg-purple-100 text-purple-600';
+            iconWrap.innerHTML = '<i class="fas fa-box-open text-sm"></i>';
+            li.appendChild(iconWrap);
+
+            const nameEl = document.createElement('div');
+            nameEl.className = 'flex-1 text-sm font-medium text-gray-800';
+            nameEl.textContent = item.item_name || `Item ${index + 1}`;
+            li.appendChild(nameEl);
+
+            itemsList.appendChild(li);
+        });
+    } catch (error) {
+        console.error('Failed to load borrowed items for confirmation', error);
+        if (itemsList) {
+            itemsList.innerHTML = '<li class="text-sm text-red-600">Unable to load borrowed items. Please try again.</li>';
+        }
+        if (itemsCountEl) {
+            itemsCountEl.textContent = '0 items';
+        }
+    }
 }
 
 async function collectBorrowRequest(id, button) {
@@ -766,12 +1070,25 @@ async function updateInstance(instanceId, condition, options = {}) {
 
         MANAGE_ITEMS = MANAGE_ITEMS.map((item) => {
             if (item.id === instanceId) {
+                const updatedStatus = normalizeInventoryStatus(data.inventory_status || item.inventory_status);
+                const explicitCanUpdate = typeof data.can_update === 'boolean' ? data.can_update : undefined;
+                const normalizedCanUpdate = explicitCanUpdate !== undefined
+                    ? explicitCanUpdate
+                    : (item.can_update !== false && updatedStatus !== 'borrowed');
+                const derivedLockReason = normalizedCanUpdate
+                    ? ''
+                    : (data.lock_reason || item.lock_reason || (updatedStatus === 'borrowed' ? LOCK_REASON_BORROWED_DEFAULT : LOCK_REASON_HISTORY_DEFAULT));
+
                 return {
                     ...item,
                     condition,
                     condition_label: data.condition_label || item.condition_label,
-                    inventory_status: data.inventory_status || item.inventory_status,
+                    inventory_status: updatedStatus,
+                    status: data.status || data.inventory_status || item.status,
                     inventory_status_label: data.inventory_status_label || formatInventoryStatusLabel(data.inventory_status || item.inventory_status),
+                    can_update: normalizedCanUpdate,
+                    lock_reason: derivedLockReason,
+                    is_latest_record: typeof data.is_latest_record === 'boolean' ? data.is_latest_record : item.is_latest_record,
                 };
             }
             return item;
@@ -782,6 +1099,9 @@ async function updateInstance(instanceId, condition, options = {}) {
         }
         if (updateTable) {
             applyBorrowSummaryUpdate(data);
+        }
+        if (MANAGE_BORROW_ID != null) {
+            VIEW_DETAILS_CACHE.delete(String(MANAGE_BORROW_ID));
         }
         window.dispatchEvent(new CustomEvent('return-items:condition-updated', {
             detail: { instanceId, condition, response: data },
@@ -892,3 +1212,4 @@ window.addEventListener('realtime:borrow-request-status-updated', () => {
 
 window.loadAdminReturnItems = loadReturnItems;
 window.openManageReturnModal = openManageModal;
+window.openViewReturnModal = openViewModal;

@@ -9,6 +9,10 @@ use Illuminate\Support\Str;
 class Item extends Model
 {
     use HasFactory;
+
+    public const SYSTEM_MANPOWER_PLACEHOLDER = '__SYSTEM_MANPOWER_PLACEHOLDER__';
+
+    protected static ?int $cachedSystemPlaceholderId = null;
     protected $fillable = [
         'name',
         'description',
@@ -82,6 +86,23 @@ class Item extends Model
         }
 
         return asset('images/item.png');
+    }
+
+    public function scopeExcludeSystemPlaceholder($query)
+    {
+        return $query->where('name', '!=', self::SYSTEM_MANPOWER_PLACEHOLDER);
+    }
+
+    public static function systemPlaceholderId(): ?int
+    {
+        if (static::$cachedSystemPlaceholderId !== null) {
+            return static::$cachedSystemPlaceholderId;
+        }
+
+        $id = static::where('name', self::SYSTEM_MANPOWER_PLACEHOLDER)->value('id');
+        static::$cachedSystemPlaceholderId = $id ? (int) $id : null;
+
+        return static::$cachedSystemPlaceholderId;
     }
 
 }

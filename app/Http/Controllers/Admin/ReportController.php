@@ -292,13 +292,13 @@ class ReportController extends Controller
                     ->leftJoin('users as u', 'br.user_id', '=', 'u.id')
                     ->leftJoin('walk_in_requests as wir', 'bii.walk_in_request_id', '=', 'wir.id')
                     ->whereNotNull('bii.returned_at')
-                    ->whereBetween(DB::raw("DATE(bii.returned_at)"), [$start->toDateString(), $end->toDateString()]);
+                    ->whereBetween(DB::raw('DATE(bii.returned_at)'), [$start->toDateString(), $end->toDateString()]);
 
                 $selects = [
                     'i.name as item_name',
                     'inst.property_number as property_number',
                     DB::raw("TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) as borrower_name"),
-                    DB::raw("COALESCE(bii.checked_out_at, bii.created_at) as borrowed_at"),
+                    DB::raw('COALESCE(bii.checked_out_at, bii.created_at) as borrowed_at'),
                     'bii.returned_at as returned_at',
                     'bii.return_condition as condition',
                     'br.purpose_office as purpose_office',
@@ -319,15 +319,17 @@ class ReportController extends Controller
                     ->get();
 
                 $damagedCount = 0;
+                $conditionCounts = [];
                 $rows = [];
 
                 foreach ($records as $row) {
                     $borrower = $row->borrower_name ?: $row->walk_in_borrower_name ?: '—';
                     $office = $row->user_office_name ?: $row->purpose_office ?: $row->walk_in_office ?: '—';
-
                     $returnedSource = $row->returned_at ?: $row->walk_in_returned_at;
 
                     $conditionLabel = $this->formatConditionLabel($row->condition);
+                    $conditionCounts[$conditionLabel] = ($conditionCounts[$conditionLabel] ?? 0) + 1;
+
                     if (in_array(strtolower($row->condition ?? ''), ['damage', 'minor_damage', 'missing'], true)) {
                         $damagedCount++;
                     }
@@ -347,10 +349,26 @@ class ReportController extends Controller
                     ['label' => 'Returned Items', 'value' => count($rows)],
                     ['label' => 'Damaged / Lost', 'value' => $damagedCount],
                 ]];
+
+                if (! empty($conditionCounts)) {
+                    $extra['chart'] = [
+                        'type' => 'bar',
+                        'labels' => array_keys($conditionCounts),
+                        'datasets' => [[
+                            'label' => 'Returned Items',
+                            'data' => array_values(array_map('intval', $conditionCounts)),
+                        ]],
+                    ];
+                }
+
                 return compact('columns', 'rows', 'extra');
 
             case 'inventory_summary':
-                $items = Item::with('instances')->orderBy('name')->get();
+                $items = Item::query()
+                    ->excludeSystemPlaceholder()
+                    ->with('instances')
+                    ->orderBy('name')
+                    ->get();
                 $rows = $items->map(function (Item $item) {
                     $acquisitionDate = $this->formatDateCell($item->acquisition_date);
                     $unitValue = $item->acquisition_cost;
@@ -395,14 +413,19 @@ class ReportController extends Controller
                     ->orderByDesc(DB::raw("COALESCE(bii.condition_updated_at, bii.returned_at, bii.updated_at)"))
                     ->get();
 
-                $rows = $records->map(function ($row) {
+                $conditionCounts = [];
+
+                $rows = $records->map(function ($row) use (&$conditionCounts) {
+                    $statusLabel = $this->mapDamageOrLoss($row->condition);
+                    $conditionCounts[$statusLabel] = ($conditionCounts[$statusLabel] ?? 0) + 1;
+
                     return [
                         $row->borrower_name ?: '—',
                         $row->office_agency ?: '—',
                         $row->item_name,
                         $row->property_number ?? '—',
                         $this->formatDateCell($row->returned_at),
-                        $this->mapDamageOrLoss($row->condition),
+                        $statusLabel,
                     ];
                 })->toArray();
 
@@ -411,6 +434,18 @@ class ReportController extends Controller
                     ['label' => 'Borrowers Reported', 'value' => $records->pluck('borrower_name')->filter()->unique()->count()],
                     ['label' => 'Damaged / Lost Items', 'value' => count($rows)],
                 ]];
+
+                if (! empty($conditionCounts)) {
+                    $extra['chart'] = [
+                        'type' => 'bar',
+                        'labels' => array_keys($conditionCounts),
+                        'datasets' => [[
+                            'label' => 'Condition Reports',
+                            'data' => array_values(array_map('intval', $conditionCounts)),
+                        ]],
+                    ];
+                }
+
                 return compact('columns', 'rows', 'extra');
 
             case 'top_borrowed':
@@ -439,7 +474,9 @@ class ReportController extends Controller
 
             case 'low_stock':
                 $threshold = isset($opts['threshold']) && $opts['threshold'] !== '' ? (int) $opts['threshold'] : 5;
-                $items = Item::orderBy('available_qty')
+                $items = Item::query()
+                    ->excludeSystemPlaceholder()
+                    ->orderBy('available_qty')
                     ->get()
                     ->filter(fn (Item $item) => $item->available_qty <= $threshold);
 
@@ -490,11 +527,28 @@ class ReportController extends Controller
 
                 $returnedCount = $records->filter(fn ($row) => $row->status_label === 'Returned')->count();
 
+                $dailyCounts = $records->groupBy('borrowed_date')
+                    ->sortKeys()
+                    ->map(fn ($group) => $group->count())
+                    ->filter();
+
                 $columns = ['Date Borrowed', 'Item Name', 'Property No.', 'Borrower', 'Status'];
                 $extra = ['kpis' => [
                     ['label' => 'Borrows Logged', 'value' => count($rows)],
                     ['label' => 'Returned', 'value' => $returnedCount],
                 ]];
+
+                if ($dailyCounts->isNotEmpty()) {
+                    $extra['chart'] = [
+                        'type' => 'line',
+                        'labels' => $dailyCounts->keys()->map(fn ($date) => $this->formatDateCell($date))->values()->all(),
+                        'datasets' => [[
+                            'label' => 'Borrow Count',
+                            'data' => $dailyCounts->values()->map(fn ($value) => (int) $value)->all(),
+                        ]],
+                    ];
+                }
+
                 return compact('columns', 'rows', 'extra');
 
             case 'missing_reports':
@@ -538,71 +592,65 @@ class ReportController extends Controller
                 return compact('columns', 'rows', 'extra');
 
             case 'damage_reports':
-                if (class_exists(ItemDamageReport::class)) {
-                    $reports = ItemDamageReport::with(['itemInstance.item', 'reporter'])
-                        ->whereBetween(DB::raw("DATE(created_at)"), [$start->toDateString(), $end->toDateString()])
-                        ->orderByDesc('created_at')
-                        ->get();
+                $records = DB::table('borrow_item_instances as bii')
+                    ->join('items as i', 'bii.item_id', '=', 'i.id')
+                    ->leftJoin('item_instances as inst', 'bii.item_instance_id', '=', 'inst.id')
+                    ->leftJoin('borrow_requests as br', 'bii.borrow_request_id', '=', 'br.id')
+                    ->leftJoin('users as u', 'br.user_id', '=', 'u.id')
+                    ->leftJoin('walk_in_requests as wir', 'bii.walk_in_request_id', '=', 'wir.id')
+                    ->whereIn('bii.return_condition', ['damage', 'damaged', 'minor_damage', 'missing'])
+                    ->whereBetween(
+                        DB::raw('DATE(COALESCE(bii.condition_updated_at, bii.returned_at, bii.updated_at))'),
+                        [$start->toDateString(), $end->toDateString()]
+                    )
+                    ->select(
+                        'i.name as item_name',
+                        'inst.property_number as property_number',
+                        'inst.serial_no as serial_no',
+                        'inst.serial as serial_alt',
+                        DB::raw("TRIM(CONCAT(COALESCE(u.first_name,''), ' ', COALESCE(u.last_name,''))) as reporter_name"),
+                        'wir.borrower_name as walk_in_reporter',
+                        DB::raw('COALESCE(bii.condition_updated_at, bii.returned_at, bii.updated_at) as reported_at'),
+                        'bii.return_condition as condition'
+                    )
+                    ->orderByDesc(DB::raw('COALESCE(bii.condition_updated_at, bii.returned_at, bii.updated_at)'))
+                    ->get();
 
-                    $rows = $reports->map(function (ItemDamageReport $report) {
-                        $reporter = $report->reporter
-                            ? $this->formatFullName($report->reporter->first_name ?? null, $report->reporter->last_name ?? null)
-                            : 'N/A';
+                $statusCounts = $records->groupBy(function ($row) {
+                    return $this->formatDamageReportStatus($row->condition);
+                })->map->count();
 
-                        $instance = $report->itemInstance;
-                        $serial = $instance?->serial_no ?? $instance?->serial ?? 'N/A';
+                $rows = $records->map(function ($row) {
+                    $reporter = $row->reporter_name ?: $row->walk_in_reporter ?: 'N/A';
+                    $serial = $row->serial_no ?? $row->serial_alt ?? 'N/A';
 
-                        return [
-                            $reporter,
-                            $instance?->item?->name ?? 'Unknown Item',
-                            $instance?->property_number ?? 'N/A',
-                            $serial ?: 'N/A',
-                            $this->formatDateCell($report->created_at, true),
-                            ucfirst(str_replace('_', ' ', $report->status ?? 'reported')),
-                        ];
-                    })->toArray();
-                } else {
-                    $fallback = DB::table('borrow_item_instances as bii')
-                        ->join('items as i', 'bii.item_id', '=', 'i.id')
-                        ->leftJoin('item_instances as inst', 'bii.item_instance_id', '=', 'inst.id')
-                        ->leftJoin('borrow_requests as br', 'bii.borrow_request_id', '=', 'br.id')
-                        ->leftJoin('users as u', 'br.user_id', '=', 'u.id')
-                        ->whereIn('bii.return_condition', ['damage', 'minor_damage', 'missing'])
-                        ->whereBetween(
-                            DB::raw("DATE(COALESCE(bii.condition_updated_at, bii.returned_at, bii.updated_at))"),
-                            [$start->toDateString(), $end->toDateString()]
-                        )
-                        ->select(
-                            'i.name as item_name',
-                            'inst.property_number as property_number',
-                            'inst.serial_no as serial_no',
-                            'inst.serial as serial_alt',
-                            DB::raw("TRIM(CONCAT(COALESCE(u.first_name,''), ' ', COALESCE(u.last_name,''))) as reporter_name"),
-                            DB::raw("COALESCE(bii.condition_updated_at, bii.returned_at, bii.updated_at) as reported_at"),
-                            'bii.return_condition as condition'
-                        )
-                        ->orderByDesc(DB::raw("COALESCE(bii.condition_updated_at, bii.returned_at, bii.updated_at)"))
-                        ->get();
-
-                    $rows = $fallback->map(function ($row) {
-                        $status = $this->mapDamageOrLoss($row->condition);
-                        $serial = $row->serial_no ?? $row->serial_alt ?? 'N/A';
-
-                        return [
-                            $row->reporter_name ?: 'N/A',
-                            $row->item_name,
-                            $row->property_number ?? 'N/A',
-                            $serial ?: 'N/A',
-                            $this->formatDateCell($row->reported_at, true),
-                            $status,
-                        ];
-                    })->toArray();
-                }
+                    return [
+                        $reporter,
+                        $row->item_name,
+                        $row->property_number ?? 'N/A',
+                        $serial ?: 'N/A',
+                        $this->formatDateCell($row->reported_at, true),
+                        $this->formatDamageReportStatus($row->condition),
+                    ];
+                })->toArray();
 
                 $columns = ['Reported By', 'Item Name', 'Property Number', 'Serial No.', 'Date Reported', 'Status'];
                 $extra = ['kpis' => [
                     ['label' => 'Reports Logged', 'value' => count($rows)],
+                    ['label' => 'Missing Items', 'value' => (int) ($statusCounts['Missing'] ?? 0)],
                 ]];
+
+                if ($statusCounts->isNotEmpty()) {
+                    $extra['chart'] = [
+                        'type' => 'bar',
+                        'labels' => $statusCounts->keys()->values()->all(),
+                        'datasets' => [[
+                            'label' => 'Condition Breakdown',
+                            'data' => $statusCounts->values()->map(fn ($value) => (int) $value)->all(),
+                        ]],
+                    ];
+                }
+
                 return compact('columns', 'rows', 'extra');
 
             case 'manpower_requests':
@@ -680,6 +728,15 @@ class ReportController extends Controller
     protected function mapDamageOrLoss(?string $condition): string
     {
         return strtolower($condition ?? '') === 'missing' ? 'Lost' : 'Damaged';
+    }
+
+    protected function formatDamageReportStatus(?string $condition): string
+    {
+        return match (strtolower($condition ?? '')) {
+            'missing' => 'Missing',
+            'damage', 'damaged', 'minor_damage' => 'Damaged',
+            default => 'Pending',
+        };
     }
 
     protected function formatDateCell($value, bool $withTime = false): string

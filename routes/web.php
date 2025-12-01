@@ -115,6 +115,8 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
         // Dispatch action
         Route::post('borrow-requests/{borrowRequest}/dispatch', [BorrowRequestController::class, 'dispatch'])
             ->name('admin.borrow.requests.dispatch');
+        Route::match(['get', 'post'], 'borrow-requests/{borrowRequest}/stickers', [BorrowRequestController::class, 'printStickers'])
+            ->name('admin.borrow.requests.stickers');
 
         // Rejection Reasons
         Route::prefix('rejection-reasons')->name('admin.rejection-reasons.')->group(function () {

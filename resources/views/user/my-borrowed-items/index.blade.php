@@ -209,8 +209,15 @@
                             </button>
                         </div>
                         <p id="mbi-items-summary" class="mt-2 text-sm text-gray-500 dark:text-gray-400">0 items</p>
-                        <div x-show="itemsOpen" x-cloak class="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
-                            <ul id="mbi-items" class="space-y-1 text-gray-600 dark:text-gray-300 list-disc list-inside"></ul>
+                        <div x-show="itemsOpen" x-cloak class="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4 space-y-6">
+                            <div>
+                                <p class="text-xs uppercase text-gray-500 dark:text-gray-400 mb-2">Requested Items</p>
+                                <ul id="mbi-items" class="space-y-1 text-gray-600 dark:text-gray-300 list-disc list-inside"></ul>
+                            </div>
+                            <div>
+                                <p class="text-xs uppercase text-gray-500 dark:text-gray-400 mb-2">Requested Manpower</p>
+                                <ul id="mbi-manpower" class="space-y-1 text-gray-600 dark:text-gray-300 list-disc list-inside"></ul>
+                            </div>
                         </div>
                     </div>
 
@@ -302,6 +309,11 @@
                 <h3 class="text-lg font-semibold text-gray-900">Report Not Received</h3>
             </div>
             <p class="text-sm text-gray-600">Are you sure you want to report that these items were not received?</p>
+            <div>
+                <label for="confirmReportNotReceivedReason" class="text-xs font-semibold text-gray-600 uppercase">Optional note to admin</label>
+                <textarea id="confirmReportNotReceivedReason" rows="3" class="mt-1 w-full rounded-lg border border-gray-300 focus:border-red-500 focus:ring-red-500 text-sm" placeholder="Describe the issue (optional)"></textarea>
+                <p class="mt-1 text-xs text-gray-500">Leaving this blank will still send the report.</p>
+            </div>
             <div class="flex justify-end gap-3 pt-4 border-t border-gray-100">
                 <x-button id="confirmReportNotReceivedCancelBtn" variant="secondary" class="px-4 py-2 text-sm">Cancel</x-button>
                 <x-button id="confirmReportNotReceivedConfirmBtn" variant="danger" class="px-4 py-2 text-sm">Report</x-button>
@@ -353,7 +365,7 @@
         <template data-status="validated"><x-status-badge type="info" text="Validated" /></template>
         <template data-status="dispatched"><x-status-badge type="info" text="Dispatched" /></template>
         <template data-status="delivered"><x-status-badge type="delivered" text="Delivered" /></template>
-        <template data-status="not_received"><x-status-badge type="warning" text="Not Received" /></template>
+        <template data-status="not_received"><x-status-badge type="danger" text="Not Received" /></template>
     </div>
 
     <!-- Small bootstrap variables for the module -->

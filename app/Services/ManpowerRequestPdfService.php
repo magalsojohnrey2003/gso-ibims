@@ -207,6 +207,7 @@ class ManpowerRequestPdfService
         $fields['check_1'] = 'Yes';
 
         $randomItems = Item::query()
+            ->excludeSystemPlaceholder()
             ->inRandomOrder()
             ->limit(11)
             ->get(['name']);

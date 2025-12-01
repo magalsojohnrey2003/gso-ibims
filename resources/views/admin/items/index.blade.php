@@ -242,7 +242,7 @@
                               </td>
                           </tr>
                           @push('item-modals')
-                              <x-modal name="edit-item-{{ $item->id }}" maxWidth="2xl">
+                              <x-modal name="edit-item-{{ $item->id }}" maxWidth="2xl" background="transparent">
                                   <div class="w-full bg-white dark:bg-gray-900 shadow-lg overflow-hidden flex flex-col max-h-[85vh]">
                                       <div class="bg-purple-600 text-white px-6 py-5 sticky top-0 z-20 relative">
                                           <button 
@@ -334,7 +334,7 @@
         </div>
     </div>
   
-  <x-modal name="create-item" maxWidth="2xl">
+    <x-modal name="create-item" maxWidth="2xl" background="transparent">
       <div class="w-full shadow-lg overflow-hidden flex flex-col max-h-[85vh] bg-white dark:bg-gray-900">
       <div class="bg-purple-600 text-white px-6 py-5 sticky top-0 z-20 relative">
           <button 
@@ -433,54 +433,7 @@
 @include('admin.items.modals.gla')
 @include('admin.items.modals.office')
 @include('admin.items.modals.history')
-<x-modal name="print-stickers" maxWidth="lg">
-    <div class="p-6 space-y-6" data-print-modal>
-        <div>
-            <h3 class="text-xl font-semibold text-gray-900">Print Stickers</h3>
-            <p class="text-sm text-gray-500" data-print-summary></p>
-        </div>
-        <form class="space-y-5" data-print-form>
-            <input type="hidden" data-print-route-input>
-            <input type="hidden" data-print-quantity-input>
-            <div class="space-y-2">
-                <x-input-label for="print-person-accountable" value="Person Accountable" />
-                <x-text-input
-                    id="print-person-accountable"
-                    type="text"
-                    class="mt-1 block w-full"
-                    autocomplete="off"
-                    data-print-person>
-                </x-text-input>
-                <p class="text-xs text-gray-500">Optional: include who will receive the assets.</p>
-            </div>
-            <div class="space-y-2">
-                <div class="flex items-center justify-between">
-                    <span class="text-sm font-medium text-gray-700">Signature</span>
-                    <button type="button" class="text-xs text-blue-600 hover:underline" data-print-signature-clear>Clear</button>
-                </div>
-                <div class="border border-gray-300 rounded-lg bg-white overflow-hidden">
-                    <canvas data-print-signature-canvas class="w-full h-40 touch-pan-y"></canvas>
-                </div>
-                <p class="text-xs text-gray-500">Sign using your mouse, trackpad, or finger. Leave blank if a handwritten signature will be applied later.</p>
-            </div>
-            <div class="flex justify-end gap-3">
-                <x-button
-                    type="button"
-                    variant="secondary"
-                    data-print-cancel
-                    iconName="x-mark">
-                    Cancel
-                </x-button>
-                <x-button
-                    type="submit"
-                    iconName="printer"
-                    data-print-submit>
-                    Generate Stickers
-                </x-button>
-            </div>
-        </form>
-    </div>
-</x-modal>
+@include('admin.partials.print-stickers-modal')
 
 <script>
 // Live search and sortable table for Items Management

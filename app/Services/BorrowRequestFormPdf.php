@@ -139,9 +139,11 @@ class BorrowRequestFormPdf
     {
         $borrowRequest->loadMissing(['items.item']);
 
+        [$physicalItems, , $manpowerTotal] = $this->splitManpowerItems($borrowRequest);
+
         // Build selected items first
         $selected = [];
-        foreach ($borrowRequest->items as $reqItem) {
+        foreach ($physicalItems as $reqItem) {
             $name = $reqItem->item->name ?? ('Item #' . $reqItem->item_id);
             $qty = (int) ($reqItem->quantity ?? 0);
             $selected[] = [
@@ -150,10 +152,17 @@ class BorrowRequestFormPdf
             ];
         }
 
+        if ($manpowerTotal > 0) {
+            $selected[] = [
+                'label' => 'Manpower (x' . $manpowerTotal . ')',
+                'checked' => true,
+            ];
+        }
+
         // Fill remaining slots with other items (random order), unchecked
         try {
             $selectedNames = array_map(function ($row) { return strtolower((string) $row['label']); }, $selected);
-            $othersQuery = \App\Models\Item::query();
+            $othersQuery = \App\Models\Item::query()->excludeSystemPlaceholder();
             if (!empty($selectedNames)) {
                 $othersQuery->whereNotIn('name', $borrowRequest->items->pluck('item.name')->filter()->values());
             }
@@ -192,6 +201,21 @@ class BorrowRequestFormPdf
                 }
             }
         }
+    }
+
+    private function splitManpowerItems(BorrowRequest $borrowRequest): array
+    {
+        $items = $borrowRequest->items ?? collect();
+
+        [$manpower, $physical] = $items->partition(function ($item) {
+            return (bool) ($item->is_manpower ?? false);
+        });
+
+        $manpowerTotal = (int) $manpower->sum(function ($item) {
+            return (int) ($item->quantity ?? 0);
+        });
+
+        return [$physical->values(), $manpower->values(), $manpowerTotal];
     }
 
     private function drawCheckboxMark(Fpdi $pdf, array $pageSize, array $rect): void
@@ -242,7 +266,9 @@ class BorrowRequestFormPdf
             return;
         }
 
-        $items = $borrowRequest->items->map(function ($item) use ($borrowRequest) {
+        [$physicalItems, , $manpowerTotal] = $this->splitManpowerItems($borrowRequest);
+
+        $items = $physicalItems->map(function ($item) use ($borrowRequest) {
             return [
                 'id' => (string) $borrowRequest->id,
                 'name' => $item->item->name ?? ('Item #' . $item->item_id),
@@ -250,6 +276,15 @@ class BorrowRequestFormPdf
                 'manpower' => (string) ($item->assigned_manpower ?? $borrowRequest->manpower_count ?? 0),
             ];
         })->values();
+
+        if ($manpowerTotal > 0) {
+            $items->push([
+                'id' => (string) $borrowRequest->id,
+                'name' => 'Manpower (x' . $manpowerTotal . ')',
+                'quantity' => (string) $manpowerTotal,
+                'manpower' => (string) $manpowerTotal,
+            ]);
+        }
 
         if ($items->isEmpty()) {
             $items = collect([[

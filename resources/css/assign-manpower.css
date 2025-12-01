@@ -5,7 +5,8 @@
 */
 
 /* container improvements */
-#assignManpowerItemsContainer {
+#assignManpowerItemsContainer,
+#assignPhysicalItemsContainer {
   max-height: 320px;            /* keep rows scrollable inside modal */
   overflow: auto;
   padding: 0.5rem;
@@ -15,17 +16,19 @@
 }
 
 /* ensure consistent gap inside the container */
-#assignManpowerItemsContainer .grid {
+#assignManpowerItemsContainer .grid,
+#assignPhysicalItemsContainer .grid {
   gap: 0.5rem;
   align-items: center;
   padding: 0.6rem 0.75rem;
 }
 
 /* each generated row has dataset borrow_request_item_id - target those rows */
-#assignManpowerItemsContainer > div[data-borrow-request-item-id] {
+#assignManpowerItemsContainer > div[data-borrow-request-item-id],
+#assignPhysicalItemsContainer > div[data-borrow-request-item-id] {
   display: grid;
-  /* columns: 1) item name, 2) qty, 3) manpower, 4) role, 5) notes + checkbox/remove */
-  grid-template-columns: 1.2fr 80px 90px 140px 1fr;
+  /* columns: 1) item name/metadata, 2) approved qty, 3) reason select */
+  grid-template-columns: minmax(0, 1.4fr) 110px minmax(0, 1fr);
   gap: 0.6rem;
   align-items: center;
   padding: 0.6rem 0.75rem;
@@ -33,17 +36,21 @@
 }
 
 /* item name column (left) */
-#assignManpowerItemsContainer > div[data-borrow-request-item-id] > div:first-child {
+#assignManpowerItemsContainer > div[data-borrow-request-item-id] > div:first-child,
+#assignPhysicalItemsContainer > div[data-borrow-request-item-id] > div:first-child {
   padding-right: 0.25rem;
 }
-#assignManpowerItemsContainer .font-medium {
+#assignManpowerItemsContainer .font-medium,
+#assignPhysicalItemsContainer .font-medium {
   font-weight: 600;
   font-size: 0.95rem;
 }
 
 /* small secondary text under name (e.g., Requested: 5) */
 #assignManpowerItemsContainer .text-xs.text-gray-500,
-#assignManpowerItemsContainer .text-xs.text-gray-600 {
+#assignManpowerItemsContainer .text-xs.text-gray-600,
+#assignPhysicalItemsContainer .text-xs.text-gray-500,
+#assignPhysicalItemsContainer .text-xs.text-gray-600 {
   display: block;
   margin-top: 0.2rem;
   color: #6b7280;
@@ -57,7 +64,14 @@
 #assignManpowerItemsContainer .assign-manpower-input,
 #assignManpowerItemsContainer .assign-qty-input,
 #assignManpowerItemsContainer .assign-manpower-role,
-#assignManpowerItemsContainer .assign-manpower-notes {
+#assignManpowerItemsContainer .assign-manpower-notes,
+#assignPhysicalItemsContainer input[type="number"],
+#assignPhysicalItemsContainer input[type="text"],
+#assignPhysicalItemsContainer select,
+#assignPhysicalItemsContainer .assign-manpower-input,
+#assignPhysicalItemsContainer .assign-qty-input,
+#assignPhysicalItemsContainer .assign-manpower-role,
+#assignPhysicalItemsContainer .assign-manpower-notes {
   width: 100%;
   min-width: 0;
   padding: 0.45rem 0.6rem;
@@ -70,18 +84,21 @@
 }
 
 /* make the role select visually a little narrower inside its column */
-#assignManpowerItemsContainer .assign-manpower-role {
+#assignManpowerItemsContainer .assign-manpower-role,
+#assignPhysicalItemsContainer .assign-manpower-role {
   padding-right: 1.2rem;
 }
 
 /* notes column - keep compact and allow longer text */
-#assignManpowerItemsContainer .assign-manpower-notes {
+#assignManpowerItemsContainer .assign-manpower-notes,
+#assignPhysicalItemsContainer .assign-manpower-notes {
   padding: 0.45rem 0.6rem;
   width: 100%;
 }
 
 /* small checkbox alignment near notes */
-#assignManpowerItemsContainer .assign-not-inventory {
+#assignManpowerItemsContainer .assign-not-inventory,
+#assignPhysicalItemsContainer .assign-not-inventory {
   display: inline-block;
   margin-top: 0.4rem;
   transform: translateY(1px);
@@ -89,7 +106,9 @@
 
 /* remove button (trash) alignment: if present, keep small and at end */
 #assignManpowerItemsContainer .remove-role-btn,
-#assignManpowerItemsContainer button.remove-role-btn {
+#assignManpowerItemsContainer button.remove-role-btn,
+#assignPhysicalItemsContainer .remove-role-btn,
+#assignPhysicalItemsContainer button.remove-role-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -108,7 +127,10 @@
 */
 #assignManpowerItemsContainer select:disabled,
 #assignManpowerItemsContainer .assign-manpower-role.locked,
-#assignManpowerItemsContainer .assign-manpower-role[disabled] {
+#assignManpowerItemsContainer .assign-manpower-role[disabled],
+#assignPhysicalItemsContainer select:disabled,
+#assignPhysicalItemsContainer .assign-manpower-role.locked,
+#assignPhysicalItemsContainer .assign-manpower-role[disabled] {
   background: #f3f4f6;      /* light gray */
   color: #6b7280;
   pointer-events: none;
@@ -117,31 +139,38 @@
 }
 
 /* visually dim full/locked rows */
-#assignManpowerItemsContainer > div[data-borrow-request-item-id].locked-row {
+#assignManpowerItemsContainer > div[data-borrow-request-item-id].locked-row,
+#assignPhysicalItemsContainer > div[data-borrow-request-item-id].locked-row {
   opacity: 0.7;
 }
 
 /* responsive fallback: on very small widths stack into 2 rows */
 @media (max-width: 880px) {
-  #assignManpowerItemsContainer > div[data-borrow-request-item-id] {
-    grid-template-columns: 1fr 90px;
-    grid-template-rows: auto auto;
+  #assignManpowerItemsContainer > div[data-borrow-request-item-id],
+  #assignPhysicalItemsContainer > div[data-borrow-request-item-id] {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(3, auto);
     grid-auto-flow: row;
   }
-  #assignManpowerItemsContainer > div[data-borrow-request-item-id] > div:nth-child(1) { grid-column: 1 / -1; }
-  #assignManpowerItemsContainer > div[data-borrow-request-item-id] > div:nth-child(2) { grid-column: 2 / 3; }
-  #assignManpowerItemsContainer > div[data-borrow-request-item-id] > div:nth-child(3) { grid-column: 1 / 2; }
-  #assignManpowerItemsContainer > div[data-borrow-request-item-id] > div:nth-child(4) { grid-column: 1 / -1; }
+  #assignManpowerItemsContainer > div[data-borrow-request-item-id] > div,
+  #assignPhysicalItemsContainer > div[data-borrow-request-item-id] > div {
+    grid-column: 1 / -1;
+  }
 }
 
 /* small utility: compact the add-role button when disabled */
 #assignManpowerItemsContainer + .assign-controls .add-role-disabled,
-#assignManpowerItemsContainer .add-role-disabled {
+#assignManpowerItemsContainer .add-role-disabled,
+#assignPhysicalItemsContainer + .assign-controls .add-role-disabled,
+#assignPhysicalItemsContainer .add-role-disabled {
   opacity: 0.6;
   pointer-events: none;
 }
 
 /* subtle scrollbar style for container (modern browsers) */
-#assignManpowerItemsContainer::-webkit-scrollbar { height: 8px; width: 8px; }
-#assignManpowerItemsContainer::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.08); border-radius: 8px; }
-#assignManpowerItemsContainer::-webkit-scrollbar-track { background: transparent; }
+#assignManpowerItemsContainer::-webkit-scrollbar,
+#assignPhysicalItemsContainer::-webkit-scrollbar { height: 8px; width: 8px; }
+#assignManpowerItemsContainer::-webkit-scrollbar-thumb,
+#assignPhysicalItemsContainer::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.08); border-radius: 8px; }
+#assignManpowerItemsContainer::-webkit-scrollbar-track,
+#assignPhysicalItemsContainer::-webkit-scrollbar-track { background: transparent; }
