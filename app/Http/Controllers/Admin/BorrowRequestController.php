@@ -3,6 +3,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\BorrowRequest;
+use App\Models\Item;
+use App\Models\ItemInstance;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -14,9 +16,13 @@ use App\Models\BorrowRequestItem;
 use App\Models\WalkInRequest;
 use App\Services\BorrowRequestFormPdf;
 use App\Services\PhilSmsService;
+use App\Services\PropertyNumberService;
+use App\Services\StickerPdfService;
 use App\Models\RejectionReason;
 use App\Support\StatusRank;
 use App\Services\WalkInRequestPdfService;
+use Illuminate\Validation\Rule;
+use Carbon\Carbon;
 
 class BorrowRequestController extends Controller
 {
@@ -29,7 +35,9 @@ class BorrowRequestController extends Controller
 
     public function walkInCreate()
     {
-        $items = \App\Models\Item::orderBy('name')
+        $items = Item::query()
+            ->excludeSystemPlaceholder()
+            ->orderBy('name')
             ->get(['id','name','category','total_qty','available_qty','photo']);
         $defaultPhoto = 'images/item.png';
         return view('admin.walk-in.create', compact('items','defaultPhoto'));
@@ -91,7 +99,9 @@ class BorrowRequestController extends Controller
 
     public function walkInStore(Request $request)
     {
-        $data = $request->validate([
+        $placeholderId = Item::systemPlaceholderId();
+
+        $rules = [
             'borrower_name' => 'required|string|max:255',
             'office_agency' => 'nullable|string|max:255',
             'contact_number' => 'nullable|string|max:50',
@@ -100,9 +110,15 @@ class BorrowRequestController extends Controller
             'borrowed_at' => 'required|date',
             'returned_at' => 'required|date|after_or_equal:borrowed_at',
             'items' => 'required|array|min:1',
-            'items.*.id' => 'required|integer|exists:items,id',
+            'items.*.id' => ['required','integer','exists:items,id'],
             'items.*.quantity' => 'required|integer|min:1',
-        ]);
+        ];
+
+        if ($placeholderId) {
+            $rules['items.*.id'][] = Rule::notIn([$placeholderId]);
+        }
+
+        $data = $request->validate($rules);
         \DB::beginTransaction();
         try {
             $walkin = new \App\Models\WalkInRequest();
@@ -209,7 +225,7 @@ class BorrowRequestController extends Controller
             // Create individual BorrowItemInstance records for each physical item instance
             foreach ($walkInRequest->items as $walkInItem) {
                 // Validate item exists
-                $item = \App\Models\Item::find($walkInItem->item_id);
+                $item = Item::find($walkInItem->item_id);
                 if (!$item) {
                     throw new \Exception("Item #{$walkInItem->item_id} not found.");
                 }
@@ -301,7 +317,7 @@ class BorrowRequestController extends Controller
     
     public function list()
     {
-        $requests = BorrowRequest::with(['user', 'items.item'])
+        $requests = BorrowRequest::with(['user', 'items.item', 'items.manpowerRole'])
             ->latest()
             ->get()
             ->map(function (BorrowRequest $request) {
@@ -330,17 +346,24 @@ class BorrowRequestController extends Controller
                         'last_name' => $request->user->last_name,
                     ] : null,
                     'items' => $request->items->map(function (BorrowRequestItem $item) {
+                        $displayName = $this->resolveBorrowItemDisplayName($item);
+                        $itemModel = $item->item;
+
                         return [
                             'id' => $item->id,
                             'borrow_request_item_id' => $item->id,
                             'item_id' => $item->item_id,
                             'quantity' => $item->quantity,
                             'quantity_reason' => $item->manpower_notes,
-                            'item' => $item->item ? [
-                                'id' => $item->item->id,
-                                'name' => $item->item->name,
-                                'available_qty' => $item->item->available_qty ?? 0,
-                                'total_qty' => $item->item->total_qty ?? 0,
+                            'is_manpower' => (bool) $item->is_manpower,
+                            'manpower_role' => $item->manpower_role,
+                            'manpower_role_id' => $item->manpower_role_id,
+                            'display_name' => $displayName,
+                            'item' => $itemModel ? [
+                                'id' => $itemModel->id,
+                                'name' => $displayName,
+                                'available_qty' => $itemModel->available_qty ?? 0,
+                                'total_qty' => $itemModel->total_qty ?? 0,
                             ] : null,
                         ];
                     })->values(),
@@ -395,7 +418,7 @@ class BorrowRequestController extends Controller
 
         DB::beginTransaction();
         try {
-            $borrowRequest->load('items.item');
+            $borrowRequest->load('items.item', 'items.manpowerRole');
 
             if ($new === 'rejected') {
                 $resolvedTemplate = null;
@@ -484,6 +507,12 @@ class BorrowRequestController extends Controller
                     }
                 }
 
+                $latestManpowerCount = $borrowRequest->items()
+                    ->where('is_manpower', true)
+                    ->sum('quantity');
+                $borrowRequest->manpower_count = $latestManpowerCount > 0 ? $latestManpowerCount : null;
+                $borrowRequest->manpower_adjustment_reason = null;
+
                 if ($request->filled('manpower_total')) {
                     $borrowRequest->manpower_count = max(0, (int) $request->input('manpower_total'));
                     $borrowRequest->manpower_adjustment_reason = $request->input('manpower_reason')
@@ -495,6 +524,10 @@ class BorrowRequestController extends Controller
 
             if ($old !== 'approved' && $new === 'approved') {
                 foreach ($borrowRequest->items as $reqItem) {
+                    if ($reqItem->is_manpower) {
+                        continue;
+                    }
+
                     $item = $reqItem->item;
                     if (! $item) {
                         DB::rollBack();
@@ -568,6 +601,10 @@ class BorrowRequestController extends Controller
                 }
 
                 foreach ($borrowRequest->items as $reqItem) {
+                    if ($reqItem->is_manpower) {
+                        continue;
+                    }
+
                     $item = $reqItem->item;
                     if (! $item) continue;
 
@@ -602,10 +639,12 @@ class BorrowRequestController extends Controller
                     $actorName = $this->resolveActorName($actor);
                     $statusLabel = $this->formatBorrowStatusLabel($new);
 
-                    $items = $borrowRequest->items->map(function($it) {
+                    $items = $borrowRequest->items->map(function (BorrowRequestItem $it) {
+                        $displayName = $this->resolveBorrowItemDisplayName($it);
+
                         return [
                             'id' => $it->item->id ?? null,
-                            'name' => $it->item->name ?? '',
+                            'name' => $displayName,
                             'quantity' => $it->quantity,
                             'assigned_manpower' => $it->assigned_manpower ?? 0,
                             'manpower_role' => $it->manpower_role ?? null,
@@ -745,8 +784,12 @@ class BorrowRequestController extends Controller
 
     protected function allocateInstancesForBorrowRequest(BorrowRequest $borrowRequest): ?array
     {
-        // Assumes $borrowRequest->load('items.item') has been called by caller if needed.
+        // Assumes $borrowRequest->load('items.item', 'items.manpowerRole') has been called by caller if needed.
         foreach ($borrowRequest->items as $requestItem) {
+            if ($requestItem->is_manpower) {
+                continue;
+            }
+
             $item = $requestItem->item;
             if (! $item) {
                 return [
@@ -798,6 +841,246 @@ class BorrowRequestController extends Controller
         return null;
     }
 
+    private function resolveBorrowItemDisplayName(BorrowRequestItem $item): string
+    {
+        if (! $item->relationLoaded('item') || ! $item->relationLoaded('manpowerRole')) {
+            $item->loadMissing('item', 'manpowerRole');
+        }
+
+        $roleName = $item->manpower_role ?? optional($item->manpowerRole)->name;
+        $itemName = optional($item->item)->name;
+
+        if ($item->is_manpower || $itemName === Item::SYSTEM_MANPOWER_PLACEHOLDER) {
+            return $roleName ?: 'Manpower';
+        }
+
+        return $itemName ?: ($roleName ?: 'Unknown');
+    }
+
+    public function printStickers(
+        Request $request,
+        BorrowRequest $borrowRequest,
+        PropertyNumberService $numbers,
+        StickerPdfService $stickerPdf
+    ) {
+        $borrowRequest->loadMissing('user');
+
+        $status = strtolower((string) $borrowRequest->status);
+        if ($status === 'qr_verified') {
+            $status = 'approved';
+        }
+
+        $delivery = strtolower((string) $borrowRequest->delivery_status);
+
+        $eligibleStatuses = ['approved', 'return_pending', 'returned'];
+        $eligibleDelivery = ['dispatched', 'delivered'];
+
+        if (! in_array($status, $eligibleStatuses, true) && ! in_array($delivery, $eligibleDelivery, true)) {
+            $message = 'Stickers can only be generated for approved borrow requests.';
+            if ($request->wantsJson()) {
+                return response()->json(['message' => $message], 422);
+            }
+            return redirect()->back()->with('error', $message);
+        }
+
+        $allocatedInstances = BorrowItemInstance::query()
+            ->with(['item', 'instance'])
+            ->where('borrow_request_id', $borrowRequest->id)
+            ->whereHas('instance')
+            ->orderBy('item_id')
+            ->orderBy('id')
+            ->get()
+            ->filter(function (BorrowItemInstance $record) {
+                $item = $record->item ?? $record->instance?->item;
+                return $record->instance !== null && $item !== null;
+            })
+            ->values();
+
+        $borrowRequest->loadMissing('items.item');
+
+        $allocatedCountByItem = [];
+        $stickerSources = [];
+
+        foreach ($allocatedInstances as $record) {
+            $itemModel = $record->item ?? $record->instance?->item;
+            if (! $itemModel || ! $record->instance) {
+                continue;
+            }
+            $itemId = (int) $itemModel->id;
+            $allocatedCountByItem[$itemId] = ($allocatedCountByItem[$itemId] ?? 0) + 1;
+            $stickerSources[] = [
+                'instance' => $record->instance,
+                'item' => $itemModel,
+                'allocated' => true,
+            ];
+        }
+
+        $allowSuggested = $status === 'approved' && ! in_array($delivery, ['dispatched', 'delivered'], true);
+
+        if ($allowSuggested) {
+            foreach ($borrowRequest->items as $requestItem) {
+                if ($requestItem->is_manpower) {
+                    continue;
+                }
+
+                $itemModel = $requestItem->item;
+                if (! $itemModel) {
+                    continue;
+                }
+
+                $needed = (int) $requestItem->quantity;
+                $alreadyAllocated = $allocatedCountByItem[$itemModel->id] ?? 0;
+                $remaining = max(0, $needed - $alreadyAllocated);
+
+                if ($remaining <= 0) {
+                    continue;
+                }
+
+                $candidates = ItemInstance::query()
+                    ->where('item_id', $itemModel->id)
+                    ->where('status', 'available')
+                    ->orderBy('property_number')
+                    ->limit($remaining)
+                    ->get();
+
+                foreach ($candidates as $candidate) {
+                    $stickerSources[] = [
+                        'instance' => $candidate,
+                        'item' => $itemModel,
+                        'allocated' => false,
+                    ];
+                }
+            }
+        }
+
+        $totalCandidates = count($stickerSources);
+
+        if ($totalCandidates === 0) {
+            $message = 'No item instances are currently available for sticker printing.';
+            if ($request->wantsJson()) {
+                return response()->json(['message' => $message], 422);
+            }
+            return redirect()->back()->with('error', $message);
+        }
+
+        $requestedQuantity = (int) $request->input('quantity', $totalCandidates);
+        if ($requestedQuantity <= 0) {
+            $requestedQuantity = $totalCandidates;
+        }
+
+        $selectedSources = collect($stickerSources)->take($requestedQuantity);
+
+        $user = $borrowRequest->user;
+        $defaultPerson = '';
+        if ($user) {
+            $defaultPerson = trim((string) ($user->full_name ?? ''));
+            if ($defaultPerson === '') {
+                $defaultPerson = trim(
+                    collect([$user->first_name, $user->middle_name, $user->last_name])
+                        ->filter(fn ($part) => $part !== null && $part !== '')
+                        ->implode(' ')
+                );
+            }
+        }
+
+        $personAccountable = trim((string) $request->input('person_accountable', ''));
+        if ($personAccountable === '' && $defaultPerson !== '') {
+            $personAccountable = $defaultPerson;
+        }
+
+        $signatureData = (string) $request->input('signature_data', '');
+        if (trim($signatureData) === '') {
+            $signatureData = '';
+        }
+
+        $printDate = Carbon::now()->format('m/d/Y');
+
+        $stickers = $selectedSources->map(function (array $entry) use ($numbers, $personAccountable, $signatureData, $printDate) {
+            $instance = $entry['instance'] ?? null;
+            $item = $entry['item'] ?? null;
+
+            if (! $instance || ! $item) {
+                return null;
+            }
+
+            $parsed = [];
+            $propertyNumber = (string) ($instance->property_number ?? '');
+
+            if ($propertyNumber !== '') {
+                try {
+                    $parsed = $numbers->parse($propertyNumber);
+                } catch (\Throwable $e) {
+                    $parsed = [];
+                }
+            }
+
+            $acquisitionDate = '';
+            if (! empty($item->acquisition_date)) {
+                try {
+                    $acquisitionDate = Carbon::parse($item->acquisition_date)->format('m/d/Y');
+                } catch (\Throwable $e) {
+                    $acquisitionDate = (string) $item->acquisition_date;
+                }
+            }
+
+            $description = trim(strip_tags((string) ($item->description ?? '')));
+
+            return [
+                'print_yp' => $parsed['year'] ?? '',
+                'print_ppe' => $parsed['category'] ?? ($parsed['category_code'] ?? ''),
+                'print_gla' => $parsed['gla'] ?? '',
+                'print_serial' => $parsed['serial'] ?? '',
+                'print_office' => $parsed['office'] ?? '',
+                'print_item' => trim((string) ($item->name ?? '')),
+                'print_description' => $description,
+                'print_mn' => (string) ($instance->model_no ?? ''),
+                'print_sn' => (string) ($instance->serial_no ?? ''),
+                'print_ad' => $acquisitionDate,
+                'print_pa' => $personAccountable,
+                'print_signature' => $signatureData,
+                'print_date' => $printDate,
+            ];
+        })->filter()->values();
+
+        if ($stickers->isEmpty()) {
+            $message = 'No sticker data available for this borrow request.';
+            if ($request->wantsJson()) {
+                return response()->json(['message' => $message], 422);
+            }
+            return redirect()->back()->with('error', $message);
+        }
+
+        $identifier = $borrowRequest->formatted_request_id ?? ('request-' . $borrowRequest->id);
+        $sanitizedIdentifier = preg_replace('/[^A-Za-z0-9_-]+/', '-', $identifier) ?: ('request-' . $borrowRequest->id);
+        $filename = sprintf('%s-stickers-%s.pdf', strtolower($sanitizedIdentifier), now()->format('YmdHis'));
+
+        try {
+            $result = $stickerPdf->render($stickers->all(), $filename);
+        } catch (\Throwable $e) {
+            Log::error('borrow.print_stickers_failed', [
+                'borrow_request_id' => $borrowRequest->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            $message = 'Failed to generate sticker PDF.';
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'message' => $message,
+                    'error' => $e->getMessage(),
+                ], 500);
+            }
+
+            return redirect()->back()->with('error', $message);
+        }
+
+        $disposition = $request->boolean('download') ? 'attachment' : 'inline';
+
+        return response($result['content'], 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => $disposition . '; filename="' . $result['filename'] . '"',
+        ]);
+    }
+
     public function dispatch(Request $request, BorrowRequest $borrowRequest, PhilSmsService $philSms)
     {
         // Normalize status if QR-verified
@@ -831,13 +1114,17 @@ class BorrowRequestController extends Controller
         DB::beginTransaction();
         try {
             // ensure we have items loaded
-            $borrowRequest->load('items.item');
+            $borrowRequest->load('items.item', 'items.manpowerRole');
             $statusBeforeDispatch = $borrowRequest->status;
 
             // Only check available quantity if status is not already approved
             // If already approved, items are already allocated, so we can proceed
             if ($borrowRequest->status !== 'approved') {
                 foreach ($borrowRequest->items as $requestItem) {
+                    if ($requestItem->is_manpower) {
+                        continue;
+                    }
+
                     $item = $requestItem->item;
                     if (!$item) continue;
 

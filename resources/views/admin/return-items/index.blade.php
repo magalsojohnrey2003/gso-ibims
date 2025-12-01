@@ -280,17 +280,33 @@
     </x-modal>
 
     <!-- Collect Confirmation Modal -->
-    <x-modal name="collectConfirmModal" maxWidth="sm">
-        <div class="p-6 space-y-6">
-            <div class="space-y-2">
-                <h3 class="text-lg font-semibold text-gray-900">Confirm Collection</h3>
-                <p class="text-sm text-gray-600" id="collectConfirmMessage">Are you sure this borrow request has been picked up?</p>
+    <x-modal name="collectConfirmModal" maxWidth="sm" background="transparent">
+        <div class="overflow-hidden rounded-3xl bg-white shadow-xl">
+            <div class="flex items-start gap-4 px-6 py-6 bg-gradient-to-r from-purple-600 to-purple-500 text-white">
+                <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20">
+                    <i class="fas fa-clipboard-check text-xl"></i>
+                </span>
+                <div class="space-y-1">
+                    <h3 class="text-xl font-semibold">Confirm Collection</h3>
+                    <p class="text-sm text-purple-100" id="collectConfirmMessage">Are you sure this borrow request has been picked up?</p>
+                </div>
             </div>
-            <div class="flex justify-end gap-3">
-                <x-button variant="secondary" type="button" @click="$dispatch('close-modal', 'collectConfirmModal')">
+            <div class="px-6 py-6 space-y-5">
+                <div id="collectItemsWrapper" class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <p class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Borrowed Items</p>
+                        <span id="collectItemsCount" class="text-xs font-medium text-purple-600 bg-purple-100 px-2.5 py-1 rounded-full">0 items</span>
+                    </div>
+                    <ul id="collectItemsList" class="max-h-56 overflow-y-auto rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 space-y-2">
+                        <li class="text-sm text-gray-500">Select a request to view borrowed items.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-6 py-4">
+                <x-button variant="secondary" type="button" class="px-5" @click="$dispatch('close-modal', 'collectConfirmModal')">
                     Cancel
                 </x-button>
-                <x-button type="button" id="collectConfirmBtn">
+                <x-button type="button" class="px-5" id="collectConfirmBtn">
                     Confirm
                 </x-button>
             </div>

@@ -107,6 +107,7 @@ class StickerPdfService
                 
                 foreach ($layout as $field => $rect) {
                     $value = Arr::get($payload, $field);
+                    $value = $this->formatFieldValue($field, $value);
                     
                     // Handle signature field specifically - check for data:image or trim whitespace
                     if ($field === 'print_signature') {
@@ -350,5 +351,19 @@ class StickerPdfService
         $fontSize = max(min($estimated, $height), 8.0);
 
         return $fontSize;
+    }
+
+    private function formatFieldValue(string $field, mixed $value): mixed
+    {
+        if ($field === 'print_description' && is_string($value)) {
+            $normalized = trim($value);
+            $limit = 53;
+            if (mb_strlen($normalized, 'UTF-8') > $limit) {
+                return mb_substr($normalized, 0, $limit, 'UTF-8') . '.....';
+            }
+            return $normalized;
+        }
+
+        return $value;
     }
 }

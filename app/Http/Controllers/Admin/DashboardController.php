@@ -14,8 +14,8 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        $totalItems       = Item::count();
-        $availableItems   = Item::sum('available_qty');
+        $totalItems = Item::query()->excludeSystemPlaceholder()->count();
+        $availableItems = Item::query()->excludeSystemPlaceholder()->sum('available_qty');
         $totalBorrowReq   = BorrowRequest::count();
         $pendingReq       = BorrowRequest::where('status', 'pending')->count();
         $approvedReq      = BorrowRequest::where('status', 'approved')->count();
@@ -32,7 +32,12 @@ class DashboardController extends Controller
             ->toArray();
 
         $itemUsage = BorrowRequestItem::select('item_id', DB::raw('SUM(quantity) as total'))
-            ->whereHas('request', fn($q) => $q->where('status','approved'))
+            ->whereHas('request', function ($q) {
+                $q->whereIn('status', ['approved', 'dispatched', 'delivered', 'returned']);
+            })
+            ->whereHas('item', function ($q) {
+                $q->excludeSystemPlaceholder();
+            })
             ->with('item')
             ->groupBy('item_id')
             ->orderByDesc('total')
@@ -43,7 +48,13 @@ class DashboardController extends Controller
                 'total' => (int) $row->total
             ]);
 
-        $categories = Item::query()->distinct('category')->pluck('category')->filter()->values()->toArray();
+        $categories = Item::query()
+            ->excludeSystemPlaceholder()
+            ->distinct('category')
+            ->pluck('category')
+            ->filter()
+            ->values()
+            ->toArray();
 
         return view('admin.dashboard', compact(
             'totalItems',
@@ -70,7 +81,7 @@ class DashboardController extends Controller
                         DB::raw("DATE_FORMAT(created_at, '%Y-%m') as label"),
                         DB::raw("COUNT(*) as total")
                     )
-                    ->where('status','approved')
+                    ->whereIn('status', ['approved', 'dispatched', 'delivered', 'returned'])
                     ->where('created_at', '>=', $start)
                     ->groupBy('label')
                     ->orderBy('label')
@@ -97,7 +108,7 @@ class DashboardController extends Controller
                         DB::raw("DATE(created_at) as label"),
                         DB::raw("COUNT(*) as total")
                     )
-                    ->where('status','approved')
+                    ->whereIn('status', ['approved', 'dispatched', 'delivered', 'returned'])
                     ->whereBetween('created_at', [$start, now()])
                     ->groupBy('label')
                     ->orderBy('label')
@@ -119,7 +130,7 @@ class DashboardController extends Controller
                         DB::raw("DATE_FORMAT(created_at, '%Y-%m') as label"),
                         DB::raw("COUNT(*) as total")
                     )
-                    ->where('status','approved')
+                    ->whereIn('status', ['approved', 'dispatched', 'delivered', 'returned'])
                     ->whereBetween('created_at', [$start, now()])
                     ->groupBy('label')
                     ->orderBy('label')
@@ -140,7 +151,7 @@ class DashboardController extends Controller
                     DB::raw("DATE(created_at) as label"),
                     DB::raw("COUNT(*) as total")
                 )
-                ->where('status','approved')
+                ->whereIn('status', ['approved', 'dispatched', 'delivered', 'returned'])
                 ->whereBetween('created_at', [$start, now()])
                 ->groupBy('label')
                 ->orderBy('label')
@@ -163,7 +174,8 @@ class DashboardController extends Controller
     public function mostBorrowed(Request $request)
     {
         $query = BorrowRequestItem::select('item_id', DB::raw('SUM(quantity) as total'))
-            ->whereHas('request', fn($q) => $q->where('status','approved'))
+            ->whereHas('request', fn($q) => $q->whereIn('status', ['approved', 'dispatched', 'delivered', 'returned']))
+            ->whereHas('item', fn($q) => $q->excludeSystemPlaceholder())
             ->with('item')
             ->groupBy('item_id')
             ->orderByDesc('total');

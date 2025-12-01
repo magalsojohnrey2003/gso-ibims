@@ -1,6 +1,7 @@
 // resources/js/my-borrowed-items.js
 const LIST_ROUTE = window.LIST_ROUTE || '/user/my-borrowed-items/list';
 const CSRF_TOKEN = window.CSRF_TOKEN || document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+const MANPOWER_PLACEHOLDER = '__SYSTEM_MANPOWER_PLACEHOLDER__';
 
 let ITEMS_CACHE = [];
 const confirmReceiveState = {
@@ -79,6 +80,41 @@ function escapeHtml(unsafe) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+}
+
+function isManpowerEntry(item) {
+    if (!item) return false;
+    if (item.is_manpower) return true;
+    const baseName = item?.item?.name || item?.name || '';
+    return baseName === MANPOWER_PLACEHOLDER;
+}
+
+function resolveBorrowItemName(item) {
+    if (!item || typeof item !== 'object') {
+        return 'Unknown';
+    }
+
+    const provided = typeof item.display_name === 'string' ? item.display_name.trim() : '';
+    if (provided) {
+        return provided;
+    }
+
+    const roleName = (item.manpower_role || item.manpower_role_name || '').trim();
+    const baseName = (item?.item?.name || item.name || '').trim();
+
+    if (isManpowerEntry(item)) {
+        return roleName || 'Manpower';
+    }
+
+    if (baseName === MANPOWER_PLACEHOLDER) {
+        return roleName || 'Manpower';
+    }
+
+    if (baseName) {
+        return baseName;
+    }
+
+    return roleName || 'Unknown';
 }
 
 function getBadgeHtml(status) {
@@ -213,6 +249,10 @@ function openConfirmReportNotReceivedModal(requestId) {
     const numericId = Number(requestId);
     if (!Number.isFinite(numericId)) return;
     confirmReportState.requestId = numericId;
+    const reasonInput = document.getElementById('confirmReportNotReceivedReason');
+    if (reasonInput) {
+        reasonInput.value = '';
+    }
     window.dispatchEvent(new CustomEvent('open-modal', { detail: 'confirmReportNotReceivedModal' }));
 }
 
@@ -429,14 +469,27 @@ export function fillBorrowModal(data) {
     setText('mbi-location-barangay', barangay || '—');
     setText('mbi-location-area', specificArea || '—');
 
+    const physicalItems = itemsArray.filter((i) => !isManpowerEntry(i));
+    const manpowerItems = itemsArray.filter((i) => isManpowerEntry(i));
+
     const itemsList = document.getElementById('mbi-items');
     if (itemsList) {
-        const itemsHtml = itemsArray.map((i) => {
-            const name = escapeHtml(i.item?.name ?? 'Unknown');
+        const itemsHtml = physicalItems.map((i) => {
+            const name = escapeHtml(resolveBorrowItemName(i));
             const qty = escapeHtml(String(i.quantity ?? 0));
             return `<li>${name} (x${qty})</li>`;
         }).join('');
         itemsList.innerHTML = itemsHtml || '<li class="list-none text-gray-500">No items recorded.</li>';
+    }
+
+    const manpowerList = document.getElementById('mbi-manpower');
+    if (manpowerList) {
+        const rows = manpowerItems.map((i) => {
+            const role = escapeHtml(resolveBorrowItemName(i));
+            const qty = escapeHtml(String(i.quantity ?? 0));
+            return `<li>${role} (x${qty})</li>`;
+        }).join('');
+        manpowerList.innerHTML = rows || '<li class="list-none text-gray-500">No manpower requested.</li>';
     }
 
     // rejection block
@@ -644,7 +697,7 @@ async function confirmDelivery(id, options = {}) {
         return true;
     } catch (e) {
         console.error('confirmDelivery failed', e);
-        showError('Failed to confirm receipt.');
+        showError(e?.message || 'Failed to confirm receipt.');
         return false;
     } finally {
         if (button && buttonSnapshot) {
@@ -654,10 +707,9 @@ async function confirmDelivery(id, options = {}) {
     }
 }
 
-async function reportNotReceived(id) {
+async function reportNotReceived(id, reason = null) {
     try {
-        const reason = window.prompt('Please provide a short reason (optional):', '');
-        const body = { reason: reason || null };
+        const body = { reason: reason ? reason : null };
         await postJson(`/user/my-borrowed-items/${encodeURIComponent(id)}/report-not-received`, body);
         showSuccess('Report submitted — admin will be notified.');
         window.dispatchEvent(new CustomEvent('close-modal', { detail: 'borrowDetailsModal' }));
@@ -691,9 +743,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!id) return;
             modalReportConfirmBtn.disabled = true;
             try {
-                // after confirmation prompt for optional reason and then submit
-                await reportNotReceived(id);
+                const reasonInput = document.getElementById('confirmReportNotReceivedReason');
+                const reasonValue = reasonInput?.value?.trim() || null;
+                await reportNotReceived(id, reasonValue);
                 confirmReportState.requestId = null;
+                if (reasonInput) {
+                    reasonInput.value = '';
+                }
                 window.dispatchEvent(new CustomEvent('close-modal', { detail: 'confirmReportNotReceivedModal' }));
             } finally {
                 modalReportConfirmBtn.disabled = false;
@@ -704,6 +760,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (modalReportCancelBtn) {
         modalReportCancelBtn.addEventListener('click', () => {
             confirmReportState.requestId = null;
+            const reasonInput = document.getElementById('confirmReportNotReceivedReason');
+            if (reasonInput) {
+                reasonInput.value = '';
+            }
             window.dispatchEvent(new CustomEvent('close-modal', { detail: 'confirmReportNotReceivedModal' }));
         });
     }

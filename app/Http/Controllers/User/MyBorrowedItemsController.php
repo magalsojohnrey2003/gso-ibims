@@ -4,7 +4,9 @@ namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
 use App\Models\BorrowItemInstance;
+use App\Models\BorrowRequestItem;
 use App\Models\BorrowRequest;
+use App\Models\Item;
 use App\Models\ItemInstance;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -42,7 +44,7 @@ class MyBorrowedItemsController extends Controller
     {
         $userId = Auth::id();
 
-        $requests = BorrowRequest::with(['items.item'])
+        $requests = BorrowRequest::with(['items.item', 'items.manpowerRole'])
             ->where('user_id', $userId)
             ->latest()
             ->get()
@@ -50,14 +52,19 @@ class MyBorrowedItemsController extends Controller
                 $status = $borrowRequest->status === 'qr_verified' ? 'approved' : $borrowRequest->status;
 
                 $items = $borrowRequest->items->map(function ($reqItem) {
+                    $displayName = $this->resolveBorrowItemDisplayName($reqItem);
+
                     return [
                         'quantity' => $reqItem->quantity,
                         'assigned_manpower' => $reqItem->assigned_manpower ?? 0,
-                        'manpower_role' => $reqItem->manpower_role ?? null,
+                        'manpower_role' => $reqItem->manpower_role
+                            ?? optional($reqItem->manpowerRole)->name,
                         'manpower_notes' => $reqItem->manpower_notes ?? null,
+                        'is_manpower' => (bool) $reqItem->is_manpower,
+                        'display_name' => $displayName,
                         'item' => [
                             'id' => $reqItem->item->id ?? null,
-                            'name' => $reqItem->item->name ?? 'Unknown',
+                            'name' => $displayName,
                         ],
                     ];
                 })->values();
@@ -97,17 +104,22 @@ class MyBorrowedItemsController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $borrowRequest->load('items.item');
+        $borrowRequest->load(['items.item', 'items.manpowerRole']);
 
         $items = $borrowRequest->items->map(function ($reqItem) {
+            $displayName = $this->resolveBorrowItemDisplayName($reqItem);
+
             return [
                 'quantity' => $reqItem->quantity,
                 'assigned_manpower' => $reqItem->assigned_manpower ?? 0,
-                'manpower_role' => $reqItem->manpower_role ?? null,
+                'manpower_role' => $reqItem->manpower_role
+                    ?? optional($reqItem->manpowerRole)->name,
                 'manpower_notes' => $reqItem->manpower_notes ?? null,
+                'is_manpower' => (bool) $reqItem->is_manpower,
+                'display_name' => $displayName,
                 'item' => [
                     'id' => $reqItem->item->id ?? null,
-                    'name' => $reqItem->item->name ?? 'Unknown',
+                    'name' => $displayName,
                 ],
             ];
         })->values();
@@ -149,7 +161,7 @@ class MyBorrowedItemsController extends Controller
             return response()->json(['message' => 'Already confirmed delivered.'], 200);
         }
 
-        if ($borrowRequest->delivery_status !== 'dispatched') {
+        if (! in_array($borrowRequest->delivery_status, ['dispatched', 'not_received'], true)) {
             return response()->json(['message' => 'Only dispatched requests can be confirmed.'], 422);
         }
 
@@ -159,6 +171,10 @@ class MyBorrowedItemsController extends Controller
 
             if ($borrowRequest->borrowedInstances->isEmpty()) {
                 foreach ($borrowRequest->items as $requestItem) {
+                    if ($requestItem->is_manpower) {
+                        continue;
+                    }
+
                     $item = $requestItem->item;
                     if (! $item) {
                         throw new \RuntimeException('One of the requested items could not be found.');
@@ -199,6 +215,10 @@ class MyBorrowedItemsController extends Controller
             }
 
             foreach ($borrowRequest->items as $requestItem) {
+                if ($requestItem->is_manpower) {
+                    continue;
+                }
+
                 $item = $requestItem->item;
                 if (! $item) {
                     continue;
@@ -381,6 +401,22 @@ class MyBorrowedItemsController extends Controller
             return $rows;
         }
         return collect([]);
+    }
+
+    private function resolveBorrowItemDisplayName(BorrowRequestItem $item): string
+    {
+        if (! $item->relationLoaded('item') || ! $item->relationLoaded('manpowerRole')) {
+            $item->loadMissing('item', 'manpowerRole');
+        }
+
+        $roleName = $item->manpower_role ?? optional($item->manpowerRole)->name;
+        $itemName = optional($item->item)->name;
+
+        if ($item->is_manpower || $itemName === Item::SYSTEM_MANPOWER_PLACEHOLDER) {
+            return $roleName ?: 'Manpower';
+        }
+
+        return $itemName ?: ($roleName ?: 'Unknown');
     }
 }
 

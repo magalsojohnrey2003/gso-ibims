@@ -147,7 +147,9 @@ class ItemController extends Controller
 
     public function index(Request $request)
     {
-        $query = Item::query()->with('instances');
+        $query = Item::query()
+            ->excludeSystemPlaceholder()
+            ->with('instances');
 
         if ($request->filled('search')) {
             $search = $request->string('search');

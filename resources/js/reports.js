@@ -1,8 +1,6 @@
-// resources/js/reports.js
 import Chart from 'chart.js/auto';
 
 document.addEventListener('DOMContentLoaded', function () {
-    // Elements
     const reportTypeEl = document.getElementById('reportType');
     const periodEl = document.getElementById('period');
     const chartTypeEl = document.getElementById('chartType');
@@ -24,19 +22,15 @@ document.addEventListener('DOMContentLoaded', function () {
     const chartMessageTitle = document.getElementById('chartMessageTitle');
     const chartMessageBody = document.getElementById('chartMessageBody');
 
-    // Routes & CSRF
     const dataUrl = window.reportRoutes?.data ?? '';
     const exportPdfUrl = window.reportRoutes?.pdf ?? '';
     const exportXlsxUrl = window.reportRoutes?.xlsx ?? '';
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
 
-    // quick bail if not on page
     if (!reportTypeEl || !periodEl || !chartTypeEl || !generateBtn || !canvasEl || !headEl || !bodyEl) {
-        // Not the reports page or DOM not present
         return;
     }
 
-    // state
     let chart = null;
     let lastFetched = { columns: [], rows: [], meta: {}, extra: {} };
 
@@ -88,16 +82,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    /**
-     * Build a reliable set of column labels and keys for object rows.
-     * - If server provided columns and rows are objects: try to map labels -> object keys (via slug matching)
-     * - If server didn't provide columns: infer from object keys or array length
-     *
-     * Returns: { labels: string[], keys: (string[]|null), rowType: 'array'|'object' }
-     * If keys === null then rows are arrays (or we will read by index)
-     */
     function deriveColumnsAndKeys(columnsFromServer = [], rows = []) {
-        // no rows -> rely on server columns if present
         if (!Array.isArray(rows) || rows.length === 0) {
             return {
                 labels: Array.isArray(columnsFromServer) && columnsFromServer.length ? columnsFromServer : [],
@@ -108,7 +93,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const first = rows[0];
 
-        // rows are arrays
         if (Array.isArray(first)) {
             const colCount = Math.max(first.length, (Array.isArray(columnsFromServer) ? columnsFromServer.length : 0));
             const labels = (Array.isArray(columnsFromServer) && columnsFromServer.length)
@@ -117,35 +101,28 @@ document.addEventListener('DOMContentLoaded', function () {
             return { labels, keys: null, rowType: 'array' };
         }
 
-        // rows are objects
         if (typeof first === 'object') {
             const rowKeys = Object.keys(first);
-            // If server provided columns, attempt to map them to rowKeys
             if (Array.isArray(columnsFromServer) && columnsFromServer.length) {
                 const keySlugs = rowKeys.map(k => slugify(k));
                 const mapping = columnsFromServer.map(label => {
                     const ls = slugify(label);
-                    // exact slug match
                     let idx = keySlugs.indexOf(ls);
                     if (idx === -1) {
-                        // try partial matching (contains)
                         idx = keySlugs.findIndex(ks => ks.includes(ls) || ls.includes(ks));
                     }
                     return idx === -1 ? null : rowKeys[idx];
                 });
 
                 const mappedCount = mapping.filter(Boolean).length;
-                // if at least one mapped, use mapping (and fallbacks)
                 if (mappedCount > 0) {
                     const labels = columnsFromServer.map((lab, i) => {
                         if (mapping[i]) return lab ?? prettify(mapping[i]);
-                        // fallback label: if there's a rowKey at same index use prettified key, else keep label
                         const fallbackKey = rowKeys[i] ?? null;
                         return lab ?? (fallbackKey ? prettify(fallbackKey) : `Column ${i + 1}`);
                     });
                     return { labels, keys: mapping, rowType: 'object' };
                 }
-                // else mapping didn't work well -> fall back to rowKeys
                 return {
                     labels: rowKeys.map(k => prettify(k)),
                     keys: rowKeys,
@@ -153,7 +130,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 };
             }
 
-            // no server columns -> use object keys
             return {
                 labels: rowKeys.map(k => prettify(k)),
                 keys: rowKeys,
@@ -161,7 +137,6 @@ document.addEventListener('DOMContentLoaded', function () {
             };
         }
 
-        // unknown -> fallback
         return {
             labels: Array.isArray(columnsFromServer) ? columnsFromServer : [],
             keys: null,
@@ -302,23 +277,38 @@ document.addEventListener('DOMContentLoaded', function () {
         return `rgba(${r},${g},${b},${alpha})`;
     }
 
-    function renderChart(columns = [], rows = [], type = 'bar') {
+    function renderChart(columns = [], rows = [], type = 'bar', chartPayload = null) {
         if (!canvasEl) return;
 
-        const prepared = prepareChartData(columns, rows);
-        const labels = prepared.labels;
-        const values = prepared.values;
+        const override = chartPayload && typeof chartPayload === 'object' && Array.isArray(chartPayload.labels) && Array.isArray(chartPayload.datasets);
+        let labels = [];
+        let numericValues = [];
+        let overrideDatasets = [];
 
-        if (!Array.isArray(rows) || rows.length === 0) {
-            if (chart) { chart.destroy(); chart = null; }
-            canvasEl.style.display = 'none';
-            chartMessage.classList.remove('hidden');
-            chartMessageTitle.textContent = 'No data for chart';
-            chartMessageBody.textContent = 'There are no rows for this report/period.';
-            return;
+        if (override) {
+            labels = chartPayload.labels;
+            overrideDatasets = chartPayload.datasets;
+            numericValues = overrideDatasets
+                .flatMap((ds) => Array.isArray(ds.data) ? ds.data : [])
+                .map((value) => Number(value ?? 0));
+        } else {
+            if (!Array.isArray(rows) || rows.length === 0) {
+                if (chart) { chart.destroy(); chart = null; }
+                canvasEl.style.display = 'none';
+                chartMessage.classList.remove('hidden');
+                chartMessageTitle.textContent = 'No data for chart';
+                chartMessageBody.textContent = 'There are no rows for this report/period.';
+                return;
+            }
+
+            const prepared = prepareChartData(columns, rows);
+            labels = prepared.labels;
+            numericValues = prepared.values;
         }
 
-        if (!labels.length || !values.length) {
+        const hasValues = numericValues.some((value) => Number(value) !== 0);
+
+        if (!labels.length || !hasValues) {
             if (chart) { chart.destroy(); chart = null; }
             canvasEl.style.display = 'none';
             chartMessage.classList.remove('hidden');
@@ -330,52 +320,99 @@ document.addEventListener('DOMContentLoaded', function () {
         chartMessage.classList.add('hidden');
         canvasEl.style.display = '';
 
-        const colors = labels.map((_, i) => palette[i % palette.length]);
-
-        if (chart) chart.destroy();
-
-        let datasets;
-        if (type === 'pie' || type === 'doughnut') {
-            datasets = [{
-                label: reportTypeEl.selectedOptions[0]?.text ?? 'Report',
-                data: values,
-                backgroundColor: colors,
-                borderColor: colors.map(c => '#ffffff'),
-                borderWidth: 1,
-            }];
-        } else {
-            datasets = [{
-                label: reportTypeEl.selectedOptions[0]?.text ?? 'Report',
-                data: values,
-                backgroundColor: hexToRgba(palette[0], 0.85),
-                borderColor: palette[0],
-                borderWidth: 1,
-                tension: 0.3,
-                borderRadius: 6,
-            }];
+        if (chart) {
+            chart.destroy();
         }
+
+        const resolvedType = (['pie','doughnut'].includes(type)) ? type : (type === 'line' ? 'line' : 'bar');
+        const datasets = buildDatasets(resolvedType, labels, numericValues, overrideDatasets, override);
 
         const isDark = document.documentElement.classList.contains('dark') || document.body.classList.contains('dark');
         const textColor = isDark ? '#E5E7EB' : '#0F172A';
 
         const config = {
-            type: (['pie','doughnut'].includes(type)) ? type : (type === 'line' ? 'line' : 'bar'),
+            type: resolvedType,
             data: { labels, datasets },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { display: ['pie','doughnut'].includes(type) },
+                    legend: { display: ['pie','doughnut'].includes(resolvedType) || datasets.length > 1 },
                     tooltip: { mode: 'index', intersect: false }
                 },
-                scales: (['pie','doughnut'].includes(type)) ? {} : {
+                scales: (['pie','doughnut'].includes(resolvedType)) ? {} : {
                     x: { ticks: { color: textColor }, grid: { display: false } },
                     y: { ticks: { color: textColor, precision: 0 }, beginAtZero: true }
                 }
             }
         };
 
+        if (chartPayload && chartPayload.options && typeof chartPayload.options === 'object') {
+            mergeConfig(config.options, chartPayload.options);
+        }
+
         chart = new Chart(canvasEl.getContext('2d'), config);
+
+        function buildDatasets(resolved, lbls, values, overrideDataSets, isOverride) {
+            const colors = lbls.map((_, i) => palette[i % palette.length]);
+
+            if (isOverride) {
+                return overrideDataSets.map((ds, idx) => {
+                    const datasetType = ds.type || resolved;
+                    const isLine = datasetType === 'line';
+                    const baseColor = palette[idx % palette.length];
+                    const defaultBackground = ['pie', 'doughnut'].includes(datasetType)
+                        ? (ds.backgroundColor ?? colors)
+                        : (isLine ? hexToRgba(baseColor, 0.25) : baseColor);
+
+                    return {
+                        label: ds.label || (reportTypeEl.selectedOptions[0]?.text ?? 'Report'),
+                        data: Array.isArray(ds.data) ? ds.data : [],
+                        backgroundColor: ds.backgroundColor ?? defaultBackground,
+                        borderColor: ds.borderColor ?? (isLine ? baseColor : hexToRgba(baseColor, 0.9)),
+                        borderWidth: typeof ds.borderWidth === 'number' ? ds.borderWidth : 1,
+                        type: ds.type,
+                        tension: typeof ds.tension === 'number' ? ds.tension : (isLine ? 0.3 : 0),
+                        fill: ds.fill ?? isLine,
+                    };
+                });
+            }
+
+            if (['pie','doughnut'].includes(resolved)) {
+                return [{
+                    label: reportTypeEl.selectedOptions[0]?.text ?? 'Report',
+                    data: values,
+                    backgroundColor: colors,
+                    borderColor: colors.map(color => '#ffffff'),
+                    borderWidth: 1,
+                }];
+            }
+
+            const baseColor = palette[0];
+            return [{
+                label: reportTypeEl.selectedOptions[0]?.text ?? 'Report',
+                data: values,
+                backgroundColor: resolved === 'line' ? hexToRgba(baseColor, 0.25) : hexToRgba(baseColor, 0.85),
+                borderColor: baseColor,
+                borderWidth: 1,
+                tension: resolved === 'line' ? 0.3 : 0,
+                fill: resolved === 'line',
+                borderRadius: resolved === 'bar' ? 6 : undefined,
+            }];
+        }
+
+        function mergeConfig(target, source) {
+            if (!source || typeof source !== 'object') return;
+            Object.keys(source).forEach((key) => {
+                const srcVal = source[key];
+                if (srcVal && typeof srcVal === 'object' && !Array.isArray(srcVal)) {
+                    target[key] = target[key] && typeof target[key] === 'object' ? target[key] : {};
+                    mergeConfig(target[key], srcVal);
+                } else {
+                    target[key] = srcVal;
+                }
+            });
+        }
     }
 
     // ---------- fetch ----------
@@ -413,12 +450,25 @@ document.addEventListener('DOMContentLoaded', function () {
 
             lastFetched = { columns: json.columns ?? [], rows: json.rows ?? [], meta: json.meta ?? {}, extra: json.extra ?? {} };
 
+            var chartPayload = (lastFetched.extra && typeof lastFetched.extra === 'object') ? lastFetched.extra.chart : null;
+            if (chartPayload && typeof chartPayload === 'object' && chartPayload.type) {
+                var allowedTypes = ['bar', 'line', 'pie', 'doughnut'];
+                if (allowedTypes.includes(chartPayload.type) && chartTypeEl.value !== chartPayload.type) {
+                    chartTypeEl.value = chartPayload.type;
+                }
+            }
+
             const periodLabel = (periodEl.value === 'custom') ? `${params.from || ''} → ${params.to || ''}` : periodEl.options[periodEl.selectedIndex].text;
             reportTitleEl.textContent = `${reportTypeEl.selectedOptions[0].text} (${periodLabel})`;
 
             // render table & chart & summary
             renderTable(lastFetched.columns, lastFetched.rows);
-            renderChart(lastFetched.columns, lastFetched.rows, chartTypeEl.value);
+            renderChart(
+                lastFetched.columns,
+                lastFetched.rows,
+                chartTypeEl.value,
+                chartPayload || null
+            );
             renderSummary(lastFetched.meta, lastFetched.extra);
         } catch (err) {
             console.error('fetchReport error', err);
@@ -458,7 +508,8 @@ document.addEventListener('DOMContentLoaded', function () {
     // Events
     chartTypeEl.addEventListener('change', () => {
         if (!lastFetched.columns || !lastFetched.rows) return;
-        renderChart(lastFetched.columns, lastFetched.rows, chartTypeEl.value);
+        const payload = (lastFetched.extra && typeof lastFetched.extra === 'object') ? lastFetched.extra.chart : null;
+        renderChart(lastFetched.columns, lastFetched.rows, chartTypeEl.value, payload || null);
     });
 
     generateBtn.addEventListener('click', (e) => { e.preventDefault(); fetchReport(true); });

@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class BorrowRequest extends Model
 {
+    use HasFactory;
+
     protected $appends = ['formatted_request_id'];
 
     protected $fillable = [

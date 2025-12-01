@@ -413,7 +413,7 @@
         <div class="relative px-6 py-4 bg-emerald-600 text-white sticky top-0 z-30 flex items-start gap-3">
             <div class="flex-1">
                 <h3 class="text-xl font-semibold leading-snug flex items-center gap-2">
-                    <i class="fas fa-shield-check"></i>
+                    <i class="fas fa-clipboard-check text-white"></i>
                     <span>Validate Request</span>
                 </h3>
                 <p class="text-sm text-emerald-100 mt-1">Review the uploaded letter before validating the request.</p>
@@ -455,18 +455,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <div class="space-y-2">
-                        <label class="text-xs font-semibold tracking-wide text-gray-600 uppercase inline-flex items-center gap-1">
-                            <i class="fas fa-boxes-stacked text-purple-500"></i>
-                            <span>Requested Items</span>
-                        </label>
-                        <div id="assignItemsList" class="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 max-h-40 overflow-y-auto">
-                            <ul class="list-disc pl-4 space-y-1 text-sm text-gray-800">
-                                <!-- Items will be populated by JavaScript -->
-                            </ul>
-                        </div>
-                    </div>
                 </div>
 
                 <div class="space-y-2">
@@ -484,6 +472,38 @@
                         <span id="assignLetterFallback" class="text-sm text-gray-500">No letter uploaded</span>
                     </div>
                     <p class="text-xs text-gray-400 text-center">Click image to view full size</p>
+                </div>
+
+                <div class="md:col-span-2 space-y-4">
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <label class="text-xs font-semibold tracking-wide text-gray-600 uppercase inline-flex items-center gap-1">
+                                <i class="fas fa-boxes-stacked text-purple-500"></i>
+                                <span>Requested Items</span>
+                            </label>
+                            <span class="text-[11px] text-gray-500">Admins may only reduce quantities.</span>
+                        </div>
+                        <div class="bg-gray-50 border border-gray-200 rounded-lg">
+                            <div id="assignPhysicalItemsContainer" class="divide-y divide-gray-200">
+                                <p class="py-4 text-sm text-center text-gray-500">No physical items recorded.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <label class="text-xs font-semibold tracking-wide text-gray-600 uppercase inline-flex items-center gap-1">
+                                <i class="fas fa-people-group text-purple-500"></i>
+                                <span>Requested Manpower</span>
+                            </label>
+                            <span class="text-[11px] text-gray-500">Show role names and reduce headcount if needed.</span>
+                        </div>
+                        <div class="bg-gray-50 border border-gray-200 rounded-lg">
+                            <div id="assignManpowerItemsContainer" class="divide-y divide-gray-200">
+                                <p class="py-4 text-sm text-center text-gray-500">No manpower requested.</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -531,8 +551,8 @@
     <template id="btn-deliver-template">
         <x-button variant="secondary" iconName="truck" class="btn-action btn-deliver h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="dispatch" title="Dispatch items">Dispatch Items</x-button>
     </template>
-    <template id="btn-print-template">
-        <x-button iconName="printer" variant="secondary" class="btn-action btn-print h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="print" title="Print">Print</x-button>
+    <template id="btn-print-stickers-template">
+        <x-button variant="secondary" iconName="printer" type="button" class="btn-action btn-print h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="print-stickers" data-print-stickers title="Print stickers">Print</x-button>
     </template>
     {{-- Alert templates --}}
     <template id="alert-success-template">
@@ -555,6 +575,8 @@
             <x-alert type="warning"><span data-alert-message></span></x-alert>
         </div>
     </template>
+
+    @include('admin.partials.print-stickers-modal')
 
     <!-- Pass small bootstrap variables to JS module -->
     <script>

@@ -1,6 +1,7 @@
 const CSRF_TOKEN = window.CSRF_TOKEN || document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 const LIST_ROUTE = window.LIST_ROUTE || '/admin/borrow-requests/list';
 const SHORT_MONTHS = ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May.', 'Jun.', 'Jul.', 'Aug.', 'Sept.', 'Oct.', 'Nov.', 'Dec.'];
+const MANPOWER_PLACEHOLDER = '__SYSTEM_MANPOWER_PLACEHOLDER__';
 
 let BORROW_CACHE = [];
 let BR_SEARCH_TERM = '';
@@ -24,6 +25,41 @@ function formatDate(value) {
     const day = date.getDate();
     const year = date.getFullYear();
     return `${month} ${day}, ${year}`;
+}
+
+function isManpowerEntry(item) {
+    if (!item) return false;
+    if (item.is_manpower) return true;
+    const baseName = item?.item?.name || item?.name || '';
+    return baseName === MANPOWER_PLACEHOLDER;
+}
+
+function resolveBorrowItemName(item) {
+    if (!item || typeof item !== 'object') {
+        return 'Unknown';
+    }
+
+    const provided = typeof item.display_name === 'string' ? item.display_name.trim() : '';
+    if (provided) {
+        return provided;
+    }
+
+    const roleName = (item.manpower_role || item.manpower_role_name || item.role_name || '').trim();
+    const baseName = (item?.item?.name || item.name || '').trim();
+
+    if (isManpowerEntry(item)) {
+        return roleName || 'Manpower';
+    }
+
+    if (baseName === MANPOWER_PLACEHOLDER) {
+        return roleName || 'Manpower';
+    }
+
+    if (baseName) {
+        return baseName;
+    }
+
+    return roleName || 'Unknown';
 }
 
 function computeOverdueDays(req) {
@@ -494,7 +530,7 @@ async function loadBorrowRequests() {
 
 // Pagination removed - displaying all results with scrolling
 
-function createButtonFromTemplate(templateId, id) {
+function createButtonFromTemplate(templateId, id, options = {}) {
     const tpl = document.getElementById(templateId);
     if (!tpl) return document.createDocumentFragment();
     const frag = tpl.content.cloneNode(true);
@@ -502,6 +538,8 @@ function createButtonFromTemplate(templateId, id) {
     if (!btn) return frag;
 
     const action = (btn.getAttribute('data-action') || '').toLowerCase().trim();
+    const request = options.request || null;
+    const physicalItems = Array.isArray(options.physicalItems) ? options.physicalItems : null;
 
     if (action === 'view') {
         btn.addEventListener('click', (ev) => { ev.stopPropagation(); viewRequest(id); });
@@ -515,6 +553,33 @@ function createButtonFromTemplate(templateId, id) {
         btn.addEventListener('click', (ev) => { ev.stopPropagation(); openConfirmModal(id, 'rejected'); });
     } else if (['dispatch', 'deliver', 'deliver_items'].includes(action)) {
         btn.addEventListener('click', (ev) => { ev.stopPropagation(); openDeliverItemsModal(id); });
+    } else if (action === 'print-stickers') {
+        btn.type = 'button';
+        btn.dataset.printStickers = '1';
+        btn.dataset.printRoute = `/admin/borrow-requests/${encodeURIComponent(id)}/stickers`;
+
+        let borrowerName = '';
+        if (request && request.user) {
+            borrowerName = [request.user.first_name, request.user.last_name]
+                .filter(Boolean)
+                .join(' ')
+                .trim();
+        }
+
+        const requestCode = request ? (formatBorrowRequestCode(request) || `BR-${String(id).padStart(4, '0')}`) : `BR-${String(id).padStart(4, '0')}`;
+        const summaryLabel = borrowerName ? `${requestCode} • ${borrowerName}` : requestCode;
+
+        btn.dataset.printItem = summaryLabel;
+        if (borrowerName) {
+            btn.dataset.printPersonName = borrowerName;
+        }
+
+        const itemsSource = Array.isArray(physicalItems)
+            ? physicalItems
+            : (Array.isArray(request?.items) ? request.items.filter((item) => !isManpowerEntry(item)) : []);
+
+        const physicalCount = itemsSource.reduce((sum, item) => sum + Number(item?.quantity ?? 0), 0);
+        btn.dataset.printQuantity = String(Math.max(physicalCount, 1));
     } else {
         console.warn('Unknown button action in template', templateId, 'action=', action);
     }
@@ -537,6 +602,136 @@ const MANPOWER_REASONS = [
 function buildReasonOptions(options) {
     const initial = ['<option value="">Select reason</option>'];
     return initial.concat(options.map((label) => `<option value="${escapeHtml(label)}">${escapeHtml(label)}</option>`)).join('');
+}
+
+function splitItemsByType(items = []) {
+    const result = { physical: [], manpower: [] };
+    items.forEach((item) => {
+        if (item && isManpowerEntry(item)) {
+            result.manpower.push(item);
+        } else {
+            result.physical.push(item);
+        }
+    });
+    return result;
+}
+
+function buildAssignmentMetadata(item, originalQty, config) {
+    const parts = [`Requested: x${originalQty}`];
+    if (config.isManpower && item?.manpower_role) {
+        parts.push(`Role: ${item.manpower_role}`);
+    }
+    if (!config.isManpower && item?.item && Object.prototype.hasOwnProperty.call(item.item, 'available_qty')) {
+        parts.push(`Available: ${item.item.available_qty ?? 0}`);
+    }
+    if (item?.quantity_reason) {
+        parts.push(`Last reason: ${item.quantity_reason}`);
+    }
+    return parts.map((part) => escapeHtml(String(part))).join(' • ');
+}
+
+function renderAssignmentContainer(containerId, rows, config = {}) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+
+    if (!rows.length) {
+        const empty = document.createElement('p');
+        empty.className = 'py-4 text-sm text-center text-gray-500';
+        empty.textContent = config.emptyText || 'No data available.';
+        container.appendChild(empty);
+        return;
+    }
+
+    rows.forEach((item) => {
+        const rowEl = document.createElement('div');
+        const itemId = item?.borrow_request_item_id || item?.id || null;
+        if (!itemId) return;
+
+        const originalQty = Number(item?.quantity) || 0;
+        const label = resolveBorrowItemName(item) || (config.isManpower ? 'Manpower role' : 'Unlabeled item');
+        const isManpower = isManpowerEntry(item);
+
+        rowEl.dataset.borrowRequestItemId = String(itemId);
+        rowEl.dataset.originalQty = String(originalQty);
+        rowEl.dataset.rowLabel = label;
+        rowEl.dataset.isManpower = isManpower ? '1' : '0';
+
+        const infoDiv = document.createElement('div');
+        infoDiv.innerHTML = `
+            <p class="font-medium text-gray-900">${escapeHtml(label)}</p>
+            <span class="text-xs text-gray-500">${buildAssignmentMetadata(item, originalQty, config)}</span>
+        `;
+
+        const qtyDiv = document.createElement('div');
+        const qtyLabel = document.createElement('label');
+        qtyLabel.className = 'text-xs font-semibold text-gray-500 block mb-1';
+        qtyLabel.textContent = 'Approved Qty';
+        const qtyInput = document.createElement('input');
+        qtyInput.type = 'number';
+        qtyInput.min = '0';
+        qtyInput.value = String(originalQty);
+        qtyInput.className = 'assign-qty-input gov-input text-sm';
+        const qtyHint = document.createElement('p');
+        qtyHint.className = 'text-[11px] text-gray-400 mt-1';
+        qtyHint.textContent = `Max ${originalQty}`;
+        qtyDiv.appendChild(qtyLabel);
+        qtyDiv.appendChild(qtyInput);
+        qtyDiv.appendChild(qtyHint);
+
+        const reasonDiv = document.createElement('div');
+        reasonDiv.className = 'assign-qty-reason-wrapper hidden';
+        const reasonLabel = document.createElement('label');
+        reasonLabel.className = 'text-xs font-semibold text-gray-500 block mb-1';
+        reasonLabel.textContent = 'Adjustment Reason';
+        const reasonSelect = document.createElement('select');
+        reasonSelect.className = 'assign-qty-reason gov-input text-sm';
+        reasonSelect.innerHTML = buildReasonOptions(config.reasonOptions || []);
+        if (item?.quantity_reason && !(config.reasonOptions || []).includes(item.quantity_reason)) {
+            const customOption = document.createElement('option');
+            customOption.value = item.quantity_reason;
+            customOption.textContent = item.quantity_reason;
+            reasonSelect.appendChild(customOption);
+        }
+        if (item?.quantity_reason) {
+            reasonSelect.value = item.quantity_reason;
+        }
+        const reasonHint = document.createElement('p');
+        reasonHint.className = 'text-[11px] text-gray-400 mt-1';
+        reasonHint.textContent = 'Required when reducing the request.';
+        reasonDiv.appendChild(reasonLabel);
+        reasonDiv.appendChild(reasonSelect);
+        reasonDiv.appendChild(reasonHint);
+
+        reasonSelect.addEventListener('change', () => {
+            reasonSelect.classList.remove('border-red-500');
+        });
+
+        rowEl.appendChild(infoDiv);
+        rowEl.appendChild(qtyDiv);
+        rowEl.appendChild(reasonDiv);
+
+        container.appendChild(rowEl);
+
+        qtyInput.addEventListener('input', handleQtyInputChange);
+        qtyInput.addEventListener('change', handleQtyInputChange);
+        handleQtyInputChange({ target: qtyInput });
+    });
+}
+
+function renderAssignmentSections(request) {
+    const itemsArray = Array.isArray(request?.items) ? request.items : [];
+    const { physical, manpower } = splitItemsByType(itemsArray);
+    renderAssignmentContainer('assignPhysicalItemsContainer', physical, {
+        emptyText: 'No physical items recorded.',
+        reasonOptions: QUANTITY_REASONS,
+        isManpower: false,
+    });
+    renderAssignmentContainer('assignManpowerItemsContainer', manpower, {
+        emptyText: 'No manpower requested.',
+        reasonOptions: MANPOWER_REASONS,
+        isManpower: true,
+    });
 }
 
 function buildStatusBadge(status, deliveryStatus) {
@@ -691,6 +886,10 @@ function renderBorrowRequests() {
         const statusKeyRaw = String(req.status || '').toLowerCase();
         const statusKey = statusKeyRaw === 'qr_verified' ? 'approved' : statusKeyRaw;
         const deliveryKey = String(req.delivery_status || '').toLowerCase();
+        const physicalItems = Array.isArray(req.items) ? req.items.filter((item) => !isManpowerEntry(item)) : [];
+        const canPrintStickers = physicalItems.length > 0
+            && statusKey === 'approved'
+            && !['dispatched', 'delivered'].includes(deliveryKey);
 
         if (statusKey === 'pending') {
             wrapper.appendChild(createButtonFromTemplate('btn-validate-template', req.id));
@@ -702,16 +901,24 @@ function renderBorrowRequests() {
             wrapper.appendChild(pendingTag);
         } else if (statusKey === 'approved' && !['dispatched','delivered'].includes(deliveryKey)) {
             wrapper.appendChild(createButtonFromTemplate('btn-deliver-template', req.id));
+            if (canPrintStickers) {
+                wrapper.appendChild(createButtonFromTemplate('btn-print-stickers-template', req.id, { request: req, physicalItems }));
+            }
         } else if (deliveryKey === 'dispatched') {
             wrapper.appendChild(createButtonFromTemplate('btn-view-template', req.id));
+            if (canPrintStickers) {
+                wrapper.appendChild(createButtonFromTemplate('btn-print-stickers-template', req.id, { request: req, physicalItems }));
+            }
         } else if (deliveryKey === 'delivered' || ['returned', 'rejected'].includes(statusKey)) {
             wrapper.appendChild(createButtonFromTemplate('btn-view-template', req.id));
-            // show print button for delivered requests or when status is explicitly 'returned'
-            if (deliveryKey === 'delivered' || statusKey === 'returned') {
-                wrapper.appendChild(createButtonFromTemplate('btn-print-template', req.id));
+            if (canPrintStickers) {
+                wrapper.appendChild(createButtonFromTemplate('btn-print-stickers-template', req.id, { request: req, physicalItems }));
             }
         } else {
             wrapper.appendChild(createButtonFromTemplate('btn-view-template', req.id));
+            if (canPrintStickers) {
+                wrapper.appendChild(createButtonFromTemplate('btn-print-stickers-template', req.id, { request: req, physicalItems }));
+            }
         }
 
         tdActions.appendChild(wrapper);
@@ -723,34 +930,49 @@ function renderBorrowRequests() {
 }
 
 function collectManpowerAssignments() {
-    const container = document.getElementById('assignManpowerItemsContainer');
-    if (!container) return [];
+    const containerIds = ['assignPhysicalItemsContainer', 'assignManpowerItemsContainer'];
     const rows = [];
+    let error = null;
 
-    container.querySelectorAll('[data-borrow-request-item-id]').forEach((row) => {
-        const itemId = row.dataset.borrowRequestItemId;
-        const originalQty = parseInt(row.dataset.originalQty || '0', 10);
-        const qtyInput = row.querySelector('.assign-qty-input');
-        let quantity = parseInt(qtyInput?.value || '0', 10);
-        if (!Number.isFinite(quantity) || quantity < 0) quantity = 0;
-        if (Number.isFinite(originalQty) && originalQty >= 0 && quantity > originalQty) {
-            quantity = originalQty;
-            if (qtyInput) qtyInput.value = String(quantity);
-        }
+    containerIds.forEach((containerId) => {
+        const container = document.getElementById(containerId);
+        if (!container) return;
 
-        const reasonSelect = row.querySelector('.assign-qty-reason');
-        const requiresReason = Number.isFinite(originalQty) && quantity < originalQty;
-        const quantityReason = requiresReason ? (reasonSelect?.value?.trim() || '') : null;
+        container.querySelectorAll('[data-borrow-request-item-id]').forEach((row) => {
+            const itemId = row.dataset.borrowRequestItemId;
+            if (!itemId) return;
 
-        rows.push({
-            borrow_request_item_id: itemId,
-            quantity,
-            quantity_reason: quantityReason,
-            original_quantity: originalQty,
+            const originalQty = parseInt(row.dataset.originalQty || '0', 10);
+            const qtyInput = row.querySelector('.assign-qty-input');
+            let quantity = parseInt(qtyInput?.value || '0', 10);
+            if (!Number.isFinite(quantity) || quantity < 0) quantity = 0;
+            if (Number.isFinite(originalQty) && originalQty >= 0 && quantity > originalQty) {
+                quantity = originalQty;
+                if (qtyInput) qtyInput.value = String(quantity);
+            }
+
+            const reasonSelect = row.querySelector('.assign-qty-reason');
+            const requiresReason = Number.isFinite(originalQty) && quantity < originalQty;
+            const quantityReason = requiresReason ? (reasonSelect?.value?.trim() || '') : null;
+
+            if (requiresReason && !quantityReason && !error) {
+                const label = row.dataset.rowLabel || 'this entry';
+                error = `Please select a reason for reducing ${label}.`;
+                if (reasonSelect) {
+                    reasonSelect.classList.add('border-red-500');
+                }
+            }
+
+            rows.push({
+                borrow_request_item_id: itemId,
+                quantity,
+                quantity_reason: quantityReason,
+                original_quantity: originalQty,
+            });
         });
     });
 
-    return rows;
+    return { rows, error };
 }
 
 function handleQtyInputChange(event) {
@@ -777,29 +999,7 @@ function handleQtyInputChange(event) {
         reasonWrapper.classList.add('hidden');
         reasonSelect.value = '';
     }
-}
-
-function handleManpowerInputChange(event) {
-    const input = event?.target || document.getElementById('assignManpowerInput');
-    if (!input) return;
-    const original = parseInt(input.dataset.original || input.dataset.requested || '0', 10);
-    let value = parseInt(input.value || '0', 10);
-    if (!Number.isFinite(value) || value < 0) value = 0;
-    if (Number.isFinite(original) && original >= 0 && value > original) {
-        value = original;
-    }
-    input.value = String(value);
-
-    const wrapper = document.getElementById('assignManpowerReasonWrapper');
-    const select = document.getElementById('assignManpowerReason');
-    if (!wrapper || !select) return;
-
-    if (Number.isFinite(original) && value < original) {
-        wrapper.classList.remove('hidden');
-    } else {
-        wrapper.classList.add('hidden');
-        select.value = '';
-    }
+    reasonSelect.classList.remove('border-red-500');
 }
 
 function openAssignManpowerModal(id) {
@@ -832,28 +1032,7 @@ function openAssignManpowerModal(id) {
         returnDateEl.textContent = req.return_date ? formatDate(req.return_date) : '--';
     }
 
-    // Populate items list
-    const itemsListEl = document.getElementById('assignItemsList');
-    if (itemsListEl) {
-        const ul = itemsListEl.querySelector('ul');
-        if (ul) {
-            ul.innerHTML = '';
-            if (req.items && Array.isArray(req.items) && req.items.length > 0) {
-                req.items.forEach(item => {
-                    const li = document.createElement('li');
-                    const itemName = item.item?.name || 'Unknown Item';
-                    const quantity = item.quantity || 0;
-                    li.textContent = `${itemName}(x${quantity})`;
-                    ul.appendChild(li);
-                });
-            } else {
-                const li = document.createElement('li');
-                li.textContent = 'No items';
-                li.className = 'list-none text-gray-500';
-                ul.appendChild(li);
-            }
-        }
-    }
+    renderAssignmentSections(req);
 
     // Handle letter URL - prioritize letter_url from backend, fallback to letter_path
     let letterUrl = req.letter_url || '';
@@ -1057,10 +1236,14 @@ function fillRequestModal(req) {
     const itemsEl = document.getElementById('requestItemsList');
     if (itemsEl) {
         const itemsHtml = itemsArray.map((item) => {
-            const name = escapeHtml(item.item?.name ?? 'Unknown');
+            const isManpower = isManpowerEntry(item);
+            const displayName = escapeHtml(resolveBorrowItemName(item));
             const qty = escapeHtml(String(item.quantity ?? 0));
-            const condition = item.quantity_reason ? ` - Reason: ${escapeHtml(item.quantity_reason)}` : '';
-            return `<li>${name} (x${qty})${condition}</li>`;
+            const reason = item.quantity_reason ? ` - Reason: ${escapeHtml(item.quantity_reason)}` : '';
+            const roleBadge = isManpower && item.manpower_role_id
+                ? `<span class="ml-2 inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded-full bg-purple-100 text-purple-700"><i class="fas fa-user-shield text-xs"></i>${escapeHtml(item.manpower_role || displayName || 'Manpower')}</span>`
+                : '';
+            return `<li>${displayName} (x${qty})${reason}${roleBadge}</li>`;
         }).join('');
         itemsEl.innerHTML = itemsHtml || '<li class="list-none text-gray-500">No items recorded.</li>';
     }
@@ -1262,7 +1445,6 @@ async function updateRequest(id, status, options = {}) {
 
         submitBtn.addEventListener('click', async (event) => {
             event.preventDefault();
-            submitBtn.disabled = true;
             try {
                 const requestId = document.getElementById('assignManpowerRequestId')?.value;
                 if (!requestId) {
@@ -1270,24 +1452,23 @@ async function updateRequest(id, status, options = {}) {
                     return;
                 }
 
-                const modalName = 'assignManpowerModal';
-                let modalClosed = false;
-                try {
-                    window.dispatchEvent(new CustomEvent('close-modal', { detail: modalName }));
-                    modalClosed = true;
-
-                    // Simply validate the request without any item assignments
-                    await updateRequest(Number(requestId), 'validated', {
-                        button: submitBtn,
-                    });
-                } catch (updateError) {
-                    if (modalClosed) {
-                        window.dispatchEvent(new CustomEvent('open-modal', { detail: modalName }));
-                    }
-                    throw updateError;
+                const { rows, error } = collectManpowerAssignments();
+                if (error) {
+                    showError(error);
+                    return;
                 }
+
+                submitBtn.disabled = true;
+                await updateRequest(Number(requestId), 'validated', {
+                    assignments: rows,
+                    button: submitBtn,
+                });
+                window.dispatchEvent(new CustomEvent('close-modal', { detail: 'assignManpowerModal' }));
             } catch (error) {
                 console.error(error);
+                if (error?.message) {
+                    showError(error.message);
+                }
             } finally {
                 submitBtn.disabled = false;
             }

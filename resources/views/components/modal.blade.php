@@ -11,11 +11,17 @@ $maxWidth = [
     'md' => 'sm:max-w-md',
     'lg' => 'sm:max-w-lg',
     'xl' => 'sm:max-w-xl',
-    '2xl' => 'sm:max-w-2xl',    
-    '3xl' => 'max-w-3xl',    
+    '2xl' => 'sm:max-w-2xl',
+    '3xl' => 'max-w-3xl',
 ][$maxWidth];
 
-$containerBackground = $background === 'transparent' ? 'transparent' : 'var(--card-bg)';
+$isTransparent = $background === 'transparent';
+$containerBackground = $isTransparent ? 'transparent' : 'var(--card-bg)';
+$boxShadow = $isTransparent ? 'none' : 'var(--elev-shadow)';
+$containerClasses = implode(' ', array_filter([
+    'transform transition-all w-full ' . $maxWidth . ' sm:mx-auto max-h-[90vh] overflow-y-auto',
+    $isTransparent ? null : 'mb-6 rounded-lg overflow-hidden',
+]));
 @endphp
 
 <div
@@ -47,7 +53,7 @@ $containerBackground = $background === 'transparent' ? 'transparent' : 'var(--ca
     x-on:keydown.tab.prevent="$event.shiftKey || nextFocusable().focus()"
     x-on:keydown.shift.tab.prevent="prevFocusable().focus()"
     x-show="show"
-    class="fixed inset-0 z-50 flex items-center justify-center"
+    class="fixed inset-0 z-50 flex items-center justify-center px-4"
     style="display: {{ $show ? 'block' : 'none' }};"
 >
     <div
@@ -66,14 +72,14 @@ $containerBackground = $background === 'transparent' ? 'transparent' : 'var(--ca
 
     <div
         x-show="show"
-        class="mb-6 rounded-lg overflow-hidden transform transition-all sm:w-full {{ $maxWidth }} sm:mx-auto max-h-[90vh] overflow-y-auto"
+        class="{{ $containerClasses }}"
         x-transition:enter="ease-out duration-300"
         x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
         x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
         x-transition:leave="ease-in duration-200"
         x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
         x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-        style="background: {{ $containerBackground }}; color: var(--text); box-shadow: var(--elev-shadow);"
+        style="background: {{ $containerBackground }}; color: var(--text); box-shadow: {{ $boxShadow }};"
     >
         {{ $slot }}
     </div>

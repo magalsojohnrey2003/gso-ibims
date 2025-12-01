@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Services\ItemInstanceEventLogger;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 
 class ReturnItemsController extends Controller
 {
@@ -93,30 +94,9 @@ class ReturnItemsController extends Controller
             'borrowedInstances.item',
         ]);
 
-        $items = $borrowRequest->borrowedInstances->map(function (BorrowItemInstance $instance) {
-            $label = $instance->instance?->property_number
-                ?? $instance->instance?->serial
-                ?? ($instance->item?->name ?? 'Untracked Item');
-
-            $condition = $instance->return_condition ?? 'pending';
-
-            return [
-                'id' => $instance->id,
-                'property_label' => $label,
-                'item_name' => $instance->item?->name ?? 'Unknown Item',
-                'condition' => $condition,
-                'condition_label' => $this->formatConditionLabel($condition),
-                'returned_at' => $instance->returned_at?->toDateTimeString(),
-                'inventory_status' => $instance->instance?->status ?? 'unknown',
-                'inventory_status_label' => $this->formatInventoryStatus($instance->instance?->status),
-            ];
-        })->values();
-
-        $itemOptions = $items
-            ->groupBy('item_name')
-            ->map(fn ($group, $name) => ['name' => $name, 'count' => $group->count()])
-            ->values()
-            ->all();
+        $borrowedInstances = $borrowRequest->borrowedInstances;
+        $items = $this->formatBorrowInstances($borrowedInstances);
+        $itemOptions = $this->buildItemOptionsFromItems($items);
 
         return response()->json([
             'id' => $borrowRequest->id,
@@ -180,17 +160,7 @@ class ReturnItemsController extends Controller
 
             DB::commit();
 
-        $instancesPayload = $borrowRequest->borrowedInstances->map(function (BorrowItemInstance $instance) {
-            return [
-                'borrow_item_instance_id' => $instance->id,
-                'item_instance_id' => $instance->item_instance_id,
-                'item_id' => $instance->item_id,
-                'status' => $instance->instance?->status,
-                'inventory_status_label' => $this->formatInventoryStatus($instance->instance?->status),
-                'condition' => $instance->return_condition ?? 'pending',
-                'condition_label' => $this->formatConditionLabel($instance->return_condition ?? 'pending'),
-            ];
-        })->values();
+            $instancesPayload = $this->formatBorrowInstances($borrowRequest->borrowedInstances);
 
             return response()->json([
                 'message' => 'Items marked as returned successfully.',
@@ -218,30 +188,8 @@ class ReturnItemsController extends Controller
             ->where('walk_in_request_id', $id)
             ->get();
 
-        $items = $instances->map(function (BorrowItemInstance $instance) {
-            $label = $instance->instance?->property_number
-                ?? $instance->instance?->serial
-                ?? ($instance->item?->name ?? 'Untracked Item');
-
-            $condition = $instance->return_condition ?? 'pending';
-
-            return [
-                'id' => $instance->id,
-                'property_label' => $label,
-                'item_name' => $instance->item?->name ?? 'Unknown Item',
-                'condition' => $condition,
-                'condition_label' => $this->formatConditionLabel($condition),
-                'returned_at' => $instance->returned_at?->toDateTimeString(),
-                'inventory_status' => $instance->instance?->status ?? 'unknown',
-                'inventory_status_label' => $this->formatInventoryStatus($instance->instance?->status),
-            ];
-        })->values();
-
-        $itemOptions = $items
-            ->groupBy('item_name')
-            ->map(fn ($group, $name) => ['name' => $name, 'count' => $group->count()])
-            ->values()
-            ->all();
+        $items = $this->formatBorrowInstances($instances);
+        $itemOptions = $this->buildItemOptionsFromItems($items);
 
         return response()->json([
             'id' => 'W' . $id,
@@ -298,17 +246,7 @@ class ReturnItemsController extends Controller
 
             DB::commit();
 
-            $instancesPayload = $instances->map(function (BorrowItemInstance $instance) {
-                return [
-                    'borrow_item_instance_id' => $instance->id,
-                    'item_instance_id' => $instance->item_instance_id,
-                    'item_id' => $instance->item_id,
-                    'status' => $instance->instance?->status,
-                    'inventory_status_label' => $this->formatInventoryStatus($instance->instance?->status),
-                    'condition' => $instance->return_condition ?? 'pending',
-                    'condition_label' => $this->formatConditionLabel($instance->return_condition ?? 'pending'),
-                ];
-            })->values();
+            $instancesPayload = $this->formatBorrowInstances($instances);
 
             return response()->json([
                 'message' => 'Walk-in items marked as returned successfully.',
@@ -341,6 +279,26 @@ class ReturnItemsController extends Controller
         $newCondition = $data['condition'];
         $previousCondition = $borrowItemInstance->return_condition ?? 'pending';
 
+        $borrowItemInstance->loadMissing('instance');
+
+        $currentStatus = strtolower($borrowItemInstance->instance?->status ?? '');
+        if ($currentStatus === 'borrowed') {
+            return response()->json([
+                'message' => 'Cannot update condition while the item is currently borrowed.',
+            ], 422);
+        }
+
+        $latestIds = $this->resolveLatestReturnIds([
+            $borrowItemInstance->item_instance_id,
+        ]);
+
+        $itemInstanceId = $borrowItemInstance->item_instance_id;
+        if ($itemInstanceId && ($latestIds[$itemInstanceId] ?? $borrowItemInstance->id) !== $borrowItemInstance->id) {
+            return response()->json([
+                'message' => 'Only the most recent return record can be modified.',
+            ], 422);
+        }
+
         DB::beginTransaction();
         try {
             $borrowItemInstance->return_condition = $newCondition;
@@ -363,21 +321,27 @@ class ReturnItemsController extends Controller
 
             DB::commit();
 
-            return response()->json([
-                'message' => 'Condition updated successfully.',
-                'condition' => $borrowItemInstance->return_condition,
-                'condition_label' => $this->formatConditionLabel($borrowItemInstance->return_condition),
-                'inventory_status' => $borrowItemInstance->instance?->status,
-                'inventory_status_label' => $this->formatInventoryStatus($borrowItemInstance->instance?->status),
-                'item_instance_id' => $borrowItemInstance->item_instance_id,
-                'item_id' => $borrowItemInstance->item_id,
-                'available_qty' => optional($borrowItemInstance->item)->available_qty,
-                'borrow_summary' => $borrowRequest
-                    ? $this->formatConditionLabel($this->summarizeCondition($borrowRequest))
-                    : null,
-                'latest_status' => $borrowRequest?->status,
-                'latest_delivery_status' => $borrowRequest?->delivery_status,
-            ]);
+            $descriptor = $this->describeBorrowInstance(
+                $borrowItemInstance,
+                $this->resolveLatestReturnIds([$borrowItemInstance->item_instance_id])
+            );
+
+            return response()->json(array_merge(
+                [
+                    'message' => 'Condition updated successfully.',
+                    'available_qty' => optional($borrowItemInstance->item)->available_qty,
+                    'borrow_summary' => $borrowRequest
+                        ? $this->formatConditionLabel($this->summarizeCondition($borrowRequest))
+                        : null,
+                    'latest_status' => $borrowRequest?->status,
+                    'latest_delivery_status' => $borrowRequest?->delivery_status,
+                ],
+                $descriptor,
+                [
+                    'item_instance_id' => $borrowItemInstance->item_instance_id,
+                    'item_id' => $borrowItemInstance->item_id,
+                ]
+            ));
         } catch (\Throwable $e) {
             DB::rollBack();
             return response()->json([
@@ -385,6 +349,111 @@ class ReturnItemsController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    private function formatBorrowInstances(EloquentCollection|array $instances): array
+    {
+        if ($instances instanceof EloquentCollection) {
+            $instances->loadMissing('item', 'instance');
+            $collection = $instances;
+        } else {
+            $collection = collect($instances);
+            $collection->each(fn (BorrowItemInstance $instance) => $instance->loadMissing('item', 'instance'));
+        }
+
+        if ($collection->isEmpty()) {
+            return [];
+        }
+
+        $latestIds = $this->resolveLatestReturnIds(
+            $collection
+                ->pluck('item_instance_id')
+                ->filter()
+                ->unique()
+                ->all()
+        );
+
+        return $collection
+            ->map(fn (BorrowItemInstance $instance) => $this->describeBorrowInstance($instance, $latestIds))
+            ->values()
+            ->all();
+    }
+
+    private function buildItemOptionsFromItems(array $items): array
+    {
+        return collect($items)
+            ->groupBy(fn ($item) => $item['item_name'] ?? 'Unknown Item')
+            ->map(fn ($group, $name) => ['name' => $name, 'count' => $group->count()])
+            ->values()
+            ->all();
+    }
+
+    private function describeBorrowInstance(BorrowItemInstance $instance, array $latestIds = []): array
+    {
+        $instance->loadMissing('item', 'instance');
+
+        $label = $instance->instance?->property_number
+            ?? $instance->instance?->serial
+            ?? ($instance->item?->name ?? 'Untracked Item');
+
+        $condition = $instance->return_condition ?? 'pending';
+        $inventoryStatus = strtolower($instance->instance?->status ?? 'unknown');
+        $itemInstanceId = $instance->item_instance_id;
+        $latestId = $itemInstanceId ? ($latestIds[$itemInstanceId] ?? null) : null;
+        $isLatestRecord = $latestId === null || $latestId === $instance->id;
+
+        $lockReason = null;
+        if ($inventoryStatus === 'borrowed') {
+            $lockReason = 'Cannot update condition while the item is currently borrowed.';
+        } elseif (! $isLatestRecord) {
+            $lockReason = 'This return record is read-only because a newer return update exists.';
+        }
+
+        return [
+            'id' => $instance->id,
+            'borrow_item_instance_id' => $instance->id,
+            'item_instance_id' => $instance->item_instance_id,
+            'item_id' => $instance->item_id,
+            'property_label' => $label,
+            'item_name' => $instance->item?->name ?? 'Unknown Item',
+            'condition' => $condition,
+            'condition_label' => $this->formatConditionLabel($condition),
+            'returned_at' => $instance->returned_at?->toDateTimeString(),
+            'inventory_status' => $inventoryStatus,
+            'status' => $instance->instance?->status ?? 'unknown',
+            'inventory_status_label' => $this->formatInventoryStatus($instance->instance?->status),
+            'can_update' => $inventoryStatus !== 'borrowed' && $isLatestRecord,
+            'lock_reason' => $lockReason,
+            'is_latest_record' => $isLatestRecord,
+        ];
+    }
+
+    private function resolveLatestReturnIds(array $itemInstanceIds): array
+    {
+        $ids = array_filter(array_unique(array_filter($itemInstanceIds)));
+        if (empty($ids)) {
+            return [];
+        }
+
+        $ordered = BorrowItemInstance::query()
+            ->select('item_instance_id', 'id', 'condition_updated_at', 'returned_at', 'created_at')
+            ->whereIn('item_instance_id', $ids)
+            ->orderBy('item_instance_id')
+            ->orderByDesc('condition_updated_at')
+            ->orderByDesc('returned_at')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get();
+
+        $latest = [];
+        foreach ($ordered as $instance) {
+            $key = $instance->item_instance_id;
+            if (! isset($latest[$key])) {
+                $latest[$key] = $instance->id;
+            }
+        }
+
+        return $latest;
     }
 
     private function syncInventoryForConditionChange(BorrowItemInstance $instance, string $previous, string $current): void

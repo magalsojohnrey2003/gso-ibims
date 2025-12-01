@@ -1,9 +1,8 @@
 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
 document.addEventListener('DOMContentLoaded', () => {
-  const buttons = Array.from(document.querySelectorAll('[data-print-stickers]'));
   const modal = document.querySelector('[data-print-modal]');
-  if (!buttons.length || !modal || !csrfToken) return;
+  if (!modal || !csrfToken) return;
 
   const form = modal.querySelector('[data-print-form]');
   const summaryEl = modal.querySelector('[data-print-summary]');
@@ -29,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     quantity: 1,
     item: '',
     acquisition: '',
+    person: '',
   };
 
   const applyPenStyle = () => {
@@ -56,7 +56,6 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, width, height);
-    // Removed white background fill to keep canvas transparent
     ctx.restore();
     ctx.beginPath();
     applyPenStyle();
@@ -125,16 +124,20 @@ document.addEventListener('DOMContentLoaded', () => {
     state.quantity = config.quantity;
     state.item = config.item || 'this item';
     state.acquisition = config.acquisition || '';
+    state.person = config.person || '';
 
     routeInput.value = state.route;
     quantityInput.value = String(state.quantity);
-    personInput.value = '';
+    personInput.value = state.person;
     clearSignature();
 
     const parts = [`${state.quantity} sticker${state.quantity === 1 ? '' : 's'} will be generated.`];
     parts.unshift(`Printing for "${state.item}"`);
     if (state.acquisition) {
       parts.push(`Acquisition date: ${state.acquisition}`);
+    }
+    if (state.person) {
+      parts.push(`Person accountable: ${state.person}`);
     }
     summaryEl.textContent = parts.join(' | ');
 
@@ -144,26 +147,31 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
-  buttons.forEach((button) => {
-    if (button.dataset.printBound === '1') return;
-    button.dataset.printBound = '1';
+  const handleButtonClick = (event) => {
+    const button = event.target.closest('[data-print-stickers]');
+    if (!button) return;
 
-    button.addEventListener('click', () => {
-      const route = button.dataset.printRoute;
-      if (!route) return;
+    event.preventDefault();
+    event.stopPropagation();
 
-      const quantity = Number.parseInt(button.dataset.printQuantity || button.dataset.printDefault || '1', 10);
-      const itemName = button.dataset.printItem || '';
-      const acquisition = button.dataset.printAcquisition || '';
+    const route = button.dataset.printRoute;
+    if (!route) return;
 
-      openModal({
-        route,
-        quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
-        item: itemName,
-        acquisition,
-      });
+    const quantity = Number.parseInt(button.dataset.printQuantity || button.dataset.printDefault || '1', 10);
+    const itemName = button.dataset.printItem || '';
+    const acquisition = button.dataset.printAcquisition || '';
+    const personName = button.dataset.printPersonName || '';
+
+    openModal({
+      route,
+      quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
+      item: itemName,
+      acquisition,
+      person: personName,
     });
-  });
+  };
+
+  document.addEventListener('click', handleButtonClick);
 
   form.addEventListener('submit', (event) => {
     event.preventDefault();
