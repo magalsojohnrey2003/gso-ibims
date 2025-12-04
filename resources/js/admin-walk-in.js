@@ -186,6 +186,7 @@
       if (contact) contact.value = '';
       updateSelectedCount();
       updateUsagePreview();
+      updateTimeBoundaries();
     });
   }
 
@@ -195,6 +196,60 @@
     const month = String(today.getMonth() + 1).padStart(2, '0');
     const day = String(today.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+  }
+
+  function getRoundedNowTime() {
+    const now = new Date();
+    now.setSeconds(0, 0);
+    const remainder = now.getMinutes() % 5;
+    if (remainder !== 0) {
+      now.setMinutes(now.getMinutes() + (5 - remainder));
+    }
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  }
+
+  function clampTimeValue(input, minValue) {
+    if (!input || !minValue) return;
+    if (input.value && input.value < minValue) {
+      input.value = minValue;
+    }
+  }
+
+  function updateTimeBoundaries() {
+    const borrowedDate = document.getElementById('borrowed_date');
+    const returnedDate = document.getElementById('returned_date');
+    const borrowedTime = document.getElementById('borrowed_time');
+    const returnedTime = document.getElementById('returned_time');
+    if (!borrowedTime || !returnedTime) return;
+
+    const today = getTodayDateString();
+    const roundedNow = getRoundedNowTime();
+
+    borrowedTime.max = '23:59';
+    returnedTime.max = '23:59';
+
+    if (borrowedDate?.value === today) {
+      borrowedTime.min = roundedNow;
+      clampTimeValue(borrowedTime, roundedNow);
+    } else {
+      borrowedTime.removeAttribute('min');
+    }
+
+    let endMin = '';
+    if (returnedDate?.value && borrowedDate?.value && returnedDate.value === borrowedDate.value) {
+      endMin = borrowedTime.value || (returnedDate.value === today ? roundedNow : '');
+    } else if (returnedDate?.value === today) {
+      endMin = roundedNow;
+    }
+
+    if (endMin) {
+      returnedTime.min = endMin;
+      clampTimeValue(returnedTime, endMin);
+    } else {
+      returnedTime.removeAttribute('min');
+    }
   }
 
   function initDateInputs() {
@@ -213,13 +268,17 @@
             returnedDate.value = '';
           }
         }
+        updateTimeBoundaries();
         checkAvailability();
       });
     }
     
     if (returnedDate) {
       returnedDate.setAttribute('min', today);
-      returnedDate.addEventListener('change', checkAvailability);
+      returnedDate.addEventListener('change', () => {
+        updateTimeBoundaries();
+        checkAvailability();
+      });
     }
   }
 
@@ -323,8 +382,14 @@
     ['borrowed_time', 'returned_time'].forEach((id) => {
       const el = document.getElementById(id);
       if (el) {
-        el.addEventListener('input', updateUsagePreview);
-        el.addEventListener('change', updateUsagePreview);
+        el.addEventListener('input', () => {
+          updateUsagePreview();
+          updateTimeBoundaries();
+        });
+        el.addEventListener('change', () => {
+          updateUsagePreview();
+          updateTimeBoundaries();
+        });
       }
     });
     
@@ -337,5 +402,6 @@
     
     updateUsagePreview();
     updateSelectedCount();
+    updateTimeBoundaries();
   });
 })();

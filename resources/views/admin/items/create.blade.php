@@ -360,6 +360,14 @@
                    data-thumb-width="160" />
         </div>
 
+        <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">Receipt Photo</label>
+            <input id="receipt_photo" name="receipt_photo" type="file" accept="image/*"
+                   data-filepond="true"
+                   data-preview-height="120"
+                   data-thumb-width="160" />
+        </div>
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
                 <x-input-label for="acquisition_date" value="Acquisition Date" />

@@ -1146,6 +1146,52 @@ class BorrowRequestController extends Controller
                 }
             }
 
+            // Re-evaluate allocated instances and ensure they are dispatchable
+            $borrowRequest->load('borrowedInstances');
+            $instanceIds = $borrowRequest->borrowedInstances
+                ->pluck('item_instance_id')
+                ->filter()
+                ->unique()
+                ->values();
+
+            if ($instanceIds->isNotEmpty()) {
+                $instances = ItemInstance::query()
+                    ->whereIn('id', $instanceIds)
+                    ->lockForUpdate()
+                    ->get()
+                    ->keyBy('id');
+
+                foreach ($borrowRequest->borrowedInstances as $allocation) {
+                    $instanceId = $allocation->item_instance_id;
+                    if (! $instanceId) {
+                        continue;
+                    }
+
+                    $instance = $instances->get($instanceId);
+                    if (! $instance) {
+                        DB::rollBack();
+                        return response()->json([
+                            'message' => 'Cannot dispatch: One or more selected item instances could not be found.',
+                        ], 422);
+                    }
+
+                    $status = strtolower((string) $instance->status);
+                    if (! in_array($status, ['available', 'allocated'], true)) {
+                        DB::rollBack();
+                        $identifier = $instance->property_number
+                            ?: ($instance->serial_no ?? $instance->serial ?? ('Instance #' . $instance->id));
+
+                        return response()->json([
+                            'message' => 'Cannot dispatch: Item is currently borrowed by another user. Please mark it as returned/collected first.',
+                            'item_instance_id' => $instance->id,
+                            'property_number' => $instance->property_number,
+                            'current_status' => $status,
+                            'identifier' => $identifier,
+                        ], 422);
+                    }
+                }
+            }
+
             // set approved status and delivery meta (dispatch step only)
             $borrowRequest->status = 'approved';
             $borrowRequest->delivery_status = 'dispatched';

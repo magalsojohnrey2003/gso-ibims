@@ -137,69 +137,40 @@ class BorrowRequestFormPdf
 
     private function renderItemSlots(Fpdi $pdf, array $pageSize, array $layout, BorrowRequest $borrowRequest): void
     {
-        $borrowRequest->loadMissing(['items.item']);
+        $borrowRequest->loadMissing(['items.item', 'items.manpowerRole']);
 
-        [$physicalItems, , $manpowerTotal] = $this->splitManpowerItems($borrowRequest);
+        [$physicalItems, $manpowerItems] = $this->splitManpowerItems($borrowRequest);
 
-        // Build selected items first
-        $selected = [];
+        $labels = [];
+
         foreach ($physicalItems as $reqItem) {
-            $name = $reqItem->item->name ?? ('Item #' . $reqItem->item_id);
-            $qty = (int) ($reqItem->quantity ?? 0);
-            $selected[] = [
-                'label' => $name . '(x' . $qty . ')',
-                'checked' => true,
-            ];
+            $name = trim((string) ($reqItem->item->name ?? ('Item #' . $reqItem->item_id)));
+            $qty = max(0, (int) ($reqItem->quantity ?? 0));
+            $labels[] = sprintf('%s (x%d)', $name, $qty);
         }
 
-        if ($manpowerTotal > 0) {
-            $selected[] = [
-                'label' => 'Manpower (x' . $manpowerTotal . ')',
-                'checked' => true,
-            ];
-        }
-
-        // Fill remaining slots with other items (random order), unchecked
-        try {
-            $selectedNames = array_map(function ($row) { return strtolower((string) $row['label']); }, $selected);
-            $othersQuery = \App\Models\Item::query()->excludeSystemPlaceholder();
-            if (!empty($selectedNames)) {
-                $othersQuery->whereNotIn('name', $borrowRequest->items->pluck('item.name')->filter()->values());
+        foreach ($manpowerItems as $reqItem) {
+            $roleName = $reqItem->manpowerRole->name
+                ?? $reqItem->manpower_role
+                ?? $reqItem->item->name
+                ?? 'Role';
+            $roleName = trim((string) $roleName);
+            if ($roleName === '') {
+                $roleName = 'Role';
             }
-            $otherItems = $othersQuery->inRandomOrder()->limit(20)->get(['name'])->pluck('name')->all();
-        } catch (\Throwable) {
-            $otherItems = [];
+            $qty = max(0, (int) ($reqItem->quantity ?? $reqItem->assigned_manpower ?? 0));
+            $labels[] = sprintf('Manpower-%s (x%d)', $roleName, $qty);
         }
 
-        foreach ($otherItems as $nm) {
-            if (count($selected) >= 12) break;
-            $selected[] = [
-                'label' => (string) $nm,
-                'checked' => false,
-            ];
+        $labels = array_slice($labels, 0, 12);
+
+        while (count($labels) < 12) {
+            $labels[] = '';
         }
 
-        // Ensure exactly 12 slots (pad with blanks if needed)
-        while (count($selected) < 12) {
-            $selected[] = [ 'label' => '', 'checked' => false ];
-        }
-
-        // Write into item_1..item_12 and mark check_1..check_12
         for ($i = 1; $i <= 12; $i++) {
             $itemKey = 'item_' . $i;
-            $checkKey = 'check_' . $i;
-            $data = $selected[$i - 1];
-
-            // Item label text
-            $this->writeText($pdf, $pageSize, Arr::get($layout, $itemKey), $data['label'] ?? '');
-
-            // Checkbox visual mark (draw a check mark if selected)
-            if (!empty($data['checked'])) {
-                $rect = Arr::get($layout, $checkKey);
-                if ($rect) {
-                    $this->drawCheckboxMark($pdf, $pageSize, $rect);
-                }
-            }
+            $this->writeText($pdf, $pageSize, Arr::get($layout, $itemKey), $labels[$i - 1] ?? '');
         }
     }
 
@@ -211,11 +182,7 @@ class BorrowRequestFormPdf
             return (bool) ($item->is_manpower ?? false);
         });
 
-        $manpowerTotal = (int) $manpower->sum(function ($item) {
-            return (int) ($item->quantity ?? 0);
-        });
-
-        return [$physical->values(), $manpower->values(), $manpowerTotal];
+        return [$physical->values(), $manpower->values()];
     }
 
     private function drawCheckboxMark(Fpdi $pdf, array $pageSize, array $rect): void
@@ -266,7 +233,7 @@ class BorrowRequestFormPdf
             return;
         }
 
-        [$physicalItems, , $manpowerTotal] = $this->splitManpowerItems($borrowRequest);
+        [$physicalItems, $manpowerItems] = $this->splitManpowerItems($borrowRequest);
 
         $items = $physicalItems->map(function ($item) use ($borrowRequest) {
             return [
@@ -277,14 +244,27 @@ class BorrowRequestFormPdf
             ];
         })->values();
 
-        if ($manpowerTotal > 0) {
-            $items->push([
+        $manpowerRows = $manpowerItems->map(function ($item) use ($borrowRequest) {
+            $roleName = $item->manpowerRole->name
+                ?? $item->manpower_role
+                ?? $item->item->name
+                ?? 'Role';
+            $roleName = trim((string) $roleName);
+            if ($roleName === '') {
+                $roleName = 'Role';
+            }
+
+            $qty = max(0, (int) ($item->quantity ?? $item->assigned_manpower ?? 0));
+
+            return [
                 'id' => (string) $borrowRequest->id,
-                'name' => 'Manpower (x' . $manpowerTotal . ')',
-                'quantity' => (string) $manpowerTotal,
-                'manpower' => (string) $manpowerTotal,
-            ]);
-        }
+                'name' => 'Manpower-' . $roleName,
+                'quantity' => (string) $qty,
+                'manpower' => (string) $qty,
+            ];
+        })->values();
+
+        $items = $items->concat($manpowerRows);
 
         if ($items->isEmpty()) {
             $items = collect([[

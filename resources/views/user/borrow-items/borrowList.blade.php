@@ -66,6 +66,8 @@
         ->values()
         ->all();
     $hasManpowerRoles = $manpowerRoles->count() > 0;
+    $defaultManpowerRoleName = 'Assist';
+    $defaultManpowerRoleQuantity = 10;
 @endphp
 
 <x-app-layout>
@@ -162,10 +164,12 @@
                                                     'photo' => $item['photo'] ?? null,
                                                 ])->photo_url;
                                             @endphp
-                                            <img
-                                                src="{{ $photoUrl }}"
-                                                class="h-12 w-12 rounded object-cover"
-                                                alt="{{ $item['name'] }}">
+                                            <div class="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-gray-200 bg-white">
+                                                <img
+                                                    src="{{ $photoUrl }}"
+                                                    class="h-full w-full object-contain"
+                                                    alt="{{ $item['name'] }}">
+                                            </div>
                                             <p class="text-sm font-semibold text-gray-800 break-words" title="{{ $item['name'] }}">{{ $item['name'] }}</p>
                                         </div>
 
@@ -269,7 +273,12 @@
                                     <p class="mt-3 text-sm text-amber-600">Ask an administrator to define manpower roles before adding personnel requests.</p>
                                 @endif
 
-                                <div id="manpowerRequirementsList" class="mt-4 space-y-3" data-manpower-roles-count="{{ $manpowerRoles->count() }}">
+                                <div
+                                    id="manpowerRequirementsList"
+                                    class="mt-4 space-y-3"
+                                    data-manpower-roles-count="{{ $manpowerRoles->count() }}"
+                                    data-default-role-name="{{ $defaultManpowerRoleName }}"
+                                    data-default-role-qty="{{ $defaultManpowerRoleQuantity }}">
                                     @php
                                         $roleLookup = $manpowerRoles->keyBy('id');
                                     @endphp
@@ -413,12 +422,11 @@
                                     type="number"
                                     id="manpowerModalQuantity"
                                     min="1"
-                                    max="999"
+                                    max="99"
                                     value="1"
                                     class="mt-1 w-full rounded-lg border border-gray-400 px-3 py-2 text-sm text-gray-800 focus:border-purple-500 focus:ring-purple-500"
                                     inputmode="numeric"
                                 />
-                                <p class="mt-1 text-xs text-gray-500">Maximum of 999 personnel per role.</p>
                             </div>
                         </div>
 
@@ -496,15 +504,15 @@
                                             readonly
                                             value="{{ $usageBorrowDisplayDefault }}"
                                         />
-                                        <div class="mt-3">
-                                            <select id="usage_start" class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-800">
-                                                <option value="" @selected(!$usageStart)>
-                                                    -- Estimate Start Time --
-                                                </option>
-                                                @foreach($usageOptions as $value => $label)
-                                                    <option value="{{ $value }}" @selected($value === $usageStart)>{{ $label }}</option>
-                                                @endforeach
-                                            </select>
+                                        <div class="mt-3 flex flex-col gap-2">
+                                            <input
+                                                id="usage_start"
+                                                type="time"
+                                                class="gov-input w-full"
+                                                value="{{ $usageStart }}"
+                                                placeholder="Select time (optional)"
+                                            />
+                                            <p class="text-xs text-gray-500">Start Time (optional)</p>
                                         </div>
                                     </div>
 
@@ -517,15 +525,15 @@
                                             readonly
                                             value="{{ $usageReturnDisplayDefault }}"
                                         />
-                                        <div class="mt-3">
-                                            <select id="usage_end" class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-800">
-                                                <option value="" @selected(!$usageEnd)>
-                                                    -- Estimate End Time --
-                                                </option>
-                                                @foreach($usageOptions as $value => $label)
-                                                    <option value="{{ $value }}" @selected($value === $usageEnd)>{{ $label }}</option>
-                                                @endforeach
-                                            </select>
+                                        <div class="mt-3 flex flex-col gap-2">
+                                            <input
+                                                id="usage_end"
+                                                type="time"
+                                                class="gov-input w-full"
+                                                value="{{ $usageEnd }}"
+                                                placeholder="Select time (optional)"
+                                            />
+                                            <p class="text-xs text-gray-500">End Time (optional)</p>
                                         </div>
                                     </div>
 

@@ -20,6 +20,7 @@ class Item extends Model
         'total_qty',
         'available_qty',
         'photo',
+        'receipt_photo',
         'acquisition_date',
         'acquisition_cost',
         'is_borrowable',

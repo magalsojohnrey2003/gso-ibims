@@ -293,7 +293,7 @@ class BorrowItemsController extends Controller
             'support_letter'  => 'required|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
             'manpower_requirements' => 'nullable|array|max:10',
             'manpower_requirements.*.role_id' => 'nullable|integer|exists:manpower_roles,id',
-            'manpower_requirements.*.quantity' => 'nullable|integer|min:1|max:999',
+            'manpower_requirements.*.quantity' => 'nullable|integer|min:1|max:99',
         ], [
             'support_letter.required' => 'Please upload your signed letter before proceeding.',
             'support_letter.mimes'    => 'The letter must be an image or PDF file.',
@@ -483,8 +483,8 @@ class BorrowItemsController extends Controller
                     return null;
                 }
 
-                if ($quantity !== null && ($quantity < 1 || $quantity > 999)) {
-                    $errors['range'] = 'Manpower quantities must be between 1 and 999.';
+                if ($quantity !== null && ($quantity < 1 || $quantity > 99)) {
+                    $errors['range'] = 'Manpower quantities must be between 1 and 99.';
                     return null;
                 }
 

@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GSO-IBIMS | Welcome</title>
+    <link rel="icon" href="{{ asset('images/logo2.png') }}" type="image/png">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="min-h-screen text-white" style="background-color:#3F1D7B;background-image:url('{{ asset('images/landing-bg.svg') }}');background-size:cover;background-position:center;background-repeat:no-repeat;">
@@ -29,7 +30,7 @@
                     </a>
                     <a href="{{ route('public.borrow-items') }}"
                        class="inline-flex items-center justify-center px-6 py-3 rounded-xl font-semibold bg-white/15 text-white shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5">
-                        View Features
+                        View Items
                     </a>
                 </div>
 
@@ -63,6 +64,3 @@
     </div>
 </body>
 </html>
-
-
-

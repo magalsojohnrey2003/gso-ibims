@@ -164,6 +164,18 @@
                 <input type="hidden" name="existing_photo" value="{{ $existingPath }}">
             </div>
 
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Receipt Photo</label>
+                <input
+                    id="receipt_photo-{{ $item->id }}"
+                    name="receipt_photo"
+                    type="file"
+                    accept="image/*"
+                    data-filepond="true"
+                    data-preview-height="120"
+                    data-thumb-width="160" />
+            </div>
+
         </div>
     </div>
 

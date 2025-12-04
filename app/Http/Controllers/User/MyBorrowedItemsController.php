@@ -14,7 +14,9 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use App\Services\BorrowRequestFormPdf;
+use App\Services\RoutingSlipPdf;
 use App\Services\PhilSmsService;
 use App\Notifications\RequestNotification;
 
@@ -32,6 +34,26 @@ class MyBorrowedItemsController extends Controller
         }
 
         $result = $borrowRequestFormPdf->render($borrowRequest);
+
+        return response($result['content'], 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . $result['filename'] . '"',
+            'Content-Length' => strlen($result['content']),
+        ]);
+    }
+
+    public function routingSlip(BorrowRequest $borrowRequest, RoutingSlipPdf $routingSlipPdf)
+    {
+        if ($borrowRequest->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $deliveryStatus = strtolower((string) $borrowRequest->delivery_status);
+        if (! in_array($deliveryStatus, ['delivered', 'returned'], true)) {
+            abort(403, 'Routing slip is available only after delivery.');
+        }
+
+        $result = $routingSlipPdf->render($borrowRequest);
 
         return response($result['content'], 200, [
             'Content-Type' => 'application/pdf',
@@ -71,6 +93,10 @@ class MyBorrowedItemsController extends Controller
 
                 $instances = $this->fetchBorrowedInstances($borrowRequest->id);
 
+                $returnProofUrl = $borrowRequest->return_proof_path
+                    ? Storage::disk('public')->url($borrowRequest->return_proof_path)
+                    : null;
+
                 return [
                     'id' => $borrowRequest->id,
                     'formatted_request_id' => $borrowRequest->formatted_request_id,
@@ -92,6 +118,9 @@ class MyBorrowedItemsController extends Controller
                     'delivered_at' => optional($borrowRequest->delivered_at)->toIso8601String(),
                     'delivery_reported_at' => optional($borrowRequest->delivery_reported_at)->toIso8601String(),
                     'delivery_report_reason' => $borrowRequest->delivery_report_reason,
+                    'return_proof_path' => $borrowRequest->return_proof_path,
+                    'return_proof_url' => $returnProofUrl,
+                    'return_proof_notes' => $borrowRequest->return_proof_notes,
                 ];
             });
 
@@ -127,6 +156,10 @@ class MyBorrowedItemsController extends Controller
         $instances = $this->fetchBorrowedInstances($borrowRequest->id);
         $status = $borrowRequest->status === 'qr_verified' ? 'approved' : $borrowRequest->status;
 
+        $returnProofUrl = $borrowRequest->return_proof_path
+            ? Storage::disk('public')->url($borrowRequest->return_proof_path)
+            : null;
+
         return response()->json([
             'id' => $borrowRequest->id,
             'formatted_request_id' => $borrowRequest->formatted_request_id,
@@ -148,6 +181,9 @@ class MyBorrowedItemsController extends Controller
             'delivered_at' => optional($borrowRequest->delivered_at)->toIso8601String(),
             'delivery_reported_at' => optional($borrowRequest->delivery_reported_at)->toIso8601String(),
             'delivery_report_reason' => $borrowRequest->delivery_report_reason,
+            'return_proof_path' => $borrowRequest->return_proof_path,
+            'return_proof_url' => $returnProofUrl,
+            'return_proof_notes' => $borrowRequest->return_proof_notes,
         ]);
     }
 
@@ -345,6 +381,62 @@ class MyBorrowedItemsController extends Controller
         Notification::send($admins, new RequestNotification($payload));
 
         return response()->json(['message' => 'Reported not received.']);
+    }
+
+    public function markReturned(Request $request, BorrowRequest $borrowRequest)
+    {
+        if ($borrowRequest->user_id !== Auth::id()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $deliveryStatus = strtolower((string) $borrowRequest->delivery_status);
+        if (! in_array($deliveryStatus, ['delivered', 'returned'], true)) {
+            return response()->json(['message' => 'Only delivered requests can be marked as returned.'], 422);
+        }
+
+        $validated = $request->validate([
+            'return_proof' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            if ($borrowRequest->return_proof_path) {
+                Storage::disk('public')->delete($borrowRequest->return_proof_path);
+            }
+
+            $storedPath = $validated['return_proof']->store('return-proofs', 'public');
+
+            $borrowRequest->return_proof_path = $storedPath;
+            $borrowRequest->return_proof_notes = $validated['notes'] ?? null;
+            $borrowRequest->status = 'returned';
+            $borrowRequest->delivery_status = 'returned';
+            if (! $borrowRequest->delivered_at) {
+                $borrowRequest->delivered_at = now();
+            }
+            $borrowRequest->save();
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Return submitted successfully.',
+                'return_proof_path' => $borrowRequest->return_proof_path,
+                'return_proof_notes' => $borrowRequest->return_proof_notes,
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            Log::error('user.mark_returned_failed', [
+                'borrow_request_id' => $borrowRequest->id,
+                'user_id' => Auth::id(),
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'message' => 'Failed to submit return proof. Please try again.',
+            ], 500);
+        }
     }
 
     protected function fetchBorrowedInstances(int $borrowRequestId)

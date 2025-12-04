@@ -7,6 +7,7 @@ use App\Models\BorrowItemInstance;
 use App\Models\BorrowRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use App\Services\ItemInstanceEventLogger;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -27,11 +28,12 @@ class ReturnItemsController extends Controller
         // Get regular borrow requests
         $borrowRequests = BorrowRequest::with(['user', 'borrowedInstances'])
             // Include delivered so requests remain visible for return processing after delivery
-            ->whereIn('delivery_status', ['dispatched', 'delivered', 'returned'])
+                ->whereIn('delivery_status', ['dispatched', 'delivered', 'returned', 'return_pending'])
             ->orderByDesc('dispatched_at')
             ->get()
             ->map(function (BorrowRequest $request) {
                 $conditionKey = $this->summarizeCondition($request);
+                    $proofUrl = $request->return_proof_path ? Storage::disk('public')->url($request->return_proof_path) : null;
 
                 return [
                     'id' => $request->id,
@@ -47,6 +49,9 @@ class ReturnItemsController extends Controller
                     'borrow_date' => $request->borrow_date?->toDateString(),
                     'return_date' => $request->return_date?->toDateString(),
                     'return_timestamp' => $request->delivered_at?->toDateTimeString(),
+                        'return_proof_path' => $request->return_proof_path,
+                        'return_proof_url' => $proofUrl,
+                        'return_proof_notes' => $request->return_proof_notes,
                 ];
             });
 
@@ -77,6 +82,9 @@ class ReturnItemsController extends Controller
                     'borrow_date' => $walkIn->borrowed_at?->toDateString(),
                     'return_date' => $walkIn->returned_at?->toDateString(),
                     'return_timestamp' => $walkIn->updated_at?->toDateTimeString(),
+                    'return_proof_path' => null,
+                    'return_proof_url' => null,
+                    'return_proof_notes' => null,
                 ];
             });
 
@@ -109,6 +117,9 @@ class ReturnItemsController extends Controller
             'borrow_date' => $borrowRequest->borrow_date?->toDateString(),
             'return_date' => $borrowRequest->return_date?->toDateString(),
             'return_timestamp' => $borrowRequest->delivered_at?->toDateTimeString(),
+                'return_proof_path' => $borrowRequest->return_proof_path,
+                'return_proof_url' => $borrowRequest->return_proof_path ? Storage::disk('public')->url($borrowRequest->return_proof_path) : null,
+                'return_proof_notes' => $borrowRequest->return_proof_notes,
             'items' => $items,
             'item_options' => $itemOptions,
             'default_item' => $itemOptions[0]['name'] ?? null,
@@ -281,13 +292,6 @@ class ReturnItemsController extends Controller
 
         $borrowItemInstance->loadMissing('instance');
 
-        $currentStatus = strtolower($borrowItemInstance->instance?->status ?? '');
-        if ($currentStatus === 'borrowed') {
-            return response()->json([
-                'message' => 'Cannot update condition while the item is currently borrowed.',
-            ], 422);
-        }
-
         $latestIds = $this->resolveLatestReturnIds([
             $borrowItemInstance->item_instance_id,
         ]);
@@ -403,9 +407,7 @@ class ReturnItemsController extends Controller
         $isLatestRecord = $latestId === null || $latestId === $instance->id;
 
         $lockReason = null;
-        if ($inventoryStatus === 'borrowed') {
-            $lockReason = 'Cannot update condition while the item is currently borrowed.';
-        } elseif (! $isLatestRecord) {
+        if (! $isLatestRecord) {
             $lockReason = 'This return record is read-only because a newer return update exists.';
         }
 
@@ -422,7 +424,7 @@ class ReturnItemsController extends Controller
             'inventory_status' => $inventoryStatus,
             'status' => $instance->instance?->status ?? 'unknown',
             'inventory_status_label' => $this->formatInventoryStatus($instance->instance?->status),
-            'can_update' => $inventoryStatus !== 'borrowed' && $isLatestRecord,
+            'can_update' => $isLatestRecord,
             'lock_reason' => $lockReason,
             'is_latest_record' => $isLatestRecord,
         ];

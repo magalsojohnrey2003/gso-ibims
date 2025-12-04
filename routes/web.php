@@ -214,6 +214,9 @@ Route::middleware(['auth', 'role:user', 'nocache'])
         Route::get('my-borrowed-items/{borrowRequest}/print', [MyBorrowedItemsController::class, 'print'])
             ->name('user.borrowed.items.print');
 
+        Route::get('my-borrowed-items/{borrowRequest}/routing-slip', [MyBorrowedItemsController::class, 'routingSlip'])
+            ->name('user.borrowed.items.routing_slip');
+
         // Confirm delivery (user)
         Route::post('my-borrowed-items/{borrowRequest}/confirm-delivery', [MyBorrowedItemsController::class, 'confirmDelivery'])
             ->name('user.borrowed.items.confirm_delivery');
@@ -221,6 +224,9 @@ Route::middleware(['auth', 'role:user', 'nocache'])
         // Report not received (user)
         Route::post('my-borrowed-items/{borrowRequest}/report-not-received', [MyBorrowedItemsController::class, 'reportNotReceived'])
             ->name('user.borrowed.items.report_not_received');
+
+        Route::post('my-borrowed-items/{borrowRequest}/mark-returned', [MyBorrowedItemsController::class, 'markReturned'])
+            ->name('user.borrowed.items.mark_returned');
 
         // Manpower (User)
         Route::prefix('manpower')->name('user.manpower.')->group(function() {

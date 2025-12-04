@@ -53,7 +53,7 @@ $containerClasses = implode(' ', array_filter([
     x-on:keydown.tab.prevent="$event.shiftKey || nextFocusable().focus()"
     x-on:keydown.shift.tab.prevent="prevFocusable().focus()"
     x-show="show"
-    class="fixed inset-0 z-50 flex items-center justify-center px-4"
+    class="fixed inset-0 z-50 flex min-h-screen w-screen items-center justify-center px-4"
     style="display: {{ $show ? 'block' : 'none' }};"
 >
     <div

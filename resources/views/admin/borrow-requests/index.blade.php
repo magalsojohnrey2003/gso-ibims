@@ -551,9 +551,6 @@
     <template id="btn-deliver-template">
         <x-button variant="secondary" iconName="truck" class="btn-action btn-deliver h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="dispatch" title="Dispatch items">Dispatch Items</x-button>
     </template>
-    <template id="btn-print-stickers-template">
-        <x-button variant="secondary" iconName="printer" type="button" class="btn-action btn-print h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="print-stickers" data-print-stickers title="Print stickers">Print</x-button>
-    </template>
     {{-- Alert templates --}}
     <template id="alert-success-template">
         <div class="max-w-xs">
@@ -575,8 +572,6 @@
             <x-alert type="warning"><span data-alert-message></span></x-alert>
         </div>
     </template>
-
-    @include('admin.partials.print-stickers-modal')
 
     <!-- Pass small bootstrap variables to JS module -->
     <script>

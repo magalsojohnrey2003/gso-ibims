@@ -8,6 +8,10 @@ const confirmReceiveState = {
     requestId: null,
 };
 
+const markReturnState = {
+    requestId: null,
+};
+
 // ---------- helpers ----------
 export function formatDate(dateStr) {
     if (!dateStr) return "N/A";
@@ -130,13 +134,14 @@ function getBadgeHtml(status) {
     const statusIcons = {
         'approved': 'fa-check-circle',
         'pending': 'fa-clock',
-        'return_pending': 'fa-clock',
+        'return_pending': 'fa-reply',
         'returned': 'fa-arrow-left',
         'rejected': 'fa-times-circle',
         'qr_verified': 'fa-check-circle',
         'validated': 'fa-check-circle',
         'dispatched': 'fa-truck',
         'delivered': 'fa-truck',
+        'return_pending': 'fa-reply',
         'not_received': 'fa-triangle-exclamation',
     };
     const statusColors = {
@@ -212,6 +217,17 @@ function createButtonFromTemplate(templateId, id) {
             const url = `/user/my-borrowed-items/${encodeURIComponent(id)}/print`;
             window.open(url, '_blank');
         });
+    } else if (action === 'routing-slip') {
+        btn.addEventListener('click', (ev) => {
+            ev.preventDefault();
+            const url = `/user/my-borrowed-items/${encodeURIComponent(id)}/routing-slip`;
+            window.open(url, '_blank');
+        });
+    } else if (action === 'mark-returned') {
+        btn.addEventListener('click', (ev) => {
+            ev.preventDefault();
+            openMarkReturnModal(id);
+        });
     } else if (action === 'confirm-delivery') {
         btn.addEventListener('click', (ev) => {
             ev.preventDefault();
@@ -257,6 +273,63 @@ function openConfirmReportNotReceivedModal(requestId) {
 }
 
 const confirmReportState = { requestId: null };
+
+function getReturnProofPond() {
+    const input = document.getElementById('markReturnProofInput');
+    if (!input) return null;
+    if (input._filepondInstance) {
+        return input._filepondInstance;
+    }
+
+    const FilePondLib = window.FilePond || (typeof FilePond !== 'undefined' ? FilePond : null);
+    if (!FilePondLib) return null;
+
+    try {
+        const root = input.parentElement?.querySelector('.filepond--root');
+        if (root && typeof FilePondLib.find === 'function') {
+            const ponds = FilePondLib.find(root);
+            if (Array.isArray(ponds) && ponds.length > 0) {
+                return ponds[0];
+            }
+        }
+    } catch (error) {
+        console.warn('Failed to resolve return proof FilePond instance', error);
+    }
+
+    return null;
+}
+
+function openMarkReturnModal(requestId) {
+    const numericId = Number(requestId);
+    if (!Number.isFinite(numericId)) {
+        markReturnState.requestId = null;
+        return;
+    }
+
+    const request = ITEMS_CACHE.find((entry) => Number(entry?.id) === numericId) || null;
+    markReturnState.requestId = numericId;
+
+    const labelEl = document.getElementById('markReturnRequestLabel');
+    if (labelEl) {
+        const code = request ? (formatBorrowRequestCodeLocal(request) || `#${request.id}`) : `#${numericId}`;
+        labelEl.textContent = code;
+    }
+
+    const proofInput = document.getElementById('markReturnProofInput');
+    const proofPond = getReturnProofPond();
+    if (proofPond) {
+        proofPond.removeFiles();
+    } else if (proofInput) {
+        proofInput.value = '';
+    }
+
+    const noteInput = document.getElementById('markReturnNotesInput');
+    if (noteInput) {
+        noteInput.value = '';
+    }
+
+    window.dispatchEvent(new CustomEvent('open-modal', { detail: 'markReturnModal' }));
+}
 
 // ---------- render table ----------
 function renderItems() {
@@ -319,10 +392,21 @@ function renderItems() {
         const statusKey = (req.status || '').toLowerCase();
         const deliveryStatus = (req.delivery_status || '').toLowerCase();
         const deliveredAt = req.delivered_at || null;
+        const hasReturnProof = Boolean(req.return_proof_path || req.return_proof_url);
 
-        const shouldShowPrint = (statusKey === 'validated' && !['dispatched', 'not_received'].includes(deliveryStatus)) || deliveryStatus === 'delivered' || statusKey === 'returned';
+        const shouldShowPrint = (statusKey === 'validated' && !['dispatched', 'not_received', 'delivered'].includes(deliveryStatus)) || statusKey === 'returned';
         if (shouldShowPrint) {
             wrapper.appendChild(createButtonFromTemplate("btn-print-template", req.id));
+        }
+
+        const shouldShowRoutingSlip = deliveryStatus === 'delivered' || deliveryStatus === 'returned';
+        if (shouldShowRoutingSlip) {
+            wrapper.appendChild(createButtonFromTemplate("btn-routing-slip-template", req.id));
+        }
+
+        const shouldShowMarkReturned = deliveryStatus === 'delivered' && !hasReturnProof;
+        if (shouldShowMarkReturned) {
+            wrapper.appendChild(createButtonFromTemplate("btn-mark-returned-template", req.id));
         }
 
         const shouldShowConfirm = deliveryStatus === 'dispatched' && !deliveredAt;
@@ -629,6 +713,106 @@ export function fillBorrowModal(data) {
         if (deliveryReasonContent) deliveryReasonContent.innerHTML = '';
     }
 
+    const proofBlock = document.getElementById('mbi-return-proof-block');
+    const proofViewer = document.getElementById('mbi-return-proof-viewer');
+    const proofImage = document.getElementById('mbi-return-proof-image');
+    const proofFallback = document.getElementById('mbi-return-proof-fallback');
+    const proofNotes = document.getElementById('mbi-return-proof-notes');
+    const proofDownload = document.getElementById('mbi-return-proof-download');
+
+    const proofUrlRaw = (data.return_proof_url || data.return_proof_path || '').trim();
+    const notesValue = (data.return_proof_notes || '').trim();
+
+    let resolvedProofUrl = '';
+    if (proofUrlRaw) {
+        try {
+            const url = new URL(proofUrlRaw, window.location.origin);
+            resolvedProofUrl = url.href;
+        } catch (_) {
+            resolvedProofUrl = proofUrlRaw;
+        }
+    }
+
+    if (proofNotes) {
+        proofNotes.textContent = notesValue !== '' ? notesValue : '—';
+    }
+
+    const hasProof = resolvedProofUrl !== '';
+    const hasNotes = notesValue !== '';
+
+    if (proofBlock) {
+        proofBlock.classList.toggle('hidden', !hasProof && !hasNotes);
+    }
+
+    if (proofDownload) {
+        if (hasProof) {
+            proofDownload.href = resolvedProofUrl;
+            proofDownload.classList.remove('hidden');
+            const downloadBase = requestCode ? requestCode.replace(/[^A-Z0-9-]/gi, '-') : 'return-proof';
+            let extension = '';
+            try {
+                const parsed = new URL(resolvedProofUrl, window.location.origin);
+                const pathname = parsed.pathname || '';
+                const match = pathname.match(/\.([a-z0-9]+)(?:$|\?)/i);
+                if (match) {
+                    extension = match[1];
+                }
+            } catch (_) {
+                const match = resolvedProofUrl.match(/\.([a-z0-9]+)(?:$|\?)/i);
+                if (match) {
+                    extension = match[1];
+                }
+            }
+            const filename = extension ? `${downloadBase}-return-proof.${extension}` : `${downloadBase}-return-proof`;
+            proofDownload.setAttribute('download', filename);
+        } else {
+            proofDownload.href = '#';
+            proofDownload.classList.add('hidden');
+            proofDownload.removeAttribute('download');
+        }
+    }
+
+    if (proofImage) {
+        proofImage.classList.add('hidden');
+        proofImage.removeAttribute('src');
+    }
+    if (proofViewer) {
+        proofViewer.classList.add('hidden');
+        proofViewer.src = '';
+    }
+
+    if (proofFallback) {
+        proofFallback.classList.remove('hidden');
+        proofFallback.textContent = hasProof
+            ? 'Proof preview unavailable. Use the download link above to view the file.'
+            : 'No return proof has been uploaded yet.';
+    }
+
+    if (hasProof) {
+        let pathForDetection = resolvedProofUrl;
+        try {
+            const parsed = new URL(resolvedProofUrl, window.location.origin);
+            pathForDetection = parsed.pathname || parsed.href || resolvedProofUrl;
+        } catch (_) {
+            // ignore parsing errors, fall back to raw string
+        }
+
+        const isImage = /\.(png|jpe?g|webp|gif)$/i.test(pathForDetection);
+        if (isImage && proofImage) {
+            proofImage.src = resolvedProofUrl;
+            proofImage.classList.remove('hidden');
+            if (proofFallback) {
+                proofFallback.classList.add('hidden');
+            }
+        } else if (proofViewer) {
+            proofViewer.src = resolvedProofUrl;
+            proofViewer.classList.remove('hidden');
+            if (proofFallback) {
+                proofFallback.classList.add('hidden');
+            }
+        }
+    }
+
     // delivery buttons are now placed on the table action column; modal no longer contains report/confirm buttons
 }
 
@@ -720,6 +904,79 @@ async function reportNotReceived(id, reason = null) {
     }
 }
 
+async function submitReturnProof(id, formElement, submitButton) {
+    if (!id || !formElement) {
+        showError('Invalid request. Please refresh and try again.');
+        return;
+    }
+
+    const spinnerMarkup = '<span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" aria-hidden="true"></span>';
+    let originalButtonHtml = null;
+    let originalDisabled = false;
+
+    if (submitButton) {
+        originalButtonHtml = submitButton.innerHTML;
+        originalDisabled = submitButton.disabled;
+        submitButton.disabled = true;
+        submitButton.innerHTML = spinnerMarkup;
+    }
+
+    const formData = new FormData(formElement);
+    const proofPond = getReturnProofPond();
+
+    if (proofPond) {
+        const files = proofPond.getFiles();
+        if (!files.length) {
+            showError('Please upload your return slip before submitting.');
+            if (submitButton) {
+                submitButton.disabled = originalDisabled;
+                submitButton.innerHTML = originalButtonHtml ?? 'Submit';
+            }
+            return;
+        }
+        const file = files[0].file;
+        if (file) {
+            formData.delete('return_proof');
+            formData.append('return_proof', file, file.name);
+        }
+    }
+
+    try {
+        const res = await fetch(`/user/my-borrowed-items/${encodeURIComponent(id)}/mark-returned`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': CSRF_TOKEN,
+                'Accept': 'application/json',
+            },
+            body: formData,
+        });
+
+        if (!res.ok) {
+            const payload = await res.json().catch(() => null);
+            const message = payload?.message || `HTTP ${res.status}`;
+            throw new Error(message);
+        }
+
+        await res.json().catch(() => null);
+        showSuccess('Return submitted for review. Thank you!');
+        window.dispatchEvent(new CustomEvent('close-modal', { detail: 'markReturnModal' }));
+        markReturnState.requestId = null;
+        formElement.reset();
+        if (proofPond) {
+            proofPond.removeFiles();
+        }
+        await loadMyBorrowedItems();
+    } catch (error) {
+        console.error('submitReturnProof failed', error);
+        showError(error?.message || 'Failed to submit return proof.');
+    } finally {
+        if (submitButton) {
+            submitButton.disabled = originalDisabled;
+            submitButton.innerHTML = originalButtonHtml ?? 'Submit';
+        }
+    }
+}
+
 // wire confirm/report buttons
 document.addEventListener('DOMContentLoaded', () => {
     const confirmBtn = document.getElementById('mbi-confirm-received-btn');
@@ -765,6 +1022,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 reasonInput.value = '';
             }
             window.dispatchEvent(new CustomEvent('close-modal', { detail: 'confirmReportNotReceivedModal' }));
+        });
+    }
+
+    const markReturnForm = document.getElementById('markReturnForm');
+    const markReturnSubmitBtn = document.getElementById('markReturnSubmitBtn');
+    const markReturnCancelBtn = document.getElementById('markReturnCancelBtn');
+
+    if (markReturnForm) {
+        markReturnForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const currentId = markReturnState.requestId;
+            if (!currentId) {
+                showError('Unable to identify the borrow request.');
+                return;
+            }
+            await submitReturnProof(currentId, markReturnForm, markReturnSubmitBtn);
+        });
+    }
+
+    if (markReturnCancelBtn) {
+        markReturnCancelBtn.addEventListener('click', () => {
+            markReturnState.requestId = null;
+            if (markReturnForm) {
+                markReturnForm.reset();
+            }
+            const proofPond = getReturnProofPond();
+            if (proofPond) {
+                proofPond.removeFiles();
+            }
+            window.dispatchEvent(new CustomEvent('close-modal', { detail: 'markReturnModal' }));
         });
     }
 

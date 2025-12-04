@@ -94,8 +94,8 @@
     <x-modal name="borrowDetailsModal" maxWidth="2xl" background="transparent">
         <div
             id="borrowDetailsModalRoot"
-            x-data="{ itemsOpen: false, rejectionOpen: false }"
-            x-on:open-modal.window="if ($event.detail === 'borrowDetailsModal') { itemsOpen = false; rejectionOpen = false; }"
+            x-data="{ itemsOpen: true, rejectionOpen: false }"
+            x-on:open-modal.window="if ($event.detail === 'borrowDetailsModal') { itemsOpen = true; rejectionOpen = false; }"
             class="w-full max-h-[85vh] bg-[#4C1D95] dark:bg-gray-900 flex flex-col overflow-hidden rounded-2xl shadow-2xl"
         >
             <div class="relative px-6 py-4 bg-[#4C1D95] text-white sticky top-0 z-30 flex items-start gap-3 rounded-t-2xl">
@@ -199,6 +199,7 @@
                             <div class="flex items-center gap-2 text-purple-700">
                                 <i class="fas fa-boxes text-sm"></i>
                                 <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Items</h4>
+                                <span id="mbi-items-summary" class="ml-2 inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-700">0 items</span>
                             </div>
                             <button
                                 type="button"
@@ -208,7 +209,6 @@
                                 <span x-text="itemsOpen ? 'Hide' : 'Show'"></span>
                             </button>
                         </div>
-                        <p id="mbi-items-summary" class="mt-2 text-sm text-gray-500 dark:text-gray-400">0 items</p>
                         <div x-show="itemsOpen" x-cloak class="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4 space-y-6">
                             <div>
                                 <p class="text-xs uppercase text-gray-500 dark:text-gray-400 mb-2">Requested Items</p>
@@ -217,6 +217,46 @@
                             <div>
                                 <p class="text-xs uppercase text-gray-500 dark:text-gray-400 mb-2">Requested Manpower</p>
                                 <ul id="mbi-manpower" class="space-y-1 text-gray-600 dark:text-gray-300 list-disc list-inside"></ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="mbi-return-proof-block" class="hidden md:col-span-2">
+                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 space-y-4">
+                            <div class="flex items-center justify-between gap-3">
+                                <div class="flex items-center gap-2 text-purple-700">
+                                    <i class="fas fa-file-circle-check text-sm"></i>
+                                    <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Return Proof</h4>
+                                </div>
+                                <a
+                                    id="mbi-return-proof-download"
+                                    href="#"
+                                    class="hidden text-xs font-semibold text-purple-600 hover:text-purple-800"
+                                    target="_blank"
+                                    rel="noopener"
+                                >Download</a>
+                            </div>
+
+                            <div class="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden bg-white dark:bg-gray-900">
+                                <img
+                                    id="mbi-return-proof-image"
+                                    src=""
+                                    alt="Return proof preview"
+                                    class="hidden w-full max-h-80 object-contain bg-gray-900/10 dark:bg-gray-100/5"
+                                />
+                                <iframe
+                                    id="mbi-return-proof-viewer"
+                                    title="Return proof preview"
+                                    class="hidden w-full h-96"
+                                ></iframe>
+                                <div id="mbi-return-proof-fallback" class="p-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                                    No return proof has been uploaded yet.
+                                </div>
+                            </div>
+
+                            <div class="space-y-2">
+                                <div class="text-xs uppercase text-gray-500 dark:text-gray-400">Notes</div>
+                                <div id="mbi-return-proof-notes" class="bg-gray-50 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700 rounded-xl p-4 text-gray-700 dark:text-gray-300 whitespace-pre-line">—</div>
                             </div>
                         </div>
                     </div>
@@ -287,6 +327,22 @@
     <template id="btn-print-template">
         <x-button iconName="printer" variant="secondary" class="btn-action btn-print h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="print" title="Open printable slip">Print</x-button>
     </template>
+    <template id="btn-routing-slip-template">
+        <x-button variant="secondary" class="btn-action btn-routing-slip h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="routing-slip" title="Open routing slip">
+            <x-slot name="icon">
+                <i class="fas fa-file-signature text-[0.8rem]"></i>
+            </x-slot>
+            <span class="sr-only">Routing Slip</span>
+        </x-button>
+    </template>
+    <template id="btn-mark-returned-template">
+        <x-button variant="success" class="btn-action btn-mark-returned h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="mark-returned" title="Mark items as returned">
+            <x-slot name="icon">
+                <i class="fas fa-undo text-[0.8rem]"></i>
+            </x-slot>
+            <span class="sr-only">Mark as Returned</span>
+        </x-button>
+    </template>
     <template id="btn-confirm-delivery-template">
         <x-button iconName="check-circle" variant="success" class="btn-action btn-confirm h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only hover:bg-emerald-600/10 focus:bg-emerald-600/10" data-action="confirm-delivery" title="Confirm items were received">
             <span class="sr-only">Confirm Received</span>
@@ -330,13 +386,55 @@
             <p class="text-sm text-gray-600">
                 You are about to confirm that all items for
                 <span id="confirmReceiveRequestLabel" class="font-semibold text-gray-900">this request</span>
-                have been received in good condition. Proceeding will notify the administrator.
+                have been received in good condition.
             </p>
             <div class="flex justify-end gap-3 pt-4 border-t border-gray-100">
                 <x-button id="confirmReceiveCancelBtn" variant="secondary" class="px-4 py-2 text-sm">Cancel</x-button>
                 <x-button id="confirmReceiveConfirmBtn" variant="success" class="px-4 py-2 text-sm">Confirm Receipt</x-button>
             </div>
         </div>
+    </x-modal>
+
+    <x-modal name="markReturnModal" maxWidth="md">
+        <form id="markReturnForm" class="p-6 space-y-5" enctype="multipart/form-data">
+            @csrf
+            <div class="flex items-center gap-3">
+                <i class="fas fa-undo text-green-600 text-xl"></i>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900">Submit Return Proof</h3>
+                    <p class="text-sm text-gray-600">Upload your signed return slip so the GSO team can verify the items.</p>
+                </div>
+            </div>
+            <div class="space-y-3 text-sm text-gray-700">
+                <div>
+                    <div class="text-xs font-semibold uppercase text-gray-500">Request</div>
+                    <div id="markReturnRequestLabel" class="mt-1 font-semibold text-gray-900">—</div>
+                </div>
+                <div>
+                    <label for="markReturnProofInput" class="text-xs font-semibold text-gray-600 uppercase">Return Slip<span class="text-red-600">*</span></label>
+                    <input
+                        type="file"
+                        id="markReturnProofInput"
+                        name="return_proof"
+                        accept=".jpg,.jpeg,.png,.pdf"
+                        required
+                        data-filepond="true"
+                        data-preview-height="140"
+                        data-thumb-width="160"
+                        style="opacity: 0; pointer-events: none;"
+                    />
+                    <p class="mt-1 text-xs text-gray-500">Accepted formats: JPG, PNG, or PDF (max 5 MB).</p>
+                </div>
+                <div>
+                    <label for="markReturnNotesInput" class="text-xs font-semibold text-gray-600 uppercase">Notes to Admin (Optional)</label>
+                    <textarea id="markReturnNotesInput" name="notes" rows="3" class="mt-1 w-full rounded-lg border border-gray-300 focus:border-purple-500 focus:ring-purple-500 text-sm" placeholder="Share any additional information for the GSO team."></textarea>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                <x-button type="button" id="markReturnCancelBtn" variant="secondary" class="px-4 py-2 text-sm">Cancel</x-button>
+                <x-button type="submit" id="markReturnSubmitBtn" class="px-4 py-2 text-sm">Submit</x-button>
+            </div>
+        </form>
     </x-modal>
 
     <!-- Alert templates -->
