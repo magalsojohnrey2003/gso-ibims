@@ -538,8 +538,6 @@ function createButtonFromTemplate(templateId, id, options = {}) {
     if (!btn) return frag;
 
     const action = (btn.getAttribute('data-action') || '').toLowerCase().trim();
-    const request = options.request || null;
-    const physicalItems = Array.isArray(options.physicalItems) ? options.physicalItems : null;
 
     if (action === 'view') {
         btn.addEventListener('click', (ev) => { ev.stopPropagation(); viewRequest(id); });
@@ -553,33 +551,6 @@ function createButtonFromTemplate(templateId, id, options = {}) {
         btn.addEventListener('click', (ev) => { ev.stopPropagation(); openConfirmModal(id, 'rejected'); });
     } else if (['dispatch', 'deliver', 'deliver_items'].includes(action)) {
         btn.addEventListener('click', (ev) => { ev.stopPropagation(); openDeliverItemsModal(id); });
-    } else if (action === 'print-stickers') {
-        btn.type = 'button';
-        btn.dataset.printStickers = '1';
-        btn.dataset.printRoute = `/admin/borrow-requests/${encodeURIComponent(id)}/stickers`;
-
-        let borrowerName = '';
-        if (request && request.user) {
-            borrowerName = [request.user.first_name, request.user.last_name]
-                .filter(Boolean)
-                .join(' ')
-                .trim();
-        }
-
-        const requestCode = request ? (formatBorrowRequestCode(request) || `BR-${String(id).padStart(4, '0')}`) : `BR-${String(id).padStart(4, '0')}`;
-        const summaryLabel = borrowerName ? `${requestCode} • ${borrowerName}` : requestCode;
-
-        btn.dataset.printItem = summaryLabel;
-        if (borrowerName) {
-            btn.dataset.printPersonName = borrowerName;
-        }
-
-        const itemsSource = Array.isArray(physicalItems)
-            ? physicalItems
-            : (Array.isArray(request?.items) ? request.items.filter((item) => !isManpowerEntry(item)) : []);
-
-        const physicalCount = itemsSource.reduce((sum, item) => sum + Number(item?.quantity ?? 0), 0);
-        btn.dataset.printQuantity = String(Math.max(physicalCount, 1));
     } else {
         console.warn('Unknown button action in template', templateId, 'action=', action);
     }
@@ -886,10 +857,6 @@ function renderBorrowRequests() {
         const statusKeyRaw = String(req.status || '').toLowerCase();
         const statusKey = statusKeyRaw === 'qr_verified' ? 'approved' : statusKeyRaw;
         const deliveryKey = String(req.delivery_status || '').toLowerCase();
-        const physicalItems = Array.isArray(req.items) ? req.items.filter((item) => !isManpowerEntry(item)) : [];
-        const canPrintStickers = physicalItems.length > 0
-            && statusKey === 'approved'
-            && !['dispatched', 'delivered'].includes(deliveryKey);
 
         if (statusKey === 'pending') {
             wrapper.appendChild(createButtonFromTemplate('btn-validate-template', req.id));
@@ -900,25 +867,14 @@ function renderBorrowRequests() {
             pendingTag.innerHTML = '<i class="fas fa-clock text-[0.7rem]"></i><span>Pending Submission</span>';
             wrapper.appendChild(pendingTag);
         } else if (statusKey === 'approved' && !['dispatched','delivered'].includes(deliveryKey)) {
+            wrapper.appendChild(createButtonFromTemplate('btn-view-template', req.id));
             wrapper.appendChild(createButtonFromTemplate('btn-deliver-template', req.id));
-            if (canPrintStickers) {
-                wrapper.appendChild(createButtonFromTemplate('btn-print-stickers-template', req.id, { request: req, physicalItems }));
-            }
         } else if (deliveryKey === 'dispatched') {
             wrapper.appendChild(createButtonFromTemplate('btn-view-template', req.id));
-            if (canPrintStickers) {
-                wrapper.appendChild(createButtonFromTemplate('btn-print-stickers-template', req.id, { request: req, physicalItems }));
-            }
         } else if (deliveryKey === 'delivered' || ['returned', 'rejected'].includes(statusKey)) {
             wrapper.appendChild(createButtonFromTemplate('btn-view-template', req.id));
-            if (canPrintStickers) {
-                wrapper.appendChild(createButtonFromTemplate('btn-print-stickers-template', req.id, { request: req, physicalItems }));
-            }
         } else {
             wrapper.appendChild(createButtonFromTemplate('btn-view-template', req.id));
-            if (canPrintStickers) {
-                wrapper.appendChild(createButtonFromTemplate('btn-print-stickers-template', req.id, { request: req, physicalItems }));
-            }
         }
 
         tdActions.appendChild(wrapper);

@@ -81,8 +81,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const locationHidden = document.getElementById('location');
     const purposeOfficeInput = document.getElementById('purpose_office');
     const purposeInput = document.getElementById('purpose');
-    const usageStartSelect = document.getElementById('usage_start');
-    const usageEndSelect = document.getElementById('usage_end');
+    const usageStartInput = document.getElementById('usage_start');
+    const usageEndInput = document.getElementById('usage_end');
     const manpowerList = document.getElementById('manpowerRequirementsList');
     const manpowerTemplate = document.getElementById('manpowerRequirementTemplate');
     const manpowerEmptyState = document.getElementById('manpowerRequirementsEmpty');
@@ -104,6 +104,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 label: option.textContent?.trim() || option.innerText?.trim() || option.value,
             }))
         : [];
+
+    const defaultManpowerRoleName = manpowerList?.dataset.defaultRoleName?.trim() || 'Assist';
+    const rawDefaultQty = parseInt(manpowerList?.dataset.defaultRoleQty || '10', 10);
+    const defaultManpowerRoleQuantity = Number.isFinite(rawDefaultQty) && rawDefaultQty > 0
+        ? Math.min(rawDefaultQty, 99)
+        : 10;
+    let defaultManpowerInjected = Boolean(manpowerList?.querySelector('[data-auto-default="true"]'));
+    let defaultManpowerAttempted = defaultManpowerInjected;
+
+    const findDefaultManpowerRole = () => {
+        if (!defaultManpowerRoleName || !manpowerRoleChoices.length) {
+            return null;
+        }
+        const target = defaultManpowerRoleName.toLowerCase();
+        return manpowerRoleChoices.find((choice) => (choice.label || '').toLowerCase() === target) || null;
+    };
 
     const getSelectedRoleIds = () => {
         return new Set(getManpowerEntries().map((entry) => String(entry.roleId)));
@@ -169,8 +185,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let locationValid = !!(locationHidden?.value);
     const hasAtLeastOneItem = () => document.querySelectorAll('#borrowListItems [data-item-entry]').length > 0;
     let currentUsageLabel = formatUsageLabel(
-        usageStartSelect?.value || null,
-        usageEndSelect?.value || null,
+        usageStartInput?.value || null,
+        usageEndInput?.value || null,
     ) || '--';
 
     const getManpowerEntries = () => {
@@ -247,6 +263,57 @@ document.addEventListener('DOMContentLoaded', () => {
         window.dispatchEvent(new CustomEvent('borrow:manpower-updated', { detail: { entries } }));
     };
 
+    const injectDefaultManpowerIfNeeded = () => {
+        if (defaultManpowerAttempted) return;
+        if (!manpowerList || !manpowerTemplate) {
+            defaultManpowerAttempted = true;
+            return;
+        }
+
+        const hasItems = document.querySelectorAll('[data-item-entry]').length > 0;
+        if (!hasItems) {
+            return;
+        }
+
+        if (getManpowerEntries().length > 0) {
+            return;
+        }
+
+        const roleChoice = findDefaultManpowerRole();
+        if (!roleChoice) {
+            defaultManpowerAttempted = true;
+            return;
+        }
+
+        const fragment = manpowerTemplate?.content?.cloneNode(true);
+        const newRow = fragment?.firstElementChild;
+        if (!newRow) {
+            defaultManpowerAttempted = true;
+            return;
+        }
+
+        newRow.dataset.roleId = roleChoice.id;
+        newRow.dataset.quantity = String(defaultManpowerRoleQuantity);
+        newRow.dataset.autoDefault = 'true';
+
+        const roleInput = newRow.querySelector('[data-manpower-role-input]');
+        const quantityInput = newRow.querySelector('[data-manpower-quantity-input]');
+        if (roleInput) roleInput.value = roleChoice.id;
+        if (quantityInput) quantityInput.value = String(defaultManpowerRoleQuantity);
+
+        const roleLabelEl = newRow.querySelector('[data-manpower-role-label]');
+        const quantityLabelEl = newRow.querySelector('[data-manpower-quantity-label]');
+        if (roleLabelEl) roleLabelEl.textContent = roleChoice.label;
+        if (quantityLabelEl) quantityLabelEl.textContent = String(defaultManpowerRoleQuantity);
+
+        manpowerList.appendChild(newRow);
+        bindManpowerRow(newRow);
+        assignManpowerFieldNames();
+        emitManpowerUpdated();
+        defaultManpowerInjected = true;
+        defaultManpowerAttempted = true;
+    };
+
     const clampManpowerQuantity = (input) => {
         if (!input) return;
         const rawValue = parseInt(input.value || '0', 10);
@@ -254,8 +321,8 @@ document.addEventListener('DOMContentLoaded', () => {
             input.value = '1';
             return;
         }
-        if (rawValue > 999) {
-            input.value = '999';
+        if (rawValue > 99) {
+            input.value = '99';
         }
     };
 
@@ -311,7 +378,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (manpowerModalMode === 'edit' && row) {
             const existingQuantity = parseInt(row.dataset.quantity || row.querySelector('[data-manpower-quantity-input]')?.value || '1', 10);
             if (!Number.isNaN(existingQuantity) && existingQuantity > 0) {
-                defaultQuantity = Math.min(existingQuantity, 999);
+                defaultQuantity = Math.min(existingQuantity, 99);
             }
         }
         manpowerModalQuantityInput.value = String(defaultQuantity);
@@ -345,8 +412,8 @@ document.addEventListener('DOMContentLoaded', () => {
         clampManpowerQuantity(manpowerModalQuantityInput);
         const quantityValue = manpowerModalQuantityInput.value?.trim() || '1';
         const quantity = parseInt(quantityValue, 10);
-        if (Number.isNaN(quantity) || quantity < 1 || quantity > 999) {
-            window.showToast?.('Manpower quantities must be between 1 and 999.', 'warning');
+        if (Number.isNaN(quantity) || quantity < 1 || quantity > 99) {
+            window.showToast?.('Manpower quantities must be between 1 and 99.', 'warning');
             manpowerModalQuantityInput.focus();
             return;
         }
@@ -413,8 +480,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const quantity = parseInt(quantityValue, 10);
-            if (Number.isNaN(quantity) || quantity < 1 || quantity > 999) {
-                window.showToast?.('Manpower quantities must be between 1 and 999.', 'warning');
+            if (Number.isNaN(quantity) || quantity < 1 || quantity > 99) {
+                window.showToast?.('Manpower quantities must be between 1 and 99.', 'warning');
                 return false;
             }
 
@@ -659,6 +726,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         assignManpowerFieldNames();
         emitManpowerUpdated();
+        injectDefaultManpowerIfNeeded();
+    }
+
+    if (!manpowerList) {
+        defaultManpowerAttempted = true;
     }
 
     addManpowerBtn?.addEventListener('click', () => {
@@ -685,7 +757,7 @@ document.addEventListener('DOMContentLoaded', () => {
     manpowerModalQuantityInput?.addEventListener('input', () => {
         if (!manpowerModalQuantityInput) return;
         const numeric = manpowerModalQuantityInput.value.replace(/[^0-9]/g, '');
-        manpowerModalQuantityInput.value = numeric.slice(0, 3);
+        manpowerModalQuantityInput.value = numeric.slice(0, 2);
     });
 
     manpowerModalQuantityInput?.addEventListener('blur', () => {
@@ -912,6 +984,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     window.addEventListener('borrow:item-quantity-changed', () => {
+        injectDefaultManpowerIfNeeded();
         updateSummary();
         updateStep1NextState();
     });
@@ -922,8 +995,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.addEventListener('borrow:usage-updated', (event) => {
         currentUsageLabel = event.detail?.label || formatUsageLabel(
-            usageStartSelect?.value || null,
-            usageEndSelect?.value || null,
+            usageStartInput?.value || null,
+            usageEndInput?.value || null,
         ) || '--';
         updateSummary();
     });

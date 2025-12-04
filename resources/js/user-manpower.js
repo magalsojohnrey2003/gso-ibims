@@ -371,9 +371,96 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const getTodayIsoDate = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const getRoundedNowTime = () => {
+    const now = new Date();
+    now.setSeconds(0, 0);
+    const remainder = now.getMinutes() % 5;
+    if (remainder !== 0) {
+      now.setMinutes(now.getMinutes() + (5 - remainder));
+    }
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  };
+
+  const applyScheduleConstraints = () => {
+    if (!startDateInput || !endDateInput) return;
+
+    const today = getTodayIsoDate();
+    const roundedNow = getRoundedNowTime();
+
+    startDateInput.setAttribute('min', today);
+    if (startDateInput.value && startDateInput.value < today) {
+      startDateInput.value = today;
+    }
+
+    const startDateValue = startDateInput.value || '';
+    const minEndDate = startDateValue || today;
+    endDateInput.setAttribute('min', minEndDate);
+    if (endDateInput.value && endDateInput.value < minEndDate) {
+      endDateInput.value = minEndDate;
+    }
+
+    if (startTimeInput) {
+      startTimeInput.max = '23:59';
+      if (startDateValue && startDateValue === today) {
+        startTimeInput.min = roundedNow;
+        if (startTimeInput.value && startTimeInput.value < roundedNow) {
+          startTimeInput.value = roundedNow;
+        }
+      } else {
+        startTimeInput.removeAttribute('min');
+      }
+    }
+
+    if (endTimeInput) {
+      endTimeInput.max = '23:59';
+      const endDateValue = endDateInput.value || '';
+      let endMin = '';
+      if (endDateValue && startDateValue && endDateValue === startDateValue) {
+        endMin = startTimeInput?.value || (startDateValue === today ? roundedNow : '');
+      } else if (endDateValue && endDateValue === today) {
+        endMin = roundedNow;
+      }
+
+      if (endMin) {
+        endTimeInput.min = endMin;
+        if (endTimeInput.value && endTimeInput.value < endMin) {
+          endTimeInput.value = endMin;
+        }
+      } else {
+        endTimeInput.removeAttribute('min');
+      }
+    }
+
+    refreshSummary();
+  };
+
   const bindSummaryListener = (el) => {
     if (!el) return;
     ['input', 'change'].forEach((eventName) => el.addEventListener(eventName, refreshSummary));
+  };
+
+  const sanitizeQuantityInput = () => {
+    if (!quantityInput) return;
+    let value = (quantityInput.value || '').replace(/[^0-9]/g, '');
+    if (value.length > 2) value = value.slice(0, 2);
+    if (value === '') {
+      quantityInput.value = '';
+      return;
+    }
+    let numeric = parseInt(value, 10);
+    if (!Number.isFinite(numeric) || numeric < 1) numeric = 1;
+    if (numeric > 99) numeric = 99;
+    quantityInput.value = String(numeric);
   };
 
   [
@@ -389,6 +476,17 @@ document.addEventListener('DOMContentLoaded', () => {
     endDateInput,
     endTimeInput,
   ].forEach(bindSummaryListener);
+
+  if (quantityInput) {
+    quantityInput.addEventListener('input', sanitizeQuantityInput);
+    quantityInput.addEventListener('blur', sanitizeQuantityInput);
+  }
+
+  [startDateInput, endDateInput, startTimeInput, endTimeInput].forEach((input) => {
+    input?.addEventListener('change', applyScheduleConstraints);
+  });
+  startTimeInput?.addEventListener('input', applyScheduleConstraints);
+  endTimeInput?.addEventListener('input', applyScheduleConstraints);
 
   letterInput?.addEventListener('change', refreshSummary);
 
@@ -440,8 +538,8 @@ document.addEventListener('DOMContentLoaded', () => {
       quantityInput?.focus();
       return false;
     }
-    if (quantityValue > 999) {
-      window.showToast?.('Maximum of 999 personnel only', 'warning');
+    if (quantityValue > 99) {
+      window.showToast?.('Maximum of 99 personnel only', 'warning');
       quantityInput?.focus();
       return false;
     }
@@ -617,7 +715,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const end_time = endTimeInput?.value || '';
 
     if (!Number.isInteger(quantity) || quantity < 1) return { ok:false, message:'Quantity must be at least 1' };
-    if (quantity > 999) return { ok:false, message:'Maximum of 999 personnel only' };
+    if (quantity > 99) return { ok:false, message:'Maximum of 99 personnel only' };
     if (!manpower_role_id) return { ok:false, message:'Please select a manpower role' };
     if (!municipality_id) return { ok:false, message:'Please select a municipality/city' };
     if (!barangay_id) return { ok:false, message:'Please select a barangay' };
@@ -677,6 +775,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (locationPreview) locationPreview.textContent = '—';
     if (schedulePreview) schedulePreview.textContent = '—';
+    applyScheduleConstraints();
     goToStep(1);
     openModal('userManpowerCreateModal');
   });
@@ -846,4 +945,5 @@ document.addEventListener('DOMContentLoaded', () => {
   fetchRoles();
   loadMunicipalities();
   fetchRows();
+  applyScheduleConstraints();
 });

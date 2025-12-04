@@ -156,6 +156,15 @@
         </x-button>
     </template>
 
+    <template id="action-view-proof-template">
+        <x-button data-action="view-proof" variant="secondary" class="btn-action btn-proof h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" title="View submitted proof">
+            <x-slot name="icon">
+                <i class="fas fa-file-image text-[0.8rem]"></i>
+            </x-slot>
+            View Proof
+        </x-button>
+    </template>
+
     <!-- Manage Modal -->
     <x-modal name="manageReturnItemsModal" maxWidth="3xl">
         <div class="flex flex-col max-h-[90vh] bg-white">
@@ -275,6 +284,42 @@
                 <x-button variant="secondary" class="px-4 py-2 text-sm" @click="$dispatch('close-modal', 'manageReturnItemsModal')">
                     Close
                 </x-button>
+            </div>
+        </div>
+    </x-modal>
+
+    <x-modal name="viewReturnProofModal" maxWidth="3xl">
+        <div class="flex flex-col max-h-[90vh] bg-white rounded-2xl overflow-hidden">
+            <div class="px-6 pt-6 pb-4 bg-purple-600 text-white flex items-start justify-between gap-3">
+                <div>
+                    <h3 class="text-xl font-semibold" id="returnProofTitle">Return Proof</h3>
+                    <p class="text-sm text-purple-100">Review the file and notes submitted by the borrower.</p>
+                </div>
+                <button type="button" class="text-white/80 hover:text-white transition" @click="$dispatch('close-modal', 'viewReturnProofModal')" aria-label="Close dialog">
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+            </div>
+            <div class="px-6 py-5 space-y-4 overflow-y-auto text-sm text-gray-700">
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold uppercase text-gray-500">Uploaded File</span>
+                        <a href="#" id="returnProofDownloadLink" target="_blank" rel="noopener" class="text-xs font-semibold text-purple-600 hover:text-purple-800 hidden">Download</a>
+                    </div>
+                    <div class="border border-gray-200 rounded-xl overflow-hidden">
+                        <img id="returnProofImage" src="" alt="Return proof preview" class="hidden w-full max-h-96 object-contain bg-gray-900/5">
+                        <iframe id="returnProofViewer" class="w-full h-96 hidden" title="Return proof preview"></iframe>
+                        <div id="returnProofFallback" class="p-6 text-center text-gray-500">
+                            Proof preview unavailable. Use the download link above to view the file.
+                        </div>
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <div class="text-xs font-semibold uppercase text-gray-500">Borrower Notes</div>
+                    <div id="viewReturnProofNotes" class="bg-gray-50 border border-gray-200 rounded-xl p-4 text-gray-700 whitespace-pre-line">—</div>
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-gray-200 flex justify-end">
+                <x-button variant="secondary" class="px-4 py-2 text-sm" @click="$dispatch('close-modal', 'viewReturnProofModal')">Close</x-button>
             </div>
         </div>
     </x-modal>

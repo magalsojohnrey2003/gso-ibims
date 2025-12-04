@@ -20,21 +20,31 @@ function initFilePondOnInput(input) {
   
   // Determine if this is a letter upload (support_letter) or item photo
   const isLetterUpload = input.id === 'support_letter' || input.name === 'support_letter';
-  
-  // Custom placeholder text for letter uploads
-  const labelIdle = isLetterUpload
-    ? `
+  const isReturnProofUpload = input.id === 'markReturnProofInput' || input.name === 'return_proof';
+
+  let labelIdle;
+  if (isLetterUpload) {
+    labelIdle = `
       <div style="text-align:left;padding:8px 12px">
         <div style="font-weight:600;color:#111827;font-size:14px">Click to upload Signed Letter</div>
         <div style="font-size:12px;color:#6b7280;margin-top:3px">or
         <span style="font-weight:600">drag and drop</span> JPG, PNG, WEBP, or PDF. Max 5MB</div>
-      </div>`
-    : `
+      </div>`;
+  } else if (isReturnProofUpload) {
+    labelIdle = `
+      <div style="text-align:left;padding:8px 12px">
+        <div style="font-weight:600;color:#111827;font-size:14px">Click to upload Return Proof</div>
+        <div style="font-size:12px;color:#6b7280;margin-top:3px">or
+        <span style="font-weight:600">drag and drop</span> JPG, PNG, or PDF. Max 5MB</div>
+      </div>`;
+  } else {
+    labelIdle = `
       <div style="text-align:left;padding:8px 12px">
         <div style="font-weight:600;color:#111827;font-size:14px">Click to upload Item Photo</div>
         <div style="font-size:12px;color:#6b7280;margin-top:3px">or
         <span style="font-weight:600">drag and drop</span> JPG/PNG, up to 2MB</div>
       </div>`;
+  }
 
   const pond = FilePond.create(input, {
     allowMultiple: false,
@@ -63,6 +73,15 @@ function initFilePondOnInput(input) {
     // small accessibility label
     labelFileProcessingComplete: 'Upload ready',
   });
+
+  if (pond?.element) {
+    try {
+      pond.element.style.width = '100%';
+      pond.element.style.maxWidth = '100%';
+    } catch (error) {
+      console.warn('Failed to stretch FilePond container', error);
+    }
+  }
 
   // adjust DOM for thumbnail sizing after FilePond mounts
   pond.on('addfile', () => {

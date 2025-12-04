@@ -101,7 +101,7 @@
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700">Manpower quantity</label>
-                                        <input type="number" min="1" max="999" id="mp_quantity" class="gov-input mt-1 block w-full rounded-md px-3 py-2 text-sm transition duration-200" oninput="if(this.value.length>3)this.value=this.value.slice(0,3);" placeholder="Max 999" />
+                                        <input type="number" min="1" max="99" id="mp_quantity" class="gov-input mt-1 block w-full rounded-md px-3 py-2 text-sm transition duration-200" oninput="if(this.value.length>2)this.value=this.value.slice(0,2);" placeholder="Min 10" />
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700">Manpower role</label>

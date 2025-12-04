@@ -595,35 +595,42 @@ function initializeManpowerField() {
 }
 
 function initializeUsageControls() {
-    const startSelect = document.getElementById('usage_start');
-    const endSelect = document.getElementById('usage_end');
+    const startInput = document.getElementById('usage_start');
+    const endInput = document.getElementById('usage_end');
     const hiddenInput = document.getElementById('time_of_usage');
     const display = document.getElementById('usageCurrentDisplay');
 
-    if (!startSelect || !endSelect || !hiddenInput) return;
+    if (!startInput || !endInput || !hiddenInput) return;
 
-    const optionValues = Array.from(startSelect.options).map((option) => option.value);
+    const TODAY_YMD = () => ymdFromDate(new Date());
 
-    const ensureOrder = () => {
-        const startIndex = optionValues.indexOf(startSelect.value);
-        let endIndex = optionValues.indexOf(endSelect.value);
-        // If either blank, don't force order; allow optional selections
-        if (startSelect.value === '' || endSelect.value === '') return;
-        if (startIndex === -1 || endIndex === -1) return;
-        if (endIndex <= startIndex) {
-            endIndex = Math.min(startIndex + 1, optionValues.length - 1);
-            endSelect.value = optionValues[endIndex];
+    const getRoundedNow = () => {
+        const now = new Date();
+        now.setSeconds(0, 0);
+        const remainder = now.getMinutes() % 5;
+        if (remainder !== 0) {
+            now.setMinutes(now.getMinutes() + (5 - remainder));
+        }
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        return `${hours}:${minutes}`;
+    };
+
+    const clampChronologicalOrder = () => {
+        if (!startInput.value || !endInput.value) return;
+        if (endInput.value < startInput.value) {
+            endInput.value = startInput.value;
         }
     };
 
-    const updateUsage = () => {
-        ensureOrder();
-        const start = startSelect.value;
-        const end = endSelect.value;
-        if (!start || !end) {
-            hiddenInput.value = '';
-        } else {
+    const syncUsageState = () => {
+        clampChronologicalOrder();
+        const start = startInput.value || '';
+        const end = endInput.value || '';
+        if (start && end) {
             hiddenInput.value = `${start}-${end}`;
+        } else {
+            hiddenInput.value = '';
         }
         const label = (start && end) ? formatUsageRange(start, end) : '--';
         if (display) {
@@ -634,24 +641,73 @@ function initializeUsageControls() {
         }));
     };
 
-    if (hiddenInput.value && hiddenInput.value.includes('-')) {
-        const [savedStart, savedEnd] = hiddenInput.value.split('-');
-        if (optionValues.includes(savedStart)) {
-            startSelect.value = savedStart;
-        }
-        if (optionValues.includes(savedEnd)) {
-            endSelect.value = savedEnd;
-        }
-    } else {
-        // Ensure both are blank initially if no saved value
-        startSelect.value = '';
-        endSelect.value = '';
-    }
+    const updateTimeConstraints = () => {
+        const borrowDate = document.getElementById('borrow_date')?.value || borrowPick || '';
+        const returnDate = document.getElementById('return_date')?.value || returnPick || '';
+        const todayYmd = TODAY_YMD();
+        const roundedNow = getRoundedNow();
 
-    startSelect.addEventListener('change', updateUsage);
-    endSelect.addEventListener('change', updateUsage);
+        if (borrowDate && borrowDate === todayYmd) {
+            startInput.min = roundedNow;
+            if (startInput.value && startInput.value < roundedNow) {
+                startInput.value = roundedNow;
+            }
+        } else {
+            startInput.removeAttribute('min');
+        }
+        startInput.max = '23:59';
 
-    updateUsage();
+        let endMin = '';
+        if (returnDate && borrowDate && returnDate === borrowDate) {
+            endMin = startInput.value || (borrowDate === todayYmd ? roundedNow : '');
+        } else if (returnDate && returnDate === todayYmd) {
+            endMin = roundedNow;
+        }
+
+        if (endMin) {
+            endInput.min = endMin;
+            if (endInput.value && endInput.value < endMin) {
+                endInput.value = endMin;
+            }
+        } else {
+            endInput.removeAttribute('min');
+        }
+        endInput.max = '23:59';
+
+        syncUsageState();
+    };
+
+    const restoreFromHidden = () => {
+        const raw = hiddenInput.value || '';
+        if (!raw.includes('-')) {
+            return;
+        }
+        const [savedStart, savedEnd] = raw.split('-');
+        if (savedStart) {
+            startInput.value = savedStart;
+        }
+        if (savedEnd) {
+            endInput.value = savedEnd;
+        }
+    };
+
+    const handleStartChange = () => {
+        updateTimeConstraints();
+    };
+
+    const handleEndChange = () => {
+        updateTimeConstraints();
+    };
+
+    startInput.addEventListener('input', handleStartChange);
+    startInput.addEventListener('change', handleStartChange);
+    endInput.addEventListener('input', handleEndChange);
+    endInput.addEventListener('change', handleEndChange);
+
+    window.addEventListener('borrow:dates-updated', updateTimeConstraints);
+
+    restoreFromHidden();
+    updateTimeConstraints();
 }
 
 /* ---------- Init ---------- */

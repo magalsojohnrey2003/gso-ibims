@@ -362,6 +362,7 @@ public function store(Request $request, PropertyNumberService $numbers)
         'start_serial' => 'nullable|alpha_num|min:1|max:5',
         'description' => 'nullable|string|max:1000',
         'photo' => 'nullable|image|max:2048',
+        'receipt_photo' => 'nullable|image|max:2048',
         'acquisition_date' => 'nullable|date',
         'acquisition_cost' => 'nullable|string|max:50',
         'is_borrowable' => 'nullable|boolean',
@@ -569,11 +570,27 @@ public function store(Request $request, PropertyNumberService $numbers)
         return redirect()->back()->withInput()->with('error', 'Unable to validate property numbers: ' . $e->getMessage());
     }
 
+    $normalizedName = trim($data['name']);
+    $categoryValue = (string) $data['category'];
+
+    $existingItem = Item::query()
+        ->where('category', $categoryValue)
+        ->whereRaw('TRIM(LOWER(name)) = ?', [strtolower($normalizedName)])
+        ->first();
+    $mergeMode = $existingItem !== null;
+
     $photoPath = null;
     $uploadedPhoto = false;
-    if ($request->hasFile('photo')) {
+    if (! $mergeMode && $request->hasFile('photo')) {
         $photoPath = $request->file('photo')->store('items', 'public');
         $uploadedPhoto = true;
+    }
+
+    $receiptPhotoPath = null;
+    $uploadedReceiptPhoto = false;
+    if ($request->hasFile('receipt_photo')) {
+        $receiptPhotoPath = $request->file('receipt_photo')->store('receipts', 'public');
+        $uploadedReceiptPhoto = true;
     }
 
     $acquisitionDateValue = null;
@@ -586,21 +603,60 @@ public function store(Request $request, PropertyNumberService $numbers)
     }
     $acquisitionCostValue = $this->normalizeCurrency($request->input('acquisition_cost'));
 
+    $created = [];
+    $skipped = [];
+    $item = null;
+    $originalReceiptPhoto = $existingItem?->receipt_photo;
+
     DB::beginTransaction();
     try {
-        $item = Item::create([
-            'name' => $data['name'],
-            'category' => (string) $data['category'],
-            'total_qty' => 0,
-            'available_qty' => 0,
-            'photo' => $photoPath,
-            'acquisition_date' => $acquisitionDateValue,
-            'acquisition_cost' => $acquisitionCostValue,
-            'is_borrowable' => $request->boolean('is_borrowable', true),
-        ]);
+        if ($mergeMode) {
+            $item = Item::query()->lockForUpdate()->find($existingItem->id);
+            if (! $item) {
+                throw new \RuntimeException('Unable to merge item – matching record not found.');
+            }
 
-        $created = [];
-        $skipped = [];
+            if (filled($data['description'] ?? null)) {
+                $item->description = $data['description'];
+            }
+
+            if ($request->filled('acquisition_date')) {
+                $item->acquisition_date = $acquisitionDateValue;
+            }
+
+            if ($request->filled('acquisition_cost')) {
+                $item->acquisition_cost = $acquisitionCostValue;
+            }
+
+            if ($uploadedReceiptPhoto) {
+                $item->receipt_photo = $receiptPhotoPath;
+            }
+
+            $item->save();
+
+            if (filled($data['description'] ?? null)) {
+                $primaryInstance = $item->instances()->orderBy('id')->first();
+                if ($primaryInstance) {
+                    $primaryInstance->notes = $data['description'];
+                    $primaryInstance->save();
+                }
+            }
+        } else {
+            $item = Item::create([
+                'name' => $normalizedName,
+                'description' => $data['description'] ?? null,
+                'category' => $categoryValue,
+                'total_qty' => 0,
+                'available_qty' => 0,
+                'photo' => $photoPath,
+                'receipt_photo' => $receiptPhotoPath,
+                'acquisition_date' => $acquisitionDateValue,
+                'acquisition_cost' => $acquisitionCostValue,
+                'is_borrowable' => $request->boolean('is_borrowable', true),
+            ]);
+        }
+
+        $createdAnyInstances = !empty($rowsToCreate) || $hasBulkInputs;
 
         // Create instances either from rowsToCreate or using bulk generation
         if (!empty($rowsToCreate)) {
@@ -636,7 +692,7 @@ public function store(Request $request, PropertyNumberService $numbers)
                             'serial' => $payload['serial'],
                             'serial_int' => ctype_digit($payload['serial']) ? (int) ltrim($payload['serial'], '0') : null,
                             'notes' => $data['description'] ?? null,
-                            'context' => ['source' => 'admin_item_store'],
+                            'context' => ['source' => 'admin_item_store', 'merge_mode' => $mergeMode ? 1 : 0],
                         ],
                         $request->user()
                     );
@@ -649,8 +705,7 @@ public function store(Request $request, PropertyNumberService $numbers)
                 }
             }
         } elseif ($hasBulkInputs) {
-            // original bulk creation using createInstances helper
-            [$created, $skipped] = $this->createInstances(
+            [$bulkCreated, $bulkSkipped] = $this->createInstances(
                 $item,
                 $numbers,
                 [
@@ -664,20 +719,31 @@ public function store(Request $request, PropertyNumberService $numbers)
                 $serialWidth,
                 $data['description'] ?? null,
                 $request->user(),
-                ['source' => 'admin_item_store']
+                ['source' => 'admin_item_store', 'merge_mode' => $mergeMode ? 1 : 0]
             );
+            $created = array_merge($created, $bulkCreated);
+            $skipped = array_merge($skipped, $bulkSkipped);
         } else {
-            // no instances to create
-            // Set total_qty to entered quantity even if no instances are created
-            // For new items without instances, all quantity should be available
-            $item->total_qty = $quantity;
-            $item->available_qty = $quantity;
-            $item->save();
+            if (! $mergeMode) {
+                // no instances to create
+                // Set total_qty to entered quantity even if no instances are created
+                // For new items without instances, all quantity should be available
+                $item->total_qty = $quantity;
+                $item->available_qty = $quantity;
+                $item->save();
+            } else {
+                // Merge mode without new instances: increment quantities based on provided quantity
+                $item->total_qty = (int) $item->total_qty + $quantity;
+                $item->available_qty = (int) $item->available_qty + $quantity;
+                $item->save();
+            }
         }
 
-        // Only sync quantities if instances were created (it will count actual instances)
-        // Otherwise, total_qty is already set to the entered quantity above
-        if (!empty($rowsToCreate) || $hasBulkInputs) {
+        if ($mergeMode) {
+            if ($createdAnyInstances) {
+                $this->syncItemQuantities($item);
+            }
+        } elseif ($createdAnyInstances) {
             // Update total_qty to entered quantity (not just instance count) to reflect what admin entered
             $item->total_qty = $quantity;
             // But available_qty should still be based on actual available instances
@@ -689,8 +755,17 @@ public function store(Request $request, PropertyNumberService $numbers)
 
         DB::commit();
 
+        if ($mergeMode && $uploadedReceiptPhoto && $originalReceiptPhoto && $originalReceiptPhoto !== $receiptPhotoPath) {
+            if (Storage::disk('public')->exists($originalReceiptPhoto)) {
+                Storage::disk('public')->delete($originalReceiptPhoto);
+            }
+        }
+
         if ($request->wantsJson()) {
-            $jsonMessage = count($created) > 1 ? 'Items added successfully!' : 'Item added successfully!';
+            $jsonMessage = $mergeMode
+                ? 'Existing item updated successfully.'
+                : (count($created) > 1 ? 'Items added successfully!' : 'Item added successfully!');
+
             if (! empty($skipped)) {
                 $jsonMessage .= ' Some serials were skipped.';
             }
@@ -708,28 +783,32 @@ public function store(Request $request, PropertyNumberService $numbers)
                     'total_qty' => $item->total_qty,
                     'available_qty' => $item->available_qty,
                 ],
-            ], $skipped ? 207 : 201);
+            ], $skipped ? 207 : ($mergeMode ? 200 : 201));
         }
 
         if (! empty($skipped)) {
-            $message = (count($created) > 1 ? 'Items added successfully!' : 'Item added successfully!') . ' Some serials were skipped.';
+            $message = ($mergeMode ? 'Existing item updated successfully.' : (count($created) > 1 ? 'Items added successfully!' : 'Item added successfully!')) . ' Some serials were skipped.';
         } else {
-            $message = count($created) > 1 ? 'Items added successfully!' : 'Item added successfully!';
+            $message = $mergeMode ? 'Existing item updated successfully.' : (count($created) > 1 ? 'Items added successfully!' : 'Item added successfully!');
         }
 
         return redirect()->route('items.index')->with('success', $message);
 
     } catch (\Throwable $e) {
         DB::rollBack();
-        if ($uploadedPhoto && $photoPath) {
+        if (! $mergeMode && $uploadedPhoto && $photoPath) {
             Storage::disk('public')->delete($photoPath);
+        }
+        if ($uploadedReceiptPhoto && $receiptPhotoPath) {
+            Storage::disk('public')->delete($receiptPhotoPath);
         }
 
         if ($request->wantsJson() || $request->isXmlHttpRequest()) {
             $status = $e instanceof \RuntimeException ? 409 : 500;
             return response()->json(['message' => $e->getMessage() ?: 'Failed to add items. Please try again.'], $status);
         }
-        return redirect()->route('items.index')->with('error', 'Failed to create item: ' . $e->getMessage());
+        $errorTarget = $mergeMode ? 'merge' : 'create';
+        return redirect()->route('items.index')->with('error', 'Failed to ' . $errorTarget . ' item: ' . $e->getMessage());
     }
 }
 
@@ -741,6 +820,7 @@ public function update(Request $request, Item $item)
         'category' => 'required|string',
         'description' => 'nullable|string|max:1000',
         'photo' => 'nullable|image|max:2048',
+        'receipt_photo' => 'nullable|image|max:2048',
         'existing_photo' => 'nullable|string',
         'acquisition_date' => 'nullable|date',
         'acquisition_cost' => 'nullable|string|max:50',
@@ -750,6 +830,10 @@ public function update(Request $request, Item $item)
     $originalPhoto = $item->photo;
     $photoPath = $originalPhoto && $originalPhoto !== $this->defaultPhoto ? $originalPhoto : null;
     $uploadedNewPhoto = false;
+
+    $originalReceiptPhoto = $item->receipt_photo;
+    $receiptPhotoPath = $originalReceiptPhoto;
+    $uploadedReceiptPhoto = false;
 
     $requestedBorrowable = $request->boolean('is_borrowable', true);
     $hasMissingStock = (int) ($item->available_qty ?? 0) < (int) ($item->total_qty ?? 0);
@@ -766,6 +850,11 @@ public function update(Request $request, Item $item)
         $uploadedNewPhoto = true;
     }
 
+    if ($request->hasFile('receipt_photo')) {
+        $receiptPhotoPath = $request->file('receipt_photo')->store('receipts', 'public');
+        $uploadedReceiptPhoto = true;
+    }
+
     DB::beginTransaction();
     try {
         $item->name = $data['name'];
@@ -773,6 +862,10 @@ public function update(Request $request, Item $item)
         $item->description = $data['description'] ?? null;
         $item->photo = $photoPath;
         $item->is_borrowable = $requestedBorrowable;
+
+        if ($uploadedReceiptPhoto) {
+            $item->receipt_photo = $receiptPhotoPath;
+        }
 
         if ($request->has('acquisition_date')) {
             if ($request->filled('acquisition_date')) {
@@ -810,6 +903,12 @@ public function update(Request $request, Item $item)
             }
         }
 
+        if ($uploadedReceiptPhoto && $originalReceiptPhoto && $originalReceiptPhoto !== $receiptPhotoPath) {
+            if (Storage::disk('public')->exists($originalReceiptPhoto)) {
+                Storage::disk('public')->delete($originalReceiptPhoto);
+            }
+        }
+
         if ($request->wantsJson()) {
             $photoUrl = $item->photo_url;
             return response()->json([
@@ -835,6 +934,12 @@ public function update(Request $request, Item $item)
         if ($uploadedNewPhoto && $photoPath && $photoPath !== $this->defaultPhoto) {
             if (Storage::disk('public')->exists($photoPath)) {
                 Storage::disk('public')->delete($photoPath);
+            }
+        }
+
+        if ($uploadedReceiptPhoto && $receiptPhotoPath) {
+            if (Storage::disk('public')->exists($receiptPhotoPath)) {
+                Storage::disk('public')->delete($receiptPhotoPath);
             }
         }
 

@@ -1,8 +1,10 @@
 <aside id="sidebar"
-    class="w-64 sidebar is-collapsed h-screen fixed inset-y-0 left-0 transition-all duration-300 transform -translate-x-full lg:translate-x-0 lg:relative z-40 flex-shrink-0"
+    role="navigation"
+    aria-label="Profile sidebar"
+    class="w-64 sidebar is-expanded h-screen fixed inset-y-0 left-0 transition-all duration-300 transform -translate-x-full lg:translate-x-0 lg:relative z-40 flex-shrink-0"
     data-sidebar-type="profile"
-    data-desktop-collapsed="true"
-    aria-hidden="true">
+    data-desktop-collapsed="false"
+    aria-hidden="false">
 
     <!-- Navigation -->
     <nav class="mt-6" role="menu" aria-label="Profile menu">

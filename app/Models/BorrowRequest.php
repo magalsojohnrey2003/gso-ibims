@@ -34,6 +34,8 @@ class BorrowRequest extends Model
         'rejection_reason_id',
         'reject_category',
         'reject_reason',
+        'return_proof_path',
+        'return_proof_notes',
     ];
         
 

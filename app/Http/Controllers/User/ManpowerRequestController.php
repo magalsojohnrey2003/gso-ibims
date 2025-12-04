@@ -80,7 +80,7 @@ class ManpowerRequestController extends Controller
     public function store(Request $request, PhilSmsService $philSms)
     {
         $data = $request->validate([
-            'quantity' => 'required|integer|min:1|max:999',
+            'quantity' => 'required|integer|min:1|max:99',
             'manpower_role_id' => 'required|exists:manpower_roles,id',
             'purpose' => 'required|string|max:255',
             'location' => 'required|string|max:255',

@@ -8,7 +8,6 @@ const CSRF_TOKEN = CONFIG.csrf || document.querySelector('meta[name="csrf-token"
 
 let RETURN_ROWS = [];
 
-const LOCK_REASON_BORROWED_DEFAULT = 'Cannot update condition while the item is currently borrowed.';
 const LOCK_REASON_HISTORY_DEFAULT = 'This return record is read-only because a newer return update exists.';
 
 let MANAGE_ITEMS = [];
@@ -141,6 +140,8 @@ function formatDeliveryStatus(status) {
             return 'Delivered';
         case 'returned':
             return 'Returned';
+        case 'return_pending':
+            return 'Return Pending';
         case 'not_received':
             return 'Not Received';
         default:
@@ -262,7 +263,8 @@ function renderTable() {
         }
 
         const deliveryStatus = String(row.delivery_status || '').toLowerCase();
-        if (deliveryStatus !== 'returned') {
+        const hasReturnProof = Boolean(row.return_proof_url || row.return_proof_path);
+        if (deliveryStatus !== 'returned' && !hasReturnProof) {
             const collectTpl = document.getElementById('action-collect-template');
             if (collectTpl) {
                 const btnFrag = collectTpl.content.cloneNode(true);
@@ -279,6 +281,18 @@ function renderTable() {
                 const button = btnFrag.querySelector('[data-action="manage"]');
                 if (button) {
                     button.addEventListener('click', () => openManageModal(row.id));
+                }
+                wrapper.appendChild(btnFrag);
+            }
+        }
+
+        if (hasReturnProof) {
+            const proofTpl = document.getElementById('action-view-proof-template');
+            if (proofTpl) {
+                const btnFrag = proofTpl.content.cloneNode(true);
+                const button = btnFrag.querySelector('[data-action="view-proof"]');
+                if (button) {
+                    button.addEventListener('click', () => openReturnProofModal(row));
                 }
                 wrapper.appendChild(btnFrag);
             }
@@ -339,6 +353,126 @@ async function openViewModal(id) {
         window.dispatchEvent(new CustomEvent('open-modal', { detail: 'viewReturnItemsModal' }));
     } catch (error) {
         window.showToast('Failed to load request details. Please try again.', 'error');
+    }
+}
+
+async function openReturnProofModal(row) {
+    if (!row) {
+        window.showToast('Proof details unavailable.', 'error');
+        return;
+    }
+
+    populateReturnProofModal(row);
+    window.dispatchEvent(new CustomEvent('open-modal', { detail: 'viewReturnProofModal' }));
+
+    const identifier = row.id ?? row.borrow_request_id ?? (row.walk_in_request_id ? `W${row.walk_in_request_id}` : null);
+    if (!identifier) {
+        return;
+    }
+
+    try {
+        const details = await fetchReturnDetails(identifier);
+        if (details) {
+            const merged = { ...row, ...details };
+            populateReturnProofModal(merged);
+        }
+    } catch (error) {
+        console.warn('Failed to refresh proof data', error);
+    }
+}
+
+function populateReturnProofModal(row) {
+    const requestCode = formatRequestCode(row) || row.formatted_request_id || `#${row.borrow_request_id ?? row.id ?? '--'}`;
+    const titleEl = document.getElementById('returnProofTitle');
+    if (titleEl) {
+        titleEl.textContent = `Return Proof for ${requestCode}`;
+    }
+
+    const notesEl = document.getElementById('viewReturnProofNotes');
+    if (notesEl) {
+        const trimmed = (row.return_proof_notes || '').trim();
+        notesEl.textContent = trimmed !== '' ? trimmed : '—';
+    }
+
+    const viewer = document.getElementById('returnProofViewer');
+    const image = document.getElementById('returnProofImage');
+    const fallback = document.getElementById('returnProofFallback');
+    const link = document.getElementById('returnProofDownloadLink');
+
+    const rawUrl = (row.return_proof_url || row.return_proof_path || '').trim();
+    let proofUrl = '';
+    if (rawUrl) {
+        try {
+            const url = new URL(rawUrl, window.location.origin);
+            proofUrl = url.href;
+        } catch (_) {
+            proofUrl = rawUrl;
+        }
+    }
+
+    if (viewer) {
+        viewer.classList.add('hidden');
+        viewer.src = '';
+    }
+    if (image) {
+        image.classList.add('hidden');
+        image.removeAttribute('src');
+    }
+    if (fallback) {
+        fallback.classList.remove('hidden');
+        fallback.textContent = proofUrl
+            ? 'Proof preview unavailable. Use the download link above to view the file.'
+            : 'No return proof has been uploaded yet.';
+    }
+
+    if (link) {
+        if (proofUrl) {
+            link.href = proofUrl;
+            link.classList.remove('hidden');
+            const downloadBase = requestCode ? requestCode.replace(/[^A-Z0-9-]/gi, '-') : 'return-proof';
+            let extension = '';
+            try {
+                const parsed = new URL(proofUrl, window.location.origin);
+                const pathname = parsed.pathname || '';
+                const match = pathname.match(/\.([a-z0-9]+)(?:$|\?)/i);
+                if (match) {
+                    extension = match[1];
+                }
+            } catch (_) {
+                const match = proofUrl.match(/\.([a-z0-9]+)(?:$|\?)/i);
+                if (match) {
+                    extension = match[1];
+                }
+            }
+
+            const filename = extension ? `${downloadBase}-return-proof.${extension}` : `${downloadBase}-return-proof`;
+            link.setAttribute('download', filename);
+        } else {
+            link.href = '#';
+            link.classList.add('hidden');
+            link.removeAttribute('download');
+        }
+    }
+
+    if (proofUrl) {
+        let detectionPath = proofUrl;
+        try {
+            const parsed = new URL(proofUrl, window.location.origin);
+            detectionPath = parsed.pathname || parsed.href || proofUrl;
+        } catch (_) {
+            // fall back to raw value
+        }
+
+        const isImage = /\.(png|jpe?g|webp|gif)$/i.test(detectionPath);
+        if (isImage && image) {
+            image.src = proofUrl;
+            image.classList.remove('hidden');
+            if (fallback) fallback.classList.add('hidden');
+        } else if (viewer) {
+            viewer.src = proofUrl;
+            viewer.classList.remove('hidden');
+            if (fallback) fallback.classList.add('hidden');
+        }
     }
 }
 
@@ -455,10 +589,10 @@ function populateManageModal(data) {
         const propertySource = item.property_number ?? item.property_label ?? '';
         const serialSource = item.serial ?? '';
         const inventoryStatus = normalizeInventoryStatus(item.inventory_status);
-        const baseCanUpdate = item.can_update !== false && inventoryStatus !== 'borrowed';
+        const baseCanUpdate = item.can_update !== false;
         const lockReason = baseCanUpdate
             ? ''
-            : (item.lock_reason || (inventoryStatus === 'borrowed' ? LOCK_REASON_BORROWED_DEFAULT : LOCK_REASON_HISTORY_DEFAULT));
+            : (item.lock_reason || LOCK_REASON_HISTORY_DEFAULT);
 
         return {
             ...item,
@@ -669,10 +803,10 @@ function renderManageRows() {
 
     rows.forEach((item) => {
         const inventoryStatus = normalizeInventoryStatus(item.inventory_status);
-        const canUpdate = item.can_update !== false && inventoryStatus !== 'borrowed';
+        const canUpdate = item.can_update !== false;
         const lockReason = canUpdate
             ? ''
-            : (item.lock_reason || (inventoryStatus === 'borrowed' ? LOCK_REASON_BORROWED_DEFAULT : LOCK_REASON_HISTORY_DEFAULT));
+            : (item.lock_reason || LOCK_REASON_HISTORY_DEFAULT);
 
         item.inventory_status = inventoryStatus;
         item.can_update = canUpdate;
@@ -1074,10 +1208,10 @@ async function updateInstance(instanceId, condition, options = {}) {
                 const explicitCanUpdate = typeof data.can_update === 'boolean' ? data.can_update : undefined;
                 const normalizedCanUpdate = explicitCanUpdate !== undefined
                     ? explicitCanUpdate
-                    : (item.can_update !== false && updatedStatus !== 'borrowed');
+                    : (item.can_update !== false);
                 const derivedLockReason = normalizedCanUpdate
                     ? ''
-                    : (data.lock_reason || item.lock_reason || (updatedStatus === 'borrowed' ? LOCK_REASON_BORROWED_DEFAULT : LOCK_REASON_HISTORY_DEFAULT));
+                    : (data.lock_reason || item.lock_reason || LOCK_REASON_HISTORY_DEFAULT);
 
                 return {
                     ...item,
