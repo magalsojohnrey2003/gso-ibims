@@ -5,14 +5,113 @@
   const state = {
     rows: [],
   };
+  const borrowerTableBodyId = 'walkinBorrowerTableBody';
+  const borrowerState = {
+    rows: [],
+    searchTerm: '',
+  };
+  let borrowerAbortController = null;
+  let borrowerSearchDebounce = null;
   const ICONS = {
     printer: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9V4h12v5" /><path stroke-linecap="round" stroke-linejoin="round" d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" /><path stroke-linecap="round" stroke-linejoin="round" d="M6 14h12v8H6z" /></svg>',
     eye: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.065 7-9.542 7S3.732 16.057 2.458 12z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>',
     truck: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 7.5h9a1.5 1.5 0 011.5 1.5v7.5m-6 0H3.75A1.5 1.5 0 012.25 15V7.5" /><path stroke-linecap="round" stroke-linejoin="round" d="M12.75 12h3.028a1.5 1.5 0 011.122.5l2.55 2.85a1.5 1.5 0 01.4 1v1.65A1.5 1.5 0 0118.35 19.5H18" /><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 19.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3zM18 19.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3z" /></svg>'
   };
+  const BORROWER_STATUS_COLORS = {
+    good: 'bg-emerald-100 text-emerald-700',
+    fair: 'bg-amber-100 text-amber-700',
+    under_review: 'bg-amber-100 text-amber-700',
+    risk: 'bg-rose-100 text-rose-700',
+    restricted: 'bg-rose-100 text-rose-700',
+    suspended: 'bg-rose-100 text-rose-700',
+  };
   let loadingMarkup = null;
 
   const SHORT_MONTHS = ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May.', 'Jun.', 'Jul.', 'Aug.', 'Sept.', 'Oct.', 'Nov.', 'Dec.'];
+
+  const cloneTemplate = (id) => {
+    const template = document.getElementById(id);
+    if (!template || !template.content || !template.content.firstElementChild) {
+      return null;
+    }
+    return template.content.firstElementChild.cloneNode(true);
+  };
+
+  const escapeHtml = (value) => {
+    if (value == null) {
+      return '';
+    }
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  };
+
+  const digitsOnly = (value) => {
+    if (typeof value !== 'string') {
+      value = value == null ? '' : String(value);
+    }
+    return value.replace(/\D+/g, '');
+  };
+
+  const formatBorrowerPhone = (value) => {
+    const digits = digitsOnly(value);
+    if (digits.length === 11) {
+      return digits.replace(/(\d{4})(\d{3})(\d{4})/, '$1 $2 $3');
+    }
+    if (digits.length === 10) {
+      return digits.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3');
+    }
+    if (digits.length === 0) {
+      return '';
+    }
+    return digits.replace(/(\d{3})(?=\d)/g, '$1 ');
+  };
+
+  const getBorrowerStatusBadge = (row) => {
+    const normalized = (row?.borrowing_status || '').toLowerCase();
+    const fallback = row?.borrowing_status_label || 'Unknown';
+    const colorClass = BORROWER_STATUS_COLORS[normalized] || 'bg-gray-100 text-gray-700';
+    const label = normalized === 'good'
+      ? (row?.borrowing_status_label || 'Good Standing')
+      : normalized === 'fair' || normalized === 'under_review'
+        ? (row?.borrowing_status_label || 'Fair Standing')
+        : normalized === 'risk' || normalized === 'restricted' || normalized === 'suspended'
+          ? (row?.borrowing_status_label || 'Needs Attention')
+          : fallback;
+
+    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full ${colorClass}"><i class="fas fa-user-shield"></i> ${escapeHtml(label)}</span>`;
+  };
+
+  const userProfileModalId = 'walkinUserProfileModal';
+
+  const userProfileFields = {
+    id: (row) => (row?.id ? `#${row.id}` : '—'),
+    name: (row) => row?.name || '—',
+    email: (row) => row?.email || '—',
+    phone: (row) => {
+      const formatted = formatBorrowerPhone(row?.phone || '');
+      return formatted || '—';
+    },
+    address: (row) => row?.address || '—',
+    joined_at: (row) => row?.registered_at_display || '—',
+    standing: (row) => getBorrowerStatusBadge(row),
+  };
+
+  const updateUserProfileModal = (row) => {
+    Object.entries(userProfileFields).forEach(([key, resolver]) => {
+      const value = resolver(row);
+      const target = document.querySelector(`[data-user-profile="${key}"]`);
+      if (!target) return;
+      if (key === 'standing') {
+        target.innerHTML = value;
+      } else {
+        target.textContent = value;
+      }
+    });
+  };
 
   const formatDateDisplay = (date) => {
     if (!(date instanceof Date)) return null;
@@ -123,6 +222,215 @@
     }
 
     return buttons.join('');
+  };
+
+  const renderBorrowerRows = (rows) => {
+    const tbody = document.getElementById(borrowerTableBodyId);
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    if (!rows || rows.length === 0) {
+      const emptyRow = cloneTemplate('walkin-borrower-empty-template');
+      if (emptyRow) {
+        tbody.appendChild(emptyRow);
+      } else {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td colspan="3" class="px-6 py-8 text-center text-gray-500">No borrower accounts found.</td>';
+        tbody.appendChild(tr);
+      }
+      return;
+    }
+
+    rows.forEach((row) => {
+      const tr = document.createElement('tr');
+      tr.dataset.id = String(row.id);
+      tr.innerHTML = `
+        <td class="px-6 py-4 align-middle text-center font-semibold text-gray-900">${row.id ? `#${escapeHtml(row.id)}` : '—'}</td>
+        <td class="px-6 py-4 align-middle text-center">
+          <span class="font-medium text-gray-900">${escapeHtml(row.name || '—')}</span>
+        </td>
+        <td class="px-6 py-4 align-middle text-center">
+          <div class="flex items-center justify-center gap-2">
+            <button type="button" class="btn-action btn-view h-9 w-9" data-borrower-action="view" title="View borrower">
+              <span class="sr-only">View borrower</span>
+              ${ICONS.eye}
+            </button>
+            <button type="button" class="inline-flex items-center gap-1 rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-purple-700 transition" data-borrower-action="select">
+              <i class="fas fa-arrow-right"></i>
+              <span>Select</span>
+            </button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  };
+
+  const renderBorrowerLoading = () => {
+    const tbody = document.getElementById(borrowerTableBodyId);
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    const loadingRow = cloneTemplate('walkin-borrower-loading-template');
+    if (loadingRow) {
+      tbody.appendChild(loadingRow);
+    }
+  };
+
+  const renderBorrowerError = () => {
+    const tbody = document.getElementById(borrowerTableBodyId);
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    const errorRow = cloneTemplate('walkin-borrower-error-template');
+    if (errorRow) {
+      tbody.appendChild(errorRow);
+    } else {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td colspan="3" class="px-6 py-8 text-center text-red-600">Unable to load borrower accounts.</td>';
+      tbody.appendChild(tr);
+    }
+  };
+
+  const fetchBorrowers = async (term = '') => {
+    if (typeof window.WALKIN_BORROWERS_ROUTE !== 'string') {
+      return;
+    }
+
+    renderBorrowerLoading();
+
+    if (borrowerAbortController) {
+      borrowerAbortController.abort();
+    }
+
+    borrowerAbortController = new AbortController();
+
+    try {
+      const url = new URL(window.WALKIN_BORROWERS_ROUTE, window.location.origin);
+      if (term) {
+        url.searchParams.set('q', term);
+      }
+      const res = await fetch(url.toString(), {
+        headers: { Accept: 'application/json' },
+        signal: borrowerAbortController.signal,
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to fetch borrowers: ${res.status}`);
+      }
+
+      const data = await res.json();
+      borrowerState.rows = Array.isArray(data?.data) ? data.data : [];
+      renderBorrowerRows(borrowerState.rows);
+      borrowerAbortController = null;
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        return;
+      }
+      console.error('Borrower fetch error:', error);
+      borrowerState.rows = [];
+      renderBorrowerError();
+      if (typeof window.showToast === 'function') {
+        window.showToast('Unable to load borrower accounts.', 'error');
+      }
+      borrowerAbortController = null;
+    }
+  };
+
+  const selectBorrower = (row) => {
+    if (typeof window.WALKIN_CREATE_ROUTE !== 'string') {
+      if (typeof window.showToast === 'function') {
+        window.showToast('Walk-in form route is unavailable.', 'error');
+      }
+      return;
+    }
+
+    const params = new URLSearchParams();
+    if (row?.name) {
+      params.set('borrower_name', row.name);
+    }
+    if (row?.phone) {
+      params.set('contact_number', digitsOnly(row.phone));
+    }
+    if (row?.address) {
+      params.set('address', row.address);
+    }
+    params.set('borrower_id', String(row?.id ?? ''));
+    if (row?.borrowing_status) {
+      params.set('borrower_status', row.borrowing_status);
+    }
+    params.set('prefill', 'borrower');
+
+    const url = `${window.WALKIN_CREATE_ROUTE}?${params.toString()}`;
+    window.location.href = url;
+  };
+
+  const bindBorrowerModal = () => {
+    const openBtn = document.querySelector('[data-walkin-open-borrower]');
+    const startBlankBtn = document.querySelector('[data-walkin-start-blank]');
+    const searchInput = document.getElementById('walkin-borrower-search');
+    const tbody = document.getElementById(borrowerTableBodyId);
+
+    if (startBlankBtn) {
+      startBlankBtn.addEventListener('click', () => {
+        if (typeof window.WALKIN_CREATE_ROUTE === 'string') {
+          window.location.href = window.WALKIN_CREATE_ROUTE;
+        }
+      });
+    }
+
+    if (openBtn) {
+      openBtn.addEventListener('click', () => {
+        borrowerState.searchTerm = '';
+        if (searchInput) {
+          searchInput.value = '';
+        }
+        if (tbody) {
+          renderBorrowerLoading();
+        }
+        fetchBorrowers('');
+        window.dispatchEvent(new CustomEvent('open-modal', { detail: 'walkinSelectBorrowerModal' }));
+        setTimeout(() => {
+          if (searchInput) {
+            searchInput.focus();
+          }
+        }, 120);
+      });
+    }
+
+    if (searchInput) {
+      searchInput.addEventListener('input', () => {
+        const nextTerm = searchInput.value.trim();
+        borrowerState.searchTerm = nextTerm;
+        if (borrowerSearchDebounce) {
+          clearTimeout(borrowerSearchDebounce);
+        }
+        borrowerSearchDebounce = setTimeout(() => {
+          fetchBorrowers(nextTerm);
+        }, 350);
+      });
+    }
+
+    if (tbody) {
+      tbody.addEventListener('click', (event) => {
+        const actionBtn = event.target.closest('[data-borrower-action]');
+        if (!actionBtn) return;
+        const tr = actionBtn.closest('tr[data-id]');
+        if (!tr) return;
+        const row = borrowerState.rows.find((entry) => String(entry.id) === tr.dataset.id);
+        if (!row) return;
+
+        const action = actionBtn.getAttribute('data-borrower-action');
+        if (action === 'view') {
+          updateUserProfileModal(row);
+          window.dispatchEvent(new CustomEvent('open-modal', { detail: userProfileModalId }));
+          return;
+        }
+
+        if (action === 'select') {
+          selectBorrower(row);
+        }
+      });
+    }
   };
 
   const renderRows = (rows) => {
@@ -384,6 +692,7 @@
   document.addEventListener('DOMContentLoaded', () => {
     fetchRows();
     bindActions();
+    bindBorrowerModal();
 
     // Bind confirm deliver button
     const confirmBtn = document.getElementById('walkinDeliverConfirmBtn');

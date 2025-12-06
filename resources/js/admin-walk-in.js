@@ -7,6 +7,13 @@
     return Math.max(min, Math.min(max, n));
   }
 
+  function digitsOnly(value) {
+    if (typeof value !== 'string') {
+      value = value == null ? '' : String(value);
+    }
+    return value.replace(/[^0-9]/g, '');
+  }
+
   function collectSelected() {
     const inputs = document.querySelectorAll('[data-qty-input]');
     const items = [];
@@ -30,7 +37,7 @@
     if (!input) return;
   const controlKeys = new Set(['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'Enter']);
     const sanitize = () => {
-      const digits = (input.value || '').replace(/[^0-9]/g, '');
+      const digits = digitsOnly(input.value || '');
       const trimmed = digits.slice(0, maxLength);
       if (input.value !== trimmed) {
         input.value = trimmed;
@@ -371,6 +378,56 @@
     if (warning) warning.classList.add('hidden');
   }
 
+  function applyPrefillFromQuery() {
+    if (!window.location || !window.location.search) {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.size === 0) {
+      return;
+    }
+
+    let prefilled = false;
+    const assign = (id, value) => {
+      if (!value) return false;
+      const el = document.getElementById(id);
+      if (!el) return false;
+      el.value = value;
+      return true;
+    };
+
+    if (params.has('borrower_name')) {
+      prefilled = assign('borrower_name', params.get('borrower_name')) || prefilled;
+    }
+
+    if (params.has('office_agency')) {
+      prefilled = assign('office_agency', params.get('office_agency')) || prefilled;
+    }
+
+    if (params.has('address')) {
+      prefilled = assign('address', params.get('address')) || prefilled;
+    }
+
+    if (params.has('contact_number')) {
+      const contactInput = document.getElementById('contact_number');
+      if (contactInput) {
+        contactInput.value = digitsOnly(params.get('contact_number'));
+        contactInput.dispatchEvent(new Event('input', { bubbles: true }));
+        prefilled = true;
+      }
+    }
+
+    if (prefilled && params.get('prefill') === 'borrower' && typeof window.showToast === 'function') {
+      window.showToast('Borrower details pre-filled from selected account.', 'info');
+    }
+
+    if (prefilled && window.history && window.history.replaceState) {
+      const cleanUrl = `${window.location.origin}${window.location.pathname}`;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     attachQtyHandlers();
     attachSearchHandler();
@@ -378,6 +435,7 @@
     attachClearHandler();
     enforceDigitsOnly(document.getElementById('contact_number'));
     initDateInputs();
+    applyPrefillFromQuery();
     
     ['borrowed_time', 'returned_time'].forEach((id) => {
       const el = document.getElementById(id);

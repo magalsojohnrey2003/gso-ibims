@@ -5,6 +5,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BorrowRequest;
 use App\Models\Item;
 use App\Models\ItemInstance;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -96,6 +97,86 @@ class BorrowRequestController extends Controller
                 ];
             });
         return response()->json($rows);
+    }
+
+    public function walkInBorrowers(Request $request)
+    {
+        $roleFilter = function ($query) {
+            $query->where('role', 'user')
+                ->orWhereHas('roles', function ($nested) {
+                    $nested->where('name', 'user');
+                });
+        };
+
+        $query = User::query()
+            ->select([
+                'id',
+                'first_name',
+                'middle_name',
+                'last_name',
+                'email',
+                'phone',
+                'address',
+                'borrowing_status',
+                'created_at',
+            ])
+            ->where($roleFilter)
+            ->withCount([
+                'damageIncidents as damage_incidents_count',
+                'borrowRequests as borrow_requests_count',
+            ])
+            ->withMax('borrowRequests as latest_borrow_request_at', 'created_at');
+
+        if ($search = trim((string) $request->get('q', ''))) {
+            $digitsOnly = preg_replace('/\D+/', '', $search);
+
+            $query->where(function ($or) use ($search, $digitsOnly) {
+                $or->where('first_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%");
+
+                if ($digitsOnly !== '') {
+                    $or->orWhere('phone', 'like', "%{$digitsOnly}%");
+                }
+            });
+        }
+
+        $limit = (int) $request->integer('limit', 25);
+        $limit = max(1, min($limit, 100));
+
+        $users = $query
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->limit($limit)
+            ->get();
+
+        $timezone = config('app.timezone');
+
+        $data = $users->map(function (User $user) use ($timezone) {
+            $latestBorrowAt = $user->latest_borrow_request_at
+                ? Carbon::parse($user->latest_borrow_request_at)->timezone($timezone)
+                : null;
+
+            return [
+                'id' => $user->id,
+                'name' => $user->full_name,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'address' => $user->address,
+                'borrowing_status' => $user->borrowing_status,
+                'borrowing_status_label' => $user->borrowing_status_label,
+                'damage_incidents_count' => (int) ($user->damage_incidents_count ?? 0),
+                'borrow_requests_count' => (int) ($user->borrow_requests_count ?? 0),
+                'latest_borrow_request_at' => $latestBorrowAt?->toIso8601String(),
+                'latest_borrow_request_display' => $latestBorrowAt?->format('M d, Y') ?? null,
+                'registered_at' => $user->created_at?->timezone($timezone)->toIso8601String(),
+                'registered_at_display' => $user->created_at?->timezone($timezone)->format('M d, Y'),
+            ];
+        });
+
+        return response()->json([
+            'data' => $data,
+        ]);
     }
 
     public function walkInStore(Request $request)
