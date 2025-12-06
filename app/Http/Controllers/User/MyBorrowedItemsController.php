@@ -19,6 +19,7 @@ use App\Services\BorrowRequestFormPdf;
 use App\Services\RoutingSlipPdf;
 use App\Services\PhilSmsService;
 use App\Notifications\RequestNotification;
+use Illuminate\Validation\ValidationException;
 
 class MyBorrowedItemsController extends Controller
 {
@@ -77,6 +78,10 @@ class MyBorrowedItemsController extends Controller
                     $displayName = $this->resolveBorrowItemDisplayName($reqItem);
 
                     return [
+                        'borrow_request_item_id' => $reqItem->id,
+                        'requested_quantity' => $reqItem->requested_quantity ?? $reqItem->quantity,
+                        'approved_quantity' => $reqItem->quantity,
+                        'received_quantity' => $reqItem->received_quantity,
                         'quantity' => $reqItem->quantity,
                         'assigned_manpower' => $reqItem->assigned_manpower ?? 0,
                         'manpower_role' => $reqItem->manpower_role
@@ -139,6 +144,10 @@ class MyBorrowedItemsController extends Controller
             $displayName = $this->resolveBorrowItemDisplayName($reqItem);
 
             return [
+                'borrow_request_item_id' => $reqItem->id,
+                'requested_quantity' => $reqItem->requested_quantity ?? $reqItem->quantity,
+                'approved_quantity' => $reqItem->quantity,
+                'received_quantity' => $reqItem->received_quantity,
                 'quantity' => $reqItem->quantity,
                 'assigned_manpower' => $reqItem->assigned_manpower ?? 0,
                 'manpower_role' => $reqItem->manpower_role
@@ -200,6 +209,19 @@ class MyBorrowedItemsController extends Controller
         if (! in_array($borrowRequest->delivery_status, ['dispatched', 'not_received'], true)) {
             return response()->json(['message' => 'Only dispatched requests can be confirmed.'], 422);
         }
+
+        $validated = $request->validate([
+            'items' => ['nullable', 'array'],
+            'items.*.id' => ['required', 'integer'],
+            'items.*.received_quantity' => ['required', 'integer', 'min:0'],
+        ]);
+
+        $receivedMap = collect($validated['items'] ?? [])
+            ->mapWithKeys(function ($row) {
+                $id = isset($row['id']) ? (int) $row['id'] : 0;
+                $qty = isset($row['received_quantity']) ? (int) $row['received_quantity'] : 0;
+                return $id > 0 ? [$id => $qty] : [];
+            });
 
         DB::beginTransaction();
         try {
@@ -275,6 +297,21 @@ class MyBorrowedItemsController extends Controller
 
                 $item->available_qty = max(0, (int) $item->available_qty - (int) $requestItem->quantity);
                 $item->save();
+
+                $approvedQty = (int) $requestItem->quantity;
+                $receivedQty = $receivedMap->has($requestItem->id)
+                    ? (int) $receivedMap->get($requestItem->id)
+                    : $approvedQty;
+
+                if ($receivedQty > $approvedQty) {
+                    $label = $this->resolveBorrowItemDisplayName($requestItem) ?? 'Item';
+                    throw ValidationException::withMessages([
+                        'items' => [sprintf('%s cannot exceed the approved quantity (%d).', $label, $approvedQty)],
+                    ]);
+                }
+
+                $requestItem->received_quantity = $receivedQty;
+                $requestItem->save();
             }
 
             $borrowRequest->delivery_status = 'delivered';
@@ -284,6 +321,15 @@ class MyBorrowedItemsController extends Controller
             $borrowRequest->save();
 
             DB::commit();
+        } catch (ValidationException $e) {
+            DB::rollBack();
+            $errors = $e->errors();
+            $first = collect($errors)->flatten()->first();
+
+            return response()->json([
+                'message' => $first ?: 'The given data was invalid.',
+                'errors' => $errors,
+            ], 422);
         } catch (\Throwable $e) {
             DB::rollBack();
 

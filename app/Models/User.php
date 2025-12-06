@@ -8,11 +8,16 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
+use App\Models\BorrowRequest;
+use App\Models\BorrowItemInstance;
+use Illuminate\Support\Facades\DB;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, HasRoles, SoftDeletes;
+
+    public const DAMAGE_INCIDENT_STATUSES = ['damage', 'damaged', 'minor_damage', 'missing'];
 
     /**
      * The attributes that are mass assignable.
@@ -31,6 +36,7 @@ class User extends Authenticatable
         'password',
         'last_login_at',
         'creation_source',
+        'borrowing_status',
         'terms_accepted_at',
     ];
 
@@ -58,8 +64,38 @@ class User extends Authenticatable
             'terms_accepted_at' => 'datetime',
         ];
     }
-     public function getFullNameAttribute()
+
+    public function getFullNameAttribute()
     {
         return trim($this->first_name . ' ' . ($this->middle_name ? $this->middle_name . ' ' : '') . $this->last_name);
+    }
+
+    public function borrowRequests()
+    {
+        return $this->hasMany(BorrowRequest::class);
+    }
+
+    public function borrowItemInstances()
+    {
+        return $this->hasManyThrough(BorrowItemInstance::class, BorrowRequest::class);
+    }
+
+    public function damageIncidents()
+    {
+        $statuses = array_map('strtolower', self::DAMAGE_INCIDENT_STATUSES);
+
+        return $this->borrowItemInstances()
+            ->whereNotNull('return_condition')
+            ->whereIn(DB::raw('LOWER(return_condition)'), $statuses);
+    }
+
+    public function getBorrowingStatusLabelAttribute(): string
+    {
+        return match ($this->borrowing_status) {
+            'good' => 'Good',
+            'fair', 'under_review' => 'Fair',
+            'risk', 'restricted', 'suspended' => 'Risk',
+            default => 'Good',
+        };
     }
 }

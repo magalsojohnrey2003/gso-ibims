@@ -2,6 +2,9 @@ const CSRF_TOKEN = window.CSRF_TOKEN || document.querySelector('meta[name="csrf-
 const LIST_ROUTE = window.LIST_ROUTE || '/admin/borrow-requests/list';
 const SHORT_MONTHS = ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May.', 'Jun.', 'Jul.', 'Aug.', 'Sept.', 'Oct.', 'Nov.', 'Dec.'];
 const MANPOWER_PLACEHOLDER = '__SYSTEM_MANPOWER_PLACEHOLDER__';
+const MANPOWER_ROLES_ENDPOINT = window.MANPOWER_ROLES_ENDPOINT || '/admin/manpower-roles';
+const DEFAULT_ASSIST_ROLE_NAME = 'Assist';
+const DEFAULT_ASSIST_DEFAULT_QTY = 10;
 
 let BORROW_CACHE = [];
 let BR_SEARCH_TERM = '';
@@ -9,11 +12,50 @@ let BR_STATUS_FILTER = '';
 const REJECTION_REASONS_ENDPOINT = window.REJECTION_REASONS_ENDPOINT || '/admin/rejection-reasons';
 const OTHER_REJECTION_REASON_KEY = '__other__';
 
+const BORROWING_STATUS_META = {
+    good: {
+        label: 'Good Standing',
+        badgeClass: 'bg-emerald-100 text-emerald-700',
+        icon: 'fa-circle-check',
+    },
+    fair: {
+        label: 'Fair Standing',
+        badgeClass: 'bg-amber-100 text-amber-700',
+        icon: 'fa-circle-exclamation',
+        alertClass: 'border-amber-200 bg-amber-50 text-amber-800',
+        alertIcon: 'fa-circle-exclamation',
+        alertMessage: 'Borrower flagged for review. Verify outstanding incidents before validating this request.',
+    },
+    risk: {
+        label: 'At Risk',
+        badgeClass: 'bg-red-100 text-red-700',
+        icon: 'fa-triangle-exclamation',
+        alertClass: 'border-red-200 bg-red-50 text-red-700',
+        alertIcon: 'fa-triangle-exclamation',
+        alertMessage: 'Borrower marked At Risk. Coordinate with management before approving this request.',
+    },
+};
+
+const BORROWER_STATUS_BADGE_BASE = 'inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full';
+const BORROWER_STATUS_ALERT_BASE = 'rounded-lg border px-3 py-2 text-sm flex items-start gap-2';
+
+const BORROWER_INCIDENT_REMINDER = {
+    alertClass: 'border-amber-200 bg-amber-50 text-amber-800',
+    alertIcon: 'fa-circle-exclamation',
+    alertMessage: 'Borrower has recorded damage incidents. Review the history before validating.',
+};
+
 let REJECTION_REASONS_CACHE = [];
+let MANPOWER_ROLES_CACHE = [];
 const rejectionFlowState = {
     requestId: null,
     selectedReasonId: null,
     prevModal: null,
+};
+
+const assignManpowerState = {
+    requestId: null,
+    manpowerRows: [],
 };
 
 function formatDate(value) {
@@ -498,17 +540,18 @@ async function saveCustomRejectionReason(button) {
 
 function handleCustomRejectionBack() {
     window.dispatchEvent(new CustomEvent('close-modal', { detail: 'rejectReasonCustomModal' }));
+    window.dispatchEvent(new CustomEvent('close-modal', { detail: 'rejectReasonSelectModal' }));
 
-    if (rejectionFlowState.prevModal === 'select' && REJECTION_REASONS_CACHE.length) {
-        rejectionFlowState.selectedReasonId = OTHER_REJECTION_REASON_KEY;
-        openRejectionSelectModal(rejectionFlowState.requestId, { preserveSelection: true });
-        const otherRadio = document.getElementById('rejectReasonOtherOption');
-        if (otherRadio) {
-            otherRadio.checked = true;
-        }
-        updateRejectConfirmButton();
-    } else {
-        resetRejectionFlow();
+    const targetIdRaw = assignManpowerState.requestId || rejectionFlowState.requestId;
+    const targetIdNumeric = Number(targetIdRaw);
+    const targetId = Number.isNaN(targetIdNumeric) ? targetIdRaw : targetIdNumeric;
+
+    resetRejectionFlow();
+
+    if (targetId) {
+        setTimeout(() => {
+            openAssignManpowerModal(targetId);
+        }, 120);
     }
 }
 
@@ -585,6 +628,358 @@ function splitItemsByType(items = []) {
         }
     });
     return result;
+}
+
+async function fetchManpowerRoles(force = false) {
+    if (!force && MANPOWER_ROLES_CACHE.length) {
+        return MANPOWER_ROLES_CACHE;
+    }
+
+    try {
+        const res = await fetch(MANPOWER_ROLES_ENDPOINT, { headers: { Accept: 'application/json' } });
+        if (!res.ok) {
+            const payload = await res.json().catch(() => null);
+            const message = payload?.message || `Failed to load manpower roles (status ${res.status})`;
+            throw new Error(message);
+        }
+
+        const data = await res.json().catch(() => []);
+        const normalized = Array.isArray(data) ? data : [];
+        MANPOWER_ROLES_CACHE = normalized
+            .map((role) => ({
+                id: Number(role?.id ?? 0),
+                name: typeof role?.name === 'string' ? role.name.trim() : '',
+            }))
+            .filter((role) => role.id && role.name);
+        MANPOWER_ROLES_CACHE.sort((a, b) => a.name.localeCompare(b.name));
+        return MANPOWER_ROLES_CACHE;
+    } catch (error) {
+        console.error('Failed to load manpower roles', error);
+        throw error;
+    }
+}
+
+function findRoleByName(name) {
+    if (!name) return null;
+    const normalized = String(name).toLowerCase();
+    return MANPOWER_ROLES_CACHE.find((role) => role.name.toLowerCase() === normalized) || null;
+}
+
+function generateManpowerRowKey() {
+    return `mp-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+}
+
+function isRoleInUse(roleId, exceptKey = null) {
+    if (!roleId) return false;
+    return assignManpowerState.manpowerRows.some((row) => row.manpower_role_id === roleId && row.key !== exceptKey);
+}
+
+function getAvailableRoles(exceptKey = null) {
+    return MANPOWER_ROLES_CACHE.filter((role) => !isRoleInUse(role.id, exceptKey));
+}
+
+function createNewManpowerRow(role = null, quantity = 1) {
+    const initialQuantity = Number.isFinite(quantity) && quantity >= 0 ? quantity : 1;
+    return {
+        key: generateManpowerRowKey(),
+        borrow_request_item_id: null,
+        manpower_role_id: role ? Number(role.id) : null,
+        manpower_role_name: role ? role.name : '',
+        quantity: initialQuantity,
+        original_quantity: null,
+        quantity_reason: null,
+        isNew: true,
+    };
+}
+
+function initializeManpowerRows(manpowerItems = []) {
+    assignManpowerState.manpowerRows = Array.isArray(manpowerItems)
+        ? manpowerItems.map((item) => {
+            const qty = Number(item?.quantity) || 0;
+            const reasonRaw = typeof item?.quantity_reason === 'string' ? item.quantity_reason.trim() : '';
+            const reason = reasonRaw !== '' ? reasonRaw : null;
+            const roleName = resolveBorrowItemName(item) || 'Manpower';
+            const roleId = item?.manpower_role_id ? Number(item.manpower_role_id) : null;
+            return {
+                key: `existing-${item?.id ?? generateManpowerRowKey()}`,
+                borrow_request_item_id: item?.id ?? item?.borrow_request_item_id ?? null,
+                manpower_role_id: roleId,
+                manpower_role_name: roleName,
+                quantity: qty,
+                original_quantity: qty,
+                quantity_reason: reason,
+                isNew: false,
+            };
+        })
+        : [];
+
+    if (!assignManpowerState.manpowerRows.length) {
+        const assistRole = findRoleByName(DEFAULT_ASSIST_ROLE_NAME);
+        if (assistRole) {
+            assignManpowerState.manpowerRows.push(createNewManpowerRow(assistRole, DEFAULT_ASSIST_DEFAULT_QTY));
+        }
+    }
+}
+
+function updateRowQuantity(rowKey, rawValue) {
+    const row = assignManpowerState.manpowerRows.find((entry) => entry.key === rowKey);
+    if (!row) return;
+    let numeric = parseInt(rawValue, 10);
+    if (!Number.isFinite(numeric) || numeric < 0) {
+        numeric = 0;
+    }
+    if (numeric > 99) {
+        numeric = 99;
+    }
+    row.quantity = numeric;
+}
+
+function removeManpowerRow(rowKey) {
+    const idx = assignManpowerState.manpowerRows.findIndex((entry) => entry.key === rowKey);
+    if (idx === -1) return;
+    assignManpowerState.manpowerRows.splice(idx, 1);
+    renderManpowerRows();
+}
+
+function handleRoleSelectChange(rowKey, selectEl) {
+    const row = assignManpowerState.manpowerRows.find((entry) => entry.key === rowKey);
+    if (!row) return;
+
+    const raw = selectEl.value;
+    if (!raw) {
+        row.manpower_role_id = null;
+        row.manpower_role_name = '';
+        updateAddRoleButtonState();
+        return;
+    }
+
+    const roleId = Number(raw);
+    if (Number.isNaN(roleId)) {
+        selectEl.value = row.manpower_role_id ? String(row.manpower_role_id) : '';
+        return;
+    }
+
+    if (isRoleInUse(roleId, rowKey)) {
+        showError('That manpower role is already added.');
+        selectEl.value = row.manpower_role_id ? String(row.manpower_role_id) : '';
+        return;
+    }
+
+    const role = MANPOWER_ROLES_CACHE.find((entry) => entry.id === roleId) || null;
+    row.manpower_role_id = role ? role.id : null;
+    row.manpower_role_name = role ? role.name : '';
+    renderManpowerRows();
+}
+
+function updateAddRoleButtonState() {
+    const addBtn = document.getElementById('assignManpowerAddRoleBtn');
+    if (!addBtn) return;
+    const available = getAvailableRoles();
+    const disabled = available.length === 0;
+    addBtn.disabled = disabled;
+    addBtn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+    addBtn.classList.toggle('opacity-50', disabled);
+    addBtn.classList.toggle('cursor-not-allowed', disabled);
+}
+
+function renderManpowerRows() {
+    const container = document.getElementById('assignManpowerItemsContainer');
+    const emptyState = document.getElementById('assignManpowerEmptyState');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (!assignManpowerState.manpowerRows.length) {
+        if (emptyState) emptyState.classList.remove('hidden');
+        updateAddRoleButtonState();
+        return;
+    }
+
+    if (emptyState) emptyState.classList.add('hidden');
+
+    assignManpowerState.manpowerRows.forEach((row) => {
+        const rowEl = document.createElement('div');
+        rowEl.dataset.rowKey = row.key;
+        rowEl.dataset.borrowRequestItemId = row.borrow_request_item_id ? String(row.borrow_request_item_id) : '';
+        rowEl.dataset.originalQty = row.original_quantity != null ? String(row.original_quantity) : '';
+        rowEl.dataset.isNewRole = row.isNew ? '1' : '0';
+        rowEl.dataset.rowLabel = row.manpower_role_name || 'Manpower';
+        rowEl.dataset.isManpower = '1';
+        rowEl.className = 'grid gap-3 items-start md:grid-cols-[minmax(0,1.4fr)_130px_minmax(0,1fr)] border-b border-gray-200 pb-3 last:border-b-0 last:pb-0';
+
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'space-y-2';
+
+        if (row.isNew) {
+            const roleLabel = document.createElement('label');
+            roleLabel.className = 'text-xs font-semibold text-gray-600 uppercase tracking-wide block';
+            roleLabel.textContent = 'Manpower Role';
+
+            const roleSelect = document.createElement('select');
+            roleSelect.className = 'assign-manpower-role gov-input text-sm';
+            roleSelect.dataset.roleSelect = '1';
+
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = 'Select role';
+            roleSelect.appendChild(placeholder);
+
+            MANPOWER_ROLES_CACHE.forEach((role) => {
+                const option = document.createElement('option');
+                option.value = String(role.id);
+                option.textContent = role.name;
+                if (row.manpower_role_id === role.id) {
+                    option.selected = true;
+                } else if (isRoleInUse(role.id, row.key)) {
+                    option.disabled = true;
+                }
+                roleSelect.appendChild(option);
+            });
+
+            roleSelect.addEventListener('change', (event) => {
+                event.target.classList.remove('border-red-500');
+                handleRoleSelectChange(row.key, event.target);
+            });
+
+            infoDiv.appendChild(roleLabel);
+            infoDiv.appendChild(roleSelect);
+        } else {
+            const nameEl = document.createElement('p');
+            nameEl.className = 'font-medium text-gray-900';
+            nameEl.textContent = row.manpower_role_name || 'Manpower';
+
+            const metaEl = document.createElement('span');
+            metaEl.className = 'text-xs text-gray-500 block';
+            metaEl.textContent = `Requested: x${row.original_quantity ?? row.quantity ?? 0}`;
+
+            infoDiv.appendChild(nameEl);
+            infoDiv.appendChild(metaEl);
+        }
+
+        rowEl.appendChild(infoDiv);
+
+        const qtyDiv = document.createElement('div');
+        qtyDiv.className = 'space-y-1';
+
+        const qtyLabel = document.createElement('label');
+        qtyLabel.className = 'text-xs font-semibold text-gray-500 block';
+        qtyLabel.textContent = 'Assign Manpower';
+
+        const qtyInput = document.createElement('input');
+        qtyInput.type = 'number';
+        qtyInput.min = '0';
+        qtyInput.value = String(row.quantity ?? 0);
+        qtyInput.className = 'assign-qty-input gov-input text-sm';
+        qtyInput.max = '99';
+        qtyInput.setAttribute('inputmode', 'numeric');
+        qtyInput.setAttribute('pattern', '[0-9]*');
+
+        qtyInput.addEventListener('input', (event) => {
+            event.target.classList.remove('border-red-500');
+            handleQtyInputChange(event);
+            updateRowQuantity(row.key, event.target.value);
+        });
+        qtyInput.addEventListener('change', (event) => {
+            event.target.classList.remove('border-red-500');
+            handleQtyInputChange(event);
+            updateRowQuantity(row.key, event.target.value);
+        });
+
+        qtyDiv.appendChild(qtyLabel);
+        qtyDiv.appendChild(qtyInput);
+
+        if (!row.isNew && row.original_quantity != null) {
+            const hint = document.createElement('p');
+            hint.className = 'text-[11px] text-gray-400';
+            hint.textContent = `Max ${row.original_quantity}`;
+            qtyDiv.appendChild(hint);
+        }
+
+        rowEl.appendChild(qtyDiv);
+
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'space-y-1';
+
+        if (row.isNew) {
+            const removeWrapper = document.createElement('div');
+            removeWrapper.className = 'flex items-start justify-end md:justify-start pt-6';
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'remove-role-btn inline-flex items-center justify-center rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-100 transition';
+            removeBtn.innerHTML = '<i class="fas fa-trash"></i>';
+            removeBtn.setAttribute('aria-label', 'Remove manpower role');
+            removeBtn.addEventListener('click', () => {
+                removeManpowerRow(row.key);
+            });
+
+            removeWrapper.appendChild(removeBtn);
+            actionsDiv.appendChild(removeWrapper);
+        } else {
+            const reasonWrapper = document.createElement('div');
+            reasonWrapper.className = 'assign-qty-reason-wrapper hidden space-y-1';
+
+            const reasonLabel = document.createElement('label');
+            reasonLabel.className = 'text-xs font-semibold text-gray-500 block';
+            reasonLabel.textContent = 'Adjustment Reason';
+
+            const reasonSelect = document.createElement('select');
+            reasonSelect.className = 'assign-qty-reason gov-input text-sm';
+            reasonSelect.innerHTML = buildReasonOptions(MANPOWER_REASONS);
+            if (row.quantity_reason && !MANPOWER_REASONS.includes(row.quantity_reason)) {
+                const customOption = document.createElement('option');
+                customOption.value = row.quantity_reason;
+                customOption.textContent = row.quantity_reason;
+                reasonSelect.appendChild(customOption);
+            }
+            if (row.quantity_reason) {
+                reasonSelect.value = row.quantity_reason;
+                reasonWrapper.classList.remove('hidden');
+            }
+
+            reasonSelect.addEventListener('change', () => {
+                reasonSelect.classList.remove('border-red-500');
+                const currentRow = assignManpowerState.manpowerRows.find((entry) => entry.key === row.key);
+                if (currentRow) {
+                    const selected = reasonSelect.value?.trim();
+                    currentRow.quantity_reason = selected !== '' ? selected : null;
+                }
+            });
+
+            const reasonHint = document.createElement('p');
+            reasonHint.className = 'text-[11px] text-gray-400';
+            reasonHint.textContent = 'Required when reducing the request.';
+
+            reasonWrapper.appendChild(reasonLabel);
+            reasonWrapper.appendChild(reasonSelect);
+            reasonWrapper.appendChild(reasonHint);
+            actionsDiv.appendChild(reasonWrapper);
+        }
+
+        rowEl.appendChild(actionsDiv);
+
+        container.appendChild(rowEl);
+
+        handleQtyInputChange({ target: qtyInput });
+        updateRowQuantity(row.key, qtyInput.value);
+    });
+
+    updateAddRoleButtonState();
+    adjustAssignManpowerModalLayout();
+}
+
+function adjustAssignManpowerModalLayout() {
+    const panel = document.getElementById('assignManpowerModalPanel');
+    if (!panel) return;
+
+    const viewport = window.innerHeight || document.documentElement.clientHeight || 0;
+    if (!viewport) return;
+
+    const minHeight = Math.max(Math.floor(viewport * 0.65), 520);
+    const maxHeight = Math.max(Math.floor(viewport * 0.92), minHeight + 40);
+
+    panel.style.minHeight = `${minHeight}px`;
+    panel.style.maxHeight = `${maxHeight}px`;
 }
 
 function buildAssignmentMetadata(item, originalQty, config) {
@@ -698,11 +1093,8 @@ function renderAssignmentSections(request) {
         reasonOptions: QUANTITY_REASONS,
         isManpower: false,
     });
-    renderAssignmentContainer('assignManpowerItemsContainer', manpower, {
-        emptyText: 'No manpower requested.',
-        reasonOptions: MANPOWER_REASONS,
-        isManpower: true,
-    });
+    initializeManpowerRows(manpower);
+    renderManpowerRows();
 }
 
 function buildStatusBadge(status, deliveryStatus) {
@@ -830,9 +1222,10 @@ function renderBorrowRequests() {
 
         const borrowerName = [req.user?.first_name, req.user?.last_name].filter(Boolean).join(' ').trim() || 'Unknown';
         const requestCode = formatBorrowRequestCode(req);
+        const borrowerCellContent = escapeHtml(borrowerName);
 
         const tdId = `<td class="px-4 py-3">${escapeHtml(requestCode || String(req.id ?? ''))}</td>`;
-        const tdBorrower = `<td class="px-4 py-3">${escapeHtml(borrowerName)}</td>`;
+        const tdBorrower = `<td class="px-4 py-3">${borrowerCellContent}</td>`;
         const tdBorrowDate = `<td class="px-4 py-3">${escapeHtml(formatDate(req.borrow_date))}</td>`;
         // Return date with overdue label when applicable
         const overdueDays = computeOverdueDays(req);
@@ -860,7 +1253,7 @@ function renderBorrowRequests() {
 
         if (statusKey === 'pending') {
             wrapper.appendChild(createButtonFromTemplate('btn-validate-template', req.id));
-            wrapper.appendChild(createButtonFromTemplate('btn-reject-template', req.id));
+            wrapper.appendChild(createButtonFromTemplate('btn-view-template', req.id));
         } else if (statusKey === 'validated') {
             const pendingTag = document.createElement('span');
             pendingTag.className = 'inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full border border-sky-200 bg-sky-50 text-sky-700';
@@ -886,15 +1279,12 @@ function renderBorrowRequests() {
 }
 
 function collectManpowerAssignments() {
-    const containerIds = ['assignPhysicalItemsContainer', 'assignManpowerItemsContainer'];
     const rows = [];
     let error = null;
 
-    containerIds.forEach((containerId) => {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-
-        container.querySelectorAll('[data-borrow-request-item-id]').forEach((row) => {
+    const physicalContainer = document.getElementById('assignPhysicalItemsContainer');
+    if (physicalContainer) {
+        physicalContainer.querySelectorAll('[data-borrow-request-item-id]').forEach((row) => {
             const itemId = row.dataset.borrowRequestItemId;
             if (!itemId) return;
 
@@ -919,14 +1309,100 @@ function collectManpowerAssignments() {
                 }
             }
 
+            const numericId = Number(itemId);
             rows.push({
-                borrow_request_item_id: itemId,
+                borrow_request_item_id: Number.isFinite(numericId) ? numericId : itemId,
                 quantity,
                 quantity_reason: quantityReason,
-                original_quantity: originalQty,
+                original_quantity: Number.isFinite(originalQty) ? originalQty : null,
             });
         });
-    });
+    }
+
+    const manpowerContainer = document.getElementById('assignManpowerItemsContainer');
+    if (manpowerContainer) {
+        manpowerContainer.querySelectorAll('[data-row-key]').forEach((row) => {
+            const rowKey = row.dataset.rowKey;
+            const stateRow = assignManpowerState.manpowerRows.find((entry) => entry.key === rowKey) || null;
+            const qtyInput = row.querySelector('.assign-qty-input');
+            let quantity = parseInt(qtyInput?.value || '0', 10);
+            if (!Number.isFinite(quantity) || quantity < 0) quantity = 0;
+
+            if (stateRow) {
+                stateRow.quantity = quantity;
+            }
+
+            const originalQtySource = stateRow && Number.isFinite(stateRow.original_quantity)
+                ? stateRow.original_quantity
+                : parseInt(row.dataset.originalQty || '', 10);
+
+            const originalQty = Number.isFinite(originalQtySource) ? originalQtySource : null;
+            if (quantity > 99) {
+                quantity = 99;
+                if (qtyInput) qtyInput.value = '99';
+                if (stateRow) {
+                    stateRow.quantity = 99;
+                }
+            }
+
+            const isNew = stateRow?.isNew || row.dataset.isNewRole === '1';
+            const reasonSelect = row.querySelector('.assign-qty-reason');
+            const requiresReason = !isNew && Number.isFinite(originalQty) && quantity < originalQty;
+            const quantityReason = requiresReason ? (reasonSelect?.value?.trim() || '') : null;
+
+            if (requiresReason && !quantityReason && !error) {
+                const label = row.dataset.rowLabel || 'this manpower entry';
+                error = `Please select a reason for reducing ${label}.`;
+                if (reasonSelect) {
+                    reasonSelect.classList.add('border-red-500');
+                }
+            }
+
+            if (isNew) {
+                const roleSelect = row.querySelector('select.assign-manpower-role');
+                const roleId = Number(roleSelect?.value || '0');
+                if (!roleId) {
+                    if (!error) {
+                        error = 'Please select a manpower role for each added row.';
+                    }
+                    roleSelect?.classList.add('border-red-500');
+                    return;
+                }
+                if (quantity <= 0) {
+                    if (!error) {
+                        error = 'Please provide a manpower quantity greater than zero.';
+                    }
+                    if (qtyInput) {
+                        qtyInput.classList.add('border-red-500');
+                        qtyInput.focus();
+                    }
+                    return;
+                }
+
+                rows.push({
+                    borrow_request_item_id: null,
+                    manpower_role_id: roleId,
+                    quantity,
+                    quantity_reason: quantityReason,
+                    original_quantity: null,
+                });
+                return;
+            }
+
+            const numericId = stateRow?.borrow_request_item_id
+                ? Number(stateRow.borrow_request_item_id)
+                : Number(row.dataset.borrowRequestItemId || '0');
+
+            rows.push({
+                borrow_request_item_id: Number.isFinite(numericId)
+                    ? numericId
+                    : (stateRow?.borrow_request_item_id ?? row.dataset.borrowRequestItemId ?? null),
+                quantity,
+                quantity_reason: quantityReason,
+                original_quantity: Number.isFinite(originalQty) ? originalQty : null,
+            });
+        });
+    }
 
     return { rows, error };
 }
@@ -937,12 +1413,24 @@ function handleQtyInputChange(event) {
     const row = input.closest('[data-borrow-request-item-id]');
     if (!row) return;
 
+    const isManpower = row.dataset.isManpower === '1';
     const original = parseInt(row.dataset.originalQty || '0', 10);
-    let value = parseInt(input.value || '0', 10);
-    if (!Number.isFinite(value) || value < 0) value = 0;
-    if (Number.isFinite(original) && original >= 0 && value > original) {
+    const rawValue = String(input.value ?? '');
+    const digitsOnly = rawValue.replace(/\D/g, '').slice(0, 2);
+    let value = digitsOnly === '' ? 0 : parseInt(digitsOnly, 10);
+
+    if (!Number.isFinite(value) || value < 0) {
+        value = 0;
+    }
+
+    if (isManpower) {
+        if (value > 99) {
+            value = 99;
+        }
+    } else if (Number.isFinite(original) && original >= 0 && value > original) {
         value = original;
     }
+
     input.value = String(value);
 
     const reasonWrapper = row.querySelector('.assign-qty-reason-wrapper');
@@ -956,9 +1444,23 @@ function handleQtyInputChange(event) {
         reasonSelect.value = '';
     }
     reasonSelect.classList.remove('border-red-500');
+
+    const rowKey = row.dataset.rowKey || null;
+    if (rowKey) {
+        const stateRow = assignManpowerState.manpowerRows.find((entry) => entry.key === rowKey);
+        if (stateRow) {
+            stateRow.quantity = value;
+            if (reasonWrapper.classList.contains('hidden')) {
+                stateRow.quantity_reason = null;
+            } else {
+                const currentReason = reasonSelect.value?.trim();
+                stateRow.quantity_reason = currentReason !== '' ? currentReason : null;
+            }
+        }
+    }
 }
 
-function openAssignManpowerModal(id) {
+async function openAssignManpowerModal(id) {
     const req = BORROW_CACHE.find((r) => r.id === id);
     if (!req) {
         showError('Request not found.');
@@ -969,6 +1471,9 @@ function openAssignManpowerModal(id) {
     const locationEl = document.getElementById('assignManpowerLocation');
     const letterPreview = document.getElementById('assignLetterPreview');
     const letterFallback = document.getElementById('assignLetterFallback');
+    const damageCountEl = document.getElementById('assignBorrowerDamageCount');
+    const lastIncidentEl = document.getElementById('assignBorrowerLastIncident');
+    const statusAlertEl = document.getElementById('assignBorrowerStatusAlert');
 
     if (!requestIdInput) return;
 
@@ -988,7 +1493,46 @@ function openAssignManpowerModal(id) {
         returnDateEl.textContent = req.return_date ? formatDate(req.return_date) : '--';
     }
 
+    const borrower = req.user || null;
+    const statusKey = borrower?.borrowing_status ? String(borrower.borrowing_status).toLowerCase() : 'good';
+    const statusMeta = BORROWING_STATUS_META[statusKey] || BORROWING_STATUS_META.good;
+    const incidentCount = Number(borrower?.damage_incidents_count || 0);
+    const latestIncidentRaw = borrower?.latest_damage_incident_at || null;
+    const latestIncidentLabel = latestIncidentRaw ? formatDate(latestIncidentRaw) : 'None recorded';
+    const normalizedIncidentLabel = latestIncidentLabel && latestIncidentLabel !== 'N/A' ? latestIncidentLabel : 'None recorded';
+
+    if (damageCountEl) {
+        damageCountEl.textContent = String(incidentCount);
+    }
+
+    if (lastIncidentEl) {
+        lastIncidentEl.textContent = normalizedIncidentLabel;
+    }
+
+    if (statusAlertEl) {
+        const alertSource = statusMeta.alertMessage ? statusMeta : null;
+        const activeAlert = alertSource || (incidentCount > 0 ? BORROWER_INCIDENT_REMINDER : null);
+        if (activeAlert) {
+            statusAlertEl.className = `${BORROWER_STATUS_ALERT_BASE} ${activeAlert.alertClass}`.trim();
+            statusAlertEl.innerHTML = `<i class="fas ${activeAlert.alertIcon || 'fa-circle-exclamation'} mt-0.5"></i><span>${activeAlert.alertMessage}</span>`;
+        } else {
+            statusAlertEl.className = `${BORROWER_STATUS_ALERT_BASE} hidden`;
+            statusAlertEl.innerHTML = '';
+        }
+    }
+
+    assignManpowerState.requestId = id;
+    assignManpowerState.manpowerRows = [];
+
+    try {
+        await fetchManpowerRoles(false);
+    } catch (error) {
+        console.error('Unable to preload manpower roles', error);
+        showError('Failed to load manpower roles. You can still adjust existing assignments.');
+    }
+
     renderAssignmentSections(req);
+    window.requestAnimationFrame(() => adjustAssignManpowerModalLayout());
 
     // Handle letter URL - prioritize letter_url from backend, fallback to letter_path
     let letterUrl = req.letter_url || '';
@@ -1098,7 +1642,8 @@ function fillRequestModal(req) {
     setText('requestSummaryBorrower', fullName);
 
     const itemsArray = Array.isArray(req.items) ? req.items : [];
-    const itemsLabel = itemsArray.length === 1 ? '1 item' : `${itemsArray.length} items`;
+    const { physical: physicalItems, manpower: manpowerItems } = splitItemsByType(itemsArray);
+    const itemsLabel = physicalItems.length === 1 ? '1 item' : `${physicalItems.length} items`;
     setText('requestSummaryItems', itemsLabel);
 
     const purposeValue = pickText(req.purpose, req.purpose_description, req.purpose_text, req.purpose_detail);
@@ -1191,17 +1736,91 @@ function fillRequestModal(req) {
 
     const itemsEl = document.getElementById('requestItemsList');
     if (itemsEl) {
-        const itemsHtml = itemsArray.map((item) => {
-            const isManpower = isManpowerEntry(item);
+        const itemsHtml = physicalItems.map((item) => {
             const displayName = escapeHtml(resolveBorrowItemName(item));
             const qty = escapeHtml(String(item.quantity ?? 0));
             const reason = item.quantity_reason ? ` - Reason: ${escapeHtml(item.quantity_reason)}` : '';
-            const roleBadge = isManpower && item.manpower_role_id
-                ? `<span class="ml-2 inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded-full bg-purple-100 text-purple-700"><i class="fas fa-user-shield text-xs"></i>${escapeHtml(item.manpower_role || displayName || 'Manpower')}</span>`
-                : '';
-            return `<li>${displayName} (x${qty})${reason}${roleBadge}</li>`;
+            return `<li>${displayName} (x${qty})${reason}</li>`;
         }).join('');
         itemsEl.innerHTML = itemsHtml || '<li class="list-none text-gray-500">No items recorded.</li>';
+    }
+
+    const manpowerSection = document.getElementById('requestManpowerSection');
+    const manpowerList = document.getElementById('requestManpowerList');
+    if (manpowerSection && manpowerList) {
+        if (!manpowerItems.length) {
+            manpowerSection.classList.add('hidden');
+            manpowerList.innerHTML = '';
+        } else {
+            const manpowerHtml = manpowerItems.map((item) => {
+                const roleName = item.manpower_role || item.role_name || resolveBorrowItemName(item) || 'Manpower';
+                const qtyValue = Number(item.assigned_manpower ?? item.quantity ?? 0);
+                const safeRole = escapeHtml(roleName);
+                const safeQty = escapeHtml(String(qtyValue > 0 ? qtyValue : (item.quantity ?? 0)));
+                return `<li>Manpower - ${safeRole} (x${safeQty || '0'})</li>`;
+            }).join('');
+            manpowerList.innerHTML = manpowerHtml || '<li class="list-none text-gray-500">No manpower assigned.</li>';
+            manpowerSection.classList.remove('hidden');
+        }
+    }
+
+    const statusCard = document.getElementById('requestItemStatusCard');
+    const statusList = document.getElementById('requestItemStatusList');
+    if (statusList) {
+        if (!physicalItems.length) {
+            statusList.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No items recorded.</p>';
+        } else {
+            const statusRows = physicalItems.map((item) => {
+                const displayName = escapeHtml(resolveBorrowItemName(item));
+                const requestedQty = Number(item.requested_quantity ?? item.quantity ?? 0);
+                const approvedQty = Number(item.approved_quantity ?? item.quantity ?? 0);
+                const receivedRaw = item.received_quantity;
+                const receivedQty = Number.isFinite(Number(receivedRaw)) ? Number(receivedRaw) : 0;
+                const receivedDisplay = receivedRaw === null || receivedRaw === undefined
+                    ? '0'
+                    : String(receivedQty);
+
+                const approvalBadgeClass = approvedQty >= requestedQty
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-400/60 dark:bg-emerald-900/20 dark:text-emerald-200'
+                    : 'border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-400/60 dark:bg-amber-900/20 dark:text-amber-200';
+                const deliveryBadgeClass = receivedQty >= approvedQty
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-400/60 dark:bg-emerald-900/20 dark:text-emerald-200'
+                    : 'border-indigo-200 bg-indigo-50 text-indigo-600 dark:border-indigo-400/60 dark:bg-indigo-900/20 dark:text-indigo-200';
+                const neutralBadgeClass = 'border-gray-200 bg-white text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200';
+
+                return `
+                    <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3">
+                        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                            <div>
+                                <div class="text-sm font-semibold text-gray-900 dark:text-gray-100">${displayName}</div>
+                            </div>
+                            <div class="flex flex-col items-start md:items-end gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Approval</span>
+                                    <span class="flex items-center gap-1">
+                                        <span class="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-sm font-semibold transition-colors duration-150 ${approvalBadgeClass}" title="Item Approved">${escapeHtml(String(approvedQty))}</span>
+                                        <span class="text-xs text-gray-400">/</span>
+                                        <span class="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-sm font-semibold transition-colors duration-150 ${neutralBadgeClass}" title="Item Requested">${escapeHtml(String(requestedQty))}</span>
+                                    </span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Delivery</span>
+                                    <span class="flex items-center gap-1">
+                                        <span class="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-sm font-semibold transition-colors duration-150 ${deliveryBadgeClass}" title="Item Received">${escapeHtml(receivedDisplay)}</span>
+                                        <span class="text-xs text-gray-400">/</span>
+                                        <span class="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-sm font-semibold transition-colors duration-150 ${approvalBadgeClass}" title="Item Approved">${escapeHtml(String(approvedQty))}</span>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            statusList.innerHTML = statusRows;
+        }
+    }
+    if (statusCard) {
+        statusCard.classList.toggle('hidden', !physicalItems.length);
     }
 
     const rejectionCard = document.getElementById('rejectionReasonCard');
@@ -1397,6 +2016,7 @@ async function updateRequest(id, status, options = {}) {
 (function bindAssignManpowerSubmit() {
     document.addEventListener('DOMContentLoaded', () => {
         const submitBtn = document.getElementById('assignManpowerConfirmBtn');
+        const rejectBtn = document.getElementById('assignManpowerRejectBtn');
         if (!submitBtn) return;
 
         submitBtn.addEventListener('click', async (event) => {
@@ -1428,6 +2048,61 @@ async function updateRequest(id, status, options = {}) {
             } finally {
                 submitBtn.disabled = false;
             }
+        });
+
+        if (rejectBtn) {
+            rejectBtn.addEventListener('click', () => {
+                const requestId = document.getElementById('assignManpowerRequestId')?.value;
+                if (!requestId) {
+                    showError('Request identifier is missing. Please refresh the page.');
+                    return;
+                }
+
+                window.dispatchEvent(new CustomEvent('close-modal', { detail: 'assignManpowerModal' }));
+                resetRejectionFlow();
+                openRejectionFlow(Number(requestId));
+            });
+        }
+    });
+})();
+
+(function bindAddManpowerRoleButton() {
+    document.addEventListener('DOMContentLoaded', () => {
+        const addBtn = document.getElementById('assignManpowerAddRoleBtn');
+        if (!addBtn) return;
+
+        addBtn.addEventListener('click', async () => {
+            if (!assignManpowerState.requestId) {
+                return;
+            }
+
+            if (!MANPOWER_ROLES_CACHE.length) {
+                try {
+                    await fetchManpowerRoles(true);
+                } catch (error) {
+                    console.error('Unable to load manpower roles', error);
+                    showError('Unable to load manpower roles at this time.');
+                    return;
+                }
+            }
+
+            const available = getAvailableRoles();
+            if (!available.length) {
+                showError('All manpower roles have already been added.');
+                return;
+            }
+
+            const defaultRole = available[0] || null;
+            const newRow = createNewManpowerRow(defaultRole);
+            assignManpowerState.manpowerRows.push(newRow);
+            renderManpowerRows();
+
+            window.requestAnimationFrame(() => {
+                const selector = document.querySelector(`[data-row-key="${newRow.key}"] select.assign-manpower-role`);
+                if (selector && !defaultRole) {
+                    selector.focus();
+                }
+            });
         });
     });
 })();
@@ -1653,12 +2328,15 @@ document.addEventListener('DOMContentLoaded', () => {
         brStatus.style.MozAppearance = 'none';
         brStatus.addEventListener('change', (e) => { BR_STATUS_FILTER = e.target.value || ''; renderBorrowRequests(); });
     }
+
+    adjustAssignManpowerModalLayout();
 });
 
 window.loadBorrowRequests = loadBorrowRequests;
 window.openAssignManpowerModal = openAssignManpowerModal;
 window.viewRequest = viewRequest;
 window.formatDate = formatDate;
+window.handleRejectReasonCustomClose = handleCustomRejectionBack;
 
 window.addEventListener('realtime:borrow-request-submitted', () => {
     loadBorrowRequests();
@@ -1667,3 +2345,5 @@ window.addEventListener('realtime:borrow-request-submitted', () => {
 window.addEventListener('realtime:borrow-request-status-updated', () => {
     loadBorrowRequests();
 });
+
+window.addEventListener('resize', adjustAssignManpowerModalLayout);

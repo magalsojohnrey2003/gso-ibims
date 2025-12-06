@@ -198,7 +198,7 @@
                         <div class="flex items-center justify-between gap-3">
                             <div class="flex items-center gap-2 text-purple-700">
                                 <i class="fas fa-boxes text-sm"></i>
-                                <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Items</h4>
+                                <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Request Details</h4>
                                 <span id="mbi-items-summary" class="ml-2 inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-xs font-semibold text-purple-700">0 items</span>
                             </div>
                             <button
@@ -217,46 +217,6 @@
                             <div>
                                 <p class="text-xs uppercase text-gray-500 dark:text-gray-400 mb-2">Requested Manpower</p>
                                 <ul id="mbi-manpower" class="space-y-1 text-gray-600 dark:text-gray-300 list-disc list-inside"></ul>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="mbi-return-proof-block" class="hidden md:col-span-2">
-                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 space-y-4">
-                            <div class="flex items-center justify-between gap-3">
-                                <div class="flex items-center gap-2 text-purple-700">
-                                    <i class="fas fa-file-circle-check text-sm"></i>
-                                    <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Return Proof</h4>
-                                </div>
-                                <a
-                                    id="mbi-return-proof-download"
-                                    href="#"
-                                    class="hidden text-xs font-semibold text-purple-600 hover:text-purple-800"
-                                    target="_blank"
-                                    rel="noopener"
-                                >Download</a>
-                            </div>
-
-                            <div class="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden bg-white dark:bg-gray-900">
-                                <img
-                                    id="mbi-return-proof-image"
-                                    src=""
-                                    alt="Return proof preview"
-                                    class="hidden w-full max-h-80 object-contain bg-gray-900/10 dark:bg-gray-100/5"
-                                />
-                                <iframe
-                                    id="mbi-return-proof-viewer"
-                                    title="Return proof preview"
-                                    class="hidden w-full h-96"
-                                ></iframe>
-                                <div id="mbi-return-proof-fallback" class="p-6 text-center text-sm text-gray-500 dark:text-gray-400">
-                                    No return proof has been uploaded yet.
-                                </div>
-                            </div>
-
-                            <div class="space-y-2">
-                                <div class="text-xs uppercase text-gray-500 dark:text-gray-400">Notes</div>
-                                <div id="mbi-return-proof-notes" class="bg-gray-50 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700 rounded-xl p-4 text-gray-700 dark:text-gray-300 whitespace-pre-line">—</div>
                             </div>
                         </div>
                     </div>
@@ -309,14 +269,6 @@
                     </div>
                 </div>
             </div>
-
-            <div class="sticky bottom-0 z-30 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex flex-wrap justify-end gap-2">
-                {{-- Report/Confirm actions moved to table action column to reduce redundancy in modal --}}
-
-                <x-button variant="secondary" iconName="x-circle" class="px-4 py-2 text-sm" @click="$dispatch('close-modal', 'borrowDetailsModal')">
-                    Close
-                </x-button>
-            </div>
         </div>
     </x-modal>
 
@@ -349,15 +301,6 @@
         </x-button>
     </template>
 
-    <template id="btn-report-not-received-template">
-        <x-button variant="danger" class="btn-action btn-report h-10 w-10 [&>span:first-child]:mr-0 [&>span:last-child]:sr-only" data-action="report-not-received" title="Report not received">
-            <x-slot name="icon">
-                <i class="fas fa-triangle-exclamation text-[0.8rem]"></i>
-            </x-slot>
-            <span class="sr-only">Report Not Received</span>
-        </x-button>
-    </template>
-
     <x-modal name="confirmReportNotReceivedModal" maxWidth="md">
         <div class="p-6 space-y-5">
             <div class="flex items-center gap-3">
@@ -370,9 +313,29 @@
                 <textarea id="confirmReportNotReceivedReason" rows="3" class="mt-1 w-full rounded-lg border border-gray-300 focus:border-red-500 focus:ring-red-500 text-sm" placeholder="Describe the issue (optional)"></textarea>
                 <p class="mt-1 text-xs text-gray-500">Leaving this blank will still send the report.</p>
             </div>
-            <div class="flex justify-end gap-3 pt-4 border-t border-gray-100">
-                <x-button id="confirmReportNotReceivedCancelBtn" variant="secondary" class="px-4 py-2 text-sm">Cancel</x-button>
-                <x-button id="confirmReportNotReceivedConfirmBtn" variant="danger" class="px-4 py-2 text-sm">Report</x-button>
+            <div class="flex justify-end gap-2 pt-4 border-t border-gray-100">
+                <x-button
+                    id="confirmReportNotReceivedCancelBtn"
+                    variant="secondary"
+                    class="btn-action h-11 w-11 rounded-full flex items-center justify-center [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
+                    title="Back"
+                >
+                    <x-slot name="icon">
+                        <i class="fas fa-arrow-left"></i>
+                    </x-slot>
+                    <span class="sr-only">Back</span>
+                </x-button>
+                <x-button
+                    id="confirmReportNotReceivedConfirmBtn"
+                    variant="danger"
+                    class="btn-action h-11 w-11 rounded-full flex items-center justify-center [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
+                    title="Submit Report"
+                >
+                    <x-slot name="icon">
+                        <i class="fas fa-paper-plane"></i>
+                    </x-slot>
+                    <span class="sr-only">Submit Report</span>
+                </x-button>
             </div>
         </div>
     </x-modal>
@@ -388,9 +351,35 @@
                 <span id="confirmReceiveRequestLabel" class="font-semibold text-gray-900">this request</span>
                 have been received in good condition.
             </p>
-            <div class="flex justify-end gap-3 pt-4 border-t border-gray-100">
-                <x-button id="confirmReceiveCancelBtn" variant="secondary" class="px-4 py-2 text-sm">Cancel</x-button>
-                <x-button id="confirmReceiveConfirmBtn" variant="success" class="px-4 py-2 text-sm">Confirm Receipt</x-button>
+            <div class="text-sm text-gray-600">
+                Please review the items below and enter the quantity you actually received for each one.
+            </div>
+            <div id="confirmReceiveItemsContainer" class="space-y-3">
+                <p class="text-sm text-gray-500">Loading items…</p>
+            </div>
+            <div class="flex justify-end gap-2 pt-4 border-t border-gray-100">
+                <x-button
+                    id="confirmReceiveReportBtn"
+                    variant="danger"
+                    class="btn-action h-11 w-11 rounded-full flex items-center justify-center [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
+                    title="Report Not Received"
+                >
+                    <x-slot name="icon">
+                        <i class="fas fa-triangle-exclamation"></i>
+                    </x-slot>
+                    <span class="sr-only">Report Not Received</span>
+                </x-button>
+                <x-button
+                    id="confirmReceiveConfirmBtn"
+                    variant="success"
+                    class="btn-action h-11 w-11 rounded-full flex items-center justify-center [&>span:first-child]:mr-0 [&>span:last-child]:sr-only"
+                    title="Confirm Receipt"
+                >
+                    <x-slot name="icon">
+                        <i class="fas fa-check"></i>
+                    </x-slot>
+                    <span class="sr-only">Confirm Receipt</span>
+                </x-button>
             </div>
         </div>
     </x-modal>
@@ -413,15 +402,15 @@
                 <div>
                     <label for="markReturnProofInput" class="text-xs font-semibold text-gray-600 uppercase">Return Slip<span class="text-red-600">*</span></label>
                     <input
-                        type="file"
                         id="markReturnProofInput"
                         name="return_proof"
+                        type="file"
                         accept=".jpg,.jpeg,.png,.pdf"
                         required
                         data-filepond="true"
                         data-preview-height="140"
                         data-thumb-width="160"
-                        style="opacity: 0; pointer-events: none;"
+                        class="mt-1"
                     />
                     <p class="mt-1 text-xs text-gray-500">Accepted formats: JPG, PNG, or PDF (max 5 MB).</p>
                 </div>

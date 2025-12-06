@@ -3,14 +3,14 @@
     $municipalities = config('locations.municipalities', []);
     $oldLocation = old('location', optional($borrowRequest ?? null)->location ?? '');
     $locationPieces = array_values(array_filter(array_map('trim', explode(',', $oldLocation))));
-    $oldMunicipalityLabel = $locationPieces[0] ?? null;
-    $oldBarangay = $locationPieces[1] ?? null;
-    $oldPurok = $locationPieces[2] ?? null;
-    $oldMunicipalityKey = collect($municipalities)
-        ->filter(fn ($definition) => ($definition['label'] ?? null) === $oldMunicipalityLabel)
-        ->keys()
-        ->first();
 
+                <div>
+                    <h4 class="font-semibold text-gray-800 mb-2">Manpower Support</h4>
+                    <p id="modalManpowerEmpty" class="text-gray-700">No manpower requested.</p>
+                    <ul id="modalManpowerList" class="list-disc pl-5 space-y-1 hidden"></ul>
+                </div>
+
+            </div>
     $usageOptions = [];
     // Build 30-minute intervals from 06:00 to 22:00 inclusive
     for ($hour = 6; $hour <= 22; $hour++) {
@@ -59,7 +59,6 @@
         : 'Select on calendar';
 
     $noMainScroll = true;
-
     $manpowerRoles = collect($manpowerRoles ?? [])->values();
     $initialManpower = collect(old('manpower_requirements', []))
         ->filter(fn ($row) => is_array($row))
@@ -255,14 +254,14 @@
                                 <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                     <div>
                                         <h4 class="text-base font-semibold text-gray-800 flex items-center gap-2">
-                                            Manpower(Optional)
+                                            Manpower (Optional)
                                         </h4>
                                     </div>
                                     <button
                                         type="button"
                                         id="addManpowerRequirementBtn"
                                         class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-purple-200 bg-purple-50 text-purple-600 transition hover:bg-purple-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        :disabled="!$hasManpowerRoles"
+                                        @if(! $hasManpowerRoles) disabled @endif
                                         title="{{ $hasManpowerRoles ? 'Add a manpower role' : 'No manpower roles are available yet.' }}">
                                         <span class="sr-only">Add manpower</span>
                                         <i class="fas fa-plus"></i>
@@ -439,7 +438,7 @@
 
                 {{-- Step 2 --}}
                 <section data-step="2" class="wizard-step hidden space-y-6">
-                    <div class="p-4 lg:p-6 xl:px-10">
+                    <div class="bg-white rounded-2xl shadow-md p-5 sm:p-6 lg:p-8">
                         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             <div class="lg:col-span-2 rounded-2xl shadow-sm border border-gray-200 bg-white p-4 lg:p-6">
                                 <div class="flex items-center justify-center gap-3 mb-4">
@@ -708,14 +707,13 @@
                 </div>
 
                 <div>
+                    <h4 class="font-semibold text-gray-800 mb-2">Items</h4>
+                    <ul id="modalItemsList" class="list-disc pl-5 space-y-1"></ul>
+                </div>
+                <div>
                     <h4 class="font-semibold text-gray-800 mb-2">Manpower Support</h4>
                     <p id="modalManpowerEmpty" class="text-gray-700">No manpower requested.</p>
                     <ul id="modalManpowerList" class="list-disc pl-5 space-y-1 hidden"></ul>
-                </div>
-
-                <div>
-                    <h4 class="font-semibold text-gray-800 mb-2">Items</h4>
-                    <ul id="modalItemsList" class="list-disc pl-5 space-y-1"></ul>
                 </div>
             </div>
 

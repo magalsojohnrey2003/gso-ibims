@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\BorrowItemInstance;
 use App\Models\BorrowRequest;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -140,6 +141,7 @@ class ReturnItemsController extends Controller
                 'borrowedInstances.instance',
                 'borrowedInstances.item',
             ]);
+            $borrowRequest->loadMissing('user');
 
             foreach ($borrowRequest->borrowedInstances as $instance) {
                 $previousCondition = $instance->return_condition ?? 'pending';
@@ -168,6 +170,8 @@ class ReturnItemsController extends Controller
             $borrowRequest->save();
 
             $borrowRequest->load('borrowedInstances.instance', 'borrowedInstances.item');
+
+            $this->syncBorrowerBorrowingStatus($borrowRequest->user);
 
             DB::commit();
 
@@ -316,7 +320,9 @@ class ReturnItemsController extends Controller
 
             $borrowRequest = $borrowItemInstance->borrowRequest()->with('borrowedInstances')->first();
             if ($borrowRequest) {
+                $borrowRequest->loadMissing('user');
                 $this->maybeMarkReturned($borrowRequest);
+                $this->syncBorrowerBorrowingStatus($borrowRequest->user);
             }
 
             $this->logConditionEvent($borrowItemInstance, 'condition_updated', $request->user(), [
@@ -381,6 +387,45 @@ class ReturnItemsController extends Controller
             ->map(fn (BorrowItemInstance $instance) => $this->describeBorrowInstance($instance, $latestIds))
             ->values()
             ->all();
+    }
+
+    private function syncBorrowerBorrowingStatus(?User $user): void
+    {
+        if (! $user) {
+            return;
+        }
+
+        $baseQuery = BorrowItemInstance::query()
+            ->whereHas('borrowRequest', function ($query) use ($user) {
+                $query->where('user_id', $user->getKey());
+            })
+            ->whereNotNull('return_condition');
+
+        $riskConditions = ['missing', 'damage', 'damaged'];
+        $fairConditions = ['minor_damage'];
+
+        $riskExists = (clone $baseQuery)
+            ->whereIn(DB::raw('LOWER(return_condition)'), $riskConditions)
+            ->exists();
+
+        $status = 'good';
+
+        if ($riskExists) {
+            $status = 'risk';
+        } else {
+            $fairExists = (clone $baseQuery)
+                ->whereIn(DB::raw('LOWER(return_condition)'), $fairConditions)
+                ->exists();
+
+            if ($fairExists) {
+                $status = 'fair';
+            }
+        }
+
+        if ($user->borrowing_status !== $status) {
+            $user->borrowing_status = $status;
+            $user->save();
+        }
     }
 
     private function buildItemOptionsFromItems(array $items): array

@@ -20,6 +20,8 @@ class BorrowRequestItem extends Model
         'assigned_by',
         'assigned_at',
         'is_manpower',
+        'requested_quantity',
+        'received_quantity',
     ];
 
         
@@ -37,6 +39,8 @@ class BorrowRequestItem extends Model
         'assigned_manpower' => 'integer',
         'assigned_at' => 'datetime',
         'is_manpower' => 'boolean',
+        'requested_quantity' => 'integer',
+        'received_quantity' => 'integer',
     ];
 
     public function manpowerRole()

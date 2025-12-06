@@ -10,7 +10,10 @@
         <div class="sm:px-6 lg:px-8">
             <div class="card p-6">
                 {{-- The create form is shown in a modal on the index page; keep this page as a fallback for non-JS users --}}
-                @include('admin.users._form', ['action' => route('admin.users.store'), 'method' => 'POST'])
+                @include('admin.users._form', [
+                    'action' => route('admin.users.store'),
+                    'method' => 'POST',
+                ])
             </div>
         </div>
     </div>

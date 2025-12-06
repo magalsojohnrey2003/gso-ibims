@@ -189,9 +189,30 @@
                             <i class="fas fa-boxes text-sm"></i>
                             <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Items Requested</h4>
                         </div>
-                        <div class="mt-3 border-t border-gray-200 dark:border-gray-700 pt-3">
-                            <ul id="requestItemsList" class="space-y-1 text-gray-600 dark:text-gray-300 list-disc list-inside"></ul>
+                        <div class="mt-3 border-t border-gray-200 dark:border-gray-700 pt-3 space-y-4">
+                            <div>
+                                <div class="flex items-center gap-2 text-purple-700">
+                                    <i class="fas fa-box-open text-xs"></i>
+                                    <div class="text-xs font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Items Requested</div>
+                                </div>
+                                <ul id="requestItemsList" class="mt-2 space-y-1 text-gray-600 dark:text-gray-300 list-disc list-inside ml-4"></ul>
+                            </div>
+                            <div id="requestManpowerSection" class="hidden">
+                                <div class="flex items-center gap-2 text-purple-700">
+                                    <i class="fas fa-people-carry text-xs"></i>
+                                    <div class="text-xs font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Assign Manpower</div>
+                                </div>
+                                <ul id="requestManpowerList" class="mt-2 space-y-1 text-gray-600 dark:text-gray-300 list-disc list-inside ml-4"></ul>
+                            </div>
                         </div>
+                    </div>
+
+                    <div id="requestItemStatusCard" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 md:col-span-2">
+                        <div class="flex items-center gap-2 text-purple-700">
+                            <i class="fas fa-chart-bar text-sm"></i>
+                            <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Approve and Deliver Status</h4>
+                        </div>
+                        <div id="requestItemStatusList" class="mt-4 space-y-3"></div>
                     </div>
 
                     <div id="rejectionReasonCard" class="hidden md:col-span-2 bg-white dark:bg-gray-800 border border-red-200 rounded-lg shadow-sm p-4">
@@ -307,8 +328,9 @@
                 </div>
                 <button
                     type="button"
+                    id="rejectReasonCustomCloseBtn"
                     class="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition"
-                    @click="$dispatch('close-modal', 'rejectReasonCustomModal')"
+                    onclick="window.handleRejectReasonCustomClose && window.handleRejectReasonCustomClose()"
                 >
                     <span class="sr-only">Close modal</span>
                     <i class="fas fa-times text-lg"></i>
@@ -409,8 +431,8 @@
 
 <!-- Validate Request Modal -->
 <x-modal name="assignManpowerModal" maxWidth="2xl" background="transparent">
-    <div class="w-full max-h-[85vh] bg-emerald-600 dark:bg-gray-900 flex flex-col overflow-hidden rounded-2xl shadow-2xl" x-data="{ showLargeImage: false, largeImageSrc: '' }">
-        <div class="relative px-6 py-4 bg-emerald-600 text-white sticky top-0 z-30 flex items-start gap-3">
+    <div id="assignManpowerModalPanel" class="w-full min-h-[70vh] bg-emerald-600 dark:bg-gray-900 flex flex-col rounded-2xl shadow-2xl" x-data="{ showLargeImage: false, largeImageSrc: '' }">
+        <div data-assign-modal-section="header" class="relative px-6 py-4 bg-emerald-600 text-white sticky top-0 z-30 flex items-start gap-3">
             <div class="flex-1">
                 <h3 class="text-xl font-semibold leading-snug flex items-center gap-2">
                     <i class="fas fa-clipboard-check text-white"></i>
@@ -424,11 +446,34 @@
             </button>
         </div>
 
-        <form id="assignManpowerForm" class="flex-1 overflow-y-auto bg-white dark:bg-gray-900 px-6 py-5 space-y-5 text-sm text-gray-700 dark:text-gray-300" onsubmit="return false;">
+        <form id="assignManpowerForm" class="flex-1 bg-white dark:bg-gray-900 px-6 py-5 space-y-5 text-sm text-gray-700 dark:text-gray-300" onsubmit="return false;">
             <input type="hidden" id="assignManpowerRequestId" />
 
             <div class="grid gap-4 md:grid-cols-2">
                 <div class="space-y-4">
+                    <div class="space-y-2">
+                        <label class="text-xs font-semibold tracking-wide text-gray-600 uppercase inline-flex items-center gap-1">
+                            <i class="fas fa-user-shield text-purple-500"></i>
+                            <span>Borrower Accountability</span>
+                        </label>
+                        <div class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 space-y-3">
+                            <div class="grid grid-cols-2 gap-3 text-xs text-gray-600">
+                                <div>
+                                    <p class="text-[10px] uppercase tracking-wide text-gray-500 font-semibold">Overall Status</p>
+                                    <p id="assignBorrowerDamageCount" class="mt-0.5 text-base font-semibold text-gray-900">0</p>
+                                </div>
+                                <div>
+                                    <p class="text-[10px] uppercase tracking-wide text-gray-500 font-semibold">Last Incident</p>
+                                    <p id="assignBorrowerLastIncident" class="mt-0.5 text-sm font-semibold text-gray-700">None recorded</p>
+                                </div>
+                            </div>
+                            <div id="assignBorrowerStatusAlert" class="hidden rounded-lg border px-3 py-2 text-sm flex items-start gap-2">
+                                <i class="fas fa-circle-exclamation mt-0.5"></i>
+                                <span>Borrower has recorded damage incidents. Review the history before validating.</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="space-y-2">
                         <label class="text-xs font-semibold tracking-wide text-gray-600 uppercase inline-flex items-center gap-1">
                             <i class="fas fa-location-dot text-purple-500"></i>
@@ -476,12 +521,28 @@
 
                 <div class="md:col-span-2 space-y-4">
                     <div class="space-y-2">
-                        <div class="flex items-center justify-between">
-                            <label class="text-xs font-semibold tracking-wide text-gray-600 uppercase inline-flex items-center gap-1">
-                                <i class="fas fa-boxes-stacked text-purple-500"></i>
-                                <span>Requested Items</span>
-                            </label>
-                            <span class="text-[11px] text-gray-500">Admins may only reduce quantities.</span>
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="flex items-center gap-2">
+                                <label class="text-xs font-semibold tracking-wide text-gray-600 uppercase inline-flex items-center gap-1">
+                                    <i class="fas fa-boxes-stacked text-purple-500"></i>
+                                    <span>Requested Items</span>
+                                </label>
+                                <div class="relative group">
+                                    <button
+                                        type="button"
+                                        class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-purple-100 text-purple-600 transition-colors hover:bg-purple-200 cursor-help"
+                                        aria-label="Admins may only reduce quantities"
+                                    >
+                                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                        </svg>
+                                    </button>
+                                    <div class="invisible pointer-events-none absolute left-1/2 bottom-full z-10 mb-2 w-48 -translate-x-1/2 rounded-lg bg-gray-900 p-2 text-[11px] text-white opacity-0 shadow-lg transition-all duration-200 group-hover:visible group-hover:opacity-100">
+                                        <p class="text-center">System automatically recalculates availability after adjustments.</p>
+                                        <div class="absolute left-1/2 top-full h-0 w-0 -translate-x-1/2 border-l-6 border-r-6 border-t-6 border-transparent border-t-gray-900"></div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         <div class="bg-gray-50 border border-gray-200 rounded-lg">
                             <div id="assignPhysicalItemsContainer" class="divide-y divide-gray-200">
@@ -490,18 +551,42 @@
                         </div>
                     </div>
 
-                    <div class="space-y-2">
-                        <div class="flex items-center justify-between">
-                            <label class="text-xs font-semibold tracking-wide text-gray-600 uppercase inline-flex items-center gap-1">
-                                <i class="fas fa-people-group text-purple-500"></i>
-                                <span>Requested Manpower</span>
-                            </label>
-                            <span class="text-[11px] text-gray-500">Show role names and reduce headcount if needed.</span>
-                        </div>
-                        <div class="bg-gray-50 border border-gray-200 rounded-lg">
-                            <div id="assignManpowerItemsContainer" class="divide-y divide-gray-200">
-                                <p class="py-4 text-sm text-center text-gray-500">No manpower requested.</p>
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-2">
+                                <label class="text-xs font-semibold tracking-wide text-gray-600 uppercase inline-flex items-center gap-1">
+                                    <i class="fas fa-people-group text-purple-500"></i>
+                                    <span>Requested Manpower</span>
+                                </label>
+                                <div class="relative group">
+                                    <button
+                                        type="button"
+                                        class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-purple-100 text-purple-600 transition-colors hover:bg-purple-200 cursor-help"
+                                        aria-label="Admins may only reduce quantities"
+                                    >
+                                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                        </svg>
+                                    </button>
+                                    <div class="invisible pointer-events-none absolute left-1/2 bottom-full z-10 mb-2 w-48 -translate-x-1/2 rounded-lg bg-gray-900 p-2 text-[11px] text-white opacity-0 shadow-lg transition-all duration-200 group-hover:visible group-hover:opacity-100">
+                                        <p class="text-center">Show role names and reduce headcount if needed.</p>
+                                        <div class="absolute left-1/2 top-full h-0 w-0 -translate-x-1/2 border-l-6 border-r-6 border-t-6 border-transparent border-t-gray-900"></div>
+                                    </div>
+                                </div>
                             </div>
+                            <button
+                                type="button"
+                                id="assignManpowerAddRoleBtn"
+                                class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-purple-200 bg-purple-50 text-purple-600 transition hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-300"
+                                title="Add manpower role"
+                            >
+                                <span class="sr-only">Add manpower role</span>
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                            <p id="assignManpowerEmptyState" class="py-4 text-sm text-center text-gray-500">No manpower assignments yet.</p>
+                            <div id="assignManpowerItemsContainer" class="space-y-4"></div>
                         </div>
                     </div>
                 </div>
@@ -509,8 +594,8 @@
 
         </form>
 
-        <div class="sticky bottom-0 z-30 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-end gap-3">
-            <x-button type="button" variant="secondary" @click="$dispatch('close-modal','assignManpowerModal')">Cancel</x-button>
+        <div data-assign-modal-section="footer" class="sticky bottom-0 z-30 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-end gap-3">
+            <x-button type="button" id="assignManpowerRejectBtn" variant="danger">Reject Request</x-button>
             <x-button id="assignManpowerConfirmBtn" variant="success">Validate</x-button>
         </div>
 
@@ -523,7 +608,7 @@
             <div class="relative max-w-7xl max-h-full">
                 <!-- Close Button -->
                 <button @click="showLargeImage = false" 
-                        class="absolute -top-12 right-0 bg-white bg-opacity-20 hover:bg-opacity-30 backdrop-blur-sm text-white rounded-full p-2 transition-all hover:scale-110 shadow-lg"
+                    class="absolute top-4 right-4 bg-white bg-opacity-20 hover:bg-opacity-30 backdrop-blur-sm text-white rounded-full p-2 transition-all hover:scale-110 shadow-lg"
                         aria-label="Close">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path>
@@ -577,6 +662,7 @@
     <script>
         window.CSRF_TOKEN = "{{ csrf_token() }}";
         window.LIST_ROUTE = "{{ route('admin.borrow.requests.list') }}";
+        window.MANPOWER_ROLES_ENDPOINT = "{{ route('admin.manpower.roles.index') }}";
     </script>
 
     <script>

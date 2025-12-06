@@ -7,12 +7,20 @@
 /* container improvements */
 #assignManpowerItemsContainer,
 #assignPhysicalItemsContainer {
-  max-height: 320px;            /* keep rows scrollable inside modal */
-  overflow: auto;
   padding: 0.5rem;
   border-radius: 0.5rem;
   background: #fff;
   box-shadow: none;             /* matches modal inner card style */
+}
+
+#assignPhysicalItemsContainer {
+  max-height: 320px;            /* keep rows scrollable inside modal */
+  overflow: auto;
+}
+
+#assignManpowerItemsContainer {
+  max-height: none;
+  overflow: visible;
 }
 
 /* ensure consistent gap inside the container */

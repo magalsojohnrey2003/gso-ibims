@@ -1,5 +1,9 @@
 {{-- resources/views/admin/users/_form.blade.php --}}
-@props(['user' => null, 'action' => '#', 'method' => 'POST'])
+@props([
+    'user' => null,
+    'action' => '#',
+    'method' => 'POST',
+])
 
 @php
     $rawPhoneValue = old('phone', $user->phone ?? '');

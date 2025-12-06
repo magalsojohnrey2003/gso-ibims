@@ -23,7 +23,7 @@
                     </div>
                     
                     <!-- Actions -->
-                    <div class="flex flex-wrap items-center justify-end gap-4">
+                        <div class="flex flex-wrap items-center justify-end gap-4">
                         <!-- Live Search Bar -->
                         <div class="flex-shrink-0 relative">
                             <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
@@ -32,26 +32,17 @@
                                 placeholder="Search name or phone..."
                                    class="border border-gray-300 rounded-lg pl-12 pr-4 py-2.5 text-sm w-64 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all hover:border-gray-400" />
                         </div>
-                        <!-- Last Active Filter -->
+                        <!-- Sort Modal Trigger -->
                         <div class="flex items-center gap-3">
-                            <span class="text-sm font-semibold text-gray-600">Sort by:</span>
-                            <div class="inline-flex items-center gap-2 bg-gray-100 rounded-full p-1 border border-gray-200">
                                 <button type="button"
-                                        class="last-active-filter-btn px-3 py-1 text-xs font-semibold rounded-full text-gray-600 transition-all"
-                                        data-last-active-filter="week">
-                                    Week
-                                </button>
-                                <button type="button"
-                                        class="last-active-filter-btn px-3 py-1 text-xs font-semibold rounded-full text-gray-600 transition-all"
-                                        data-last-active-filter="month">
-                                    Month
-                                </button>
-                                <button type="button"
-                                        class="last-active-filter-btn px-3 py-1 text-xs font-semibold rounded-full text-gray-600 transition-all"
-                                        data-last-active-filter="year">
-                                    Year
-                                </button>
-                            </div>
+                                    id="users-sort-trigger"
+                                    aria-haspopup="dialog"
+                                    aria-expanded="false"
+                                    aria-controls="users-sort-modal"
+                                    class="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:border-purple-300 hover:text-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500/40">
+                                <i class="fas fa-sliders-h text-sm"></i>
+                                <span id="users-sort-summary">Sort by</span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -85,13 +76,13 @@
     #users-table td[data-column="phone"] {
         max-width: 12rem;
     }
-    #users-table td[data-column="created"] {
-        max-width: 10rem;
+    #users-table td[data-column="status"] {
+        max-width: 14rem;
     }
     #users-table th:last-child,
     #users-table td:last-child {
-        min-width: 112px;
-        width: 112px;
+        min-width: 160px;
+        width: 160px;
     }
     </style>
     <div class="pb-2">
@@ -104,8 +95,8 @@
                             <th class="px-6 py-3 text-center">Name</th>
                             <th class="px-6 py-3 text-center">Phone #</th>
                             <th class="px-6 py-3 text-center">Created By</th>
-                            <th class="px-6 py-3 text-center">Registered</th>
                             <th class="px-6 py-3 text-center">Last Active</th>
+                            <th class="px-6 py-3 text-center">Status</th>
                             <th class="px-6 py-3 text-center">Actions</th>
                         </tr>
                         </thead>
@@ -256,6 +247,145 @@
                             </tr>
                         </tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Users Sort Modal --}}
+    <div id="users-sort-modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="users-sort-modal-title">
+        <div data-sort-modal-panel class="w-full max-w-md rounded-2xl bg-white shadow-2xl" tabindex="-1">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-sliders-h text-purple-600"></i>
+                    <h3 id="users-sort-modal-title" class="text-lg font-semibold text-gray-900">Sort &amp; Filter</h3>
+                </div>
+                <button type="button" class="rounded-full p-2 text-gray-500 hover:bg-gray-100 focus:outline-none" data-sort-close>
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    <span class="sr-only">Close</span>
+                </button>
+            </div>
+            <div class="px-5 py-4 space-y-5 text-sm text-gray-700">
+                <section>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Activity Range</p>
+                    <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                        <button type="button" class="sort-modal-option inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-purple-500/40" data-sort-activity-option="week" aria-pressed="false">Week</button>
+                        <button type="button" class="sort-modal-option inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-purple-500/40" data-sort-activity-option="month" aria-pressed="false">Month</button>
+                        <button type="button" class="sort-modal-option inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-purple-500/40" data-sort-activity-option="year" aria-pressed="false">Year</button>
+                    </div>
+                </section>
+                <section>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Borrowing Status</p>
+                    <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                        <button type="button" class="sort-modal-option inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-purple-500/40" data-sort-status-option="good" aria-pressed="false">Good</button>
+                        <button type="button" class="sort-modal-option inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-purple-500/40" data-sort-status-option="fair" aria-pressed="false">Fair</button>
+                        <button type="button" class="sort-modal-option inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-purple-500/40" data-sort-status-option="risk" aria-pressed="false">Risk</button>
+                    </div>
+                </section>
+            </div>
+            <div class="flex items-center justify-between gap-3 px-5 py-4 border-t border-gray-200 bg-gray-50">
+                <button type="button" id="users-sort-clear" class="inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-400/40">
+                    <i class="fas fa-undo"></i>
+                    <span>Clear Filters</span>
+                </button>
+                <div class="flex items-center gap-2">
+                    <button type="button" class="inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-400/40" data-sort-close>
+                        Cancel
+                    </button>
+                    <button type="button" id="users-sort-apply" class="inline-flex items-center gap-2 rounded-full bg-purple-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-400/60">
+                        <i class="fas fa-check"></i>
+                        <span>Apply</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Damage History Modal --}}
+    <div id="damage-history-modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50 p-4">
+        <div data-damage-modal-panel class="relative bg-white rounded-2xl w-full max-w-2xl shadow-2xl transform transition-all">
+            <div class="bg-purple-600 text-white px-4 py-3 rounded-t-2xl flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-clipboard-list text-base"></i>
+                    <div class="leading-tight">
+                        <h3 class="text-lg font-semibold tracking-tight">Items Condition</h3>
+                        <p class="text-xs text-purple-100/90">Review recent incidents before approving requests.</p>
+                    </div>
+                </div>
+                <button type="button" data-close-damage-modal class="rounded-full p-2 hover:bg-white/10 transition-colors focus:outline-none">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="px-4 py-4 space-y-4 text-sm text-gray-700">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div class="space-y-1">
+                        <p class="text-[11px] uppercase tracking-wide text-gray-500">Accountability Summary</p>
+                        <h4 id="damage-history-username" class="text-base font-semibold text-gray-900">Borrower</h4>
+                        <p class="text-xs text-gray-500">Registered: <span id="damage-history-registered-date">&mdash;</span></p>
+                    </div>
+                    <span id="damage-history-status-badge" class="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700">
+                        <i class="fas fa-circle-check"></i>
+                        <span>Good Standing</span>
+                    </span>
+                </div>
+
+                <div id="damage-history-risk" class="hidden rounded-lg border px-3 py-2 text-xs flex items-start gap-2">
+                    <i id="damage-history-risk-icon" class="fas fa-circle-exclamation mt-0.5"></i>
+                    <span id="damage-history-risk-message">Borrower has recorded incidents. Review before approving new requests.</span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
+                        <p class="text-[11px] uppercase tracking-wide text-gray-500 font-semibold">Recorded Incidents</p>
+                        <p id="damage-history-count" class="mt-1 text-lg font-bold text-gray-900">0</p>
+                    </div>
+                    <div class="rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
+                        <p class="text-[11px] uppercase tracking-wide text-gray-500 font-semibold">Last Incident</p>
+                        <p id="damage-history-last" class="mt-1 text-sm font-semibold text-gray-700">None</p>
+                    </div>
+                </div>
+
+                <div>
+                    <h5 class="text-[11px] uppercase tracking-wide text-gray-500 font-semibold">Incident Log</h5>
+                    <div id="damage-history-loading" class="hidden mt-3 flex items-center justify-center gap-2 text-xs text-gray-500">
+                        <i class="fas fa-circle-notch fa-spin"></i>
+                        <span>Loading items condition...</span>
+                    </div>
+                    <div id="damage-history-error" class="hidden mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"></div>
+                    <div id="damage-history-empty" class="hidden mt-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-4 text-xs text-gray-500 text-center">
+                        No recorded incidents for this user.
+                    </div>
+                    <ul id="damage-history-list" class="mt-3 space-y-2 max-h-64 overflow-y-auto pr-1"></ul>
+                </div>
+            </div>
+            <div class="px-4 py-3 bg-gray-50 border-t border-gray-200 flex justify-end">
+                <x-button variant="secondary" class="px-3 py-2 text-sm" data-close-damage-modal>
+                    Close
+                </x-button>
+            </div>
+
+            <div id="damage-history-details-modal" class="hidden absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+                <div class="relative w-full max-w-lg bg-white rounded-2xl shadow-xl">
+                    <div class="flex items-start justify-between gap-3 px-4 py-3 border-b border-gray-200">
+                        <div class="leading-tight">
+                            <h4 id="damage-history-details-title" class="text-sm font-semibold text-gray-900">Request ID: --</h4>
+                            <p id="damage-history-details-subtitle" class="text-xs text-gray-500">Date Reported: --</p>
+                            <p class="text-[11px] text-gray-400 mt-1">Item Name | Status | Property Number</p>
+                        </div>
+                        <button type="button" data-close-details-modal class="rounded-full p-2 hover:bg-gray-100 focus:outline-none transition">
+                            <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div id="damage-history-details-content" class="px-4 py-3 space-y-2 max-h-72 overflow-y-auto"></div>
+                    <div class="px-4 py-3 border-t border-gray-200 flex justify-end gap-2">
+                        <x-button variant="secondary" class="px-3 py-2 text-sm" data-close-details-modal>Done</x-button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1027,16 +1157,27 @@
                 form.dataset.editLocked = locked ? 'true' : 'false';
 
                 lockableInputs.forEach(input => {
-                    input.readOnly = locked;
-                    if (locked) {
-                        input.setAttribute('aria-readonly', 'true');
-                    } else {
-                        input.removeAttribute('aria-readonly');
-                    }
+                    const isSelect = input.tagName === 'SELECT';
 
-                    if (!locked && input.name === 'password') {
-                        input.value = '';
-                        input.classList.remove('has-value');
+                    if (isSelect) {
+                        input.disabled = locked;
+                        if (locked) {
+                            input.setAttribute('aria-disabled', 'true');
+                        } else {
+                            input.removeAttribute('aria-disabled');
+                        }
+                    } else {
+                        input.readOnly = locked;
+                        if (locked) {
+                            input.setAttribute('aria-readonly', 'true');
+                        } else {
+                            input.removeAttribute('aria-readonly');
+                        }
+
+                        if (!locked && input.name === 'password') {
+                            input.value = '';
+                            input.classList.remove('has-value');
+                        }
                     }
                 });
 
@@ -1081,7 +1222,11 @@
                 form.reset();
 
                 lockableInputs.forEach(input => {
-                    if (input.name === 'phone') {
+                    const isSelect = input.tagName === 'SELECT';
+
+                    if (isSelect) {
+                        input.classList.remove('has-value');
+                    } else if (input.name === 'phone') {
                         const initialDigits = (input.getAttribute('data-initial-clean') || '').replace(/\D/g, '');
                         input.dataset.cleanValue = initialDigits;
                         input.value = formatPhoneForDisplay(initialDigits);
@@ -1264,14 +1409,447 @@
         }
 
         toggleArchivedEmptyState();
+
+        const borrowingStatusStyles = {
+            good: { classes: 'bg-emerald-100 text-emerald-700', icon: 'fa-circle-check', label: 'Good' },
+            fair: { classes: 'bg-amber-100 text-amber-700', icon: 'fa-circle-exclamation', label: 'Fair' },
+            risk: { classes: 'bg-red-100 text-red-700', icon: 'fa-triangle-exclamation', label: 'Risk' },
+        };
+
+        const borrowingStatusAlerts = {
+            fair: {
+                classes: 'border-amber-200 bg-amber-50 text-amber-800',
+                icon: 'fa-circle-exclamation',
+                message: 'Borrower flagged for review. Assess recorded incidents before approving new requests.',
+            },
+            risk: {
+                classes: 'border-red-200 bg-red-50 text-red-700',
+                icon: 'fa-triangle-exclamation',
+                message: 'Borrower marked At Risk. Coordinate with management before approving new requests.',
+            },
+        };
+
+        const incidentReminderAlert = {
+            classes: 'border-amber-200 bg-amber-50 text-amber-800',
+            icon: 'fa-circle-exclamation',
+            message: 'Borrower has recorded incidents. Review them before approving new requests.',
+        };
+
+        const riskBaseClasses = 'rounded-lg border px-3 py-2 text-xs flex items-start gap-2';
+
+        function escapeHtml(value) {
+            if (value === null || value === undefined) {
+                return '';
+            }
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function formatDamageTimestamp(value) {
+            if (!value) return '—';
+            const normalized = value.replace(' ', 'T');
+            const parsed = new Date(normalized);
+            if (Number.isNaN(parsed.getTime())) {
+                return value;
+            }
+            return parsed.toLocaleString(undefined, {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+            });
+        }
+
+        function formatReportedDate(value) {
+            if (!value) return '—';
+            let source = value;
+            if (value instanceof Date) {
+                source = value.toISOString();
+            }
+
+            if (typeof source !== 'string') {
+                return '—';
+            }
+
+            const normalized = source.replace(' ', 'T');
+            const parsed = new Date(normalized);
+            if (Number.isNaN(parsed.getTime())) {
+                return source;
+            }
+
+            const month = parsed.toLocaleString(undefined, { month: 'short' });
+            const day = parsed.toLocaleString(undefined, { day: 'numeric' });
+            const year = parsed.getFullYear();
+            return `${month}. ${day}, ${year}`;
+        }
+
+        function setupDamageHistoryModal() {
+            const modal = document.getElementById('damage-history-modal');
+            if (!modal) return;
+
+            const loadingEl = document.getElementById('damage-history-loading');
+            const errorEl = document.getElementById('damage-history-error');
+            const emptyEl = document.getElementById('damage-history-empty');
+            const listEl = document.getElementById('damage-history-list');
+            const nameEl = document.getElementById('damage-history-username');
+            const statusBadgeEl = document.getElementById('damage-history-status-badge');
+            const countEl = document.getElementById('damage-history-count');
+            const lastEl = document.getElementById('damage-history-last');
+            const registeredDateEl = document.getElementById('damage-history-registered-date');
+            const riskEl = document.getElementById('damage-history-risk');
+            const riskIconEl = document.getElementById('damage-history-risk-icon');
+            const riskMessageEl = document.getElementById('damage-history-risk-message');
+            const closeButtons = modal.querySelectorAll('[data-close-damage-modal]');
+            const detailModal = document.getElementById('damage-history-details-modal');
+            const detailTitleEl = document.getElementById('damage-history-details-title');
+            const detailSubtitleEl = document.getElementById('damage-history-details-subtitle');
+            const detailContentEl = document.getElementById('damage-history-details-content');
+            const detailCloseButtons = detailModal ? detailModal.querySelectorAll('[data-close-details-modal]') : [];
+            const groupsCache = new Map();
+
+            const closeDetailModal = () => {
+                if (!detailModal) return;
+                detailModal.classList.add('hidden');
+                if (detailContentEl) {
+                    detailContentEl.innerHTML = '';
+                }
+            };
+
+            const closeModal = () => {
+                modal.classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+                closeDetailModal();
+            };
+
+            const openModal = () => {
+                modal.classList.remove('hidden');
+                document.body.classList.add('overflow-hidden');
+            };
+
+            closeButtons.forEach(btn => {
+                btn.addEventListener('click', () => closeModal());
+            });
+
+            modal.addEventListener('click', (event) => {
+                if (event.target === modal) {
+                    closeModal();
+                }
+            });
+
+            const openDetailModal = (requestCode) => {
+                if (!detailModal || !detailContentEl) {
+                    return;
+                }
+
+                const group = groupsCache.get(requestCode);
+                if (!group) {
+                    return;
+                }
+
+                const { items, reportedAt } = group;
+                if (detailTitleEl) {
+                    detailTitleEl.textContent = `Request ID: ${group.requestCode}`;
+                }
+                if (detailSubtitleEl) {
+                    const formattedDate = formatReportedDate(reportedAt);
+                    detailSubtitleEl.textContent = `Date Reported: ${formattedDate}`;
+                }
+
+                detailContentEl.innerHTML = '';
+
+                if (!items.length) {
+                    const emptyMessage = document.createElement('p');
+                    emptyMessage.className = 'text-sm text-gray-500';
+                    emptyMessage.textContent = 'No incident records were found for this request.';
+                    detailContentEl.appendChild(emptyMessage);
+                } else {
+                    const list = document.createElement('ul');
+                    list.className = 'space-y-2';
+
+                    items.forEach((item) => {
+                        const entry = document.createElement('li');
+                        entry.className = 'flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700';
+
+                        const nameSpan = document.createElement('span');
+                        nameSpan.className = 'font-medium text-gray-800 flex-1 min-w-[140px]';
+                        nameSpan.textContent = item.itemName;
+
+                        const conditionClass = conditionBadgeClasses[item.conditionKey] || 'bg-gray-100 text-gray-700';
+                        const iconClass = conditionIconClasses[item.conditionKey] || 'fa-circle';
+                        const safeLabel = escapeHtml(item.conditionLabel);
+
+                        const statusWrapper = document.createElement('div');
+                        statusWrapper.className = 'flex justify-center w-full sm:w-auto sm:flex-none sm:min-w-[110px]';
+
+                        const statusSpan = document.createElement('span');
+                        statusSpan.className = `inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded-full ${conditionClass}`;
+                        statusSpan.innerHTML = `<i class='fas ${iconClass} text-[0.7rem]'></i><span>${safeLabel}</span>`;
+
+                        statusWrapper.appendChild(statusSpan);
+
+                        const propertySpan = document.createElement('span');
+                        propertySpan.className = 'text-xs tracking-tight text-gray-600 flex-1 min-w-[140px] sm:text-right sm:text-[11px]';
+                        propertySpan.textContent = item.propertyNumber || '—';
+
+                        entry.appendChild(nameSpan);
+                        entry.appendChild(statusWrapper);
+                        entry.appendChild(propertySpan);
+                        list.appendChild(entry);
+                    });
+
+                    detailContentEl.appendChild(list);
+                }
+
+                detailModal.classList.remove('hidden');
+            };
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key !== 'Escape') {
+                    return;
+                }
+
+                if (detailModal && !detailModal.classList.contains('hidden')) {
+                    closeDetailModal();
+                    return;
+                }
+
+                if (!modal.classList.contains('hidden')) {
+                    closeModal();
+                }
+            });
+
+            if (detailModal) {
+                detailCloseButtons.forEach((button) => button.addEventListener('click', closeDetailModal));
+                detailModal.addEventListener('click', (event) => {
+                    if (event.target === detailModal) {
+                        closeDetailModal();
+                    }
+                });
+            }
+
+            const renderStatusBadge = (status, labelOverride) => {
+                const normalized = status ? String(status).toLowerCase() : '';
+                const styles = borrowingStatusStyles[normalized] || borrowingStatusStyles.good;
+                const label = labelOverride || styles.label;
+                statusBadgeEl.className = `inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full ${styles.classes}`;
+                statusBadgeEl.innerHTML = `<i class="fas ${styles.icon}"></i><span>${label}</span>`;
+            };
+
+            const conditionBadgeClasses = {
+                missing: 'bg-orange-100 text-orange-700',
+                damage: 'bg-rose-100 text-rose-700',
+                damaged: 'bg-rose-100 text-rose-700',
+                minor_damage: 'bg-amber-100 text-amber-700',
+            };
+
+            const conditionIconClasses = {
+                missing: 'fa-question-circle',
+                damage: 'fa-exclamation-triangle',
+                damaged: 'fa-exclamation-triangle',
+                minor_damage: 'fa-exclamation-circle',
+            };
+
+            const renderIncidents = (incidents) => {
+                listEl.innerHTML = '';
+                groupsCache.clear();
+                if (!Array.isArray(incidents) || incidents.length === 0) {
+                    return;
+                }
+
+                const groups = new Map();
+
+                incidents.forEach((incident) => {
+                    const requestCode = incident.borrow_request_code
+                        || (incident.borrow_request_id ? `#${incident.borrow_request_id}` : '—');
+                    if (!groups.has(requestCode)) {
+                        groups.set(requestCode, []);
+                    }
+
+                    groups.get(requestCode).push({
+                        itemName: incident.item || 'Unknown Item',
+                        propertyNumber: incident.property_number || '',
+                        occurredAt: incident.occurred_at || null,
+                        conditionKey: (incident.return_condition || '').toLowerCase(),
+                        conditionLabel: incident.return_condition_label || 'Damage',
+                    });
+                });
+
+                Array.from(groups.entries()).forEach(([requestCode, items]) => {
+                    const reportedAt = items.reduce((earliest, current) => {
+                        if (!current.occurredAt) {
+                            return earliest;
+                        }
+
+                        const normalizedCurrent = String(current.occurredAt).replace(' ', 'T');
+                        const currentDate = new Date(normalizedCurrent);
+                        if (Number.isNaN(currentDate.getTime())) {
+                            return earliest;
+                        }
+
+                        if (!earliest) {
+                            return current.occurredAt;
+                        }
+
+                        const normalizedEarliest = String(earliest).replace(' ', 'T');
+                        const earliestDate = new Date(normalizedEarliest);
+                        if (Number.isNaN(earliestDate.getTime()) || currentDate < earliestDate) {
+                            return current.occurredAt;
+                        }
+
+                        return earliest;
+                    }, null);
+
+                    groupsCache.set(requestCode, { requestCode, items, reportedAt });
+
+                    const li = document.createElement('li');
+                    li.className = 'rounded-lg border border-gray-200 bg-white shadow-sm px-3 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3';
+
+                    const infoStack = document.createElement('div');
+                    infoStack.className = 'flex items-center gap-2 text-sm font-semibold text-gray-900';
+
+                    const indicator = document.createElement('span');
+                    indicator.className = 'h-2 w-2 rounded-full bg-purple-500';
+
+                    const summaryLabel = document.createElement('span');
+                    const itemLabel = `${items.length} ${items.length === 1 ? 'Item' : 'Items'}`;
+                    summaryLabel.textContent = `${requestCode} (${itemLabel})`;
+
+                    infoStack.appendChild(indicator);
+                    infoStack.appendChild(summaryLabel);
+
+                    const historyButton = document.createElement('button');
+                    historyButton.type = 'button';
+                    historyButton.className = 'inline-flex items-center gap-2 rounded-lg border border-purple-200 px-3 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-400/60 transition';
+                    historyButton.innerHTML = '<i class="fas fa-clock-rotate-left text-sm"></i><span>History Log</span>';
+                    historyButton.addEventListener('click', () => openDetailModal(requestCode));
+
+                    li.appendChild(infoStack);
+                    li.appendChild(historyButton);
+                    listEl.appendChild(li);
+                });
+            };
+
+            const applyRiskAlert = (statusKey, incidentCount) => {
+                if (!riskEl) return;
+                const normalized = statusKey ? String(statusKey).toLowerCase() : '';
+                const alertMeta = borrowingStatusAlerts[normalized] || (incidentCount > 0 ? incidentReminderAlert : null);
+
+                if (alertMeta) {
+                    const composedClasses = `${riskBaseClasses} ${alertMeta.classes}`.trim();
+                    riskEl.className = composedClasses;
+                    if (riskIconEl) {
+                        riskIconEl.className = `fas ${alertMeta.icon} mt-0.5`;
+                    }
+                    if (riskMessageEl) {
+                        riskMessageEl.textContent = alertMeta.message;
+                    }
+                } else {
+                    riskEl.className = `${riskBaseClasses} hidden`;
+                    if (riskIconEl) {
+                        riskIconEl.className = 'fas fa-circle-exclamation mt-0.5';
+                    }
+                    if (riskMessageEl) {
+                        riskMessageEl.textContent = '';
+                    }
+                }
+            };
+
+            const handleDamageHistoryRequest = async (button) => {
+                const url = button.getAttribute('data-damage-url');
+                const userName = button.getAttribute('data-user-name') || 'Borrower';
+                if (!url) {
+                    return;
+                }
+
+                closeDetailModal();
+                openModal();
+                loadingEl.classList.remove('hidden');
+                errorEl.classList.add('hidden');
+                emptyEl.classList.add('hidden');
+                listEl.innerHTML = '';
+                nameEl.textContent = userName;
+                if (registeredDateEl) {
+                    const registeredAt = button.getAttribute('data-registered-at') || '—';
+                    registeredDateEl.textContent = registeredAt;
+                }
+                applyRiskAlert(null, 0);
+
+                try {
+                    const response = await fetch(url, {
+                        method: 'GET',
+                        headers: {
+                            Accept: 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        credentials: 'same-origin',
+                    });
+                    if (!response.ok) {
+                        throw new Error('Failed to load damage history.');
+                    }
+
+                    const payload = await response.json();
+                    const statusKey = String(payload.borrowing_status || 'good').toLowerCase();
+                    renderStatusBadge(statusKey, payload.borrowing_status_label);
+
+                    const incidents = Array.isArray(payload.incidents) ? payload.incidents : [];
+                    const count = Number(payload.damage_count || incidents.length || 0);
+                    countEl.textContent = count;
+
+                    if (count > 0) {
+                        renderIncidents(incidents);
+                        emptyEl.classList.add('hidden');
+                        const lastDate = incidents.length ? incidents[0].occurred_at : null;
+                        lastEl.textContent = lastDate ? formatDamageTimestamp(lastDate) : 'Unknown';
+                    } else {
+                        emptyEl.classList.remove('hidden');
+                        lastEl.textContent = 'None';
+                    }
+
+                    applyRiskAlert(statusKey, count);
+                } catch (error) {
+                    applyRiskAlert(null, 0);
+                    errorEl.textContent = error?.message || 'Failed to load damage history.';
+                    errorEl.classList.remove('hidden');
+                    emptyEl.classList.add('hidden');
+                    lastEl.textContent = 'Unknown';
+                    if (registeredDateEl) {
+                        registeredDateEl.textContent = button.getAttribute('data-registered-at') || '—';
+                    }
+                } finally {
+                    loadingEl.classList.add('hidden');
+                }
+            };
+
+            document.addEventListener('click', (event) => {
+                const trigger = event.target.closest('.damage-history-btn');
+                if (!trigger) return;
+                event.preventDefault();
+                handleDamageHistoryRequest(trigger);
+            });
+        }
     </script>
 
     <script>
-    // Live search and "Last Active" filtering for Manage Users
+    // Live search and filtering controls for Manage Users
     document.addEventListener('DOMContentLoaded', function() {
+        setupDamageHistoryModal();
+
         const searchInput = document.getElementById('users-live-search');
         const tableBody = document.getElementById('users-tbody');
-        const filterButtons = document.querySelectorAll('[data-last-active-filter]');
+        const sortTriggerButton = document.getElementById('users-sort-trigger');
+        const sortSummaryLabel = document.getElementById('users-sort-summary');
+        const sortModal = document.getElementById('users-sort-modal');
+        const sortModalPanel = sortModal ? sortModal.querySelector('[data-sort-modal-panel]') : null;
+        const sortApplyButton = document.getElementById('users-sort-apply');
+        const sortClearButton = document.getElementById('users-sort-clear');
+        const sortCloseButtons = sortModal ? sortModal.querySelectorAll('[data-sort-close]') : [];
+        const activityOptionButtons = sortModal ? sortModal.querySelectorAll('[data-sort-activity-option]') : [];
+        const statusOptionButtons = sortModal ? sortModal.querySelectorAll('[data-sort-status-option]') : [];
         const columnCount = document.querySelectorAll('#users-table thead th').length || 6;
         
         if (!tableBody) return;
@@ -1281,7 +1859,109 @@
             month: 30 * 24 * 60 * 60,
             year: 365 * 24 * 60 * 60,
         };
+        const activityLabels = {
+            week: 'Week',
+            month: 'Month',
+            year: 'Year',
+        };
+        const statusLabels = {
+            good: 'Good',
+            fair: 'Fair',
+            risk: 'Risk',
+        };
         let activeLastActiveFilter = null;
+        let activeStatusFilter = null;
+        let pendingActivityFilter = null;
+        let pendingStatusFilter = null;
+
+        function setOptionActive(button, isActive) {
+            button.classList.toggle('bg-purple-600', isActive);
+            button.classList.toggle('text-white', isActive);
+            button.classList.toggle('border-purple-600', isActive);
+            button.classList.toggle('shadow-lg', isActive);
+            button.classList.toggle('bg-white', !isActive);
+            button.classList.toggle('text-gray-700', !isActive);
+            button.classList.toggle('border-gray-200', !isActive);
+            button.classList.toggle('shadow-sm', !isActive);
+            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        }
+
+        function updateSortModalSelections() {
+            activityOptionButtons.forEach((button) => {
+                const value = button.dataset.sortActivityOption || null;
+                setOptionActive(button, value === pendingActivityFilter);
+            });
+
+            statusOptionButtons.forEach((button) => {
+                const value = button.dataset.sortStatusOption || null;
+                setOptionActive(button, value === pendingStatusFilter);
+            });
+        }
+
+        function updateSortSummary() {
+            if (!sortSummaryLabel || !sortTriggerButton) {
+                return;
+            }
+
+            const summaryParts = [];
+            if (activeLastActiveFilter && activityLabels[activeLastActiveFilter]) {
+                summaryParts.push(activityLabels[activeLastActiveFilter]);
+            }
+            if (activeStatusFilter && statusLabels[activeStatusFilter]) {
+                summaryParts.push(statusLabels[activeStatusFilter]);
+            }
+
+            const hasActive = summaryParts.length > 0;
+            sortSummaryLabel.textContent = hasActive
+                ? `Sort: ${summaryParts.join(' · ')}`
+                : 'Sort by';
+
+            sortTriggerButton.classList.toggle('bg-purple-50', hasActive);
+            sortTriggerButton.classList.toggle('text-purple-700', hasActive);
+            sortTriggerButton.classList.toggle('border-purple-300', hasActive);
+            sortTriggerButton.classList.toggle('shadow-md', hasActive);
+            sortTriggerButton.classList.toggle('bg-white', !hasActive);
+            sortTriggerButton.classList.toggle('text-gray-700', !hasActive);
+            sortTriggerButton.classList.toggle('border-gray-200', !hasActive);
+            sortTriggerButton.classList.toggle('shadow-sm', !hasActive);
+        }
+
+        function openSortModal() {
+            if (!sortModal) return;
+            pendingActivityFilter = activeLastActiveFilter;
+            pendingStatusFilter = activeStatusFilter;
+            updateSortModalSelections();
+            sortModal.classList.remove('hidden');
+            if (sortTriggerButton) {
+                sortTriggerButton.setAttribute('aria-expanded', 'true');
+            }
+            document.body.classList.add('overflow-hidden');
+            setTimeout(() => {
+                if (sortModalPanel && typeof sortModalPanel.focus === 'function') {
+                    try {
+                        sortModalPanel.focus({ preventScroll: true });
+                    } catch (error) {
+                        sortModalPanel.focus();
+                    }
+                }
+            }, 80);
+        }
+
+        function closeSortModal() {
+            if (!sortModal) return;
+            sortModal.classList.add('hidden');
+            if (sortTriggerButton) {
+                sortTriggerButton.setAttribute('aria-expanded', 'false');
+            }
+            document.body.classList.remove('overflow-hidden');
+            if (sortTriggerButton && typeof sortTriggerButton.focus === 'function') {
+                try {
+                    sortTriggerButton.focus({ preventScroll: true });
+                } catch (error) {
+                    sortTriggerButton.focus();
+                }
+            }
+        }
 
         function passesLastActiveFilter(row) {
             if (!activeLastActiveFilter) return true;
@@ -1296,6 +1976,12 @@
 
             const now = Math.floor(Date.now() / 1000);
             return now - timestamp <= windowSeconds;
+        }
+
+        function passesStatusFilter(row) {
+            if (!activeStatusFilter) return true;
+            const status = row.getAttribute('data-borrowing-status');
+            return status === activeStatusFilter;
         }
         
         function filterTable() {
@@ -1320,8 +2006,9 @@
                     || phoneText.includes(searchTerm)
                     || (digitsTerm && phoneDigits.includes(digitsTerm));
                 const matchesLastActive = passesLastActiveFilter(row);
+                const matchesStatus = passesStatusFilter(row);
 
-                const shouldShow = matchesSearch && matchesLastActive;
+                const shouldShow = matchesSearch && matchesLastActive && matchesStatus;
                 
                 row.style.display = shouldShow ? '' : 'none';
                 if (shouldShow) {
@@ -1353,6 +2040,8 @@
                     noResultsRow.remove();
                 }
             }
+
+            updateSortSummary();
         }
         
         if (searchInput) {
@@ -1367,26 +2056,70 @@
             });
         }
 
-        filterButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                const filter = button.dataset.lastActiveFilter;
-                const isActive = activeLastActiveFilter === filter;
-                
-                activeLastActiveFilter = isActive ? null : filter;
-
-                filterButtons.forEach(btn => {
-                    btn.classList.remove('bg-purple-600', 'text-white', 'shadow');
-                    btn.setAttribute('aria-pressed', 'false');
+            if (sortTriggerButton) {
+                sortTriggerButton.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    openSortModal();
                 });
+            }
 
-                if (!isActive) {
-                    button.classList.add('bg-purple-600', 'text-white', 'shadow');
-                    button.setAttribute('aria-pressed', 'true');
-                }
-
-                filterTable();
+            sortCloseButtons.forEach((button) => {
+                button.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    closeSortModal();
+                });
             });
-        });
+
+            if (sortModal) {
+                sortModal.addEventListener('click', (event) => {
+                    if (event.target === sortModal) {
+                        closeSortModal();
+                    }
+                });
+            }
+
+            activityOptionButtons.forEach((button) => {
+                button.addEventListener('click', () => {
+                    const value = button.dataset.sortActivityOption || null;
+                    pendingActivityFilter = pendingActivityFilter === value ? null : value;
+                    updateSortModalSelections();
+                });
+            });
+
+            statusOptionButtons.forEach((button) => {
+                button.addEventListener('click', () => {
+                    const value = button.dataset.sortStatusOption || null;
+                    pendingStatusFilter = pendingStatusFilter === value ? null : value;
+                    updateSortModalSelections();
+                });
+            });
+
+            if (sortApplyButton) {
+                sortApplyButton.addEventListener('click', () => {
+                    activeLastActiveFilter = pendingActivityFilter;
+                    activeStatusFilter = pendingStatusFilter;
+                    filterTable();
+                    closeSortModal();
+                });
+            }
+
+            if (sortClearButton) {
+                sortClearButton.addEventListener('click', () => {
+                    pendingActivityFilter = null;
+                    pendingStatusFilter = null;
+                    activeLastActiveFilter = null;
+                    activeStatusFilter = null;
+                    updateSortModalSelections();
+                    filterTable();
+                    closeSortModal();
+                });
+            }
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && sortModal && !sortModal.classList.contains('hidden')) {
+                    closeSortModal();
+                }
+            });
 
         // Initial filter state
         filterTable();

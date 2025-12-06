@@ -13,6 +13,7 @@ use App\Events\BorrowRequestStatusUpdated;
 use App\Notifications\RequestNotification;
 use App\Models\BorrowItemInstance;
 use App\Models\BorrowRequestItem;
+use App\Models\ManpowerRole;
 use App\Models\WalkInRequest;
 use App\Services\BorrowRequestFormPdf;
 use App\Services\PhilSmsService;
@@ -317,11 +318,39 @@ class BorrowRequestController extends Controller
     
     public function list()
     {
-        $requests = BorrowRequest::with(['user', 'items.item', 'items.manpowerRole'])
+        $incidentStatuses = ['damage', 'damaged', 'minor_damage', 'missing'];
+
+        $requests = BorrowRequest::with([
+                'user' => function ($query) use ($incidentStatuses) {
+                    $query->withCount([
+                        'damageIncidents as damage_incidents_count' => function ($countQuery) use ($incidentStatuses) {
+                            $countQuery->whereIn('return_condition', $incidentStatuses);
+                        },
+                    ])->withMax([
+                        'damageIncidents as latest_damage_incident_at' => function ($maxQuery) use ($incidentStatuses) {
+                            $maxQuery->whereIn('return_condition', $incidentStatuses);
+                        },
+                    ], 'condition_updated_at');
+                },
+                'items.item',
+                'items.manpowerRole',
+            ])
             ->latest()
             ->get()
             ->map(function (BorrowRequest $request) {
                 $status = $request->status === 'qr_verified' ? 'approved' : $request->status;
+                $user = $request->user;
+                $timezone = config('app.timezone');
+                $latestDamageAt = null;
+
+                if ($user && $user->latest_damage_incident_at) {
+                    try {
+                        $latestDamageAt = Carbon::parse($user->latest_damage_incident_at)->timezone($timezone)->toIso8601String();
+                    } catch (\Throwable $exception) {
+                        $latestDamageAt = null;
+                    }
+                }
+
                 return [
                     'id' => $request->id,
                     'formatted_request_id' => $request->formatted_request_id,
@@ -340,10 +369,16 @@ class BorrowRequestController extends Controller
                     'qr_verified_form_path' => $request->qr_verified_form_path,
                     'qr_verified_form_url' => $this->makeLetterUrl($request->qr_verified_form_path),
                     'approved_form_url' => $this->makeLetterUrl($request->qr_verified_form_path),
-                    'user' => $request->user ? [
-                        'id' => $request->user->id,
-                        'first_name' => $request->user->first_name,
-                        'last_name' => $request->user->last_name,
+                    'user' => $user ? [
+                        'id' => $user->id,
+                        'first_name' => $user->first_name,
+                        'last_name' => $user->last_name,
+                        'full_name' => $user->full_name,
+                        'borrowing_status' => $user->borrowing_status ?? 'good',
+                        'borrowing_status_label' => $user->borrowing_status_label,
+                        'damage_incidents_count' => (int) ($user->damage_incidents_count ?? 0),
+                        'latest_damage_incident_at' => $latestDamageAt,
+                        'damage_history_url' => route('admin.users.damage-history', $user),
                     ] : null,
                     'items' => $request->items->map(function (BorrowRequestItem $item) {
                         $displayName = $this->resolveBorrowItemDisplayName($item);
@@ -354,6 +389,9 @@ class BorrowRequestController extends Controller
                             'borrow_request_item_id' => $item->id,
                             'item_id' => $item->item_id,
                             'quantity' => $item->quantity,
+                            'approved_quantity' => $item->quantity,
+                            'requested_quantity' => $item->requested_quantity ?? $item->quantity,
+                            'received_quantity' => $item->received_quantity,
                             'quantity_reason' => $item->manpower_notes,
                             'is_manpower' => (bool) $item->is_manpower,
                             'manpower_role' => $item->manpower_role,
@@ -466,44 +504,96 @@ class BorrowRequestController extends Controller
                 $assignments = $request->input('manpower_assignments', []);
 
                 if ($assignments && is_array($assignments)) {
+                    $placeholderItemId = Item::systemPlaceholderId();
                     foreach ($assignments as $assignment) {
                         $briId = isset($assignment['borrow_request_item_id']) ? (int) $assignment['borrow_request_item_id'] : null;
-
-                        if (! $briId) {
-                            DB::rollBack();
-                            return response()->json(['message' => 'Invalid manpower assignment row.'], 422);
-                        }
-
-                        $bri = BorrowRequestItem::where('id', $briId)
-                            ->where('borrow_request_id', $borrowRequest->id)
-                            ->first();
-
-                        if (! $bri) {
-                            DB::rollBack();
-                            return response()->json(['message' => 'Invalid manpower assignment row.'], 422);
-                        }
-
-                        $origQty = (int) $bri->quantity;
-                        $newQty = isset($assignment['quantity']) ? (int) $assignment['quantity'] : $origQty;
-
-                        if ($newQty < 0) {
-                            DB::rollBack();
-                            return response()->json(['message' => 'Invalid quantity provided.'], 422);
-                        }
-
-                        if ($newQty > $origQty) {
-                            $newQty = $origQty;
-                        }
-
-                        $bri->quantity = $newQty;
-                        $bri->assigned_manpower = null;
-                        $bri->manpower_role = null;
-                        $bri->manpower_notes = isset($assignment['quantity_reason']) && $assignment['quantity_reason'] !== ''
+                        $providedQty = isset($assignment['quantity']) ? (int) $assignment['quantity'] : 0;
+                        $providedReason = isset($assignment['quantity_reason']) && $assignment['quantity_reason'] !== ''
                             ? substr($assignment['quantity_reason'], 0, 255)
                             : null;
-                        $bri->assigned_by = \Illuminate\Support\Facades\Auth::id();
-                        $bri->assigned_at = now();
-                        $bri->save();
+
+                        if ($briId) {
+                            $bri = BorrowRequestItem::where('id', $briId)
+                                ->where('borrow_request_id', $borrowRequest->id)
+                                ->lockForUpdate()
+                                ->first();
+
+                            if (! $bri) {
+                                DB::rollBack();
+                                return response()->json(['message' => 'Invalid manpower assignment row.'], 422);
+                            }
+
+                            $origQty = (int) $bri->quantity;
+                            $newQty = $providedQty;
+
+                            if ($newQty < 0) {
+                                DB::rollBack();
+                                return response()->json(['message' => 'Invalid quantity provided.'], 422);
+                            }
+
+                            if ($newQty > $origQty) {
+                                $newQty = $origQty;
+                            }
+
+                            $bri->quantity = $newQty;
+                            $bri->assigned_manpower = null;
+                            $bri->manpower_notes = $providedReason;
+                            $bri->assigned_by = \Illuminate\Support\Facades\Auth::id();
+                            $bri->assigned_at = now();
+                            $bri->save();
+                            continue;
+                        }
+
+                        $roleId = isset($assignment['manpower_role_id']) ? (int) $assignment['manpower_role_id'] : null;
+                        if (! $roleId) {
+                            DB::rollBack();
+                            return response()->json(['message' => 'A manpower role is required for new assignments.'], 422);
+                        }
+
+                        if ($providedQty <= 0) {
+                            DB::rollBack();
+                            return response()->json(['message' => 'Quantity should be greater than zero for new manpower roles.'], 422);
+                        }
+
+                        $role = ManpowerRole::query()->lockForUpdate()->find($roleId);
+                        if (! $role) {
+                            DB::rollBack();
+                            return response()->json(['message' => 'Selected manpower role was not found.'], 422);
+                        }
+
+                        $existingRoleRow = BorrowRequestItem::where('borrow_request_id', $borrowRequest->id)
+                            ->where('is_manpower', true)
+                            ->where('manpower_role_id', $role->id)
+                            ->lockForUpdate()
+                            ->first();
+
+                        if ($existingRoleRow) {
+                            $existingRoleRow->quantity = $providedQty;
+                            $existingRoleRow->manpower_notes = $providedReason;
+                            $existingRoleRow->assigned_by = \Illuminate\Support\Facades\Auth::id();
+                            $existingRoleRow->assigned_at = now();
+                            $existingRoleRow->save();
+                            continue;
+                        }
+
+                        if (! $placeholderItemId) {
+                            DB::rollBack();
+                            return response()->json(['message' => 'System manpower placeholder item is not configured.'], 422);
+                        }
+
+                        BorrowRequestItem::create([
+                            'borrow_request_id' => $borrowRequest->id,
+                            'item_id' => $placeholderItemId,
+                            'quantity' => $providedQty,
+                            'requested_quantity' => $providedQty,
+                            'assigned_manpower' => null,
+                            'manpower_role' => $role->name,
+                            'manpower_role_id' => $role->id,
+                            'manpower_notes' => $providedReason,
+                            'assigned_by' => \Illuminate\Support\Facades\Auth::id(),
+                            'assigned_at' => now(),
+                            'is_manpower' => true,
+                        ]);
                     }
                 }
 

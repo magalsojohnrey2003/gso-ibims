@@ -8,6 +8,7 @@ use App\Services\PhilSmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
@@ -26,8 +27,21 @@ class UserController extends Controller
 
         $query = User::query();
 
+        $incidentStatuses = $this->damageIncidentStatuses();
+        $normalizedIncidentStatuses = array_map('strtolower', $incidentStatuses);
+
         // Only list regular users (exclude admin/super-admin). Support both legacy `role` column and spatie roles.
         $query->where($roleFilter);
+
+        $query->withCount([
+            'damageIncidents as damage_incidents_count' => function ($countQuery) use ($normalizedIncidentStatuses) {
+                $countQuery->whereIn(DB::raw('LOWER(return_condition)'), $normalizedIncidentStatuses);
+            },
+        ])->withMax([
+            'damageIncidents as latest_damage_incident_at' => function ($maxQuery) use ($normalizedIncidentStatuses) {
+                $maxQuery->whereIn(DB::raw('LOWER(return_condition)'), $normalizedIncidentStatuses);
+            },
+        ], 'condition_updated_at');
 
         if ($search = $request->get('q')) {
             $digitsOnlySearch = preg_replace('/\D+/', '', (string) $search);
@@ -50,7 +64,10 @@ class UserController extends Controller
             ->orderByDesc('deleted_at')
             ->get();
 
-        return view('admin.users.index', compact('users', 'archivedUsers'));
+        return view('admin.users.index', [
+            'users' => $users,
+            'archivedUsers' => $archivedUsers,
+        ]);
     }
 
     /**
@@ -80,6 +97,7 @@ class UserController extends Controller
             $plainPassword = $data['password'];
             $data['password'] = Hash::make($plainPassword);
             $data['creation_source'] = 'Admin-Created';
+            $data['borrowing_status'] = 'good';
 
             $user = User::create($data);
 
@@ -95,6 +113,18 @@ class UserController extends Controller
                     'error' => $smsException->getMessage(),
                 ]);
             }
+
+            $normalizedIncidentStatuses = array_map('strtolower', $this->damageIncidentStatuses());
+
+            $user->loadCount([
+                'damageIncidents as damage_incidents_count' => function ($countQuery) use ($normalizedIncidentStatuses) {
+                    $countQuery->whereIn(DB::raw('LOWER(return_condition)'), $normalizedIncidentStatuses);
+                },
+            ])->loadMax([
+                'damageIncidents as latest_damage_incident_at' => function ($maxQuery) use ($normalizedIncidentStatuses) {
+                    $maxQuery->whereIn(DB::raw('LOWER(return_condition)'), $normalizedIncidentStatuses);
+                },
+            ], 'condition_updated_at');
 
             if ($request->ajax()) {
                 $row = view('admin.users._row', compact('user'))->render();
@@ -150,7 +180,9 @@ class UserController extends Controller
             ]);
         }
 
-        return view('admin.users.edit', compact('user'));
+        return view('admin.users.edit', [
+            'user' => $user,
+        ]);
     }
 
     /**
@@ -182,6 +214,18 @@ class UserController extends Controller
             $userRole = $this->ensureUserRoleExists();
             $user->assignRole($userRole);
         }
+
+        $normalizedIncidentStatuses = array_map('strtolower', $this->damageIncidentStatuses());
+
+        $user->loadCount([
+            'damageIncidents as damage_incidents_count' => function ($countQuery) use ($normalizedIncidentStatuses) {
+                $countQuery->whereIn(DB::raw('LOWER(return_condition)'), $normalizedIncidentStatuses);
+            },
+        ])->loadMax([
+            'damageIncidents as latest_damage_incident_at' => function ($maxQuery) use ($normalizedIncidentStatuses) {
+                $maxQuery->whereIn(DB::raw('LOWER(return_condition)'), $normalizedIncidentStatuses);
+            },
+        ], 'condition_updated_at');
 
         if ($request->ajax()) {
             $row = view('admin.users._row', compact('user'))->render();
@@ -252,6 +296,18 @@ class UserController extends Controller
             $user->assignRole($userRole);
         }
 
+        $normalizedIncidentStatuses = array_map('strtolower', $this->damageIncidentStatuses());
+
+        $user->loadCount([
+            'damageIncidents as damage_incidents_count' => function ($countQuery) use ($normalizedIncidentStatuses) {
+                $countQuery->whereIn(DB::raw('LOWER(return_condition)'), $normalizedIncidentStatuses);
+            },
+        ])->loadMax([
+            'damageIncidents as latest_damage_incident_at' => function ($maxQuery) use ($normalizedIncidentStatuses) {
+                $maxQuery->whereIn(DB::raw('LOWER(return_condition)'), $normalizedIncidentStatuses);
+            },
+        ], 'condition_updated_at');
+
         if ($request->ajax()) {
             $row = view('admin.users._row', ['user' => $user])->render();
 
@@ -321,5 +377,58 @@ class UserController extends Controller
             'name' => 'user',
             'guard_name' => $guard,
         ]);
+    }
+
+    protected function damageIncidentStatuses(): array
+    {
+        return User::DAMAGE_INCIDENT_STATUSES;
+    }
+
+    public function damageHistory(User $user)
+    {
+        $normalizedIncidentStatuses = array_map('strtolower', $this->damageIncidentStatuses());
+
+        $incidents = $user->damageIncidents()
+            ->whereIn(DB::raw('LOWER(return_condition)'), $normalizedIncidentStatuses)
+            ->with(['item', 'instance', 'borrowRequest'])
+            ->orderByDesc(DB::raw('COALESCE(borrow_item_instances.condition_updated_at, borrow_item_instances.returned_at, borrow_item_instances.updated_at, borrow_item_instances.created_at)'))
+            ->limit(100)
+            ->get()
+            ->map(function ($incident) {
+                $timestamp = $incident->condition_updated_at
+                    ?? $incident->returned_at
+                    ?? $incident->updated_at
+                    ?? $incident->created_at;
+                return [
+                    'id' => $incident->id,
+                    'item' => $incident->item?->name ?? 'Unknown Item',
+                    'return_condition' => $incident->return_condition,
+                    'return_condition_label' => $this->formatReturnCondition($incident->return_condition),
+                    'borrow_request_code' => optional($incident->borrowRequest)->formatted_request_id,
+                    'property_number' => $incident->instance?->property_number,
+                    'occurred_at' => optional($timestamp)->timezone(config('app.timezone'))->toDateTimeString(),
+                ];
+            });
+
+        $damageCount = $incidents->count();
+
+        return response()->json([
+            'user_id' => $user->id,
+            'full_name' => $user->full_name,
+            'borrowing_status' => $user->borrowing_status,
+            'borrowing_status_label' => $user->borrowing_status_label,
+            'damage_count' => $damageCount,
+            'incidents' => $incidents,
+        ]);
+    }
+
+    protected function formatReturnCondition(?string $condition): string
+    {
+        return match ($condition) {
+            'missing' => 'Missing Item',
+            'damage', 'damaged' => 'Damaged',
+            'minor_damage' => 'Minor Damage',
+            default => 'Unknown',
+        };
     }
 }

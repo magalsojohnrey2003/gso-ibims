@@ -6,6 +6,7 @@ const MANPOWER_PLACEHOLDER = '__SYSTEM_MANPOWER_PLACEHOLDER__';
 let ITEMS_CACHE = [];
 const confirmReceiveState = {
     requestId: null,
+    draft: null, // holds latest input values keyed by request id
 };
 
 const markReturnState = {
@@ -91,6 +92,35 @@ function isManpowerEntry(item) {
     if (item.is_manpower) return true;
     const baseName = item?.item?.name || item?.name || '';
     return baseName === MANPOWER_PLACEHOLDER;
+}
+
+function sanitizeToTwoDigits(value) {
+    if (value === null || value === undefined) return '';
+    const digits = String(value).replace(/[^0-9]/g, '');
+    return digits.slice(0, 2);
+}
+
+function clampDigitsToMax(digits, maxValue) {
+    if (digits === '') return '';
+    if (!Number.isFinite(maxValue)) return digits;
+    const numeric = Number(digits);
+    if (!Number.isFinite(numeric)) return digits;
+    if (numeric > maxValue) {
+        return sanitizeToTwoDigits(maxValue);
+    }
+    return digits;
+}
+
+function enforceTwoDigitInput(input, options = {}) {
+    if (!input) return;
+    const maxValue = Number(options.max);
+    input.addEventListener('input', () => {
+        let digits = input.value.replace(/[^0-9]/g, '').slice(0, 2);
+        if (Number.isFinite(maxValue)) {
+            digits = clampDigitsToMax(digits, maxValue);
+        }
+        input.value = digits;
+    });
 }
 
 function resolveBorrowItemName(item) {
@@ -242,7 +272,7 @@ function createButtonFromTemplate(templateId, id) {
     return frag;
 }
 
-function openConfirmReceiveModal(requestId) {
+function openConfirmReceiveModal(requestId, options = {}) {
     const numericId = Number(requestId);
     if (!Number.isFinite(numericId)) {
         confirmReceiveState.requestId = null;
@@ -252,19 +282,26 @@ function openConfirmReceiveModal(requestId) {
     const request = ITEMS_CACHE.find((entry) => Number(entry?.id) === numericId) || null;
     confirmReceiveState.requestId = numericId;
 
+    if (!options?.preserveDraft && confirmReceiveState.draft && confirmReceiveState.draft.requestId !== numericId) {
+        confirmReceiveState.draft = null;
+    }
+
     const labelEl = document.getElementById('confirmReceiveRequestLabel');
     if (labelEl) {
         const code = request ? (formatBorrowRequestCodeLocal(request) || `#${request.id}`) : `#${numericId}`;
         labelEl.textContent = code;
     }
 
+    renderConfirmReceiveItems(request);
+
     window.dispatchEvent(new CustomEvent('open-modal', { detail: 'confirmReceiveModal' }));
 }
 
-function openConfirmReportNotReceivedModal(requestId) {
+function openConfirmReportNotReceivedModal(requestId, options = {}) {
     const numericId = Number(requestId);
     if (!Number.isFinite(numericId)) return;
     confirmReportState.requestId = numericId;
+    confirmReportState.origin = options.origin || null;
     const reasonInput = document.getElementById('confirmReportNotReceivedReason');
     if (reasonInput) {
         reasonInput.value = '';
@@ -272,7 +309,196 @@ function openConfirmReportNotReceivedModal(requestId) {
     window.dispatchEvent(new CustomEvent('open-modal', { detail: 'confirmReportNotReceivedModal' }));
 }
 
-const confirmReportState = { requestId: null };
+const confirmReportState = { requestId: null, origin: null };
+
+function renderConfirmReceiveItems(request) {
+    const container = document.getElementById('confirmReceiveItemsContainer');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    const items = Array.isArray(request?.items)
+        ? request.items.filter((item) => !isManpowerEntry(item))
+        : [];
+
+    if (!items.length) {
+        container.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No physical items require confirmation.</p>';
+        return;
+    }
+
+    items.forEach((item) => {
+        const name = resolveBorrowItemName(item);
+        const approvedQty = Number(item.approved_quantity ?? item.quantity ?? 0);
+        const requestedQty = Number(item.requested_quantity ?? item.quantity ?? 0);
+        const defaultValue = approvedQty;
+        const sanitizedDefault = clampDigitsToMax(sanitizeToTwoDigits(defaultValue), approvedQty);
+        const row = document.createElement('div');
+        row.className = 'rounded-lg border border-gray-200 bg-white px-4 py-3 space-y-2 dark:border-gray-700 dark:bg-gray-900';
+
+        const header = document.createElement('div');
+        header.className = 'flex items-center justify-between gap-2';
+
+        const nameEl = document.createElement('span');
+        nameEl.className = 'text-sm font-semibold text-gray-900 dark:text-gray-100';
+        nameEl.textContent = name;
+
+        const metaEl = document.createElement('span');
+        metaEl.className = 'text-xs text-gray-500 dark:text-gray-400';
+        const metaParts = [`Requested ${requestedQty}`];
+        metaParts.push(`Approved ${approvedQty}`);
+        metaEl.textContent = metaParts.join(' • ');
+
+        header.appendChild(nameEl);
+        header.appendChild(metaEl);
+
+        const inputRow = document.createElement('div');
+        inputRow.className = 'flex items-center gap-2';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.inputMode = 'numeric';
+        input.maxLength = 2;
+        input.value = sanitizedDefault;
+        input.className = 'gov-input w-24 text-sm';
+        input.setAttribute('pattern', '[0-9]*');
+        input.required = true;
+        input.title = `Enter received quantity for ${name}`;
+        input.dataset.receiveInput = '1';
+        const borrowRequestItemId = Number(item.borrow_request_item_id ?? item.id ?? null);
+        if (Number.isFinite(borrowRequestItemId)) {
+            input.dataset.borrowRequestItemId = String(borrowRequestItemId);
+        }
+        input.dataset.approvedQuantity = String(approvedQty);
+        input.dataset.itemName = name;
+        input.setAttribute('aria-label', `Received quantity for ${name}`);
+        enforceTwoDigitInput(input, { max: approvedQty });
+
+        const denominator = document.createElement('span');
+        denominator.className = 'text-sm text-gray-600 dark:text-gray-300 flex items-center gap-1';
+
+        const slash = document.createElement('span');
+        slash.className = 'text-gray-400';
+        slash.textContent = '/';
+
+        const approvedBadge = document.createElement('span');
+        approvedBadge.className = 'font-semibold text-gray-900 dark:text-gray-100 border-b border-dashed border-gray-400 cursor-help';
+        approvedBadge.title = 'Item Approved';
+        approvedBadge.textContent = String(approvedQty);
+
+        denominator.appendChild(slash);
+        denominator.appendChild(approvedBadge);
+
+        inputRow.appendChild(input);
+        inputRow.appendChild(denominator);
+
+        row.appendChild(header);
+        row.appendChild(inputRow);
+
+        container.appendChild(row);
+    });
+
+    if (items.length) {
+        const requestId = request?.id ?? confirmReceiveState.requestId;
+        applyConfirmReceiveDraft(requestId);
+    }
+}
+
+function collectConfirmReceiveInputs() {
+    const container = document.getElementById('confirmReceiveItemsContainer');
+    if (!container) {
+        return { items: [] };
+    }
+
+    const inputs = Array.from(container.querySelectorAll('[data-receive-input]'));
+    if (!inputs.length) {
+        return { items: [] };
+    }
+
+    const items = [];
+
+    for (const input of inputs) {
+        const itemName = input.dataset.itemName || 'Item';
+        const id = Number(input.dataset.borrowRequestItemId);
+        if (!Number.isFinite(id)) {
+            continue;
+        }
+
+        const approved = Number(input.dataset.approvedQuantity);
+        const rawValue = clampDigitsToMax(sanitizeToTwoDigits(input.value), approved);
+        input.value = rawValue;
+        const numeric = rawValue === '' ? NaN : Number.parseInt(rawValue, 10);
+
+        if (!Number.isFinite(numeric) || numeric < 0) {
+            input.focus();
+            return { error: `Enter a valid received quantity for ${itemName}.` };
+        }
+
+        if (Number.isFinite(approved) && numeric > approved) {
+            input.value = clampDigitsToMax(String(approved), approved);
+            input.focus();
+            return { error: `${itemName} cannot exceed the approved quantity (${approved}).` };
+        }
+
+        items.push({
+            id,
+            received_quantity: numeric,
+        });
+    }
+
+    return { items };
+}
+
+function captureConfirmReceiveDraft(requestId) {
+    const numericId = Number(requestId);
+    if (!Number.isFinite(numericId)) return;
+
+    const container = document.getElementById('confirmReceiveItemsContainer');
+    if (!container) return;
+
+    const inputs = Array.from(container.querySelectorAll('[data-receive-input]'));
+    if (!inputs.length) {
+        confirmReceiveState.draft = { requestId: numericId, values: {} };
+        return;
+    }
+
+    const values = {};
+    inputs.forEach((input) => {
+        const itemId = input.dataset.borrowRequestItemId;
+        if (!itemId) {
+            return;
+        }
+        const max = Number(input.dataset.approvedQuantity);
+        const sanitized = clampDigitsToMax(sanitizeToTwoDigits(input.value), max);
+        input.value = sanitized;
+        values[itemId] = sanitized;
+    });
+
+    confirmReceiveState.draft = { requestId: numericId, values };
+}
+
+function applyConfirmReceiveDraft(requestId) {
+    if (!confirmReceiveState?.draft) return;
+
+    const numericId = Number(requestId);
+    if (!Number.isFinite(numericId)) return;
+
+    const draft = confirmReceiveState.draft;
+    if (!draft || draft.requestId !== numericId) return;
+
+    const container = document.getElementById('confirmReceiveItemsContainer');
+    if (!container) return;
+
+    const inputs = Array.from(container.querySelectorAll('[data-receive-input]'));
+    inputs.forEach((input) => {
+        const itemId = input.dataset.borrowRequestItemId;
+        if (!itemId) return;
+        if (Object.prototype.hasOwnProperty.call(draft.values, itemId)) {
+            const max = Number(input.dataset.approvedQuantity);
+            const value = clampDigitsToMax(sanitizeToTwoDigits(draft.values[itemId]), max);
+            input.value = value;
+        }
+    });
+}
 
 function getReturnProofPond() {
     const input = document.getElementById('markReturnProofInput');
@@ -394,7 +620,7 @@ function renderItems() {
         const deliveredAt = req.delivered_at || null;
         const hasReturnProof = Boolean(req.return_proof_path || req.return_proof_url);
 
-        const shouldShowPrint = (statusKey === 'validated' && !['dispatched', 'not_received', 'delivered'].includes(deliveryStatus)) || statusKey === 'returned';
+        const shouldShowPrint = statusKey === 'validated' && !['dispatched', 'not_received', 'delivered'].includes(deliveryStatus);
         if (shouldShowPrint) {
             wrapper.appendChild(createButtonFromTemplate("btn-print-template", req.id));
         }
@@ -412,8 +638,6 @@ function renderItems() {
         const shouldShowConfirm = deliveryStatus === 'dispatched' && !deliveredAt;
         if (shouldShowConfirm) {
             wrapper.appendChild(createButtonFromTemplate("btn-confirm-delivery-template", req.id));
-            // add report not received action to the table actions as requested
-            wrapper.appendChild(createButtonFromTemplate("btn-report-not-received-template", req.id));
         }
 
         tdActions.appendChild(wrapper);
@@ -713,106 +937,6 @@ export function fillBorrowModal(data) {
         if (deliveryReasonContent) deliveryReasonContent.innerHTML = '';
     }
 
-    const proofBlock = document.getElementById('mbi-return-proof-block');
-    const proofViewer = document.getElementById('mbi-return-proof-viewer');
-    const proofImage = document.getElementById('mbi-return-proof-image');
-    const proofFallback = document.getElementById('mbi-return-proof-fallback');
-    const proofNotes = document.getElementById('mbi-return-proof-notes');
-    const proofDownload = document.getElementById('mbi-return-proof-download');
-
-    const proofUrlRaw = (data.return_proof_url || data.return_proof_path || '').trim();
-    const notesValue = (data.return_proof_notes || '').trim();
-
-    let resolvedProofUrl = '';
-    if (proofUrlRaw) {
-        try {
-            const url = new URL(proofUrlRaw, window.location.origin);
-            resolvedProofUrl = url.href;
-        } catch (_) {
-            resolvedProofUrl = proofUrlRaw;
-        }
-    }
-
-    if (proofNotes) {
-        proofNotes.textContent = notesValue !== '' ? notesValue : '—';
-    }
-
-    const hasProof = resolvedProofUrl !== '';
-    const hasNotes = notesValue !== '';
-
-    if (proofBlock) {
-        proofBlock.classList.toggle('hidden', !hasProof && !hasNotes);
-    }
-
-    if (proofDownload) {
-        if (hasProof) {
-            proofDownload.href = resolvedProofUrl;
-            proofDownload.classList.remove('hidden');
-            const downloadBase = requestCode ? requestCode.replace(/[^A-Z0-9-]/gi, '-') : 'return-proof';
-            let extension = '';
-            try {
-                const parsed = new URL(resolvedProofUrl, window.location.origin);
-                const pathname = parsed.pathname || '';
-                const match = pathname.match(/\.([a-z0-9]+)(?:$|\?)/i);
-                if (match) {
-                    extension = match[1];
-                }
-            } catch (_) {
-                const match = resolvedProofUrl.match(/\.([a-z0-9]+)(?:$|\?)/i);
-                if (match) {
-                    extension = match[1];
-                }
-            }
-            const filename = extension ? `${downloadBase}-return-proof.${extension}` : `${downloadBase}-return-proof`;
-            proofDownload.setAttribute('download', filename);
-        } else {
-            proofDownload.href = '#';
-            proofDownload.classList.add('hidden');
-            proofDownload.removeAttribute('download');
-        }
-    }
-
-    if (proofImage) {
-        proofImage.classList.add('hidden');
-        proofImage.removeAttribute('src');
-    }
-    if (proofViewer) {
-        proofViewer.classList.add('hidden');
-        proofViewer.src = '';
-    }
-
-    if (proofFallback) {
-        proofFallback.classList.remove('hidden');
-        proofFallback.textContent = hasProof
-            ? 'Proof preview unavailable. Use the download link above to view the file.'
-            : 'No return proof has been uploaded yet.';
-    }
-
-    if (hasProof) {
-        let pathForDetection = resolvedProofUrl;
-        try {
-            const parsed = new URL(resolvedProofUrl, window.location.origin);
-            pathForDetection = parsed.pathname || parsed.href || resolvedProofUrl;
-        } catch (_) {
-            // ignore parsing errors, fall back to raw string
-        }
-
-        const isImage = /\.(png|jpe?g|webp|gif)$/i.test(pathForDetection);
-        if (isImage && proofImage) {
-            proofImage.src = resolvedProofUrl;
-            proofImage.classList.remove('hidden');
-            if (proofFallback) {
-                proofFallback.classList.add('hidden');
-            }
-        } else if (proofViewer) {
-            proofViewer.src = resolvedProofUrl;
-            proofViewer.classList.remove('hidden');
-            if (proofFallback) {
-                proofFallback.classList.add('hidden');
-            }
-        }
-    }
-
     // delivery buttons are now placed on the table action column; modal no longer contains report/confirm buttons
 }
 
@@ -854,6 +978,7 @@ async function confirmDelivery(id, options = {}) {
         button = null,
         closeModals = ['borrowDetailsModal'],
         silent = false,
+        items = null,
     } = options || {};
 
     const spinnerMarkup = '<span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" aria-hidden="true"></span>';
@@ -869,7 +994,12 @@ async function confirmDelivery(id, options = {}) {
     }
 
     try {
-        await postJson(`/user/my-borrowed-items/${encodeURIComponent(id)}/confirm-delivery`);
+        const payload = {};
+        if (Array.isArray(items)) {
+            payload.items = items;
+        }
+
+        await postJson(`/user/my-borrowed-items/${encodeURIComponent(id)}/confirm-delivery`, payload);
         if (!silent) {
             showSuccess('Thank you — receipt confirmed.');
         }
@@ -896,6 +1026,8 @@ async function reportNotReceived(id, reason = null) {
         const body = { reason: reason ? reason : null };
         await postJson(`/user/my-borrowed-items/${encodeURIComponent(id)}/report-not-received`, body);
         showSuccess('Report submitted — admin will be notified.');
+        confirmReportState.requestId = null;
+        confirmReportState.origin = null;
         window.dispatchEvent(new CustomEvent('close-modal', { detail: 'borrowDetailsModal' }));
         await loadMyBorrowedItems();
     } catch (e) {
@@ -992,7 +1124,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // wire confirm report modal buttons
     const modalReportConfirmBtn = document.getElementById('confirmReportNotReceivedConfirmBtn');
-    const modalReportCancelBtn = document.getElementById('confirmReportNotReceivedCancelBtn');
 
     if (modalReportConfirmBtn) {
         modalReportConfirmBtn.addEventListener('click', async () => {
@@ -1007,6 +1138,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (reasonInput) {
                     reasonInput.value = '';
                 }
+                confirmReceiveState.requestId = null;
+                confirmReceiveState.draft = null;
                 window.dispatchEvent(new CustomEvent('close-modal', { detail: 'confirmReportNotReceivedModal' }));
             } finally {
                 modalReportConfirmBtn.disabled = false;
@@ -1014,16 +1147,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    if (modalReportCancelBtn) {
-        modalReportCancelBtn.addEventListener('click', () => {
-            confirmReportState.requestId = null;
-            const reasonInput = document.getElementById('confirmReportNotReceivedReason');
-            if (reasonInput) {
-                reasonInput.value = '';
-            }
-            window.dispatchEvent(new CustomEvent('close-modal', { detail: 'confirmReportNotReceivedModal' }));
-        });
-    }
+    const modalReportCancelBtn = document.getElementById('confirmReportNotReceivedCancelBtn');
 
     const markReturnForm = document.getElementById('markReturnForm');
     const markReturnSubmitBtn = document.getElementById('markReturnSubmitBtn');
@@ -1056,7 +1180,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const modalConfirmBtn = document.getElementById('confirmReceiveConfirmBtn');
-    const modalCancelBtn = document.getElementById('confirmReceiveCancelBtn');
+    const modalReportBtn = document.getElementById('confirmReceiveReportBtn');
 
     if (modalConfirmBtn) {
         modalConfirmBtn.addEventListener('click', async () => {
@@ -1064,20 +1188,55 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!id) {
                 return;
             }
+
+            const { items, error } = collectConfirmReceiveInputs();
+            if (error) {
+                showError(error);
+                return;
+            }
+
             const success = await confirmDelivery(id, {
                 button: modalConfirmBtn,
                 closeModals: ['confirmReceiveModal', 'borrowDetailsModal'],
+                items,
             });
             if (success) {
                 confirmReceiveState.requestId = null;
+                confirmReceiveState.draft = null;
             }
         });
     }
 
-    if (modalCancelBtn) {
-        modalCancelBtn.addEventListener('click', () => {
-            confirmReceiveState.requestId = null;
+    if (modalReportBtn) {
+        modalReportBtn.addEventListener('click', () => {
+            const id = confirmReceiveState.requestId;
+            if (!id) {
+                showError('Select a request before reporting.');
+                return;
+            }
+            captureConfirmReceiveDraft(id);
             window.dispatchEvent(new CustomEvent('close-modal', { detail: 'confirmReceiveModal' }));
+            openConfirmReportNotReceivedModal(id, { origin: 'confirm' });
+        });
+    }
+
+    if (modalReportCancelBtn) {
+        modalReportCancelBtn.addEventListener('click', () => {
+            const id = confirmReportState.requestId;
+            const origin = confirmReportState.origin;
+            confirmReportState.requestId = null;
+            confirmReportState.origin = null;
+
+            const reasonInput = document.getElementById('confirmReportNotReceivedReason');
+            if (reasonInput) {
+                reasonInput.value = '';
+            }
+
+            window.dispatchEvent(new CustomEvent('close-modal', { detail: 'confirmReportNotReceivedModal' }));
+
+            if (origin === 'confirm' && Number.isFinite(Number(id))) {
+                openConfirmReceiveModal(id);
+            }
         });
     }
 });

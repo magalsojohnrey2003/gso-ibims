@@ -97,7 +97,12 @@ class Item extends Model
     public static function systemPlaceholderId(): ?int
     {
         if (static::$cachedSystemPlaceholderId !== null) {
-            return static::$cachedSystemPlaceholderId;
+            $placeholder = static::find(static::$cachedSystemPlaceholderId);
+            if ($placeholder && $placeholder->name === self::SYSTEM_MANPOWER_PLACEHOLDER) {
+                return static::$cachedSystemPlaceholderId;
+            }
+
+            static::$cachedSystemPlaceholderId = null;
         }
 
         $id = static::where('name', self::SYSTEM_MANPOWER_PLACEHOLDER)->value('id');

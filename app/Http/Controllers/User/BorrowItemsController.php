@@ -19,8 +19,6 @@ use App\Services\PhilSmsService;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
-use Illuminate\Support\Collection;
 
 class BorrowItemsController extends Controller
 {
@@ -45,6 +43,30 @@ class BorrowItemsController extends Controller
         }
 
         return max(0, (int) $item->total_qty - $nonBorrowableCount);
+    }
+
+    private function ensureManpowerPlaceholder(): ?int
+    {
+        $placeholderId = Item::systemPlaceholderId();
+        if ($placeholderId) {
+            return $placeholderId;
+        }
+
+        $placeholder = Item::firstOrCreate(
+            ['name' => Item::SYSTEM_MANPOWER_PLACEHOLDER],
+            [
+                'description' => 'System placeholder for manpower allocations.',
+                'category' => 'System',
+                'total_qty' => 0,
+                'available_qty' => 0,
+                'photo' => null,
+                'is_borrowable' => false,
+            ]
+        );
+
+        Item::systemPlaceholderId();
+
+        return $placeholder->id;
     }
 
     public function index(Request $request)
@@ -172,9 +194,7 @@ class BorrowItemsController extends Controller
         }
         Session::put('borrowList', $borrowList);
 
-        $manpowerRoles = ManpowerRole::query()
-            ->orderBy('name')
-            ->get(['id', 'name']);
+        $manpowerRoles = ManpowerRole::orderBy('name')->get();
 
         return view('user.borrow-items.borrowList', [
             'borrowList'      => $borrowList,
@@ -280,8 +300,6 @@ class BorrowItemsController extends Controller
         unset($listItem);
         Session::put('borrowList', $borrowList);
 
-        $validatedManpower = $request->input('manpower_requirements', []);
-
         $validated = $request->validate([
             'borrow_date'     => 'required|date|after_or_equal:today',
             'return_date'     => 'required|date|after_or_equal:borrow_date',
@@ -291,27 +309,52 @@ class BorrowItemsController extends Controller
             'purpose_office'  => 'required|string|max:255',
             'purpose'         => 'required|string|max:500',
             'support_letter'  => 'required|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
-            'manpower_requirements' => 'nullable|array|max:10',
-            'manpower_requirements.*.role_id' => 'nullable|integer|exists:manpower_roles,id',
-            'manpower_requirements.*.quantity' => 'nullable|integer|min:1|max:99',
+            'manpower_requirements' => 'nullable|array',
+            'manpower_requirements.*.role_id' => 'required|integer|exists:manpower_roles,id',
+            'manpower_requirements.*.quantity' => 'required|integer|min:1|max:999',
         ], [
             'support_letter.required' => 'Please upload your signed letter before proceeding.',
             'support_letter.mimes'    => 'The letter must be an image or PDF file.',
-            'manpower_requirements.*.role_id.exists' => 'One of the selected manpower roles is no longer available.',
         ]);
-
-        $manpowerSelections = $this->normalizeManpowerRequirements($validatedManpower);
-        $manpowerRoleLookup = $manpowerSelections->isNotEmpty()
-            ? ManpowerRole::query()
-                ->whereIn('id', $manpowerSelections->pluck('role_id')->unique())
-                ->get(['id', 'name'])
-                ->keyBy('id')
-            : collect();
 
         [$borrowDate, $returnDate] = [$validated['borrow_date'], $validated['return_date']];
 
-        $manpowerRows = $this->resolveManpowerSelectionRows($manpowerSelections, $manpowerRoleLookup);
-        $manpowerTotal = (int) $manpowerRows->sum('quantity');
+        $manpowerRequirements = collect($request->input('manpower_requirements', []))
+            ->filter(fn ($row) => is_array($row) && isset($row['role_id']))
+            ->map(function (array $row) {
+                return [
+                    'role_id' => (int) $row['role_id'],
+                    'quantity' => max(1, (int) ($row['quantity'] ?? 1)),
+                ];
+            })
+            ->groupBy('role_id')
+            ->map(fn ($group, $roleId) => [
+                'role_id' => (int) $roleId,
+                'quantity' => $group->sum('quantity'),
+            ])
+            ->values();
+
+        $manpowerRoleMap = $manpowerRequirements->isNotEmpty()
+            ? ManpowerRole::whereIn('id', $manpowerRequirements->pluck('role_id'))->get()->keyBy('id')
+            : collect();
+
+        if ($manpowerRequirements->isNotEmpty() && $manpowerRoleMap->count() !== $manpowerRequirements->count()) {
+            return back()->withErrors([
+                'manpower_requirements' => 'One or more manpower roles are no longer available. Please refresh and try again.',
+            ])->withInput();
+        }
+
+        $manpowerCount = $manpowerRequirements->sum('quantity');
+
+        $placeholderItemId = null;
+        if ($manpowerRequirements->isNotEmpty()) {
+            $placeholderItemId = $this->ensureManpowerPlaceholder();
+            if (! $placeholderItemId) {
+                return back()->withErrors([
+                    'manpower_requirements' => 'Unable to process manpower requests at the moment. Please contact the administrator.',
+                ])->withInput();
+            }
+        }
 
         $items = Item::query()
             ->withCount([
@@ -364,8 +407,10 @@ class BorrowItemsController extends Controller
             $validated,
             $borrowList,
             $letterPath,
-            $manpowerRows,
-            $manpowerTotal
+            $manpowerCount,
+            $manpowerRequirements,
+            $manpowerRoleMap,
+            $placeholderItemId
         ) {
             $borrowRequest = BorrowRequest::create([
                 'user_id'        => Auth::id(),
@@ -377,7 +422,7 @@ class BorrowItemsController extends Controller
                 'location'       => $validated['location'],
                 'letter_path'    => $letterPath,
                 'status'         => 'pending',
-                'manpower_count' => $manpowerTotal > 0 ? $manpowerTotal : null,
+                'manpower_count' => $manpowerCount > 0 ? $manpowerCount : null,
             ]);
 
             foreach ($borrowList as $itemId => $listItem) {
@@ -385,20 +430,26 @@ class BorrowItemsController extends Controller
                     'borrow_request_id' => $borrowRequest->id,
                     'item_id'           => $itemId,
                     'quantity'          => $listItem['qty'],
+                    'requested_quantity'=> $listItem['qty'],
                 ]);
             }
 
-            if ($manpowerRows->isNotEmpty()) {
-                $placeholderItemId = $this->getManpowerPlaceholderItemId();
+            if ($manpowerRequirements->isNotEmpty() && $placeholderItemId) {
+                foreach ($manpowerRequirements as $entry) {
+                    $role = $manpowerRoleMap->get($entry['role_id']);
+                    if (! $role) {
+                        continue;
+                    }
 
-                foreach ($manpowerRows as $row) {
                     BorrowRequestItem::create([
                         'borrow_request_id' => $borrowRequest->id,
-                        'item_id'           => $placeholderItemId,
-                        'quantity'          => $row['quantity'],
-                        'is_manpower'       => true,
-                        'manpower_role_id'  => $row['role_id'],
-                        'manpower_role'     => $row['role_name'],
+                        'item_id' => $placeholderItemId,
+                        'quantity' => $entry['quantity'],
+                        'requested_quantity' => $entry['quantity'],
+                        'assigned_manpower' => null,
+                        'manpower_role' => $role->name,
+                        'manpower_role_id' => $role->id,
+                        'is_manpower' => true,
                     ]);
                 }
             }
@@ -414,15 +465,6 @@ class BorrowItemsController extends Controller
                 'id' => $itemId,
                 'name' => $listItem['name'],
                 'quantity' => $listItem['qty'],
-            ];
-        }
-
-        foreach ($manpowerRows as $row) {
-            $itemsPayload[] = [
-                'id' => null,
-                'name' => $row['role_name'],
-                'quantity' => $row['quantity'],
-                'is_manpower' => true,
             ];
         }
 
@@ -452,103 +494,6 @@ class BorrowItemsController extends Controller
 
         return redirect()->route('borrow.items')
             ->with('success', 'Borrow request submitted successfully!');
-    }
-
-    /**
-     * @param mixed $input
-     */
-    private function normalizeManpowerRequirements($input): Collection
-    {
-        if (!is_array($input) || empty($input)) {
-            return collect();
-        }
-
-        $errors = [];
-
-        $rows = collect($input)
-            ->map(fn ($row) => is_array($row) ? $row : [])
-            ->map(function (array $row) use (&$errors) {
-                $roleId = isset($row['role_id']) ? (int) $row['role_id'] : null;
-                $quantity = isset($row['quantity']) ? (int) $row['quantity'] : null;
-
-                $hasRole = $roleId !== null && $roleId > 0;
-                $hasQuantity = $quantity !== null;
-
-                if ($hasRole xor $hasQuantity) {
-                    $errors['incomplete'] = 'Please select a role and quantity for each manpower entry.';
-                    return null;
-                }
-
-                if (! $hasRole && ! $hasQuantity) {
-                    return null;
-                }
-
-                if ($quantity !== null && ($quantity < 1 || $quantity > 99)) {
-                    $errors['range'] = 'Manpower quantities must be between 1 and 99.';
-                    return null;
-                }
-
-                return [
-                    'role_id' => $roleId,
-                    'quantity' => $quantity,
-                ];
-            })
-            ->filter();
-
-        if (! empty($errors)) {
-            throw ValidationException::withMessages([
-                'manpower_requirements' => array_values($errors),
-            ]);
-        }
-
-        return $rows->values();
-    }
-
-    private function resolveManpowerSelectionRows(Collection $selections, Collection $roleLookup): Collection
-    {
-        if ($selections->isEmpty()) {
-            return collect();
-        }
-
-        return $selections->map(function (array $row) use ($roleLookup) {
-            $role = $roleLookup->get($row['role_id']);
-            if (! $role) {
-                throw ValidationException::withMessages([
-                    'manpower_requirements' => ['One of the selected manpower roles is no longer available. Please refresh and try again.'],
-                ]);
-            }
-
-            return [
-                'role_id' => $role->id,
-                'role_name' => $role->name,
-                'quantity' => max(1, (int) $row['quantity']),
-            ];
-        })->values();
-    }
-
-    private function getManpowerPlaceholderItemId(): int
-    {
-        static $placeholderId = null;
-
-        if ($placeholderId) {
-            return $placeholderId;
-        }
-
-        $placeholder = Item::firstOrCreate(
-            ['name' => Item::SYSTEM_MANPOWER_PLACEHOLDER],
-            [
-                'description' => 'Virtual placeholder item used to store manpower roles inside borrow requests.',
-                'category' => 'System',
-                'total_qty' => 0,
-                'available_qty' => 0,
-                'photo' => null,
-                'is_borrowable' => false,
-            ]
-        );
-
-        $placeholderId = (int) $placeholder->id;
-
-        return $placeholderId;
     }
 
     /**

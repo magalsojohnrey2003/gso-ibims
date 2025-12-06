@@ -130,6 +130,7 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
         // Provides listing, creating, updating (including password/email changes), and deleting users.
         Route::post('users/{user}/restore', [UserController::class, 'restore'])->name('admin.users.restore');
         Route::delete('users/{user}/force-destroy', [UserController::class, 'forceDestroy'])->name('admin.users.force-destroy');
+        Route::get('users/{user}/damage-history', [UserController::class, 'damageHistory'])->name('admin.users.damage-history');
         Route::resource('users', UserController::class)->names('admin.users');
 
         // Return Items
