@@ -163,7 +163,7 @@ class MyBorrowedItemsController extends Controller
                         'borrow_request_item_id' => $item->id,
                         'requested_quantity' => $item->quantity,
                         'approved_quantity' => $item->quantity,
-                        'received_quantity' => null,
+                        'received_quantity' => $item->received_quantity,
                         'quantity' => $item->quantity,
                         'assigned_manpower' => 0,
                         'manpower_role' => null,
@@ -176,20 +176,21 @@ class MyBorrowedItemsController extends Controller
                     ];
                 })->values();
 
-                if ($walkIn->manpower_quantity && $walkIn->manpower_quantity > 0) {
+                $manpowerEntries = $this->parseWalkInManpowerEntries($walkIn);
+                foreach (array_reverse($manpowerEntries) as $entry) {
                     $items->prepend([
                         'borrow_request_item_id' => null,
-                        'requested_quantity' => $walkIn->manpower_quantity,
-                        'approved_quantity' => $walkIn->manpower_quantity,
+                        'requested_quantity' => $entry['quantity'],
+                        'approved_quantity' => $entry['quantity'],
                         'received_quantity' => null,
-                        'quantity' => $walkIn->manpower_quantity,
-                        'assigned_manpower' => $walkIn->manpower_quantity,
-                        'manpower_role' => $walkIn->manpower_role ?? 'Manpower',
+                        'quantity' => $entry['quantity'],
+                        'assigned_manpower' => $entry['quantity'],
+                        'manpower_role' => $entry['role'],
                         'is_manpower' => true,
-                        'display_name' => ($walkIn->manpower_role ?? 'Manpower') . ' (x' . $walkIn->manpower_quantity . ')',
+                        'display_name' => $entry['role'] . ' (x' . $entry['quantity'] . ')',
                         'item' => [
                             'id' => null,
-                            'name' => $walkIn->manpower_role ?? 'Manpower',
+                            'name' => $entry['role'],
                         ],
                     ]);
                 }
@@ -203,7 +204,7 @@ class MyBorrowedItemsController extends Controller
                     'time_of_usage' => null,
                     'status' => $effectiveStatus,
                     'delivery_status' => $walkIn->delivery_status,
-                    'manpower_count' => $walkIn->manpower_quantity,
+                    'manpower_count' => collect($manpowerEntries)->sum('quantity') ?: $walkIn->manpower_quantity,
                     'location' => $walkIn->address,
                     'purpose' => $walkIn->purpose,
                     'items' => $items,
@@ -558,11 +559,44 @@ class MyBorrowedItemsController extends Controller
         try {
             $walkInRequest->load('items.item');
 
+            $receivedMap = collect($request->input('items', []))
+                ->filter(fn ($row) => is_array($row))
+                ->mapWithKeys(function ($row) {
+                    $raw = $row['received_quantity'] ?? $row['quantity'] ?? $row['qty'] ?? null;
+                    $received = $raw === null ? null : max(0, (int) $raw);
+
+                    $keys = collect([
+                        $row['walk_in_request_item_id'] ?? null,
+                        $row['id'] ?? null,
+                        $row['item_id'] ?? null,
+                    ])->filter(static fn ($val) => $val !== null)->map(fn ($val) => (int) $val);
+
+                    if ($keys->isEmpty()) {
+                        return [];
+                    }
+
+                    $pairs = [];
+                    foreach ($keys as $key) {
+                        $pairs[$key] = $received;
+                    }
+
+                    return $pairs;
+                });
+
             foreach ($walkInRequest->items as $walkInItem) {
                 $item = $walkInItem->item;
                 if (! $item) {
                     throw new \RuntimeException('One of the requested items could not be found.');
                 }
+
+                $approvedQuantity = (int) $walkInItem->quantity;
+                $confirmedQuantity = $receivedMap[$walkInItem->id] ?? $receivedMap[$walkInItem->item_id] ?? null;
+                $receivedQuantity = $confirmedQuantity === null
+                    ? ($walkInItem->received_quantity ?? $approvedQuantity)
+                    : min($approvedQuantity, $confirmedQuantity);
+
+                $walkInItem->received_quantity = $receivedQuantity;
+                $walkInItem->save();
 
                 $availableInstances = ItemInstance::where('item_id', $item->id)
                     ->where('status', 'available')
@@ -787,6 +821,43 @@ class MyBorrowedItemsController extends Controller
                 'message' => 'Failed to submit return proof. Please try again.',
             ], 500);
         }
+    }
+
+    private function parseWalkInManpowerEntries(WalkInRequest $walkIn): array
+    {
+        $raw = trim((string) ($walkIn->manpower_role ?? ''));
+        $defaultQty = max(1, (int) ($walkIn->manpower_quantity ?? 0));
+
+        if ($raw === '') {
+            return $defaultQty > 0 ? [['role' => 'Manpower', 'quantity' => $defaultQty]] : [];
+        }
+
+        $entries = collect(preg_split('/[;,]+/', $raw))
+            ->map(function ($part) use ($defaultQty) {
+                $label = trim($part);
+                if ($label === '') {
+                    return null;
+                }
+
+                if (preg_match('/^(.*)\(x(\d+)\)$/i', $label, $matches)) {
+                    $role = trim($matches[1]);
+                    $qty = max(1, (int) $matches[2]);
+                    return $role !== '' ? ['role' => $role, 'quantity' => $qty] : null;
+                }
+
+                return [
+                    'role' => $label,
+                    'quantity' => $defaultQty > 0 ? $defaultQty : 1,
+                ];
+            })
+            ->filter()
+            ->values();
+
+        if ($entries->isEmpty() && $defaultQty > 0) {
+            return [['role' => $raw, 'quantity' => $defaultQty]];
+        }
+
+        return $entries->all();
     }
 
     protected function fetchBorrowedInstances(int $borrowRequestId)

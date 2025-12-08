@@ -150,16 +150,14 @@ class WalkInRequestPdfService
             ];
         })->values();
 
-        // Include manpower as a dedicated row when present
-        $manpowerRole = trim((string) ($walkInRequest->manpower_role ?? ''));
-        $manpowerQty = (int) ($walkInRequest->manpower_quantity ?? 0);
-        if ($manpowerRole !== '' || $manpowerQty > 0) {
-            $roleLabel = $manpowerRole !== '' ? $manpowerRole : 'Manpower';
-            $qtyLabel = $manpowerQty > 0 ? $manpowerQty : 1;
-            $rows->prepend([
-                'label' => 'Manpower - ' . $roleLabel . ' (x' . $qtyLabel . ')',
-                'checked' => false,
-            ]);
+        $manpowerEntries = $this->parseManpowerEntries($walkInRequest);
+        if ($manpowerEntries) {
+            foreach (array_reverse($manpowerEntries) as $entry) {
+                $rows->prepend([
+                    'label' => 'Manpower - ' . $entry['role'] . ' (x' . $entry['quantity'] . ')',
+                    'checked' => false,
+                ]);
+            }
         }
 
         // Only render actual rows; pad the rest with blanks (no random placeholders)
@@ -177,6 +175,46 @@ class WalkInRequestPdfService
             $this->writeText($pdf, $pageSize, Arr::get($layout, 'item_' . $index), $slot['label']);
             $this->renderCheckbox($pdf, $pageSize, Arr::get($layout, 'check_' . $index), (bool) $slot['checked']);
         }
+    }
+
+    /**
+     * @return array<int, array{role: string, quantity: int}>
+     */
+    private function parseManpowerEntries(WalkInRequest $walkInRequest): array
+    {
+        $raw = trim((string) ($walkInRequest->manpower_role ?? ''));
+        $defaultQty = max(1, (int) ($walkInRequest->manpower_quantity ?? 0));
+
+        if ($raw === '') {
+            return $defaultQty > 0 ? [['role' => 'Manpower', 'quantity' => $defaultQty]] : [];
+        }
+
+        $entries = collect(preg_split('/[;,]+/', $raw))
+            ->map(function ($part) use ($defaultQty) {
+                $label = trim($part);
+                if ($label === '') {
+                    return null;
+                }
+
+                if (preg_match('/^(.*)\(x(\d+)\)$/i', $label, $matches)) {
+                    $role = trim($matches[1]);
+                    $qty = max(1, (int) $matches[2]);
+                    return $role !== '' ? ['role' => $role, 'quantity' => $qty] : null;
+                }
+
+                return [
+                    'role' => $label,
+                    'quantity' => $defaultQty > 0 ? $defaultQty : 1,
+                ];
+            })
+            ->filter()
+            ->values();
+
+        if ($entries->isEmpty() && $defaultQty > 0) {
+            return [['role' => $raw, 'quantity' => $defaultQty]];
+        }
+
+        return $entries->all();
     }
 
     private function formatDate(?Carbon $date): string

@@ -532,7 +532,11 @@
         }
         value.forEach((it) => {
           const li = document.createElement('li');
-          li.textContent = `${it.name || `Item #${it.id}`} — x${it.quantity}`;
+          const approved = Number(it.quantity ?? 0);
+          const received = Number(it.received_quantity ?? 0);
+          const hasReceived = Number.isFinite(received) && received >= 0;
+          const label = hasReceived ? `${received}/${approved}` : `x${approved}`;
+          li.textContent = `${it.name || `Item #${it.id}`} — ${label}`;
           el.appendChild(li);
         });
         return;
@@ -544,13 +548,10 @@
       el.textContent = value;
     };
 
-    const totalItems = Array.isArray(row.items)
-      ? row.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)
-      : 0;
-    const manpowerCount = Number(row.manpower_quantity || 0);
-    const totalWithManpower = totalItems + (manpowerCount > 0 ? manpowerCount : 0);
-    const deliveredCount = row.delivery_status === 'delivered' ? totalWithManpower : 0;
-    const deliveryProgress = `${deliveredCount}/${totalWithManpower || 0}`;
+    const itemsArray = Array.isArray(row.items) ? row.items : [];
+    const approvedTotal = Number(row.approved_total ?? itemsArray.reduce((sum, item) => sum + Number(item.quantity || 0), 0));
+    const receivedTotal = Number(row.received_total ?? itemsArray.reduce((sum, item) => sum + Number(item.received_quantity || 0), 0));
+    const deliveryProgress = `${Number.isFinite(receivedTotal) ? receivedTotal : 0}/${Number.isFinite(approvedTotal) ? approvedTotal : 0}`;
 
     set('borrower_name', row.borrower_name);
     set('office_agency', row.office_agency);
@@ -564,7 +565,7 @@
     set('returned_schedule', buildScheduleString(row, 'returned'));
     set('formatted_request_id', formatRequestId(row));
     set('delivery_progress', `Delivery ${deliveryProgress}`);
-    set('total_items', String(totalWithManpower));
+    set('total_items', String(Number.isFinite(approvedTotal) ? approvedTotal : 0));
 
     const reasonCard = modalContent.querySelector('#walkin-report-reason-card');
     const reasonEl = modalContent.querySelector('[data-field="delivery_report_reason"]');
@@ -832,6 +833,8 @@
   };
 
   document.addEventListener('DOMContentLoaded', () => {
+    if (!document.getElementById(tableBodyId)) return;
+
     fetchRows();
     bindActions();
     bindBorrowerModal();

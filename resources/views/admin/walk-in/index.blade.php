@@ -181,16 +181,7 @@
                             <i class="fas fa-people-carry text-xs"></i>
                             <div class="text-xs font-semibold text-gray-900 tracking-wide uppercase">Manpower</div>
                         </div>
-                        <dl class="mt-3 grid gap-3 sm:grid-cols-2">
-                            <div>
-                                <dt class="text-xs uppercase text-gray-500">Role</dt>
-                                <dd class="mt-1 font-medium text-gray-900" data-field="manpower_role">—</dd>
-                            </div>
-                            <div>
-                                <dt class="text-xs uppercase text-gray-500">Quantity</dt>
-                                <dd class="mt-1 font-medium text-gray-900" data-field="manpower_quantity">—</dd>
-                            </div>
-                        </dl>
+                        <div class="mt-3 text-gray-900 font-medium" data-field="manpower_role">—</div>
                     </div>
 
                     <div id="walkin-report-reason-card" class="hidden md:col-span-2 bg-red-50 border border-red-200 rounded-lg shadow-sm p-4">

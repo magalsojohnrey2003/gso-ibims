@@ -376,7 +376,9 @@ function renderConfirmReceiveItems(request) {
         const name = resolveBorrowItemName(item);
         const approvedQty = Number(item.approved_quantity ?? item.quantity ?? 0);
         const requestedQty = Number(item.requested_quantity ?? item.quantity ?? 0);
-        const defaultValue = approvedQty;
+        const defaultValue = Number.isFinite(Number(item.received_quantity))
+            ? Number(item.received_quantity)
+            : approvedQty;
         const sanitizedDefault = clampDigitsToMax(sanitizeToTwoDigits(defaultValue), approvedQty);
         const row = document.createElement('div');
         row.className = 'rounded-lg border border-gray-200 bg-white px-4 py-3 space-y-2 dark:border-gray-700 dark:bg-gray-900';
@@ -413,6 +415,10 @@ function renderConfirmReceiveItems(request) {
         const borrowRequestItemId = Number(item.borrow_request_item_id ?? item.id ?? null);
         if (Number.isFinite(borrowRequestItemId)) {
             input.dataset.borrowRequestItemId = String(borrowRequestItemId);
+        }
+        const itemId = Number(item.item?.id ?? item.item_id ?? null);
+        if (Number.isFinite(itemId)) {
+            input.dataset.itemId = String(itemId);
         }
         input.dataset.approvedQuantity = String(approvedQty);
         input.dataset.itemName = name;
@@ -486,10 +492,17 @@ function collectConfirmReceiveInputs() {
             return { error: `${itemName} cannot exceed the approved quantity (${approved}).` };
         }
 
-        items.push({
+        const payload = {
             id,
             received_quantity: numeric,
-        });
+        };
+
+        const itemId = Number(input.dataset.itemId);
+        if (Number.isFinite(itemId)) {
+            payload.item_id = itemId;
+        }
+
+        items.push(payload);
     }
 
     return { items };
@@ -887,8 +900,14 @@ export function fillBorrowModal(data) {
     const manpowerList = document.getElementById('mbi-manpower');
     if (manpowerList) {
         const rows = manpowerItems.map((i) => {
-            const role = escapeHtml(resolveBorrowItemName(i));
-            const qty = escapeHtml(String(i.quantity ?? 0));
+            // Avoid duplicated quantities that sometimes arrive in display_name; trust the numeric quantity field
+            const roleRaw = resolveBorrowItemName(i);
+            const roleClean = String(roleRaw || '')
+                .replace(/;+/g, ' ') // remove stray semicolons
+                .replace(/\(x\d+\)\s*\(x\d+\)/gi, '') // strip duplicated quantity patterns
+                .trim();
+            const role = escapeHtml(roleClean);
+            const qty = escapeHtml(String(i.quantity ?? i.approved_quantity ?? i.requested_quantity ?? 0));
             return `<li>${role} (x${qty})</li>`;
         }).join('');
         manpowerList.innerHTML = rows || '<li class="list-none text-gray-500">No manpower requested.</li>';

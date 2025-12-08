@@ -361,19 +361,28 @@
 
   function collectManpowerRows() {
     const container = document.getElementById('walkinManpowerRows');
-    if (!container) return { role: 'Assist', quantity: 10 };
-    const rows = Array.from(container.querySelectorAll('[data-manpower-role]')).length
-      ? Array.from(container.children)
-      : Array.from(container.querySelectorAll('[data-manpower-role]'));
+    if (!container) return { role: 'Assist', quantity: 10, entries: [{ role: 'Assist', quantity: 10 }] };
+
     const roleInputs = Array.from(container.querySelectorAll('[data-manpower-role]'));
     const qtyInputs = Array.from(container.querySelectorAll('[data-manpower-qty]'));
-    const role = roleInputs[0]?.value?.trim() || '';
-    const qtyRaw = qtyInputs[0]?.value ?? '10';
-    const qty = Math.max(1, parseInt(qtyRaw, 10) || 10);
-    if (!role) {
+
+    const entries = roleInputs.map((select, idx) => {
+      const role = (select.value || '').trim();
+      const qtyRaw = qtyInputs[idx]?.value ?? '1';
+      const quantity = Math.max(1, parseInt(qtyRaw, 10) || 1);
+      return role ? { role, quantity } : null;
+    }).filter(Boolean);
+
+    if (!entries.length) {
       return { error: 'Please select at least one manpower role.' };
     }
-    return { role, quantity: qty };
+
+    return {
+      role: entries[0].role,
+      quantity: entries[0].quantity,
+      entries,
+      total_quantity: entries.reduce((sum, entry) => sum + entry.quantity, 0),
+    };
   }
 
   function bindManpowerAdder() {
@@ -681,6 +690,12 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
+    const hasWalkinElements = document.getElementById('walkinForm')
+      || document.getElementById('walkinManpowerRows')
+      || document.getElementById('walkinAddManpowerRow')
+      || document.getElementById('walkinTableBody');
+    if (!hasWalkinElements) return;
+
     attachQtyHandlers();
     attachSearchHandler();
     attachSubmitHandler();

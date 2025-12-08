@@ -14,6 +14,7 @@ class WalkInRequestItem extends Model
         'walk_in_request_id',
         'item_id',
         'quantity',
+        'received_quantity',
     ];
 
     public function request(): BelongsTo

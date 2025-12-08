@@ -78,6 +78,13 @@ class BorrowRequestController extends Controller
                     return $dt ? $dt->timezone($timezone)->toIso8601String() : null;
                 };
 
+                $receivedTotal = (int) $r->items->sum(function ($ri) {
+                    return (int) ($ri->received_quantity ?? 0);
+                });
+                $approvedTotal = (int) $r->items->sum(function ($ri) {
+                    return (int) ($ri->quantity ?? 0);
+                });
+
                 return [
                     'id' => $r->id,
                     'formatted_request_id' => $r->formatted_request_id,
@@ -101,11 +108,14 @@ class BorrowRequestController extends Controller
                     'returned_date_display' => $formatDate($r->returned_at),
                     'borrowed_time_display' => $formatTime($r->borrowed_at),
                     'returned_time_display' => $formatTime($r->returned_at),
+                    'received_total' => $receivedTotal,
+                    'approved_total' => $approvedTotal,
                     'items' => $r->items->map(function ($ri) {
                         return [
                             'id' => $ri->item_id,
                             'name' => $ri->item?->name,
                             'quantity' => $ri->quantity,
+                            'received_quantity' => $ri->received_quantity,
                         ];
                     })->values()->all(),
                 ];
@@ -209,8 +219,12 @@ class BorrowRequestController extends Controller
             'items' => 'required|array|min:1',
             'items.*.id' => ['required','integer','exists:items,id'],
             'items.*.quantity' => 'required|integer|min:1',
+            'manpower' => 'required|array',
             'manpower.role' => 'nullable|string|max:255',
             'manpower.quantity' => 'nullable|integer|min:1',
+            'manpower.entries' => 'nullable|array',
+            'manpower.entries.*.role' => 'required_with:manpower.entries|string|max:255',
+            'manpower.entries.*.quantity' => 'required_with:manpower.entries|integer|min:1',
         ];
 
         if ($placeholderId) {
@@ -220,6 +234,32 @@ class BorrowRequestController extends Controller
         $data = $request->validate($rules);
         \DB::beginTransaction();
         try {
+            $entries = collect($data['manpower']['entries'] ?? [])
+                ->map(function ($row) {
+                    $role = trim((string) ($row['role'] ?? ''));
+                    $qty = max(1, (int) ($row['quantity'] ?? 0));
+                    return $role !== '' ? ['role' => $role, 'quantity' => $qty] : null;
+                })
+                ->filter()
+                ->values();
+
+            if ($entries->isEmpty() && isset($data['manpower']['role'])) {
+                $role = trim((string) $data['manpower']['role']);
+                $qty = max(1, (int) ($data['manpower']['quantity'] ?? 0));
+                if ($role !== '') {
+                    $entries = collect([[
+                        'role' => $role,
+                        'quantity' => $qty ?: 10,
+                    ]]);
+                }
+            }
+
+            $manpowerSummary = $entries->map(function ($row) {
+                return sprintf('%s (x%d)', $row['role'], $row['quantity']);
+            })->implode('; ');
+
+            $manpowerTotalQty = $entries->sum('quantity');
+
             $walkin = new \App\Models\WalkInRequest();
             $walkin->fill([
                 'user_id' => $data['borrower_id'] ?? null,
@@ -232,8 +272,8 @@ class BorrowRequestController extends Controller
                 'returned_at' => $data['returned_at'],
                 'status' => 'pending',
                 'delivery_status' => 'pending',
-                'manpower_role' => $data['manpower']['role'] ?? 'Assist',
-                'manpower_quantity' => $data['manpower']['quantity'] ?? 10,
+                'manpower_role' => $manpowerSummary ?: ($data['manpower']['role'] ?? 'Assist'),
+                'manpower_quantity' => $manpowerTotalQty ?: ($data['manpower']['quantity'] ?? 10),
                 'created_by' => $request->user()->id,
             ]);
             $walkin->save();
@@ -375,6 +415,10 @@ class BorrowRequestController extends Controller
                 if (!$item) {
                     throw new \RuntimeException("Item #{$walkInItem->item_id} not found.");
                 }
+
+                // Default confirmed quantity to approved quantity when admin marks delivered
+                $walkInItem->received_quantity = $walkInItem->received_quantity ?? $walkInItem->quantity;
+                $walkInItem->save();
 
                 $availableInstances = \App\Models\ItemInstance::where('item_id', $walkInItem->item_id)
                     ->where('status', 'available')
