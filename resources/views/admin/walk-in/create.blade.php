@@ -1,19 +1,19 @@
 {{-- resources/views/admin/walk-in/create.blade.php --}}
 <x-app-layout>
-    <x-title
-        level="h2"
-        size="2xl"
-        weight="bold"
-        icon="clipboard-document-check"
-        variant="s"
-        iconStyle="circle"
-        iconBg="gov-accent"
-        iconColor="white">
-        Create Walk-in Borrow
-    </x-title>
-
     <div class="p-6 max-w-7xl mx-auto">
-        <div class="mb-4 flex justify-end">
+        <div class="flex items-center justify-between gap-4 mb-4">
+            <x-title
+                level="h2"
+                size="2xl"
+                weight="bold"
+                icon="clipboard-document-check"
+                variant="s"
+                iconStyle="circle"
+                iconBg="gov-accent"
+                iconColor="white"
+                class="mb-0">
+                Create Walk-in Borrow
+            </x-title>
             <a href="{{ route('admin.walkin.index') }}" class="inline-flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 transition">
                 <i class="fas fa-arrow-left"></i> Back to Walk-in List
             </a>
@@ -21,7 +21,7 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <!-- Items selection table -->
-            <section class="lg:col-span-2 bg-white rounded-2xl shadow-md border border-gray-200 p-4 flex flex-col lg:h-[calc(100vh-200px)] lg:max-h-[calc(100vh-200px)]">
+            <section class="lg:col-span-2 bg-white rounded-2xl shadow-md border border-gray-200 p-4 flex flex-col lg:h-[calc(100vh-150px)] lg:max-h-[calc(100vh-150px)]">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                     <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
                         <i class="fas fa-boxes-stacked text-purple-600"></i>
@@ -82,7 +82,7 @@
             </section>
 
             <!-- Walk-in details sidebar -->
-            <aside class="lg:col-span-1 bg-white rounded-2xl shadow-md border border-gray-200 p-4 lg:sticky lg:top-6 lg:h-[calc(100vh-200px)] lg:max-h-[calc(100vh-200px)] overflow-y-auto" style="background-color:#fff;">
+            <aside class="lg:col-span-1 bg-white rounded-2xl shadow-md border border-gray-200 p-4 lg:sticky lg:top-6 lg:h-[calc(100vh-150px)] lg:max-h-[calc(100vh-150px)] overflow-y-auto" style="background-color:#fff;">
                 <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                     <i class="fas fa-id-card text-purple-600"></i>
                     Walk-in Details
@@ -90,6 +90,7 @@
 
                 <form id="walkinForm" class="space-y-4" method="POST" action="{{ route('admin.walkin.store') }}">
                     @csrf
+                    <input type="hidden" name="user_id" id="user_id" />
                     <div>
                         <x-input-label for="borrower_name" value="Borrower's Name" />
                         <x-text-input id="borrower_name" name="borrower_name" type="text" maxlength="255" class="mt-1 w-full" />
@@ -151,5 +152,46 @@
             </aside>
         </div>
     </div>
+
+    {{-- Confirmation Modal with Manpower --}}
+    <x-modal name="walkinConfirmModal" maxWidth="xl">
+        <div class="p-6 space-y-4">
+            <div class="flex items-start justify-between">
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                        <i class="fas fa-clipboard-list text-purple-600"></i>
+                        <span>Confirm Walk-in Request</span>
+                    </h3>
+                    <p class="text-sm text-gray-500">Review manpower assignments before submitting.</p>
+                </div>
+                <button type="button" class="text-gray-400 hover:text-gray-600 transition" @click="$dispatch('close-modal', 'walkinConfirmModal')">
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                    <h4 class="text-sm font-semibold text-gray-800">Assign Manpower</h4>
+                    <button type="button" id="walkinAddManpowerRow" class="inline-flex items-center gap-1 text-sm text-purple-600 hover:text-purple-700">
+                        <i class="fas fa-plus-circle"></i>
+                        Add Role
+                    </button>
+                </div>
+                <div id="walkinManpowerRows" class="space-y-2"></div>
+                <p class="text-xs text-gray-500">Default role "Assist" with quantity 10 is prefilled. Adjust or add more roles as needed.</p>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2">
+                <x-button variant="secondary" class="px-4 py-2 text-sm" @click="$dispatch('close-modal', 'walkinConfirmModal')">Cancel</x-button>
+                <x-button id="walkinConfirmSubmitBtn" variant="primary" class="px-4 py-2 text-sm">
+                    <i class="fas fa-check mr-1"></i> Confirm &amp; Submit
+                </x-button>
+            </div>
+        </div>
+    </x-modal>
+
+    <script>
+        window.MANPOWER_PLACEHOLDER_ID = "{{ \App\Models\Item::systemPlaceholderId() }}";
+    </script>
 
 </x-app-layout>

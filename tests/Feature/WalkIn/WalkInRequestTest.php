@@ -117,10 +117,25 @@ class WalkInRequestTest extends TestCase
         $deliverResponse = $this->postJson(route('admin.walkin.deliver', $walkInRequest->id));
 
         $deliverResponse->assertOk();
-        $deliverResponse->assertJson(['message' => 'Walk-in request marked as delivered. Items deducted from inventory.']);
+        $deliverResponse->assertJson(['message' => 'Walk-in request dispatched. Confirm delivery to deduct inventory.']);
+
+        $walkInRequest->refresh();
+        $this->assertSame('approved', $walkInRequest->status);
+        $this->assertSame('dispatched', $walkInRequest->delivery_status);
+
+        $item->refresh();
+        $this->assertSame(3, $item->available_qty);
+
+        $this->assertDatabaseCount('borrow_item_instances', 0);
+
+        // Confirm delivery to deduct inventory and allocate instances
+        $confirmResponse = $this->postJson(route('admin.walkin.confirm-delivery', $walkInRequest->id));
+        $confirmResponse->assertOk();
+        $confirmResponse->assertJson(['message' => 'Walk-in delivery confirmed and inventory deducted.']);
 
         $walkInRequest->refresh();
         $this->assertSame('delivered', $walkInRequest->status);
+        $this->assertSame('delivered', $walkInRequest->delivery_status);
 
         $item->refresh();
         $this->assertSame(1, $item->available_qty);
@@ -202,15 +217,30 @@ class WalkInRequestTest extends TestCase
 
         $this->actingAs($admin);
 
-        $response = $this->postJson(route('admin.walkin.deliver', $walkInRequest->id));
+        $dispatchResponse = $this->postJson(route('admin.walkin.deliver', $walkInRequest->id));
 
-        $response->assertStatus(500);
-        $response->assertJson([
-            'message' => 'Insufficient quantity for ' . $item->name . '. Available: 1, Requested: 2',
+        $dispatchResponse->assertOk();
+        $dispatchResponse->assertJson(['message' => 'Walk-in request dispatched. Confirm delivery to deduct inventory.']);
+
+        $walkInRequest->refresh();
+        $this->assertSame('approved', $walkInRequest->status);
+        $this->assertSame('dispatched', $walkInRequest->delivery_status);
+
+        $item->refresh();
+        $this->assertSame(1, $item->available_qty);
+
+        $this->assertDatabaseCount('borrow_item_instances', 0);
+
+        $confirmResponse = $this->postJson(route('admin.walkin.confirm-delivery', $walkInRequest->id));
+
+        $confirmResponse->assertStatus(500);
+        $confirmResponse->assertJson([
+            'message' => 'Not enough available instances for ' . $item->name . '.',
         ]);
 
         $walkInRequest->refresh();
         $this->assertSame('approved', $walkInRequest->status);
+        $this->assertSame('dispatched', $walkInRequest->delivery_status);
 
         $item->refresh();
         $this->assertSame(1, $item->available_qty);

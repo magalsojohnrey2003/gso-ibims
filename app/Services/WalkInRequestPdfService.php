@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Item;
 use App\Models\WalkInRequest;
 use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
@@ -142,45 +141,38 @@ class WalkInRequestPdfService
 
     private function renderItems(Fpdi $pdf, array $pageSize, array $layout, WalkInRequest $walkInRequest): void
     {
-        $selected = $walkInRequest->items->map(function ($item) {
+        $rows = $walkInRequest->items->map(function ($item) {
             $name = $item->item?->name ?? ('Item #' . $item->item_id);
             $quantity = (int) $item->quantity;
             return [
-                'label' => $name . '(x' . $quantity . ')',
-                'checked' => true,
+                'label' => $name . ' (x' . $quantity . ')',
+                'checked' => false,
             ];
         })->values();
 
-        $missingCount = max(0, 12 - $selected->count());
-        $excludeIds = $walkInRequest->items->pluck('item_id')->filter()->unique()->all();
+        // Include manpower as a dedicated row when present
+        $manpowerRole = trim((string) ($walkInRequest->manpower_role ?? ''));
+        $manpowerQty = (int) ($walkInRequest->manpower_quantity ?? 0);
+        if ($manpowerRole !== '' || $manpowerQty > 0) {
+            $roleLabel = $manpowerRole !== '' ? $manpowerRole : 'Manpower';
+            $qtyLabel = $manpowerQty > 0 ? $manpowerQty : 1;
+            $rows->prepend([
+                'label' => 'Manpower - ' . $roleLabel . ' (x' . $qtyLabel . ')',
+                'checked' => false,
+            ]);
+        }
 
-        $additional = Item::query()
-            ->excludeSystemPlaceholder()
-            ->when($excludeIds !== [], function ($query) use ($excludeIds) {
-                $query->whereNotIn('id', $excludeIds);
-            })
-            ->inRandomOrder()
-            ->limit($missingCount)
-            ->get(['name'])
-            ->map(function ($item) {
-                return [
-                    'label' => $item->name ?? '—',
-                    'checked' => false,
-                ];
-            });
-
-        $slots = $selected->concat($additional)->take(12)->values();
-
-        // Pad with blanks if needed
-        while ($slots->count() < 12) {
-            $slots->push([
+        // Only render actual rows; pad the rest with blanks (no random placeholders)
+        $rows = $rows->take(12)->values();
+        while ($rows->count() < 12) {
+            $rows->push([
                 'label' => '',
                 'checked' => false,
             ]);
         }
 
         for ($i = 0; $i < 12; $i++) {
-            $slot = $slots[$i];
+            $slot = $rows[$i];
             $index = $i + 1;
             $this->writeText($pdf, $pageSize, Arr::get($layout, 'item_' . $index), $slot['label']);
             $this->renderCheckbox($pdf, $pageSize, Arr::get($layout, 'check_' . $index), (bool) $slot['checked']);

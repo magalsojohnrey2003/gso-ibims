@@ -3,14 +3,10 @@
     $municipalities = config('locations.municipalities', []);
     $oldLocation = old('location', optional($borrowRequest ?? null)->location ?? '');
     $locationPieces = array_values(array_filter(array_map('trim', explode(',', $oldLocation))));
+    $oldMunicipalityKey = $locationPieces[0] ?? '';
+    $oldBarangay = $locationPieces[1] ?? '';
+    $oldPurok = $locationPieces[2] ?? '';
 
-                <div>
-                    <h4 class="font-semibold text-gray-800 mb-2">Manpower Support</h4>
-                    <p id="modalManpowerEmpty" class="text-gray-700">No manpower requested.</p>
-                    <ul id="modalManpowerList" class="list-disc pl-5 space-y-1 hidden"></ul>
-                </div>
-
-            </div>
     $usageOptions = [];
     // Build 30-minute intervals from 06:00 to 22:00 inclusive
     for ($hour = 6; $hour <= 22; $hour++) {
@@ -59,14 +55,6 @@
         : 'Select on calendar';
 
     $noMainScroll = true;
-    $manpowerRoles = collect($manpowerRoles ?? [])->values();
-    $initialManpower = collect(old('manpower_requirements', []))
-        ->filter(fn ($row) => is_array($row))
-        ->values()
-        ->all();
-    $hasManpowerRoles = $manpowerRoles->count() > 0;
-    $defaultManpowerRoleName = 'Assist';
-    $defaultManpowerRoleQuantity = 10;
 @endphp
 
 <x-app-layout>
@@ -249,86 +237,6 @@
                                     <p class="mt-1 text-xs text-gray-500">Provide enough context for approvers to understand the request.</p>
                                 </div>
                             </div>
-
-                            <div class="mt-6 border-t border-gray-200 pt-5" id="manpowerRequirementsSection">
-                                <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                    <div>
-                                        <h4 class="text-base font-semibold text-gray-800 flex items-center gap-2">
-                                            Manpower (Optional)
-                                        </h4>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        id="addManpowerRequirementBtn"
-                                        class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-purple-200 bg-purple-50 text-purple-600 transition hover:bg-purple-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        @if(! $hasManpowerRoles) disabled @endif
-                                        title="{{ $hasManpowerRoles ? 'Add a manpower role' : 'No manpower roles are available yet.' }}">
-                                        <span class="sr-only">Add manpower</span>
-                                        <i class="fas fa-plus"></i>
-                                    </button>
-                                </div>
-
-                                @if(! $hasManpowerRoles)
-                                    <p class="mt-3 text-sm text-amber-600">Ask an administrator to define manpower roles before adding personnel requests.</p>
-                                @endif
-
-                                <div
-                                    id="manpowerRequirementsList"
-                                    class="mt-4 space-y-3"
-                                    data-manpower-roles-count="{{ $manpowerRoles->count() }}"
-                                    data-default-role-name="{{ $defaultManpowerRoleName }}"
-                                    data-default-role-qty="{{ $defaultManpowerRoleQuantity }}">
-                                    @php
-                                        $roleLookup = $manpowerRoles->keyBy('id');
-                                    @endphp
-                                    @foreach($initialManpower as $index => $entry)
-                                        @php
-                                            $roleId = (int) ($entry['role_id'] ?? 0);
-                                            $quantity = max(1, (int) ($entry['quantity'] ?? 1));
-                                            $roleName = optional($roleLookup->get($roleId))->name ?? 'Role';
-                                        @endphp
-                                        <div
-                                            class="rounded-xl border border-gray-200 bg-gray-50 p-4 flex items-center justify-between gap-4"
-                                            data-manpower-entry
-                                            data-role-id="{{ $roleId }}"
-                                            data-quantity="{{ $quantity }}"
-                                            data-initial="true">
-                                            <div class="flex-1">
-                                                <p class="text-sm font-semibold text-gray-800" data-manpower-role-label>{{ $roleName }}</p>
-                                                <p class="text-xs text-gray-600 mt-1">Quantity: <span data-manpower-quantity-label>{{ $quantity }}</span></p>
-                                            </div>
-                                            <div class="flex items-center gap-2">
-                                                <button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-100" data-edit-manpower title="Edit manpower role">
-                                                    <span class="sr-only">Edit manpower role</span>
-                                                    <i class="fas fa-pen"></i>
-                                                </button>
-                                                <button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-100" data-remove-manpower title="Remove manpower role">
-                                                    <span class="sr-only">Remove manpower role</span>
-                                                    <i class="fas fa-times"></i>
-                                                </button>
-                                            </div>
-                                            <input type="hidden" name="manpower_requirements[{{ $index }}][role_id]" value="{{ $roleId }}" data-manpower-role-input>
-                                            <input type="hidden" name="manpower_requirements[{{ $index }}][quantity]" value="{{ $quantity }}" data-manpower-quantity-input>
-                                        </div>
-                                    @endforeach
-                                </div>
-
-                                <p id="manpowerRequirementsEmpty" class="mt-3 text-sm text-gray-500" @if(!empty($initialManpower)) hidden @endif>
-                                    No manpower roles added yet.
-                                </p>
-
-                                @php
-                                    $manpowerErrors = collect($errors->get('manpower_requirements') ?? [])
-                                        ->merge($errors->get('manpower_requirements.*.role_id') ?? [])
-                                        ->merge($errors->get('manpower_requirements.*.quantity') ?? [])
-                                        ->unique()
-                                        ->values()
-                                        ->all();
-                                @endphp
-                                @if(!empty($manpowerErrors))
-                                    <x-input-error :messages="$manpowerErrors" class="mt-2" />
-                                @endif
-                            </div>
                         </div>
 
                         <div class="bg-white p-6 rounded-2xl shadow-lg space-y-5 h-full flex flex-col">
@@ -363,78 +271,6 @@
                         </x-button>
                     </div>
                 </section>
-
-                <template id="manpowerRequirementTemplate">
-                    <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 flex items-center justify-between gap-4" data-manpower-entry>
-                        <div class="flex-1">
-                            <p class="text-sm font-semibold text-gray-800" data-manpower-role-label>Role</p>
-                            <p class="text-xs text-gray-600 mt-1">Quantity: <span data-manpower-quantity-label>1</span></p>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-100" data-edit-manpower title="Edit manpower role">
-                                <span class="sr-only">Edit manpower role</span>
-                                <i class="fas fa-pen"></i>
-                            </button>
-                            <button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-100" data-remove-manpower title="Remove manpower role">
-                                <span class="sr-only">Remove manpower role</span>
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-                        <input type="hidden" data-manpower-role-input>
-                        <input type="hidden" data-manpower-quantity-input>
-                    </div>
-                </template>
-
-                <x-modal name="manpowerRequirementModal" maxWidth="md" focusable>
-                    <div class="p-6 space-y-5" id="manpowerRequirementModalContent">
-                        <div class="flex items-start justify-between gap-4">
-                            <div>
-                                <h3 class="text-lg font-semibold text-gray-900" id="manpowerModalTitle">Add Manpower Role</h3>
-                                <p class="text-sm text-gray-500 mt-1">Choose a role and quantity to include in this request.</p>
-                            </div>
-                            <button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200" data-manpower-modal-dismiss>
-                                <span class="sr-only">Close</span>
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-
-                        <input type="hidden" id="manpowerModalIndex" value="">
-
-                        <div class="space-y-4">
-                            <div>
-                                <x-input-label for="manpowerModalRole" value="Role" />
-                                <select
-                                    id="manpowerModalRole"
-                                    class="mt-1 w-full rounded-lg border border-gray-400 px-3 py-2 text-sm text-gray-800 bg-white focus:border-purple-500 focus:ring-purple-500"
-                                >
-                                    <option value="">Select role</option>
-                                    @foreach($manpowerRoles as $role)
-                                        <option value="{{ $role->id }}">{{ $role->name }}</option>
-                                    @endforeach
-                                </select>
-                                <p id="manpowerModalRoleEmpty" class="mt-2 text-sm text-amber-600 hidden">All available roles have already been added.</p>
-                            </div>
-
-                            <div>
-                                <x-input-label for="manpowerModalQuantity" value="Quantity" />
-                                <input
-                                    type="number"
-                                    id="manpowerModalQuantity"
-                                    min="1"
-                                    max="99"
-                                    value="1"
-                                    class="mt-1 w-full rounded-lg border border-gray-400 px-3 py-2 text-sm text-gray-800 focus:border-purple-500 focus:ring-purple-500"
-                                    inputmode="numeric"
-                                />
-                            </div>
-                        </div>
-
-                        <div class="flex items-center justify-end gap-3 pt-2">
-                            <x-secondary-button type="button" id="manpowerModalCancelBtn">Cancel</x-secondary-button>
-                            <x-button type="button" id="manpowerModalConfirmBtn">Save</x-button>
-                        </div>
-                    </div>
-                </x-modal>
 
                 {{-- Step 2 --}}
                 <section data-step="2" class="wizard-step hidden space-y-6">
@@ -611,11 +447,6 @@
                                 <p><span class="font-medium">Selected Address:</span> <span id="summaryAddress">&mdash;</span></p>
                                 <p><span class="font-medium">Purpose &amp; Office:</span> <span id="summaryPurposeOffice">--</span></p>
                                 <p><span class="font-medium">Purpose:</span> <span id="summaryPurpose">--</span></p>
-                                <div>
-                                    <p class="font-medium text-gray-800">Manpower Support:</p>
-                                    <p id="summaryManpowerEmpty" class="text-sm text-gray-500">No additional manpower requested.</p>
-                                    <ul id="summaryManpowerList" class="mt-1 list-disc pl-5 text-sm text-gray-700 space-y-1 hidden"></ul>
-                                </div>
                             </div>
 
                             <div>
@@ -709,11 +540,6 @@
                 <div>
                     <h4 class="font-semibold text-gray-800 mb-2">Items</h4>
                     <ul id="modalItemsList" class="list-disc pl-5 space-y-1"></ul>
-                </div>
-                <div>
-                    <h4 class="font-semibold text-gray-800 mb-2">Manpower Support</h4>
-                    <p id="modalManpowerEmpty" class="text-gray-700">No manpower requested.</p>
-                    <ul id="modalManpowerList" class="list-disc pl-5 space-y-1 hidden"></ul>
                 </div>
             </div>
 

@@ -1,6 +1,10 @@
 // resources/js/admin-walk-in.js
 
 (function() {
+  const MANPOWER_ROLES_ENDPOINT = window.MANPOWER_ROLES_ENDPOINT || '/admin/manpower-roles';
+  let MANPOWER_ROLES_CACHE = [];
+  let manpowerRolesPromise = null;
+
   function clamp(value, min, max) {
     const n = parseInt(value, 10);
     if (!Number.isFinite(n)) return 0;
@@ -35,7 +39,7 @@
 
   function enforceDigitsOnly(input, maxLength = 11) {
     if (!input) return;
-  const controlKeys = new Set(['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'Enter']);
+    const controlKeys = new Set(['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'Enter']);
     const sanitize = () => {
       const digits = digitsOnly(input.value || '');
       const trimmed = digits.slice(0, maxLength);
@@ -79,6 +83,107 @@
     const normalizedHour = ((h + 11) % 12) + 1;
     const paddedMinutes = m.toString().padStart(2, '0');
     return `${normalizedHour}:${paddedMinutes} ${period}`;
+  }
+
+  async function loadManpowerRoles(force = false) {
+    if (!force && MANPOWER_ROLES_CACHE.length) {
+      return MANPOWER_ROLES_CACHE;
+    }
+
+    if (manpowerRolesPromise && !force) {
+      return manpowerRolesPromise;
+    }
+
+    manpowerRolesPromise = (async () => {
+      const res = await fetch(MANPOWER_ROLES_ENDPOINT, {
+        headers: { Accept: 'application/json' },
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to load manpower roles (${res.status})`);
+      }
+
+      const payload = await res.json().catch(() => []);
+      const normalized = Array.isArray(payload) ? payload : [];
+      MANPOWER_ROLES_CACHE = normalized
+        .map((role) => ({
+          id: Number(role?.id ?? 0),
+          name: typeof role?.name === 'string' ? role.name.trim() : '',
+        }))
+        .filter((role) => role.id && role.name);
+
+      MANPOWER_ROLES_CACHE.sort((a, b) => a.name.localeCompare(b.name));
+      return MANPOWER_ROLES_CACHE;
+    })().catch((error) => {
+      console.error('Failed to fetch manpower roles', error);
+      if (typeof window.showToast === 'function') {
+        window.showToast('Unable to load manpower roles. Try again.', 'error');
+      }
+      MANPOWER_ROLES_CACHE = [];
+      return [];
+    });
+
+    return manpowerRolesPromise;
+  }
+
+  function findManpowerRoleByName(name) {
+    if (!name) return null;
+    const normalized = String(name).toLowerCase();
+    return MANPOWER_ROLES_CACHE.find((role) => role.name.toLowerCase() === normalized) || null;
+  }
+
+  function getSelectedRoleNames(exceptEl = null) {
+    return Array.from(document.querySelectorAll('[data-manpower-role]'))
+      .filter((el) => el !== exceptEl)
+      .map((el) => (el.value || '').trim())
+      .filter(Boolean);
+  }
+
+  function populateRoleSelect(selectEl, selectedRoleName = '', excludeRoles = []) {
+    if (!selectEl) return;
+
+    selectEl.innerHTML = '';
+    const roles = MANPOWER_ROLES_CACHE;
+    const excludeSet = new Set(excludeRoles.map((r) => r.toLowerCase()));
+
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = roles.length ? 'Select role' : 'No roles available';
+    placeholder.disabled = true;
+    placeholder.selected = true;
+    selectEl.appendChild(placeholder);
+
+    let matched = false;
+    const current = (selectedRoleName || '').toLowerCase();
+    const availableRoles = roles.filter((role) => {
+      if (!role?.name) return false;
+      const nameLc = role.name.toLowerCase();
+      return !excludeSet.has(nameLc);
+    });
+
+    availableRoles.forEach((role) => {
+      const option = document.createElement('option');
+      option.value = role.name;
+      option.textContent = role.name;
+      option.dataset.roleId = String(role.id);
+      if (current && role.name.toLowerCase() === current) {
+        option.selected = true;
+        matched = true;
+      }
+      selectEl.appendChild(option);
+    });
+
+    if (availableRoles.length) {
+      selectEl.disabled = false;
+      if (matched) {
+        placeholder.selected = false;
+      } else {
+        selectEl.value = availableRoles[0].name;
+        placeholder.selected = false;
+      }
+    } else {
+      selectEl.disabled = true;
+    }
   }
 
   function updateUsagePreview() {
@@ -131,7 +236,10 @@
   function attachSubmitHandler() {
     const submitBtn = document.getElementById('walkinSubmitBtn');
     const form = document.getElementById('walkinForm');
+    const confirmModalName = 'walkinConfirmModal';
     if (!submitBtn || !form) return;
+
+    let pendingPayload = null;
 
     submitBtn.addEventListener('click', async () => {
       const items = collectSelected();
@@ -139,6 +247,9 @@
         window.showToast('Please select at least one item (quantity > 0).', 'warning');
         return;
       }
+
+      const rawBorrowerId = document.getElementById('user_id')?.value || '';
+      const borrowerId = rawBorrowerId ? parseInt(rawBorrowerId, 10) || null : null;
 
       // Map form data
       const payload = {
@@ -150,31 +261,167 @@
         borrowed_at: buildDateTimePayload('borrowed_date', 'borrowed_time'),
         returned_at: buildDateTimePayload('returned_date', 'returned_time'),
         items,
+        borrower_id: borrowerId,
       };
 
-      try {
-        const res = await fetch(form.getAttribute('action'), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-            'Accept': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        });
+      pendingPayload = payload;
+      await ensureDefaultManpowerRow();
+      window.dispatchEvent(new CustomEvent('open-modal', { detail: confirmModalName }));
+    });
 
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          window.showToast(data?.message || 'Failed to submit walk-in request.', 'error');
+    const confirmSubmitBtn = document.getElementById('walkinConfirmSubmitBtn');
+    if (confirmSubmitBtn) {
+      confirmSubmitBtn.addEventListener('click', async () => {
+        if (!pendingPayload) return;
+        const manpower = collectManpowerRows();
+        if (manpower.error) {
+          window.showToast(manpower.error, 'error');
           return;
         }
-        window.showToast(data?.message || 'Walk-in request submitted successfully.', 'success');
-        // Redirect back to index to show in table
-        window.location.href = '/admin/walk-in';
-      } catch (e) {
-        window.showToast('Network error. Please try again.', 'error');
+        const payload = { ...pendingPayload, manpower };
+        try {
+          const res = await fetch(form.getAttribute('action'), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify(payload),
+          });
+
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            window.showToast(data?.message || 'Failed to submit walk-in request.', 'error');
+            return;
+          }
+          window.showToast(data?.message || 'Walk-in request submitted successfully.', 'success');
+          window.location.href = '/admin/walk-in';
+        } catch (e) {
+          window.showToast('Network error. Please try again.', 'error');
+        }
+      });
+    }
+  }
+
+  async function ensureDefaultManpowerRow() {
+    const container = document.getElementById('walkinManpowerRows');
+    if (!container) return;
+    if (container.children.length === 0) {
+      await loadManpowerRoles();
+      if (!MANPOWER_ROLES_CACHE.length) {
+        if (typeof window.showToast === 'function') {
+          window.showToast('No manpower roles available. Please add roles before continuing.', 'error');
+        }
+        return;
       }
+      const assist = findManpowerRoleByName('Assist');
+      const fallback = MANPOWER_ROLES_CACHE[0]?.name || 'Assist';
+      const selectedRole = assist?.name || fallback;
+      container.appendChild(buildManpowerRow(selectedRole, 10));
+    }
+    updateManpowerControls();
+  }
+
+  function buildManpowerRow(roleValue = '', quantityValue = 1) {
+    const row = document.createElement('div');
+    row.className = 'flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-3';
+
+    const roleSelect = document.createElement('select');
+    roleSelect.className = 'gov-input flex-1 text-sm';
+    roleSelect.required = true;
+    roleSelect.dataset.manpowerRole = '1';
+    populateRoleSelect(roleSelect, roleValue, getSelectedRoleNames());
+    roleSelect.addEventListener('change', () => {
+      updateManpowerControls();
     });
+
+    const qtyInput = document.createElement('input');
+    qtyInput.type = 'number';
+    qtyInput.className = 'gov-input w-24 text-sm';
+    qtyInput.min = '1';
+    qtyInput.max = '999';
+    qtyInput.value = quantityValue;
+    qtyInput.dataset.manpowerQty = '1';
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'text-gray-400 hover:text-red-500 transition';
+    removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+    removeBtn.addEventListener('click', () => {
+      row.remove();
+      updateManpowerControls();
+    });
+
+    row.appendChild(roleSelect);
+    row.appendChild(qtyInput);
+    row.appendChild(removeBtn);
+    return row;
+  }
+
+  function collectManpowerRows() {
+    const container = document.getElementById('walkinManpowerRows');
+    if (!container) return { role: 'Assist', quantity: 10 };
+    const rows = Array.from(container.querySelectorAll('[data-manpower-role]')).length
+      ? Array.from(container.children)
+      : Array.from(container.querySelectorAll('[data-manpower-role]'));
+    const roleInputs = Array.from(container.querySelectorAll('[data-manpower-role]'));
+    const qtyInputs = Array.from(container.querySelectorAll('[data-manpower-qty]'));
+    const role = roleInputs[0]?.value?.trim() || '';
+    const qtyRaw = qtyInputs[0]?.value ?? '10';
+    const qty = Math.max(1, parseInt(qtyRaw, 10) || 10);
+    if (!role) {
+      return { error: 'Please select at least one manpower role.' };
+    }
+    return { role, quantity: qty };
+  }
+
+  function bindManpowerAdder() {
+    const addBtn = document.getElementById('walkinAddManpowerRow');
+    if (!addBtn) return;
+    addBtn.addEventListener('click', async () => {
+      const container = document.getElementById('walkinManpowerRows');
+      if (!container) return;
+      const roles = await loadManpowerRoles();
+      if (!roles.length) {
+        if (typeof window.showToast === 'function') {
+          window.showToast('No manpower roles available to add.', 'warning');
+        }
+        return;
+      }
+      const inUse = new Set(getSelectedRoleNames());
+      const available = roles.filter((role) => role?.name && !inUse.has(role.name));
+      if (!available.length) {
+        if (typeof window.showToast === 'function') {
+          window.showToast('All manpower roles are already selected.', 'info');
+        }
+        updateManpowerControls();
+        return;
+      }
+      const defaultRole = available[0]?.name || '';
+      container.appendChild(buildManpowerRow(defaultRole, 1));
+      updateManpowerControls();
+    });
+  }
+
+  function refreshRoleSelectOptions() {
+    const selects = Array.from(document.querySelectorAll('[data-manpower-role]'));
+    selects.forEach((select) => {
+      const exclude = getSelectedRoleNames(select);
+      populateRoleSelect(select, select.value, exclude);
+    });
+  }
+
+  function updateManpowerControls() {
+    refreshRoleSelectOptions();
+    const addBtn = document.getElementById('walkinAddManpowerRow');
+    if (!addBtn) return;
+    const totalRoles = MANPOWER_ROLES_CACHE.length;
+    const used = new Set(getSelectedRoleNames());
+    const allUsed = totalRoles > 0 && used.size >= totalRoles;
+    addBtn.disabled = allUsed || totalRoles === 0;
+    addBtn.classList.toggle('opacity-50', addBtn.disabled);
+    addBtn.classList.toggle('cursor-not-allowed', addBtn.disabled);
   }
 
   function attachClearHandler() {
@@ -397,6 +644,11 @@
       return true;
     };
 
+    if (params.has('borrower_id')) {
+      // Preserve the selected account so the request links to the user
+      prefilled = assign('user_id', params.get('borrower_id')) || prefilled;
+    }
+
     if (params.has('borrower_name')) {
       prefilled = assign('borrower_name', params.get('borrower_name')) || prefilled;
     }
@@ -436,6 +688,11 @@
     enforceDigitsOnly(document.getElementById('contact_number'));
     initDateInputs();
     applyPrefillFromQuery();
+    loadManpowerRoles().then(() => {
+      ensureDefaultManpowerRow();
+      updateManpowerControls();
+    });
+    bindManpowerAdder();
     
     ['borrowed_time', 'returned_time'].forEach((id) => {
       const el = document.getElementById(id);

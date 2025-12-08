@@ -5,6 +5,7 @@
   const state = {
     rows: [],
   };
+  let pendingDeliveredId = null;
   const borrowerTableBodyId = 'walkinBorrowerTableBody';
   const borrowerState = {
     rows: [],
@@ -15,7 +16,8 @@
   const ICONS = {
     printer: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9V4h12v5" /><path stroke-linecap="round" stroke-linejoin="round" d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" /><path stroke-linecap="round" stroke-linejoin="round" d="M6 14h12v8H6z" /></svg>',
     eye: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.065 7-9.542 7S3.732 16.057 2.458 12z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>',
-    truck: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 7.5h9a1.5 1.5 0 011.5 1.5v7.5m-6 0H3.75A1.5 1.5 0 012.25 15V7.5" /><path stroke-linecap="round" stroke-linejoin="round" d="M12.75 12h3.028a1.5 1.5 0 011.122.5l2.55 2.85a1.5 1.5 0 01.4 1v1.65A1.5 1.5 0 0118.35 19.5H18" /><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 19.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3zM18 19.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3z" /></svg>'
+    truck: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 7.5h9a1.5 1.5 0 011.5 1.5v7.5m-6 0H3.75A1.5 1.5 0 012.25 15V7.5" /><path stroke-linecap="round" stroke-linejoin="round" d="M12.75 12h3.028a1.5 1.5 0 011.122.5l2.55 2.85a1.5 1.5 0 01.4 1v1.65A1.5 1.5 0 0118.35 19.5H18" /><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 19.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3zM18 19.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3z" /></svg>',
+    check: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4" /><path stroke-linecap="round" stroke-linejoin="round" d="M4 6.75A2.75 2.75 0 016.75 4h6.5A2.75 2.75 0 0116 6.75v10.5A2.75 2.75 0 0113.25 20h-6.5A2.75 2.75 0 014 17.25z" /></svg>'
   };
   const BORROWER_STATUS_COLORS = {
     good: 'bg-emerald-100 text-emerald-700',
@@ -185,41 +187,70 @@
     const badges = {
       pending: '<span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800"><i class="fas fa-clock"></i> Pending</span>',
       approved: '<span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800"><i class="fas fa-check-circle"></i> Approved</span>',
-      delivered: '<span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800"><i class="fas fa-truck"></i> Delivered</span>',
+      dispatched: '<span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800"><i class="fas fa-truck"></i> Dispatched</span>',
+      delivered: '<span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800"><i class="fas fa-box"></i> Delivered</span>',
+      returned: '<span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700"><i class="fas fa-undo"></i> Returned</span>',
+      not_received: '<span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-700"><i class="fas fa-triangle-exclamation"></i> Not Received</span>',
     };
     return badges[status] || '<span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700"><i class="fas fa-question-circle"></i> Unknown</span>';
   };
 
   const getActionButtons = (row) => {
     const status = row.status || 'pending';
+    const deliveryStatus = row.delivery_status || 'pending';
     const buttons = [];
-
-    // Print button - always visible
-    buttons.push(`
-      <button type="button" data-action="print" class="btn-action btn-print h-10 w-10" title="Print">
-        <span class="sr-only">Print</span>
-        ${ICONS.printer}
-      </button>
-    `);
-
-    // Conditional buttons based on status
-    if (status === 'approved') {
+    // Pending: show print only
+    if (status === 'pending') {
       buttons.push(`
-        <button type="button" data-action="deliver" class="btn-action btn-deliver h-10 w-10" title="Deliver Items">
-          <span class="sr-only">Deliver Items</span>
+        <button type="button" data-action="print" class="btn-action btn-print h-10 w-10" title="Print">
+          <span class="sr-only">Print</span>
+          ${ICONS.printer}
+        </button>
+      `);
+      return buttons.join('');
+    }
+
+    // Approved (or reset to not_received): show Dispatch + View
+    if (status === 'approved' || deliveryStatus === 'not_received') {
+      buttons.push(`
+        <button type="button" data-action="deliver" class="btn-action btn-deliver h-10 w-10" title="Dispatch Items">
+          <span class="sr-only">Dispatch Items</span>
           ${ICONS.truck}
         </button>
       `);
-    }
-
-    if (status === 'delivered') {
       buttons.push(`
         <button type="button" data-action="view" class="btn-action btn-view h-10 w-10" title="View">
           <span class="sr-only">View</span>
           ${ICONS.eye}
         </button>
       `);
+      return buttons.join('');
     }
+
+    // Dispatched: show Mark as Delivered + View
+    if (deliveryStatus === 'dispatched') {
+      buttons.push(`
+        <button type="button" data-action="confirm-delivery" class="btn-action btn-deliver h-10 w-10" title="Mark as Delivered">
+          <span class="sr-only">Mark as Delivered</span>
+          ${ICONS.check}
+        </button>
+      `);
+      buttons.push(`
+        <button type="button" data-action="view" class="btn-action btn-view h-10 w-10" title="View">
+          <span class="sr-only">View</span>
+          ${ICONS.eye}
+        </button>
+      `);
+      return buttons.join('');
+    }
+
+    // Delivered/returned/other: View only
+    buttons.push(`
+      <button type="button" data-action="view" class="btn-action btn-view h-10 w-10" title="View">
+        <span class="sr-only">View</span>
+        ${ICONS.eye}
+      </button>
+    `);
 
     return buttons.join('');
   };
@@ -506,8 +537,20 @@
         });
         return;
       }
-      el.textContent = value || '—';
+      if (value === null || value === undefined || value === '') {
+        el.textContent = '—';
+        return;
+      }
+      el.textContent = value;
     };
+
+    const totalItems = Array.isArray(row.items)
+      ? row.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)
+      : 0;
+    const manpowerCount = Number(row.manpower_quantity || 0);
+    const totalWithManpower = totalItems + (manpowerCount > 0 ? manpowerCount : 0);
+    const deliveredCount = row.delivery_status === 'delivered' ? totalWithManpower : 0;
+    const deliveryProgress = `${deliveredCount}/${totalWithManpower || 0}`;
 
     set('borrower_name', row.borrower_name);
     set('office_agency', row.office_agency);
@@ -515,8 +558,40 @@
     set('address', row.address);
     set('purpose', row.purpose);
     set('items', row.items || []);
+    set('manpower_role', row.manpower_role);
+    set('manpower_quantity', row.manpower_quantity);
     set('borrowed_schedule', buildScheduleString(row, 'borrowed'));
     set('returned_schedule', buildScheduleString(row, 'returned'));
+    set('formatted_request_id', formatRequestId(row));
+    set('delivery_progress', `Delivery ${deliveryProgress}`);
+    set('total_items', String(totalWithManpower));
+
+    const reasonCard = modalContent.querySelector('#walkin-report-reason-card');
+    const reasonEl = modalContent.querySelector('[data-field="delivery_report_reason"]');
+    const reportedAtEl = modalContent.querySelector('[data-field="delivery_reported_at"]');
+    const reasonText = (row.delivery_report_reason || '').trim();
+    if (reasonCard) {
+      if (reasonText.length > 0) {
+        reasonCard.classList.remove('hidden');
+        if (reasonEl) {
+          reasonEl.textContent = reasonText;
+        }
+        if (reportedAtEl) {
+          const ts = row.delivery_reported_at || '';
+          reportedAtEl.textContent = ts ? `Reported at: ${ts}` : '';
+        }
+      } else {
+        reasonCard.classList.add('hidden');
+        if (reasonEl) reasonEl.textContent = '—';
+        if (reportedAtEl) reportedAtEl.textContent = '';
+      }
+    }
+
+    const statusBanner = document.getElementById('walkin-status-text');
+    if (statusBanner) {
+      const badge = getStatusBadge(row.status);
+      statusBanner.innerHTML = `${badge} • ${escapeHtml(row.delivery_status || 'Pending Delivery')}`;
+    }
 
     window.dispatchEvent(new CustomEvent('open-modal', { detail: 'walkinDetailsModal' }));
   };
@@ -590,6 +665,68 @@
     window.dispatchEvent(new CustomEvent('open-modal', { detail: 'walkinDeliverConfirmModal' }));
   };
 
+  const confirmDeliveryFinalize = async (row) => {
+    const template = window.WALKIN_CONFIRM_DELIVERY_ROUTE_TEMPLATE;
+    if (!template || typeof template !== 'string' || !template.includes('__ID__')) {
+      window.showToast('Confirm route not configured.', 'error');
+      return;
+    }
+
+    const url = template.replace('__ID__', encodeURIComponent(row.id));
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'X-CSRF-TOKEN': window.CSRF_TOKEN || '',
+        },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        window.showToast(data?.message || 'Failed to confirm delivery.', 'error');
+        return;
+      }
+      window.showToast(data?.message || 'Delivery confirmed.', 'success');
+      window.dispatchEvent(new CustomEvent('close-modal', { detail: 'walkinConfirmDeliveredModal' }));
+      fetchRows();
+    } catch (e) {
+      console.error('Confirm delivery error', e);
+      window.showToast('Unable to confirm delivery.', 'error');
+    }
+  };
+
+  const openConfirmDeliveredModal = (row) => {
+    pendingDeliveredId = row?.id || null;
+    const titleEl = document.getElementById('confirmDeliveredRequestId');
+    const borrowerEl = document.getElementById('confirmDeliveredBorrower');
+    if (titleEl) {
+      titleEl.textContent = formatRequestId(row) || `#${row.id}`;
+    }
+    if (borrowerEl) {
+      borrowerEl.textContent = row?.borrower_name || '—';
+    }
+    const btn = document.getElementById('walkinConfirmDeliveredBtn');
+    if (btn) {
+      btn.dataset.requestId = String(row?.id || '');
+    }
+    window.dispatchEvent(new CustomEvent('open-modal', { detail: 'walkinConfirmDeliveredModal' }));
+  };
+
+  const getCachedRowById = (id) => {
+    if (!id) return null;
+    const cache = Array.isArray(window.__WALKIN_CACHE__) ? window.__WALKIN_CACHE__ : [];
+    return cache.find((entry) => String(entry.id) === String(id)) || null;
+  };
+
+  const confirmDeliveryFromModal = () => {
+    const btn = document.getElementById('walkinConfirmDeliveredBtn');
+    if (!btn) return;
+    const id = btn.dataset.requestId || pendingDeliveredId;
+    const row = getCachedRowById(id);
+    if (!row) return;
+    confirmDeliveryFinalize(row);
+  };
+
   const confirmDeliver = async () => {
     const confirmBtn = document.getElementById('walkinDeliverConfirmBtn');
     if (!confirmBtn) return;
@@ -624,7 +761,7 @@
       if (res.ok) {
         // Close modal
         window.dispatchEvent(new CustomEvent('close-modal', { detail: 'walkinDeliverConfirmModal' }));
-        window.showToast(data.message || 'Walk-in request delivered successfully!', 'success');
+        window.showToast(data.message || 'Walk-in request dispatched. Confirm delivery to deduct inventory.', 'success');
         fetchRows(); // Refresh the table
       } else {
         window.showToast(data.message || 'Failed to deliver the request.', 'error');
@@ -670,6 +807,11 @@
         handleDeliver(row);
         return;
       }
+
+      if (action === 'confirm-delivery') {
+        openConfirmDeliveredModal(row);
+        return;
+      }
     });
 
     const search = document.getElementById('walkin-live-search');
@@ -698,6 +840,11 @@
     const confirmBtn = document.getElementById('walkinDeliverConfirmBtn');
     if (confirmBtn) {
       confirmBtn.addEventListener('click', confirmDeliver);
+    }
+
+    const confirmDeliveredBtn = document.getElementById('walkinConfirmDeliveredBtn');
+    if (confirmDeliveredBtn) {
+      confirmDeliveredBtn.addEventListener('click', confirmDeliveryFromModal);
     }
   });
 })();

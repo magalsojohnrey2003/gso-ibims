@@ -9,9 +9,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const saveRoleBtn = document.getElementById('adminSaveRole');
   const roleNameInput = document.getElementById('adminRoleName');
   const approveFields = document.querySelectorAll('[data-approve-field]');
-  const approveRoleBreakdownList = document.querySelector('[data-approve-role-breakdown]');
+  const reductionReasonWrap = document.getElementById('adminReductionReasonWrap');
+  const reductionReasonSelect = document.getElementById('adminReductionReason');
+  const assignedNamesInput = document.getElementById('adminAssignedNamesInput');
+  const assignedNamesChips = document.getElementById('adminAssignedNamesChips');
   const viewFields = document.querySelectorAll('[data-view-field]');
-  const viewRoleBreakdownList = document.querySelector('[data-view-role-breakdown]');
   const approvedQuantityInput = document.getElementById('adminApprovedQuantity');
   const confirmApproveBtn = document.getElementById('confirmAdminApproval');
   const rejectionCard = document.getElementById('adminManpowerRejectionCard');
@@ -39,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   let CACHE = [];
   let ACTIVE_REQUEST = null;
+  let APPROVE_ASSIGNED_NAMES = [];
   let REJECT_REQUEST = null;
   const OTHER_REJECTION_REASON_KEY = '__other__';
   const REJECTION_REASONS_ENDPOINT = window.REJECTION_REASONS_ENDPOINT || '/admin/rejection-reasons';
@@ -102,6 +105,44 @@ document.addEventListener('DOMContentLoaded', () => {
     return status || '—';
   };
 
+  const formatRoleList = (breakdown = []) => {
+    if (!Array.isArray(breakdown) || !breakdown.length) return '';
+    const normalized = breakdown
+      .map((entry) => {
+        const qty = Number(entry?.approved_quantity ?? entry?.quantity ?? 0);
+        const label = String(entry?.role_name || entry?.role || '').trim();
+        const normalizedQty = Number.isFinite(qty) && qty > 0 ? qty : 0;
+        if (!label || normalizedQty < 1) return null;
+        return `Manpower-${label} (x${normalizedQty})`;
+      })
+      .filter(Boolean);
+    return normalized.length ? normalized.join(', ') : '';
+  };
+
+  const formatAssignedNames = (names) => {
+    if (!Array.isArray(names)) return '—';
+    const normalized = names
+      .map((name) => String(name || '').trim())
+      .filter(Boolean);
+    return normalized.length ? normalized.join(', ') : '—';
+  };
+
+  const buildRoleBreakdownList = (breakdown = []) => {
+    if (!Array.isArray(breakdown) || !breakdown.length) return '';
+    return breakdown
+      .map((entry) => {
+        const requested = Number(entry?.quantity ?? 0);
+        const approved = Number(entry?.approved_quantity ?? 0);
+        const label = (entry?.role_name || entry?.role || '').trim() || 'Role';
+        const parts = [`${requested} x ${label}`];
+        if (!Number.isNaN(approved) && approved > 0) {
+          parts.push(`(Approved ${approved})`);
+        }
+        return `<li>${parts.join(' ')}</li>`;
+      })
+      .join('');
+  };
+
   const escapeAttr = (value) => String(value ?? '').replace(/["'&<>]/g, (char) => {
     switch (char) {
       case '"': return '&quot;';
@@ -110,33 +151,6 @@ document.addEventListener('DOMContentLoaded', () => {
       case '<': return '&lt;';
       case '>': return '&gt;';
       default: return char;
-    }
-  });
-
-  // Toggle expand/collapse for role breakdown lists
-  document.addEventListener('click', (e) => {
-    const a = e.target.closest('.mp-expand-more');
-    if (!a) return;
-    e.preventDefault();
-    const wrapper = a.closest('.mp-role-summary');
-    if (!wrapper) return;
-    const list = wrapper.querySelector('.mp-role-breakdown');
-    if (!list) return;
-    list.classList.toggle('hidden');
-    // update link text from '+N more' to 'less' and back
-    if (a.dataset._toggled === '1') {
-      // revert
-      const remaining = a.dataset.remaining ?? '';
-      a.textContent = remaining ? `+${remaining} more` : 'more';
-      a.dataset._toggled = '0';
-    } else {
-      // store original remaining count
-      if (!a.dataset.remaining) {
-        const m = (a.textContent || '').match(/\+(\d+)\s+more/);
-        a.dataset.remaining = m ? m[1] : '';
-      }
-      a.textContent = 'less';
-      a.dataset._toggled = '1';
     }
   });
 
@@ -772,12 +786,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const closeModal = (name) => window.dispatchEvent(new CustomEvent('close-modal', {detail: name}));
 
   const hydrateApproveModal = (row) => {
-    approvedQuantityInput.value = row.quantity;
+    resetApprovalForm();
+    approvedQuantityInput.value = row.approved_quantity || row.quantity;
     if (approvedQuantityInput) {
       approvedQuantityInput.max = row.quantity;
     }
-      if (approveRoleBreakdownList) {
-        approveRoleBreakdownList.innerHTML = '';
+      if (reductionReasonSelect) {
+        reductionReasonSelect.value = row.reduction_reason || '';
+      }
+      if (Array.isArray(row.assigned_personnel_names)) {
+        APPROVE_ASSIGNED_NAMES = row.assigned_personnel_names.filter((name) => String(name || '').trim());
+        renderAssignedNameChips();
       }
       approveFields.forEach(el => {
         const key = el.dataset.approveField;
@@ -791,23 +810,10 @@ document.addEventListener('DOMContentLoaded', () => {
           el.textContent = row.user?.name || '—';
         } else if (key === 'role') {
             const breakdown = Array.isArray(row.role_breakdown) ? row.role_breakdown : [];
-            if (!breakdown.length) {
-              el.textContent = row.role || '—';
+            if (breakdown.length) {
+              el.innerHTML = `<ul class="list-disc list-inside space-y-1 text-sm text-gray-800">${buildRoleBreakdownList(breakdown)}</ul>`;
             } else {
-              const formatted = breakdown.map((entry) => {
-                const qty = Number(entry?.quantity ?? 0);
-                const label = String(entry?.role_name || entry?.role || 'Role');
-                return qty > 0 ? `${qty} x ${label}` : `${label}`;
-              });
-              const limit = 2;
-              if (formatted.length <= limit) {
-                el.textContent = formatted.join(', ');
-              } else {
-                const leading = formatted.slice(0, limit).join(', ');
-                const remaining = formatted.length - limit;
-                const breakdownList = formatted.map(s => `<li class="text-xs text-gray-600">${s}</li>`).join('');
-                el.innerHTML = `<div class="mp-role-summary"><div class="text-xs text-gray-700">${leading} <a href="#" class="ml-1 mp-expand-more text-indigo-600 underline" data-manpower-id="${escapeAttr(String(row.id))}" data-limit="${limit}">+${remaining} more</a></div><ul class="mt-1 space-y-1 mp-role-breakdown hidden list-disc list-inside">${breakdownList}</ul></div>`;
-              }
+              el.textContent = formatRoleList([]) || row.role || '—';
             }
         } else if (key === 'quantity') {
           el.textContent = row.quantity;
@@ -817,12 +823,11 @@ document.addEventListener('DOMContentLoaded', () => {
           el.textContent = row[key] || '—';
         }
       });
+      
+      toggleReductionReason();
   };
 
   const hydrateViewModal = (row) => {
-    if (viewRoleBreakdownList) {
-      viewRoleBreakdownList.innerHTML = '';
-    }
     viewFields.forEach(el => {
       const key = el.dataset.viewField;
       if (key === 'borrow_date') {
@@ -840,24 +845,15 @@ document.addEventListener('DOMContentLoaded', () => {
         el.innerHTML = badgeHtml(row.status);
       } else if (key === 'role') {
         const breakdown = Array.isArray(row.role_breakdown) ? row.role_breakdown : [];
-        if (!breakdown.length) {
-          el.textContent = row.role || '—';
+        if (breakdown.length) {
+          el.innerHTML = `<ul class="list-disc list-inside space-y-1 text-sm text-gray-800">${buildRoleBreakdownList(breakdown)}</ul>`;
         } else {
-          const formatted = breakdown.map((entry) => {
-            const qty = Number(entry?.quantity ?? 0);
-            const label = String(entry?.role_name || entry?.role || 'Role');
-            return qty > 0 ? `${qty} x ${label}` : `${label}`;
-          });
-          const limit = 2;
-          if (formatted.length <= limit) {
-            el.textContent = formatted.join(', ');
-          } else {
-            const leading = formatted.slice(0, limit).join(', ');
-            const remaining = formatted.length - limit;
-            const breakdownList = formatted.map(s => `<li class="text-xs text-gray-600">${s}</li>`).join('');
-            el.innerHTML = `<div class="mp-role-summary"><div class="text-xs text-gray-700">${leading} <a href="#" class="ml-1 mp-expand-more text-indigo-600 underline" data-manpower-id="${escapeAttr(String(row.id))}" data-limit="${limit}">+${remaining} more</a></div><ul class="mt-1 space-y-1 mp-role-breakdown hidden list-disc list-inside">${breakdownList}</ul></div>`;
-          }
+          el.textContent = formatRoleList([]) || row.role || '—';
         }
+      } else if (key === 'reduction_reason') {
+        el.textContent = (row.reduction_reason || '').trim() || '—';
+      } else if (key === 'assigned_personnel_names') {
+        el.textContent = formatAssignedNames(row.assigned_personnel_names);
       } else {
         el.textContent = row[key] || '—';
       }
@@ -880,24 +876,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    if (viewRoleBreakdownList && Array.isArray(row.role_breakdown) && row.role_breakdown.length) {
-      viewRoleBreakdownList.innerHTML = row.role_breakdown
-        .map((entry) => {
-          const quantity = Number(entry?.quantity ?? 0);
-          const approvedQty = Number(entry?.approved_quantity ?? 0);
-          const parts = [];
-          if (!Number.isNaN(quantity) && quantity > 0) {
-            parts.push(`${quantity}`);
-          }
-          const label = (entry?.role_name || '').trim() || 'Role';
-          parts.push(label);
-          if (!Number.isNaN(approvedQty) && approvedQty > 0) {
-            parts.push(`(Approved ${approvedQty})`);
-          }
-          return `<li>${parts.join(' ')}</li>`;
-        })
-        .join('');
-    }
   };
 
   confirmApproveBtn?.addEventListener('click', async () => {
@@ -911,9 +889,25 @@ document.addEventListener('DOMContentLoaded', () => {
       window.showToast?.('Approved quantity cannot exceed requested quantity.', 'warning');
       return;
     }
+    const requestedQty = Number(ACTIVE_REQUEST.quantity ?? 0);
+    const reductionReason = reductionReasonSelect?.value?.trim() || '';
+    const names = APPROVE_ASSIGNED_NAMES.map((name) => name.trim()).filter(Boolean);
+    if (requestedQty && qty < requestedQty && !reductionReason) {
+      window.showToast?.('Please select a reduction reason.', 'warning');
+      reductionReasonSelect?.focus();
+      return;
+    }
+    const payload = { approved_quantity: qty };
+    if (requestedQty && qty < requestedQty) {
+      payload.reduction_reason = reductionReason;
+    }
+    if (names.length) {
+      payload.assigned_personnel_names = names;
+    }
+
     closeModal('adminManpowerApproveModal');
     try {
-      await updateStatus(ACTIVE_REQUEST.id, 'validated', { approved_quantity: qty });
+      await updateStatus(ACTIVE_REQUEST.id, 'validated', payload);
       ACTIVE_REQUEST = null;
     } catch (error) {
       console.error(error);
@@ -938,10 +932,93 @@ document.addEventListener('DOMContentLoaded', () => {
     if (raw < min) {
       approvedQuantityInput.value = min;
     }
+    toggleReductionReason();
   };
 
   approvedQuantityInput?.addEventListener('input', enforceQuantityBounds);
   approvedQuantityInput?.addEventListener('change', enforceQuantityBounds);
+
+  function toggleReductionReason() {
+    if (!approvedQuantityInput || !reductionReasonWrap) return;
+    const requested = Number(ACTIVE_REQUEST?.quantity ?? 0);
+    const approved = Number(approvedQuantityInput.value ?? 0);
+    const show = Number.isFinite(approved) && approved > 0 && approved < requested;
+    reductionReasonWrap.hidden = !show;
+    if (!show && reductionReasonSelect) {
+      reductionReasonSelect.value = '';
+    }
+  }
+
+  function resetApprovalForm() {
+    APPROVE_ASSIGNED_NAMES = [];
+    if (approvedQuantityInput) {
+      approvedQuantityInput.value = '';
+    }
+    if (reductionReasonSelect) {
+      reductionReasonSelect.value = '';
+    }
+    renderAssignedNameChips();
+    toggleReductionReason();
+  }
+
+  function renderAssignedNameChips() {
+    if (!assignedNamesChips) return;
+    assignedNamesChips.innerHTML = '';
+    if (!APPROVE_ASSIGNED_NAMES.length) return;
+    APPROVE_ASSIGNED_NAMES.forEach((name, index) => {
+      const chip = document.createElement('span');
+      chip.className = 'inline-flex items-center gap-2 rounded-full bg-emerald-100 text-emerald-800 px-3 py-1 text-xs font-semibold border border-emerald-200';
+      const label = document.createElement('span');
+      label.textContent = name;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.dataset.index = String(index);
+      btn.className = 'text-emerald-700 hover:text-emerald-900 focus:outline-none';
+      btn.innerHTML = '&times;';
+      chip.appendChild(label);
+      chip.appendChild(btn);
+      assignedNamesChips.appendChild(chip);
+    });
+  }
+
+  assignedNamesChips?.addEventListener('click', (event) => {
+    const btn = event.target instanceof HTMLElement ? event.target.closest('button[data-index]') : null;
+    if (!btn) return;
+    const idx = parseInt(btn.dataset.index || '', 10);
+    if (Number.isNaN(idx)) return;
+    APPROVE_ASSIGNED_NAMES.splice(idx, 1);
+    renderAssignedNameChips();
+  });
+
+  function addAssignedName(raw) {
+    const normalized = String(raw || '').replace(/\s+/g, ' ').trim();
+    if (!normalized) return;
+    const exists = APPROVE_ASSIGNED_NAMES.some((name) => name.toLowerCase() === normalized.toLowerCase());
+    if (exists) return;
+    APPROVE_ASSIGNED_NAMES.push(normalized);
+    renderAssignedNameChips();
+  }
+
+  assignedNamesInput?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      addAssignedName(assignedNamesInput.value);
+      assignedNamesInput.value = '';
+    } else if (event.key === ',' || event.key === 'Tab') {
+      const value = assignedNamesInput.value;
+      if (value.trim()) {
+        event.preventDefault();
+        addAssignedName(value);
+        assignedNamesInput.value = '';
+      }
+    }
+  });
+
+  assignedNamesInput?.addEventListener('blur', () => {
+    if (!assignedNamesInput.value.trim()) return;
+    addAssignedName(assignedNamesInput.value);
+    assignedNamesInput.value = '';
+  });
 
   const updateStatus = async (id, status, extra = {}) => {
     try {

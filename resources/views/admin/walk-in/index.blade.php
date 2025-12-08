@@ -74,79 +74,147 @@
         </tr>
     </template>
 
-    <x-modal name="walkinDetailsModal" maxWidth="lg">
-        <div class="p-6 space-y-6">
-            <div class="flex items-center justify-between border-b border-gray-200 pb-3">
-                <h3 class="text-xl font-semibold text-gray-800 flex items-center gap-3">
-                    <i class="fa-solid fa-id-card text-purple-600"></i>
-                    <span>Walk-in Details</span>
-                </h3>
-                <button type="button" class="text-gray-400 hover:text-gray-600 transition" @click="$dispatch('close-modal', 'walkinDetailsModal')">
+    <x-modal name="walkinDetailsModal" maxWidth="2xl" background="transparent">
+        <div class="w-full max-h-[85vh] bg-[#4C1D95] flex flex-col overflow-hidden rounded-2xl shadow-2xl">
+            <div class="relative px-6 py-4 bg-[#4C1D95] text-white sticky top-0 z-30 flex items-start gap-3">
+                <div class="flex-1">
+                    <h3 class="text-xl font-semibold leading-snug flex items-center gap-2">
+                        <i class="fas fa-id-card text-white"></i>
+                        <span>Walk-in Details</span>
+                    </h3>
+                    <p class="text-sm text-purple-100 mt-1">Review requester info, schedule, and delivery progress.</p>
+                </div>
+                <button
+                    type="button"
+                    class="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition"
+                    @click="$dispatch('close-modal', 'walkinDetailsModal')"
+                >
+                    <span class="sr-only">Close modal</span>
                     <i class="fas fa-times text-lg"></i>
                 </button>
             </div>
 
-            <div id="walkin-modal-content" class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-gray-700">
-                <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
-                    <i class="fas fa-user text-purple-600 mt-1"></i>
-                    <div>
-                        <div class="font-medium text-gray-800">Borrower</div>
-                        <div class="text-gray-600" data-field="borrower_name">—</div>
-                    </div>
+            <div class="flex-1 overflow-y-auto bg-gray-100 px-6 py-5 space-y-5 text-sm text-gray-700">
+                <div id="walkin-status-banner" class="flex items-start gap-3 rounded-lg border border-purple-100 bg-purple-50 p-4">
+                    <i class="fas fa-truck text-purple-600 text-lg"></i>
+                    <p id="walkin-status-text" class="font-semibold text-purple-800">Walk-in Request</p>
                 </div>
-                <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
-                    <i class="fas fa-building text-purple-600 mt-1"></i>
-                    <div>
-                        <div class="font-medium text-gray-800">Office/Agency</div>
-                        <div class="text-gray-600" data-field="office_agency">—</div>
+
+                <div id="walkin-modal-content" class="grid gap-4 md:grid-cols-2">
+                    <div class="bg-white rounded-lg shadow-sm p-4 md:col-span-2">
+                        <div class="flex items-center gap-2 text-purple-700">
+                            <i class="fas fa-clipboard-list text-sm"></i>
+                            <h4 class="text-sm font-semibold text-gray-900 tracking-wide uppercase">Request Summary</h4>
+                        </div>
+                        <dl class="mt-3 grid gap-3 sm:grid-cols-2">
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500">Request ID</dt>
+                                <dd class="mt-1 font-medium text-gray-900" data-field="formatted_request_id">—</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500">Borrower</dt>
+                                <dd class="mt-1 font-medium text-gray-900" data-field="borrower_name">—</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500">Delivery</dt>
+                                <dd class="mt-1 font-medium text-gray-900" data-field="delivery_progress">—</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500">Total Items</dt>
+                                <dd class="mt-1 font-medium text-gray-900" data-field="total_items">—</dd>
+                            </div>
+                            <div class="sm:col-span-2">
+                                <dt class="text-xs uppercase text-gray-500">Purpose</dt>
+                                <dd class="mt-1 text-gray-700" data-field="purpose">—</dd>
+                            </div>
+                        </dl>
                     </div>
-                </div>
-                <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
-                    <i class="fas fa-phone text-purple-600 mt-1"></i>
-                    <div>
-                        <div class="font-medium text-gray-800">Contact</div>
-                        <div class="text-gray-600" data-field="contact_number">—</div>
+
+                    <div class="bg-white rounded-lg shadow-sm p-4">
+                        <div class="flex items-center gap-2 text-purple-700">
+                            <i class="fas fa-calendar-alt text-sm"></i>
+                            <h4 class="text-sm font-semibold text-gray-900 tracking-wide uppercase">Schedule</h4>
+                        </div>
+                        <dl class="mt-3 space-y-3">
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500">Borrow Date</dt>
+                                <dd class="mt-1 font-medium text-gray-900" data-field="borrowed_schedule">—</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500">Return Date</dt>
+                                <dd class="mt-1 font-medium text-gray-900" data-field="returned_schedule">—</dd>
+                            </div>
+                        </dl>
                     </div>
-                </div>
-                <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
-                    <i class="fas fa-map-marker-alt text-purple-600 mt-1"></i>
-                    <div>
-                        <div class="font-medium text-gray-800">Address</div>
-                        <div class="text-gray-600" data-field="address">—</div>
+
+                    <div class="bg-white rounded-lg shadow-sm p-4">
+                        <div class="flex items-center gap-2 text-purple-700">
+                            <i class="fas fa-map-marker-alt text-sm"></i>
+                            <h4 class="text-sm font-semibold text-gray-900 tracking-wide uppercase">Location</h4>
+                        </div>
+                        <dl class="mt-3 space-y-3">
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500">Address</dt>
+                                <dd class="mt-1 font-medium text-gray-900" data-field="address">—</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500">Office/Agency</dt>
+                                <dd class="mt-1 font-medium text-gray-900" data-field="office_agency">—</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500">Contact</dt>
+                                <dd class="mt-1 font-medium text-gray-900" data-field="contact_number">—</dd>
+                            </div>
+                        </dl>
                     </div>
-                </div>
-                <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
-                    <i class="fas fa-calendar-day text-purple-600 mt-1"></i>
-                    <div>
-                        <div class="font-medium text-gray-800">Borrow Schedule</div>
-                        <div class="text-gray-600" data-field="borrowed_schedule">—</div>
+
+                    <div class="bg-white rounded-lg shadow-sm p-4 md:col-span-2">
+                        <div class="flex items-center gap-2 text-purple-700">
+                            <i class="fas fa-box-open text-xs"></i>
+                            <div class="text-xs font-semibold text-gray-900 tracking-wide uppercase">Items Requested</div>
+                        </div>
+                        <ul class="mt-2 space-y-1 text-gray-700 list-disc list-inside ml-2" data-field="items">—</ul>
                     </div>
-                </div>
-                <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
-                    <i class="fas fa-calendar-check text-purple-600 mt-1"></i>
-                    <div>
-                        <div class="font-medium text-gray-800">Return Schedule</div>
-                        <div class="text-gray-600" data-field="returned_schedule">—</div>
+
+                    <div class="bg-white rounded-lg shadow-sm p-4 md:col-span-2">
+                        <div class="flex items-center gap-2 text-purple-700">
+                            <i class="fas fa-people-carry text-xs"></i>
+                            <div class="text-xs font-semibold text-gray-900 tracking-wide uppercase">Manpower</div>
+                        </div>
+                        <dl class="mt-3 grid gap-3 sm:grid-cols-2">
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500">Role</dt>
+                                <dd class="mt-1 font-medium text-gray-900" data-field="manpower_role">—</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs uppercase text-gray-500">Quantity</dt>
+                                <dd class="mt-1 font-medium text-gray-900" data-field="manpower_quantity">—</dd>
+                            </div>
+                        </dl>
                     </div>
-                </div>
-                <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3 sm:col-span-2">
-                    <i class="fas fa-scroll text-purple-600 mt-1"></i>
-                    <div>
-                        <div class="font-medium text-gray-800">Purpose</div>
-                        <div class="text-gray-600" data-field="purpose">—</div>
-                    </div>
-                </div>
-                <div class="flex items-start gap-3 bg-gray-50 rounded-lg p-3 sm:col-span-2">
-                    <i class="fas fa-box-open text-purple-600 mt-1"></i>
-                    <div>
-                        <div class="font-medium text-gray-800">Items</div>
-                        <ul class="list-disc list-inside text-gray-600" data-field="items">—</ul>
+
+                    <div id="walkin-report-reason-card" class="hidden md:col-span-2 bg-red-50 border border-red-200 rounded-lg shadow-sm p-4">
+                        <div class="flex items-center gap-2 text-red-600">
+                            <i class="fas fa-circle-xmark text-sm"></i>
+                            <h4 class="text-sm font-semibold tracking-wide uppercase">Reject Reason</h4>
+                        </div>
+                        <div class="mt-3 space-y-1">
+                            <div class="text-sm font-semibold text-gray-900" data-field="delivery_report_reason">—</div>
+                            <p class="text-xs text-red-600" data-field="delivery_reported_at"></p>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div class="flex justify-end pt-4 border-t border-gray-200 space-x-2">
-                <x-button variant="secondary" iconName="x-circle" class="px-4 py-2 text-sm" @click="$dispatch('close-modal', 'walkinDetailsModal')">Close</x-button>
+            <div class="sticky bottom-0 z-30 bg-white border-t border-gray-200 px-6 py-4 flex flex-wrap justify-end gap-3">
+                <x-button
+                    variant="secondary"
+                    iconName="x-circle"
+                    class="px-4 py-2 text-sm"
+                    @click="$dispatch('close-modal', 'walkinDetailsModal')"
+                >
+                    Close
+                </x-button>
             </div>
         </div>
     </x-modal>
@@ -197,6 +265,27 @@
                 <x-button id="walkinDeliverConfirmBtn" variant="primary" class="px-4 py-2 text-sm">
                     <i class="fas fa-check-circle mr-1"></i> Confirm Delivery
                 </x-button>
+            </div>
+        </div>
+    </x-modal>
+
+    {{-- Confirm Delivered Modal --}}
+    <x-modal name="walkinConfirmDeliveredModal" maxWidth="md">
+        <div class="p-6 space-y-4">
+            <div class="flex items-center gap-3">
+                <span class="flex h-11 w-11 items-center justify-center rounded-2xl bg-purple-100 text-purple-700"><i class="fas fa-box"></i></span>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900">Mark as Delivered</h3>
+                    <p class="text-sm text-gray-600" id="confirmDeliveredSubtitle">Confirm items were handed over.</p>
+                </div>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-4 text-sm text-gray-700 space-y-2">
+                <div><span class="text-gray-500">Request:</span> <span class="font-semibold" id="confirmDeliveredRequestId">—</span></div>
+                <div><span class="text-gray-500">Borrower:</span> <span class="font-semibold" id="confirmDeliveredBorrower">—</span></div>
+            </div>
+            <div class="flex justify-end gap-3 pt-2 border-t border-gray-100">
+                <x-button variant="secondary" class="px-4 py-2 text-sm" @click="$dispatch('close-modal', 'walkinConfirmDeliveredModal')">Cancel</x-button>
+                <x-button id="walkinConfirmDeliveredBtn" class="px-4 py-2 text-sm">Confirm Delivered</x-button>
             </div>
         </div>
     </x-modal>
@@ -366,6 +455,7 @@
         window.WALKIN_LIST_ROUTE = "{{ route('admin.walkin.list') }}";
         window.WALKIN_PRINT_ROUTE_TEMPLATE = "{{ route('admin.walkin.print', ['walkInRequest' => '__ID__']) }}";
         window.WALKIN_DELIVER_ROUTE_TEMPLATE = "{{ route('admin.walkin.deliver', ['id' => '__ID__']) }}";
+        window.WALKIN_CONFIRM_DELIVERY_ROUTE_TEMPLATE = "{{ route('admin.walkin.confirm-delivery', ['id' => '__ID__']) }}";
         window.WALKIN_BORROWERS_ROUTE = "{{ route('admin.walkin.borrowers') }}";
         window.WALKIN_CREATE_ROUTE = "{{ route('admin.walkin.create') }}";
         window.WALKIN_BORROWER_SHOW_TEMPLATE = "{{ route('admin.users.show', ['user' => '__ID__']) }}";

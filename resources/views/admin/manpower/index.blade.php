@@ -145,7 +145,6 @@
                             <div>
                                 <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Role</dt>
                                 <dd class="mt-1 font-medium text-gray-900 dark:text-white" data-approve-field="role">—</dd>
-                                <ul class="mt-1 space-y-1 text-xs text-gray-600 dark:text-gray-300" data-approve-role-breakdown></ul>
                             </div>
                             <div>
                                 <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Status</dt>
@@ -205,6 +204,25 @@
                     </div>
 
                     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 md:col-span-2">
+                        <div class="flex items-center gap-2 text-emerald-700">
+                            <i class="fas fa-user-check text-sm"></i>
+                            <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Assigned Personnel Names</h4>
+                        </div>
+                        <p class="mt-3 text-gray-900 dark:text-white font-medium" data-view-field="assigned_personnel_names">—</p>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 md:col-span-2">
+                        <div class="flex items-center gap-2 text-emerald-700">
+                            <i class="fas fa-user-check text-sm"></i>
+                            <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Assigned Personnel Names</h4>
+                        </div>
+                        <div class="mt-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-2 shadow-inner" id="adminAssignedNamesContainer">
+                            <div id="adminAssignedNamesChips" class="flex flex-wrap gap-2"></div>
+                            <input id="adminAssignedNamesInput" type="text" class="mt-2 w-full border-0 focus:ring-0 text-sm" placeholder="Type a name and press Enter" />
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 md:col-span-2">
                         <div class="flex items-center gap-2 text-purple-700">
                             <i class="fas fa-file-signature text-sm"></i>
                             <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Letter</h4>
@@ -214,20 +232,32 @@
                 </div>
             </div>
 
-            <div class="sticky bottom-0 z-30 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div class="w-full md:max-w-sm">
-                    <label for="adminApprovedQuantity" class="block text-xs font-semibold text-gray-600 uppercase tracking-wide">Approved Quantity</label>
-                    <input
-                        type="number"
-                        min="1"
-                        id="adminApprovedQuantity"
-                        class="mt-1 block w-full rounded-lg border-gray-300 focus:border-emerald-500 focus:ring-emerald-500 text-sm"
-                    />
-                    <p class="text-xs text-gray-500 mt-1">Cannot exceed requested quantity.</p>
-                </div>
-                <div class="flex items-center gap-3 justify-end w-full md:w-auto">
-                    <x-button variant="secondary" @click="$dispatch('close-modal','adminManpowerApproveModal')">Cancel</x-button>
-                    <x-button id="confirmAdminApproval" variant="success">Confirm Validation</x-button>
+            <div class="sticky bottom-0 z-30 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-6 py-4">
+                <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                    <div class="flex items-end gap-3 w-full md:w-auto">
+                        <div>
+                            <label for="adminApprovedQuantity" class="block text-xs font-semibold text-gray-600 uppercase tracking-wide">Approved Qty</label>
+                            <input
+                                type="number"
+                                min="1"
+                                id="adminApprovedQuantity"
+                                class="mt-1 block w-28 rounded-lg border-gray-300 focus:border-emerald-500 focus:ring-emerald-500 text-sm"
+                            />
+                        </div>
+                        <div class="flex-1 min-w-[200px]" id="adminReductionReasonWrap" hidden>
+                            <label for="adminReductionReason" class="block text-xs font-semibold text-gray-600 uppercase tracking-wide">Reason for Reduction</label>
+                            <select id="adminReductionReason" class="mt-1 block w-full rounded-lg border-gray-300 focus:border-emerald-500 focus:ring-emerald-500 text-sm">
+                                <option value="">Select reason</option>
+                                <option value="Insufficient Staff">Insufficient Staff</option>
+                                <option value="Scheduling Conflict">Scheduling Conflict</option>
+                                <option value="Role Overlap">Role Overlap</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-end w-full md:w-auto">
+                        <x-button id="confirmAdminApproval" variant="success">Confirm Validation</x-button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -268,7 +298,6 @@
                             <div>
                                 <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Role</dt>
                                 <dd class="mt-1 font-medium text-gray-900 dark:text-white" data-view-field="role">—</dd>
-                                <ul class="mt-1 space-y-1 text-xs text-gray-600 dark:text-gray-300" data-view-role-breakdown></ul>
                             </div>
                             <div>
                                 <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">Status</dt>

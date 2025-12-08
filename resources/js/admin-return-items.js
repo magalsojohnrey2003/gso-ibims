@@ -112,6 +112,20 @@ function renderInventoryStatusBadge(status, label) {
     return span;
 }
 
+function renderRequestTypeBadge(type) {
+    const span = document.createElement('span');
+    const key = String(type || 'online').toLowerCase();
+    const isWalkIn = key === 'walk-in' || key === 'walkin';
+    const classes = isWalkIn
+        ? 'bg-emerald-100 text-emerald-700'
+        : 'bg-blue-100 text-blue-700';
+    const icon = isWalkIn ? 'fa-building' : 'fa-wifi';
+    const label = isWalkIn ? 'Walk-in' : 'Online';
+    span.className = `inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full ${classes}`;
+    span.innerHTML = `<i class="fas ${icon} text-xs"></i><span>${label}</span>`;
+    return span;
+}
+
 function formatRequestCode(row) {
     if (!row) return '';
     const provided = typeof row.formatted_request_id === 'string' ? row.formatted_request_id.trim() : '';
@@ -233,10 +247,7 @@ function renderTable() {
         tdRequestType.className = 'px-6 py-3 text-center';
         tdRequestType.dataset.column = 'request-type';
         const requestType = row.request_type || 'regular';
-        const requestTypeBadge = requestType === 'walk-in' 
-            ? cloneTemplate('badge-request-type-walkin', 'Walk-in')
-            : cloneTemplate('badge-request-type-online', 'Online');
-        tdRequestType.appendChild(requestTypeBadge);
+        tdRequestType.appendChild(renderRequestTypeBadge(requestType));
         tr.appendChild(tdRequestType);
 
         const tdStatus = document.createElement('td');
@@ -1024,23 +1035,21 @@ async function showCollectConfirm(row) {
     if (itemsWrapper) {
         itemsWrapper.classList.remove('hidden');
     }
-
-    if (itemsCountEl) {
-        itemsCountEl.textContent = 'Loading…';
-    }
-
     if (itemsList) {
-        itemsList.innerHTML = '<li class="text-sm text-gray-500">Loading borrowed items...</li>';
+        itemsList.innerHTML = '';
+        itemsList.classList.remove('hidden');
+        itemsList.innerHTML = '<li class="text-sm text-gray-500">Loading items...</li>';
+    }
+    if (itemsCountEl) {
+        itemsCountEl.textContent = '';
+        itemsCountEl.classList.add('hidden');
     }
 
     window.dispatchEvent(new CustomEvent('open-modal', { detail: 'collectConfirmModal' }));
 
-    if (!PENDING_COLLECT_ID || !itemsList) {
-        if (itemsList) {
-            itemsList.innerHTML = '<li class="text-sm text-red-600">Unable to load request details.</li>';
-        }
+    if (!PENDING_COLLECT_ID) {
         if (itemsCountEl) {
-            itemsCountEl.textContent = '0 items';
+            itemsCountEl.textContent = 'Unable to load items';
         }
         return;
     }
@@ -1055,44 +1064,47 @@ async function showCollectConfirm(row) {
 
         const items = Array.isArray(details?.items) ? details.items : [];
 
-        if (!items.length) {
-            itemsList.innerHTML = '<li class="text-sm text-gray-500">No borrowed items recorded for this request.</li>';
-            if (itemsCountEl) {
-                itemsCountEl.textContent = '0 items';
+        // Aggregate by item name to show consolidated counts (e.g., "Speaker System (x9)")
+        const aggregated = items.reduce((acc, item) => {
+            const name = (item?.name || item?.item_name || item?.item?.name || 'Item').toString();
+            const qtyRaw = Number(item?.approved_quantity ?? item?.quantity ?? 0);
+            const qty = Number.isFinite(qtyRaw) && qtyRaw > 0 ? qtyRaw : 1; // default to 1 per instance
+            if (!acc[name]) {
+                acc[name] = 0;
             }
-            return;
-        }
+            acc[name] += qty;
+            return acc;
+        }, {});
+
+        const aggregatedEntries = Object.entries(aggregated);
+        const totalCount = aggregatedEntries.reduce((sum, [, qty]) => sum + (Number.isFinite(qty) ? qty : 0), 0);
 
         if (itemsCountEl) {
-            const label = items.length === 1 ? '1 item' : `${items.length} items`;
-            itemsCountEl.textContent = label;
+            if (totalCount > 0) {
+                const label = totalCount === 1 ? '1 item to collect' : `${totalCount} items to collect`;
+                itemsCountEl.textContent = label;
+                itemsCountEl.classList.remove('hidden');
+            } else {
+                itemsCountEl.textContent = '';
+                itemsCountEl.classList.add('hidden');
+            }
         }
 
-        itemsList.innerHTML = '';
-
-        items.forEach((item, index) => {
-            const li = document.createElement('li');
-            li.className = 'flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm';
-
-            const iconWrap = document.createElement('span');
-            iconWrap.className = 'flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl bg-purple-100 text-purple-600';
-            iconWrap.innerHTML = '<i class="fas fa-box-open text-sm"></i>';
-            li.appendChild(iconWrap);
-
-            const nameEl = document.createElement('div');
-            nameEl.className = 'flex-1 text-sm font-medium text-gray-800';
-            nameEl.textContent = item.item_name || `Item ${index + 1}`;
-            li.appendChild(nameEl);
-
-            itemsList.appendChild(li);
-        });
+        if (itemsList) {
+            if (!aggregatedEntries.length) {
+                itemsList.innerHTML = '<li class="text-sm text-gray-500">No items found for this request.</li>';
+            } else {
+                itemsList.innerHTML = aggregatedEntries.map(([name, qty]) => {
+                    const safeQty = Number.isFinite(qty) && qty > 0 ? qty : 1;
+                    const label = `${name} (x${safeQty})`;
+                    return `<li class="text-sm text-gray-800 list-disc list-inside">${label}</li>`;
+                }).join('');
+            }
+        }
     } catch (error) {
         console.error('Failed to load borrowed items for confirmation', error);
-        if (itemsList) {
-            itemsList.innerHTML = '<li class="text-sm text-red-600">Unable to load borrowed items. Please try again.</li>';
-        }
         if (itemsCountEl) {
-            itemsCountEl.textContent = '0 items';
+            itemsCountEl.textContent = 'Unable to load items';
         }
     }
 }
@@ -1127,50 +1139,14 @@ async function collectBorrowRequest(id, button) {
         const data = await res.json().catch(() => ({}));
         window.showToast(data.message || 'Items marked as returned successfully.', 'success');
         await loadReturnItems(false);
-        window.dispatchEvent(new CustomEvent('return-items:collected', { detail: { borrowRequestId: id, response: data } }));
+        VIEW_DETAILS_CACHE.delete(idStr);
     } catch (error) {
-        console.error('Failed to mark as collected', error);
+        console.error('Failed to mark items as collected', error);
         window.showToast(error.message || 'Failed to mark items as collected. Please try again.', 'error');
     } finally {
-        if (button) button.disabled = false;
-    }
-}
-
-async function bulkUpdateInstances() {
-    const bulkConditionSelect = document.getElementById('manage-bulk-condition');
-    const bulkUpdateBtn = document.getElementById('manage-bulk-update-btn');
-    
-    if (!bulkConditionSelect || !bulkUpdateBtn) return;
-    
-    const condition = bulkConditionSelect.value;
-    if (!condition || SELECTED_INSTANCES.size === 0) return;
-
-    bulkUpdateBtn.disabled = true;
-    const buttonText = bulkUpdateBtn.textContent;
-    bulkUpdateBtn.textContent = 'Updating...';
-
-    try {
-        const instanceIds = Array.from(SELECTED_INSTANCES);
-        const updateOptions = { showToast: false, renderRows: false, updateTable: false };
-        const results = await Promise.all(instanceIds.map((id) => updateInstance(id, condition, updateOptions)));
-        const finalResult = results.length ? results[results.length - 1] : null;
-        
-        window.showToast(`Condition updated successfully for ${instanceIds.length} item(s).`, 'success');
-        
-        // Clear selection
-        SELECTED_INSTANCES.clear();
-        bulkConditionSelect.value = '';
-        renderManageRows();
-        updateBulkUpdateButton();
-        if (finalResult) {
-            applyBorrowSummaryUpdate(finalResult);
+        if (button) {
+            button.disabled = false;
         }
-    } catch (error) {
-        console.error('Bulk update failed', error);
-        window.showToast('Failed to update condition for some items. Please try again.', 'error');
-    } finally {
-        bulkUpdateBtn.disabled = false;
-        bulkUpdateBtn.textContent = buttonText;
     }
 }
 

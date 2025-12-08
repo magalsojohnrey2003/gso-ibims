@@ -37,11 +37,14 @@ class ManpowerRequest extends Model
         'municipality',
         'barangay',
         'qr_verified_form_path',
+        'reduction_reason',
+        'assigned_personnel_names',
     ];
 
     protected $casts = [
         'start_at' => 'datetime',
         'end_at' => 'datetime',
+        'assigned_personnel_names' => 'array',
     ];
 
     public function user()

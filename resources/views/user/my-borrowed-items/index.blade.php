@@ -71,6 +71,7 @@
                         <thead class="bg-purple-600 text-white text-xs uppercase font-semibold text-center">
                             <tr>
                                 <th class="px-6 py-3 text-center">Request ID</th>
+                                <th class="px-6 py-3 text-center">Request Type</th>
                                 <th class="px-6 py-3 text-center">Borrow Date</th>
                                 <th class="px-6 py-3 text-center">Return Date</th>
                                 <th class="px-6 py-3 text-center">Status</th>
@@ -78,7 +79,7 @@
                             </tr>
                         </thead>
                         <tbody id="myBorrowedItemsTableBody" class="text-center">
-                            <x-table-loading-state colspan="5" />
+                            <x-table-loading-state colspan="6" />
                         </tbody>
                     </table>
                 </div>
@@ -87,7 +88,7 @@
     </div>
 
     <template id="my-borrowed-items-empty-state-template">
-        <x-table-empty-state colspan="5" />
+        <x-table-empty-state colspan="6" />
     </template>
 
     <!-- Borrow request details modal -->
@@ -529,7 +530,7 @@
                     noResultsRow = document.createElement('tr');
                     noResultsRow.id = 'no-results-row-borrowed';
                     noResultsRow.innerHTML = `
-                        <td colspan="5" class="px-6 py-8 text-center text-gray-500">
+                        <td colspan="6" class="px-6 py-8 text-center text-gray-500">
                             <div class="flex flex-col items-center gap-2">
                                 <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Item;
 use App\Models\ManpowerRequest;
 use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
@@ -195,37 +194,38 @@ class ManpowerRequestPdfService
             'form_name' => $name,
         ];
 
-        $roleLabel = trim((string) ($manpowerRequest->role ?? ''));
-        $roleSummary = trim((string) $manpowerRequest->buildRoleSummary());
-        $baseLabel = $roleSummary !== '' ? $roleSummary : ($roleLabel !== '' ? $roleLabel : 'Manpower');
-        $approvedQuantity = (int) ($manpowerRequest->approved_quantity ?? 0);
-        $quantity = $approvedQuantity > 0 ? $approvedQuantity : max((int) $manpowerRequest->quantity, 0);
-        if ($quantity <= 0) {
-            $quantity = max((int) $manpowerRequest->quantity, 0);
-        }
-        $fields['item_1'] = sprintf('Manpower-%s(x%d)', $baseLabel, $quantity);
-        $fields['check_1'] = 'Yes';
+        $roleBreakdown = is_array($manpowerRequest->role_breakdown) ? $manpowerRequest->role_breakdown : [];
+        $labels = collect($roleBreakdown)
+            ->map(function ($entry) {
+                $qty = isset($entry['approved_quantity']) && (int) $entry['approved_quantity'] > 0
+                    ? (int) $entry['approved_quantity']
+                    : (int) ($entry['quantity'] ?? 0);
+                $label = trim((string) ($entry['role_name'] ?? $entry['role'] ?? ''));
+                if ($qty < 1 || $label === '') {
+                    return null;
+                }
+                return sprintf('Manpower-%s (x%d)', $label, $qty);
+            })
+            ->filter()
+            ->values()
+            ->all();
 
-        $randomItems = Item::query()
-            ->excludeSystemPlaceholder()
-            ->inRandomOrder()
-            ->limit(11)
-            ->get(['name']);
-
-        $slot = 2;
-        foreach ($randomItems as $item) {
-            if ($slot > 12) {
-                break;
-            }
-
-            $fields['item_' . $slot] = $item->name ?? '';
-            $fields['check_' . $slot] = 'Off';
-            $slot++;
+        if ($labels === []) {
+            $approvedQuantity = (int) ($manpowerRequest->approved_quantity ?? 0);
+            $fallbackQuantity = $approvedQuantity > 0 ? $approvedQuantity : (int) ($manpowerRequest->quantity ?? 0);
+            $fallbackRole = trim((string) ($manpowerRequest->role ?? '')) ?: 'Manpower';
+            $labels[] = $fallbackQuantity > 0
+                ? sprintf('Manpower-%s (x%d)', $fallbackRole, $fallbackQuantity)
+                : 'Manpower';
         }
 
-        for (; $slot <= 12; $slot++) {
-            $fields['item_' . $slot] = '';
-            $fields['check_' . $slot] = 'Off';
+        $labels = array_values(array_slice($labels, 0, 12));
+        while (count($labels) < 12) {
+            $labels[] = '';
+        }
+
+        for ($slot = 1; $slot <= 12; $slot++) {
+            $fields['item_' . $slot] = $labels[$slot - 1] ?? '';
         }
 
         return $fields;
@@ -274,6 +274,29 @@ class ManpowerRequestPdfService
         }
 
         return $date->format('g:i A');
+    }
+
+    private function formatRoleList(array $entries): string
+    {
+        $roles = collect($entries)
+            ->map(function ($entry) {
+                $qty = isset($entry['approved_quantity']) && $entry['approved_quantity'] > 0
+                    ? (int) $entry['approved_quantity']
+                    : (int) ($entry['quantity'] ?? 0);
+                $label = trim((string) ($entry['role_name'] ?? $entry['role'] ?? ''));
+                if ($qty < 1 || $label === '') {
+                    return null;
+                }
+                return sprintf('Manpower-%s (x%d)', $label, $qty);
+            })
+            ->filter()
+            ->values();
+
+        if ($roles->isEmpty()) {
+            return '';
+        }
+
+        return $roles->implode(', ');
     }
 
     private function writeText(Fpdi $pdf, array $pageSize, ?array $rect, ?string $value): void

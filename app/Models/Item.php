@@ -106,6 +106,24 @@ class Item extends Model
         }
 
         $id = static::where('name', self::SYSTEM_MANPOWER_PLACEHOLDER)->value('id');
+
+        if (! $id) {
+            $placeholder = static::create([
+                'name' => self::SYSTEM_MANPOWER_PLACEHOLDER,
+                'description' => 'System placeholder for manpower allocations.',
+                'category' => 'System',
+                'total_qty' => 0,
+                'available_qty' => 0,
+                'photo' => null,
+                'receipt_photo' => null,
+                'acquisition_date' => now(),
+                'acquisition_cost' => 0,
+                'is_borrowable' => false,
+            ]);
+
+            $id = $placeholder->id;
+        }
+
         static::$cachedSystemPlaceholderId = $id ? (int) $id : null;
 
         return static::$cachedSystemPlaceholderId;

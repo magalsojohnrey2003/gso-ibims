@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BorrowItemInstance;
 use App\Models\BorrowRequestItem;
 use App\Models\BorrowRequest;
+use App\Models\WalkInRequest;
 use App\Models\Item;
 use App\Models\ItemInstance;
 use App\Models\User;
@@ -17,6 +18,8 @@ use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use App\Services\BorrowRequestFormPdf;
 use App\Services\RoutingSlipPdf;
+use App\Services\WalkInRequestPdfService;
+use App\Services\WalkInRoutingSlipPdf;
 use App\Services\PhilSmsService;
 use App\Notifications\RequestNotification;
 use Illuminate\Validation\ValidationException;
@@ -55,6 +58,21 @@ class MyBorrowedItemsController extends Controller
         }
 
         $result = $routingSlipPdf->render($borrowRequest);
+
+        return response($result['content'], 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . $result['filename'] . '"',
+            'Content-Length' => strlen($result['content']),
+        ]);
+    }
+
+    public function routingSlipWalkIn(WalkInRequest $walkInRequest, WalkInRoutingSlipPdf $pdfService)
+    {
+        if ($walkInRequest->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $result = $pdfService->render($walkInRequest);
 
         return response($result['content'], 200, [
             'Content-Type' => 'application/pdf',
@@ -103,6 +121,7 @@ class MyBorrowedItemsController extends Controller
                     : null;
 
                 return [
+                    'type' => 'borrow',
                     'id' => $borrowRequest->id,
                     'formatted_request_id' => $borrowRequest->formatted_request_id,
                     'borrow_date' => $borrowRequest->borrow_date,
@@ -129,7 +148,78 @@ class MyBorrowedItemsController extends Controller
                 ];
             });
 
-        return response()->json($requests);
+        $walkIns = WalkInRequest::with(['items.item'])
+            ->where('user_id', $userId)
+            ->latest()
+            ->get()
+            ->map(function (WalkInRequest $walkIn) {
+                $delivery = strtolower((string) $walkIn->delivery_status);
+                $baseStatus = strtolower((string) $walkIn->status);
+                $effectiveStatus = in_array($delivery, ['dispatched', 'delivered', 'returned', 'not_received'], true)
+                    ? $delivery
+                    : $baseStatus;
+                $items = $walkIn->items->map(function ($item) use ($walkIn) {
+                    return [
+                        'borrow_request_item_id' => $item->id,
+                        'requested_quantity' => $item->quantity,
+                        'approved_quantity' => $item->quantity,
+                        'received_quantity' => null,
+                        'quantity' => $item->quantity,
+                        'assigned_manpower' => 0,
+                        'manpower_role' => null,
+                        'is_manpower' => false,
+                        'display_name' => $item->item?->name ?? ('Item #' . $item->item_id),
+                        'item' => [
+                            'id' => $item->item_id,
+                            'name' => $item->item?->name ?? ('Item #' . $item->item_id),
+                        ],
+                    ];
+                })->values();
+
+                if ($walkIn->manpower_quantity && $walkIn->manpower_quantity > 0) {
+                    $items->prepend([
+                        'borrow_request_item_id' => null,
+                        'requested_quantity' => $walkIn->manpower_quantity,
+                        'approved_quantity' => $walkIn->manpower_quantity,
+                        'received_quantity' => null,
+                        'quantity' => $walkIn->manpower_quantity,
+                        'assigned_manpower' => $walkIn->manpower_quantity,
+                        'manpower_role' => $walkIn->manpower_role ?? 'Manpower',
+                        'is_manpower' => true,
+                        'display_name' => ($walkIn->manpower_role ?? 'Manpower') . ' (x' . $walkIn->manpower_quantity . ')',
+                        'item' => [
+                            'id' => null,
+                            'name' => $walkIn->manpower_role ?? 'Manpower',
+                        ],
+                    ]);
+                }
+
+                return [
+                    'type' => 'walkin',
+                    'id' => $walkIn->id,
+                    'formatted_request_id' => $walkIn->formatted_request_id,
+                    'borrow_date' => $walkIn->borrowed_at,
+                    'return_date' => $walkIn->returned_at,
+                    'time_of_usage' => null,
+                    'status' => $effectiveStatus,
+                    'delivery_status' => $walkIn->delivery_status,
+                    'manpower_count' => $walkIn->manpower_quantity,
+                    'location' => $walkIn->address,
+                    'purpose' => $walkIn->purpose,
+                    'items' => $items,
+                    'borrowed_instances' => [],
+                    'delivered_at' => $walkIn->delivered_at?->toIso8601String(),
+                    'return_proof_path' => null,
+                    'return_proof_url' => null,
+                ];
+            });
+
+        // Sort by latest requested first (borrow_date, then return_date, then id)
+        $combined = $requests->concat($walkIns)->sortByDesc(function ($row) {
+            return $row['borrow_date'] ?? $row['return_date'] ?? $row['id'];
+        })->values();
+
+        return response()->json($combined);
     }
 
     public function show(BorrowRequest $borrowRequest)
@@ -193,6 +283,76 @@ class MyBorrowedItemsController extends Controller
             'return_proof_path' => $borrowRequest->return_proof_path,
             'return_proof_url' => $returnProofUrl,
             'return_proof_notes' => $borrowRequest->return_proof_notes,
+        ]);
+    }
+
+    public function showWalkIn(WalkInRequest $walkInRequest)
+    {
+        if ($walkInRequest->user_id !== Auth::id()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $walkInRequest->load(['items.item']);
+
+        $items = $walkInRequest->items->map(function ($item) {
+            return [
+                'borrow_request_item_id' => $item->id,
+                'requested_quantity' => $item->quantity,
+                'approved_quantity' => $item->quantity,
+                'received_quantity' => null,
+                'quantity' => $item->quantity,
+                'assigned_manpower' => 0,
+                'manpower_role' => null,
+                'is_manpower' => false,
+                'display_name' => $item->item?->name ?? ('Item #' . $item->item_id),
+                'item' => [
+                    'id' => $item->item_id,
+                    'name' => $item->item?->name ?? ('Item #' . $item->item_id),
+                ],
+            ];
+        })->values();
+
+        if ($walkInRequest->manpower_quantity && $walkInRequest->manpower_quantity > 0) {
+            $items->prepend([
+                'borrow_request_item_id' => null,
+                'requested_quantity' => $walkInRequest->manpower_quantity,
+                'approved_quantity' => $walkInRequest->manpower_quantity,
+                'received_quantity' => null,
+                'quantity' => $walkInRequest->manpower_quantity,
+                'assigned_manpower' => $walkInRequest->manpower_quantity,
+                'manpower_role' => $walkInRequest->manpower_role ?? 'Manpower',
+                'is_manpower' => true,
+                'display_name' => ($walkInRequest->manpower_role ?? 'Manpower') . ' (x' . $walkInRequest->manpower_quantity . ')',
+                'item' => [
+                    'id' => null,
+                    'name' => $walkInRequest->manpower_role ?? 'Manpower',
+                ],
+            ]);
+        }
+
+        $delivery = strtolower((string) $walkInRequest->delivery_status);
+        $baseStatus = strtolower((string) $walkInRequest->status);
+        $effectiveStatus = in_array($delivery, ['dispatched', 'delivered', 'returned', 'not_received'], true)
+            ? $delivery
+            : $baseStatus;
+
+        return response()->json([
+            'type' => 'walkin',
+            'id' => $walkInRequest->id,
+            'formatted_request_id' => $walkInRequest->formatted_request_id,
+            'borrow_date' => $walkInRequest->borrowed_at,
+            'return_date' => $walkInRequest->returned_at,
+            'time_of_usage' => null,
+            'status' => $effectiveStatus,
+            'delivery_status' => $walkInRequest->delivery_status,
+            'manpower_count' => $walkInRequest->manpower_quantity,
+            'location' => $walkInRequest->address,
+            'purpose' => $walkInRequest->purpose,
+            'items' => $items,
+            'borrowed_instances' => [],
+            'delivered_at' => $walkInRequest->delivered_at?->toIso8601String(),
+            'return_proof_path' => null,
+            'return_proof_url' => null,
         ]);
     }
 
@@ -380,6 +540,83 @@ class MyBorrowedItemsController extends Controller
         return response()->json(['message' => 'Confirmed receipt.']);
     }
 
+    public function confirmWalkInDelivery(Request $request, WalkInRequest $walkInRequest)
+    {
+        if ($walkInRequest->user_id !== Auth::id()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        if ($walkInRequest->delivery_status === 'delivered') {
+            return response()->json(['message' => 'Already confirmed delivered.'], 200);
+        }
+
+        if (! in_array($walkInRequest->delivery_status, ['dispatched'], true)) {
+            return response()->json(['message' => 'Only dispatched requests can be confirmed.'], 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            $walkInRequest->load('items.item');
+
+            foreach ($walkInRequest->items as $walkInItem) {
+                $item = $walkInItem->item;
+                if (! $item) {
+                    throw new \RuntimeException('One of the requested items could not be found.');
+                }
+
+                $availableInstances = ItemInstance::where('item_id', $item->id)
+                    ->where('status', 'available')
+                    ->lockForUpdate()
+                    ->limit($walkInItem->quantity)
+                    ->get();
+
+                if ($availableInstances->count() < $walkInItem->quantity) {
+                    throw new \RuntimeException("Not enough available instances for {$item->name}.");
+                }
+
+                foreach ($availableInstances as $instance) {
+                    $instance->status = 'borrowed';
+                    $instance->save();
+
+                    BorrowItemInstance::create([
+                        'borrow_request_id' => null,
+                        'item_id' => $walkInItem->item_id,
+                        'item_instance_id' => $instance->id,
+                        'borrowed_qty' => 1,
+                        'walk_in_request_id' => $walkInRequest->id,
+                        'checked_out_at' => now(),
+                        'expected_return_at' => $walkInRequest->returned_at,
+                        'returned_at' => null,
+                        'return_condition' => 'pending',
+                    ]);
+                }
+
+                $item->available_qty = max(0, (int) $item->available_qty - (int) $walkInItem->quantity);
+                $item->save();
+            }
+
+            $walkInRequest->status = 'delivered';
+            $walkInRequest->delivery_status = 'delivered';
+            $walkInRequest->delivered_at = now();
+            $walkInRequest->save();
+
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('user.walkin_confirm_delivery_failed', [
+                'walk_in_request_id' => $walkInRequest->id,
+                'user_id' => Auth::id(),
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'message' => 'Failed to confirm delivery. Please try again.',
+            ], 500);
+        }
+
+        return response()->json(['message' => 'Confirmed receipt.']);
+    }
+
     public function reportNotReceived(Request $request, BorrowRequest $borrowRequest)
     {
         if ($borrowRequest->user_id !== Auth::id()) {
@@ -421,6 +658,73 @@ class MyBorrowedItemsController extends Controller
             'actor_name' => $borrowerName,
             'reason' => $borrowRequest->delivery_report_reason,
             'reported_at' => $borrowRequest->delivery_reported_at?->toDateTimeString(),
+        ];
+
+        $admins = User::where('role', 'admin')->get();
+        Notification::send($admins, new RequestNotification($payload));
+
+        return response()->json(['message' => 'Reported not received.']);
+    }
+
+    public function reportWalkInNotReceived(Request $request, WalkInRequest $walkInRequest)
+    {
+        if ($walkInRequest->user_id !== Auth::id()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $validated = $request->validate([
+            'reason' => 'nullable|string|max:2000',
+        ]);
+
+        $reason = $validated['reason'] ?? null;
+
+        DB::beginTransaction();
+
+        try {
+            // Roll back delivery so admin can dispatch again
+            $walkInRequest->status = 'approved';
+            $walkInRequest->delivery_status = 'not_received';
+            $walkInRequest->dispatched_at = null;
+            $walkInRequest->delivered_at = null;
+            $walkInRequest->delivery_report_reason = $reason;
+            $walkInRequest->delivery_reported_at = now();
+            $walkInRequest->save();
+
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            Log::error('user.walkin_report_not_received_failed', [
+                'walk_in_request_id' => $walkInRequest->id,
+                'user_id' => Auth::id(),
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'message' => 'Failed to submit report. Please try again.',
+            ], 500);
+        }
+
+        Log::info('user.walkin_report_not_received', [
+            'walk_in_request_id' => $walkInRequest->id,
+            'user_id' => Auth::id(),
+            'reason' => $reason,
+        ]);
+
+        // Notify admins similar to regular borrow requests
+        $borrowerName = Auth::user()?->name ?? 'Borrower';
+        $payload = [
+            'type' => 'delivery_reported',
+            'message' => sprintf('%s reported a delivery issue for %s.', $borrowerName, $walkInRequest->formatted_request_id ?? ('Walk-in #' . $walkInRequest->id)),
+            'borrow_request_id' => null,
+            'walk_in_request_id' => $walkInRequest->id,
+            'formatted_request_id' => $walkInRequest->formatted_request_id,
+            'user_id' => $walkInRequest->user_id,
+            'user_name' => $borrowerName,
+            'actor_id' => $walkInRequest->user_id,
+            'actor_name' => $borrowerName,
+            'reason' => $walkInRequest->delivery_report_reason,
+            'reported_at' => $walkInRequest->delivery_reported_at?->toDateTimeString(),
         ];
 
         $admins = User::where('role', 'admin')->get();

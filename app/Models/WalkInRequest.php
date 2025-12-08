@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\User;
 
 class WalkInRequest extends Model
 {
@@ -14,21 +15,37 @@ class WalkInRequest extends Model
     protected $appends = ['formatted_request_id'];
 
     protected $fillable = [
+        'user_id',
         'borrower_name',
         'office_agency',
         'contact_number',
         'address',
+        'manpower_role',
+        'manpower_quantity',
         'purpose',
         'borrowed_at',
         'returned_at',
         'status',
+        'delivery_status',
+        'dispatched_at',
+        'delivered_at',
+        'delivery_reported_at',
+        'delivery_report_reason',
         'created_by',
     ];
 
     protected $casts = [
         'borrowed_at' => 'datetime',
         'returned_at' => 'datetime',
+        'dispatched_at' => 'datetime',
+        'delivered_at' => 'datetime',
+        'delivery_reported_at' => 'datetime',
     ];
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
 
     /**
      * Check if the request is pending approval
@@ -52,6 +69,16 @@ class WalkInRequest extends Model
     public function isDelivered(): bool
     {
         return $this->status === 'delivered';
+    }
+
+    public function isDispatched(): bool
+    {
+        return $this->delivery_status === 'dispatched';
+    }
+
+    public function isDeliveryComplete(): bool
+    {
+        return $this->delivery_status === 'delivered';
     }
 
     /**

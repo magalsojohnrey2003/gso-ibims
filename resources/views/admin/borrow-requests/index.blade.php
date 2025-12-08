@@ -185,10 +185,6 @@
                     </div>
 
                     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 md:col-span-2">
-                        <div class="flex items-center gap-2 text-purple-700">
-                            <i class="fas fa-boxes text-sm"></i>
-                            <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Items Requested</h4>
-                        </div>
                         <div class="mt-3 border-t border-gray-200 dark:border-gray-700 pt-3 space-y-4">
                             <div>
                                 <div class="flex items-center gap-2 text-purple-700">

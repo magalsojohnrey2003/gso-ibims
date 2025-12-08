@@ -98,18 +98,18 @@
                                     <i class="fas fa-user-friends text-lg"></i>
                                     <h3 class="text-lg font-semibold">Personnel Requirements &amp; Context</h3>
                                 </div>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Manpower quantity</label>
-                                        <input type="number" min="1" max="99" id="mp_quantity" class="gov-input mt-1 block w-full rounded-md px-3 py-2 text-sm transition duration-200" oninput="if(this.value.length>2)this.value=this.value.slice(0,2);" placeholder="Min 10" />
+                                <div class="space-y-3" id="mpManpowerSection">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <div>
+                                            <label class="block text-sm font-semibold text-gray-700">Requested roles</label>
+                                            <p class="text-xs text-gray-500">Add one or more manpower roles with quantities.</p>
+                                        </div>
+                                        <x-button type="button" id="mpAddRoleRow" variant="secondary" size="sm" iconName="plus">Add Role</x-button>
                                     </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Manpower role</label>
-                                        <select id="mp_role" class="gov-input mt-1 block w-full rounded-md px-3 py-2 text-sm transition duration-200 disabled:bg-gray-100 disabled:cursor-not-allowed">
-                                            <option value="">Loading roles...</option>
-                                        </select>
-                                        <p id="mp_role_empty" class="text-xs text-red-500 mt-1 hidden">No roles available. Please contact the admin.</p>
+                                    <div id="mpManpowerRows" class="space-y-2">
+                                        <div class="text-sm text-gray-500">Loading roles...</div>
                                     </div>
+                                    <p id="mp_role_empty" class="text-xs text-red-500 hidden">No roles available. Please contact the admin.</p>
                                 </div>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
@@ -385,6 +385,14 @@
                             <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Purpose</h4>
                         </div>
                         <p class="mt-2 text-gray-600 dark:text-gray-300" data-user-view="purpose">—</p>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 md:col-span-2">
+                        <div class="flex items-center gap-2 text-emerald-700">
+                            <i class="fas fa-user-check text-sm"></i>
+                            <h4 class="text-sm font-semibold text-gray-900 dark:text-white tracking-wide uppercase">Assigned Personnel Names</h4>
+                        </div>
+                        <p class="mt-3 text-gray-900 dark:text-white font-medium" data-user-view="assigned_personnel_names">—</p>
                     </div>
 
                     <div id="userManpowerRejectionCard" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 md:col-span-2 hidden">

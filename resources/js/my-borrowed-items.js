@@ -6,6 +6,7 @@ const MANPOWER_PLACEHOLDER = '__SYSTEM_MANPOWER_PLACEHOLDER__';
 let ITEMS_CACHE = [];
 const confirmReceiveState = {
     requestId: null,
+    requestType: null,
     draft: null, // holds latest input values keyed by request id
 };
 
@@ -74,7 +75,19 @@ function formatBorrowRequestCodeLocal(req) {
     if (formatted) return formatted;
     const rawId = req.id ?? null;
     if (!rawId) return '';
-    return `BR-${String(rawId).padStart(4, '0')}`;
+    const prefix = (req.type || '').toLowerCase() === 'walkin' ? 'WI' : 'BR';
+    return `${prefix}-${String(rawId).padStart(4, '0')}`;
+}
+
+function findCachedRequest(id, type = null) {
+    if (!Number.isFinite(Number(id))) return null;
+    const targetType = type ? String(type).toLowerCase() : null;
+    return ITEMS_CACHE.find((entry) => {
+        const sameId = Number(entry?.id) === Number(id);
+        if (!sameId) return false;
+        if (!targetType) return true;
+        return (entry?.type || 'borrow').toLowerCase() === targetType;
+    }) || null;
 }
 
 function escapeHtml(unsafe) {
@@ -192,6 +205,16 @@ function getBadgeHtml(status) {
     return `<span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-full ${color}"><i class="fas ${icon} text-xs"></i><span>${escapeHtml(label)}</span></span>`;
 }
 
+function getRequestTypeBadge(type) {
+    const key = (type || 'borrow').toLowerCase();
+    const label = key === 'walkin' ? 'Walk-in' : 'Online';
+    const color = key === 'walkin'
+        ? 'bg-emerald-100 text-emerald-700'
+        : 'bg-blue-100 text-blue-700';
+    const icon = key === 'walkin' ? 'fa-building' : 'fa-wifi';
+    return `<span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-full ${color}"><i class="fas ${icon} text-xs"></i><span>${escapeHtml(label)}</span></span>`;
+}
+
 function showError(m){ window.showToast(m, 'error'); }
 function showSuccess(m){ window.showToast(m, 'success'); }
 
@@ -225,16 +248,18 @@ export async function loadMyBorrowedItems() {
 // Pagination removed - displaying all results with scrolling
 
 // ---------- create buttons from template ----------
-function createButtonFromTemplate(templateId, id) {
+function createButtonFromTemplate(templateId, req) {
     const tpl = document.getElementById(templateId);
     if (!tpl) return document.createDocumentFragment();
     const frag = tpl.content.cloneNode(true);
     const btn = frag.querySelector('[data-action]');
     if (!btn) return frag;
     const action = btn.getAttribute('data-action');
+    const id = typeof req === 'object' ? req?.id : req;
+    const type = typeof req === 'object' ? (req?.type || null) : null;
 
-    if (action === 'view') {
-        btn.addEventListener('click', () => viewBorrowDetails(id));
+        if (action === 'view') {
+            btn.addEventListener('click', () => viewBorrowDetails(id));
     } else if (action === 'return') {
         btn.addEventListener('click', (ev) => {
             ev.preventDefault();
@@ -250,7 +275,10 @@ function createButtonFromTemplate(templateId, id) {
     } else if (action === 'routing-slip') {
         btn.addEventListener('click', (ev) => {
             ev.preventDefault();
-            const url = `/user/my-borrowed-items/${encodeURIComponent(id)}/routing-slip`;
+            const isWalkIn = (type || '').toLowerCase() === 'walkin';
+            const url = isWalkIn
+                ? `/user/my-borrowed-items/walk-in/${encodeURIComponent(id)}/routing-slip`
+                : `/user/my-borrowed-items/${encodeURIComponent(id)}/routing-slip`;
             window.open(url, '_blank');
         });
     } else if (action === 'mark-returned') {
@@ -261,26 +289,35 @@ function createButtonFromTemplate(templateId, id) {
     } else if (action === 'confirm-delivery') {
         btn.addEventListener('click', (ev) => {
             ev.preventDefault();
-            openConfirmReceiveModal(id);
+            openConfirmReceiveModal(req);
         });
     } else if (action === 'report-not-received') {
         btn.addEventListener('click', (ev) => {
             ev.preventDefault();
-            openConfirmReportNotReceivedModal(id);
+            openConfirmReportNotReceivedModal(id, { type });
         });
     }
     return frag;
 }
 
-function openConfirmReceiveModal(requestId, options = {}) {
-    const numericId = Number(requestId);
+function openConfirmReceiveModal(requestInput, options = {}) {
+    const numericId = Number(requestInput?.id ?? requestInput);
     if (!Number.isFinite(numericId)) {
         confirmReceiveState.requestId = null;
+        confirmReceiveState.requestType = null;
         return;
     }
 
-    const request = ITEMS_CACHE.find((entry) => Number(entry?.id) === numericId) || null;
+    const requestType = typeof requestInput === 'object'
+        ? (requestInput?.type || null)
+        : (options?.type || null);
+
+    const request = typeof requestInput === 'object'
+        ? requestInput
+        : findCachedRequest(numericId, requestType);
+
     confirmReceiveState.requestId = numericId;
+    confirmReceiveState.requestType = request?.type || requestType || null;
 
     if (!options?.preserveDraft && confirmReceiveState.draft && confirmReceiveState.draft.requestId !== numericId) {
         confirmReceiveState.draft = null;
@@ -290,6 +327,14 @@ function openConfirmReceiveModal(requestId, options = {}) {
     if (labelEl) {
         const code = request ? (formatBorrowRequestCodeLocal(request) || `#${request.id}`) : `#${numericId}`;
         labelEl.textContent = code;
+    }
+
+    const reportBtn = document.getElementById('confirmReceiveReportBtn');
+    const isWalkIn = (request?.type || requestType || '').toLowerCase() === 'walkin';
+    if (reportBtn) {
+        const allowReport = isWalkIn ? ['delivered', 'dispatched'].includes((request?.delivery_status || '').toLowerCase()) : true;
+        reportBtn.classList.toggle('hidden', !allowReport);
+        reportBtn.disabled = !allowReport;
     }
 
     renderConfirmReceiveItems(request);
@@ -302,6 +347,7 @@ function openConfirmReportNotReceivedModal(requestId, options = {}) {
     if (!Number.isFinite(numericId)) return;
     confirmReportState.requestId = numericId;
     confirmReportState.origin = options.origin || null;
+    confirmReportState.requestType = options.type || null;
     const reasonInput = document.getElementById('confirmReportNotReceivedReason');
     if (reasonInput) {
         reasonInput.value = '';
@@ -309,7 +355,7 @@ function openConfirmReportNotReceivedModal(requestId, options = {}) {
     window.dispatchEvent(new CustomEvent('open-modal', { detail: 'confirmReportNotReceivedModal' }));
 }
 
-const confirmReportState = { requestId: null, origin: null };
+const confirmReportState = { requestId: null, origin: null, requestType: null };
 
 function renderConfirmReceiveItems(request) {
     const container = document.getElementById('confirmReceiveItemsContainer');
@@ -399,7 +445,8 @@ function renderConfirmReceiveItems(request) {
 
     if (items.length) {
         const requestId = request?.id ?? confirmReceiveState.requestId;
-        applyConfirmReceiveDraft(requestId);
+        const requestType = request?.type || confirmReceiveState.requestType;
+        applyConfirmReceiveDraft(requestId, requestType);
     }
 }
 
@@ -448,16 +495,17 @@ function collectConfirmReceiveInputs() {
     return { items };
 }
 
-function captureConfirmReceiveDraft(requestId) {
+function captureConfirmReceiveDraft(requestId, requestType = null) {
     const numericId = Number(requestId);
     if (!Number.isFinite(numericId)) return;
+    const typeKey = requestType || confirmReceiveState.requestType || null;
 
     const container = document.getElementById('confirmReceiveItemsContainer');
     if (!container) return;
 
     const inputs = Array.from(container.querySelectorAll('[data-receive-input]'));
     if (!inputs.length) {
-        confirmReceiveState.draft = { requestId: numericId, values: {} };
+        confirmReceiveState.draft = { requestId: numericId, requestType: typeKey, values: {} };
         return;
     }
 
@@ -473,17 +521,20 @@ function captureConfirmReceiveDraft(requestId) {
         values[itemId] = sanitized;
     });
 
-    confirmReceiveState.draft = { requestId: numericId, values };
+    confirmReceiveState.draft = { requestId: numericId, requestType: typeKey, values };
 }
 
-function applyConfirmReceiveDraft(requestId) {
+function applyConfirmReceiveDraft(requestId, requestType = null) {
     if (!confirmReceiveState?.draft) return;
 
     const numericId = Number(requestId);
     if (!Number.isFinite(numericId)) return;
 
     const draft = confirmReceiveState.draft;
+    const typeKey = requestType || confirmReceiveState.requestType || null;
+    const draftType = (draft.requestType || null);
     if (!draft || draft.requestId !== numericId) return;
+    if (draftType && typeKey && String(draftType).toLowerCase() !== String(typeKey).toLowerCase()) return;
 
     const container = document.getElementById('confirmReceiveItemsContainer');
     if (!container) return;
@@ -564,7 +615,7 @@ function renderItems() {
     tbody.innerHTML = "";
 
     if (!ITEMS_CACHE.length) {
-        appendEmptyState(tbody, 'my-borrowed-items-empty-state-template', 5, 'No borrowed items');
+        appendEmptyState(tbody, 'my-borrowed-items-empty-state-template', 6, 'No borrowed items');
         return;
     }
 
@@ -577,7 +628,7 @@ function renderItems() {
     });
 
     if (!list.length) {
-        appendEmptyState(tbody, 'my-borrowed-items-empty-state-template', 5, 'No items match your search');
+        appendEmptyState(tbody, 'my-borrowed-items-empty-state-template', 6, 'No items match your search');
         return;
     }
 
@@ -585,9 +636,12 @@ function renderItems() {
         const tr = document.createElement("tr");
         tr.className = "transition hover:bg-purple-50 hover:shadow-md";
         tr.dataset.requestId = String(req.id);
+        tr.dataset.requestType = (req.type || 'borrow');
 
         const requestCode = formatBorrowRequestCodeLocal(req) || `#${req.id ?? ''}`;
         const tdId = `<td class="px-4 py-3">${escapeHtml(requestCode)}</td>`;
+        const typeBadge = getRequestTypeBadge(req.type);
+        const tdType = `<td class="px-4 py-3">${typeBadge}</td>`;
         const tdBorrowDate = `<td class="px-4 py-3">${escapeHtml(formatDate(req.borrow_date))}</td>`;
             // Show overdue styling only when delivered (computeOverdueDays enforces delivered check)
             const overdueDays = computeOverdueDays(req);
@@ -601,10 +655,11 @@ function renderItems() {
                 tdReturnDate = `<td class="px-4 py-3">${escapeHtml(formatDate(req.return_date))}</td>`;
             }
 
-        // Display delivery progression overrides base status when in dispatched/delivered
-        const effectiveStatus = (req.delivery_status && ['dispatched','delivered','not_received'].includes(req.delivery_status.toLowerCase()))
-            ? req.delivery_status.toLowerCase()
-            : (req.status || '');
+        const deliveryStatusRaw = (req.delivery_status || '').toLowerCase();
+        const baseStatus = (req.status || '').toLowerCase();
+        const effectiveStatus = deliveryStatusRaw && deliveryStatusRaw !== 'pending'
+            ? deliveryStatusRaw
+            : baseStatus;
         const badgeHtml = getBadgeHtml(effectiveStatus);
         const tdStatus = `<td class="px-4 py-3">${badgeHtml}</td>`;
 
@@ -613,36 +668,73 @@ function renderItems() {
         const wrapper = document.createElement("div");
         wrapper.className = "flex justify-center gap-2";
 
-        wrapper.appendChild(createButtonFromTemplate("btn-view-template", req.id));
-
-        const statusKey = (req.status || '').toLowerCase();
-        const deliveryStatus = (req.delivery_status || '').toLowerCase();
+        const statusKey = baseStatus;
+        const deliveryStatus = deliveryStatusRaw;
+        const displayStatus = deliveryStatus && deliveryStatus !== 'pending' ? deliveryStatus : statusKey;
+        const isWalkIn = (req.type || '').toLowerCase() === 'walkin';
         const deliveredAt = req.delivered_at || null;
         const hasReturnProof = Boolean(req.return_proof_path || req.return_proof_url);
 
+        // Walk-in specific action rules
+        if (isWalkIn) {
+            const normStatus = displayStatus;
+            wrapper.appendChild(createButtonFromTemplate("btn-view-template", req));
+
+            const shouldShowConfirm = normStatus === 'dispatched';
+            if (shouldShowConfirm) {
+                wrapper.appendChild(createButtonFromTemplate("btn-confirm-delivery-template", req));
+            }
+
+            const shouldShowReport = normStatus === 'dispatched';
+            if (shouldShowReport) {
+                const reportBtn = document.createElement('button');
+                reportBtn.type = 'button';
+                reportBtn.className = 'btn-action btn-report h-10 w-10';
+                reportBtn.title = 'Report Not Received';
+                reportBtn.innerHTML = '<span class="sr-only">Report Not Received</span><i class="fas fa-triangle-exclamation text-sm"></i>';
+                reportBtn.addEventListener('click', () => {
+                    openConfirmReportNotReceivedModal(req.id, { type: 'walkin' });
+                });
+                wrapper.appendChild(reportBtn);
+            }
+
+            const shouldShowRoutingSlip = ['delivered', 'returned'].includes(deliveryStatus);
+            if (shouldShowRoutingSlip) {
+                wrapper.appendChild(createButtonFromTemplate("btn-routing-slip-template", req));
+            }
+
+            tdActions.appendChild(wrapper);
+            tr.innerHTML = tdId + tdType + tdBorrowDate + tdReturnDate + tdStatus;
+            tr.appendChild(tdActions);
+            tbody.appendChild(tr);
+            return;
+        }
+
+        wrapper.appendChild(createButtonFromTemplate("btn-view-template", req));
+
         const shouldShowPrint = statusKey === 'validated' && !['dispatched', 'not_received', 'delivered'].includes(deliveryStatus);
         if (shouldShowPrint) {
-            wrapper.appendChild(createButtonFromTemplate("btn-print-template", req.id));
+            wrapper.appendChild(createButtonFromTemplate("btn-print-template", req));
         }
 
         const shouldShowRoutingSlip = deliveryStatus === 'delivered' || deliveryStatus === 'returned';
         if (shouldShowRoutingSlip) {
-            wrapper.appendChild(createButtonFromTemplate("btn-routing-slip-template", req.id));
+            wrapper.appendChild(createButtonFromTemplate("btn-routing-slip-template", req));
         }
 
         const shouldShowMarkReturned = deliveryStatus === 'delivered' && !hasReturnProof;
         if (shouldShowMarkReturned) {
-            wrapper.appendChild(createButtonFromTemplate("btn-mark-returned-template", req.id));
+            wrapper.appendChild(createButtonFromTemplate("btn-mark-returned-template", req));
         }
 
         const shouldShowConfirm = deliveryStatus === 'dispatched' && !deliveredAt;
         if (shouldShowConfirm) {
-            wrapper.appendChild(createButtonFromTemplate("btn-confirm-delivery-template", req.id));
+            wrapper.appendChild(createButtonFromTemplate("btn-confirm-delivery-template", req));
         }
 
         tdActions.appendChild(wrapper);
 
-        tr.innerHTML = tdId + tdBorrowDate + tdReturnDate + tdStatus;
+        tr.innerHTML = tdId + tdType + tdBorrowDate + tdReturnDate + tdStatus;
         tr.appendChild(tdActions);
 
         tbody.appendChild(tr);
@@ -652,6 +744,7 @@ function renderItems() {
 // ---------- modal population ----------
 export function fillBorrowModal(data) {
     if (!data) return;
+    const isWalkIn = (data.type || '').toLowerCase() === 'walkin';
     const setText = (id, value) => {
         const el = document.getElementById(id);
         if (!el) return;
@@ -675,7 +768,8 @@ export function fillBorrowModal(data) {
     };
 
     const requestCode = formatBorrowRequestCodeLocal(data) || (data.id ? `#${data.id}` : '—');
-    setText('mbi-short-status', `Borrow Request ${requestCode}`);
+    const requestLabel = isWalkIn ? 'Walk-In Request' : 'Borrow Request';
+    setText('mbi-short-status', `${requestLabel} ${requestCode}`);
     setText('mbi-summary-id', requestCode);
 
     const itemsArray = Array.isArray(data.items) ? data.items : [];
@@ -688,7 +782,7 @@ export function fillBorrowModal(data) {
     setText('mbi-summary-purpose', purposeValue || '—');
 
     const delivery = (data.delivery_status || '').toLowerCase();
-    const statusKey = ['dispatched', 'delivered'].includes(delivery) ? delivery : (data.status || '').toLowerCase();
+    const statusKey = delivery || (data.status || '').toLowerCase();
     const statusContainer = document.getElementById('mbi-summary-status');
     if (statusContainer) {
         try {
@@ -941,9 +1035,16 @@ export function fillBorrowModal(data) {
 }
 
 // ---------- view (fetch details & open modal) ----------
-async function viewBorrowDetails(id) {
+async function viewBorrowDetails(requestInput) {
     try {
-        const res = await fetch(`/user/my-borrowed-items/${id}`, { headers: { 'Accept': 'application/json' } });
+        const id = typeof requestInput === 'object' ? requestInput?.id : requestInput;
+        const type = typeof requestInput === 'object' ? (requestInput?.type || null) : null;
+        const cached = findCachedRequest(id, type);
+        const endpoint = (type || cached?.type || '').toLowerCase() === 'walkin'
+            ? `/user/my-borrowed-items/walk-in/${encodeURIComponent(id)}`
+            : `/user/my-borrowed-items/${encodeURIComponent(id)}`;
+
+        const res = await fetch(endpoint, { headers: { 'Accept': 'application/json' } });
         if (!res.ok) {
             const err = await res.json().catch(()=>null);
             throw err?.message || `HTTP ${res.status}`;
@@ -979,6 +1080,7 @@ async function confirmDelivery(id, options = {}) {
         closeModals = ['borrowDetailsModal'],
         silent = false,
         items = null,
+        type = null,
     } = options || {};
 
     const spinnerMarkup = '<span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" aria-hidden="true"></span>';
@@ -999,7 +1101,12 @@ async function confirmDelivery(id, options = {}) {
             payload.items = items;
         }
 
-        await postJson(`/user/my-borrowed-items/${encodeURIComponent(id)}/confirm-delivery`, payload);
+        const cached = findCachedRequest(id, type);
+        const endpoint = (type || cached?.type || '').toLowerCase() === 'walkin'
+            ? `/user/my-borrowed-items/walk-in/${encodeURIComponent(id)}/confirm-delivery`
+            : `/user/my-borrowed-items/${encodeURIComponent(id)}/confirm-delivery`;
+
+        await postJson(endpoint, payload);
         if (!silent) {
             showSuccess('Thank you — receipt confirmed.');
         }
@@ -1021,13 +1128,21 @@ async function confirmDelivery(id, options = {}) {
     }
 }
 
-async function reportNotReceived(id, reason = null) {
+async function reportNotReceived(id, reason = null, type = null) {
     try {
+        const cached = findCachedRequest(id, type);
+        const isWalkIn = (type || cached?.type || '').toLowerCase() === 'walkin';
+
         const body = { reason: reason ? reason : null };
-        await postJson(`/user/my-borrowed-items/${encodeURIComponent(id)}/report-not-received`, body);
+        const endpoint = isWalkIn
+            ? `/user/my-borrowed-items/walk-in/${encodeURIComponent(id)}/report-not-received`
+            : `/user/my-borrowed-items/${encodeURIComponent(id)}/report-not-received`;
+
+        await postJson(endpoint, body);
         showSuccess('Report submitted — admin will be notified.');
         confirmReportState.requestId = null;
         confirmReportState.origin = null;
+        confirmReportState.requestType = null;
         window.dispatchEvent(new CustomEvent('close-modal', { detail: 'borrowDetailsModal' }));
         await loadMyBorrowedItems();
     } catch (e) {
@@ -1133,8 +1248,10 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const reasonInput = document.getElementById('confirmReportNotReceivedReason');
                 const reasonValue = reasonInput?.value?.trim() || null;
-                await reportNotReceived(id, reasonValue);
+                await reportNotReceived(id, reasonValue, confirmReportState.requestType);
                 confirmReportState.requestId = null;
+                confirmReportState.origin = null;
+                confirmReportState.requestType = null;
                 if (reasonInput) {
                     reasonInput.value = '';
                 }
@@ -1185,6 +1302,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (modalConfirmBtn) {
         modalConfirmBtn.addEventListener('click', async () => {
             const id = confirmReceiveState.requestId;
+            const type = confirmReceiveState.requestType;
             if (!id) {
                 return;
             }
@@ -1199,9 +1317,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 button: modalConfirmBtn,
                 closeModals: ['confirmReceiveModal', 'borrowDetailsModal'],
                 items,
+                type,
             });
             if (success) {
                 confirmReceiveState.requestId = null;
+                confirmReceiveState.requestType = null;
                 confirmReceiveState.draft = null;
             }
         });
@@ -1210,13 +1330,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (modalReportBtn) {
         modalReportBtn.addEventListener('click', () => {
             const id = confirmReceiveState.requestId;
+            const type = confirmReceiveState.requestType;
             if (!id) {
                 showError('Select a request before reporting.');
                 return;
             }
-            captureConfirmReceiveDraft(id);
+            captureConfirmReceiveDraft(id, type);
             window.dispatchEvent(new CustomEvent('close-modal', { detail: 'confirmReceiveModal' }));
-            openConfirmReportNotReceivedModal(id, { origin: 'confirm' });
+            openConfirmReportNotReceivedModal(id, { origin: 'confirm', type });
         });
     }
 
@@ -1224,8 +1345,10 @@ document.addEventListener('DOMContentLoaded', () => {
         modalReportCancelBtn.addEventListener('click', () => {
             const id = confirmReportState.requestId;
             const origin = confirmReportState.origin;
+            const requestType = confirmReportState.requestType;
             confirmReportState.requestId = null;
             confirmReportState.origin = null;
+            confirmReportState.requestType = null;
 
             const reasonInput = document.getElementById('confirmReportNotReceivedReason');
             if (reasonInput) {
@@ -1235,7 +1358,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window.dispatchEvent(new CustomEvent('close-modal', { detail: 'confirmReportNotReceivedModal' }));
 
             if (origin === 'confirm' && Number.isFinite(Number(id))) {
-                openConfirmReceiveModal(id);
+                openConfirmReceiveModal({ id, type: requestType });
             }
         });
     }

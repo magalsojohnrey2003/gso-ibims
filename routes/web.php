@@ -154,6 +154,8 @@ Route::middleware(['auth', 'role:admin', 'nocache'])
     Route::get('walk-in/list', [BorrowRequestController::class, 'walkInList'])->name('admin.walkin.list');
     Route::get('walk-in/borrowers', [BorrowRequestController::class, 'walkInBorrowers'])->name('admin.walkin.borrowers');
     Route::get('walk-in/print/{walkInRequest}', [BorrowRequestController::class, 'walkInPrint'])->name('admin.walkin.print');
+    Route::post('walk-in/{id}/deliver', [BorrowRequestController::class, 'walkInDeliver'])->name('admin.walkin.deliver');
+    Route::post('walk-in/{id}/confirm-delivery', [BorrowRequestController::class, 'walkInConfirmDelivery'])->name('admin.walkin.confirm-delivery');
     Route::post('walk-in/store', [BorrowRequestController::class, 'walkInStore'])->name('admin.walkin.store');
     Route::get('walk-in/approve-qr/{id}', [BorrowRequestController::class, 'walkInApproveQr'])->name('admin.walkin.approve.qr');
     Route::post('walk-in/deliver/{id}', [BorrowRequestController::class, 'walkInDeliver'])->name('admin.walkin.deliver');
@@ -211,6 +213,8 @@ Route::middleware(['auth', 'role:user', 'nocache'])
         Route::get('my-borrowed-items', [MyBorrowedItemsController::class, 'index'])->name('my.borrowed.items');
         Route::get('my-borrowed-items/list', [MyBorrowedItemsController::class, 'list'])->name('user.borrowed.items.list');
         Route::get('my-borrowed-items/{borrowRequest}', [MyBorrowedItemsController::class, 'show'])->name('user.borrowed.items.show');
+        Route::get('my-borrowed-items/walk-in/{walkInRequest}', [MyBorrowedItemsController::class, 'showWalkIn'])
+            ->name('user.borrowed.items.show_walkin');
 
         // Print the borrow request (GET)
         Route::get('my-borrowed-items/{borrowRequest}/print', [MyBorrowedItemsController::class, 'print'])
@@ -219,9 +223,16 @@ Route::middleware(['auth', 'role:user', 'nocache'])
         Route::get('my-borrowed-items/{borrowRequest}/routing-slip', [MyBorrowedItemsController::class, 'routingSlip'])
             ->name('user.borrowed.items.routing_slip');
 
+        Route::get('my-borrowed-items/walk-in/{walkInRequest}/routing-slip', [MyBorrowedItemsController::class, 'routingSlipWalkIn'])
+            ->name('user.borrowed.items.walkin.routing_slip');
+
         // Confirm delivery (user)
         Route::post('my-borrowed-items/{borrowRequest}/confirm-delivery', [MyBorrowedItemsController::class, 'confirmDelivery'])
             ->name('user.borrowed.items.confirm_delivery');
+        Route::post('my-borrowed-items/walk-in/{walkInRequest}/report-not-received', [MyBorrowedItemsController::class, 'reportWalkInNotReceived'])
+            ->name('user.borrowed.items.walkin.report_not_received');
+        Route::post('my-borrowed-items/walk-in/{walkInRequest}/confirm-delivery', [MyBorrowedItemsController::class, 'confirmWalkInDelivery'])
+            ->name('user.borrowed.items.walkin.confirm_delivery');
 
         // Report not received (user)
         Route::post('my-borrowed-items/{borrowRequest}/report-not-received', [MyBorrowedItemsController::class, 'reportNotReceived'])

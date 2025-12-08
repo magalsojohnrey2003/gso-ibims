@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Notification;
 use App\Notifications\RequestNotification;
+use Illuminate\Support\Collection;
 
 class ManpowerRequestController extends Controller
 {
@@ -29,17 +30,19 @@ class ManpowerRequestController extends Controller
 
         $rows = $query->get()->map(function(ManpowerRequest $row) {
             $roleBreakdown = $row->role_breakdown;
-            $roleSummary = $row->buildRoleSummary();
+            $roleSummary = $this->formatRoleListForDisplay($roleBreakdown) ?: $row->buildRoleSummary();
             $totalQuantity = $row->total_requested_quantity;
 
             return [
                 'id' => $row->id,
                 'formatted_request_id' => $row->formatted_request_id,
                 'quantity' => $totalQuantity,
-            'approved_quantity' => $this->computeApprovedQuantity($row),
+                'approved_quantity' => $this->computeApprovedQuantity($row),
                 'role' => $roleSummary,
                 'role_breakdown' => $roleBreakdown,
                 'has_multiple_roles' => $row->has_multiple_roles,
+                'reduction_reason' => $row->reduction_reason,
+                'assigned_personnel_names' => $row->assigned_personnel_names,
                 'purpose' => $row->purpose,
                 'location' => $row->location,
                 'municipality' => $row->municipality,
@@ -80,8 +83,7 @@ class ManpowerRequestController extends Controller
     public function store(Request $request, PhilSmsService $philSms)
     {
         $data = $request->validate([
-            'quantity' => 'required|integer|min:1|max:99',
-            'manpower_role_id' => 'required|exists:manpower_roles,id',
+            'manpower_roles' => 'required',
             'purpose' => 'required|string|max:255',
             'location' => 'required|string|max:255',
             'municipality_id' => 'required|string',
@@ -96,9 +98,6 @@ class ManpowerRequestController extends Controller
 
         $data['user_id'] = Auth::id();
         $data['status'] = 'pending';
-
-        $role = ManpowerRole::findOrFail($data['manpower_role_id']);
-        $data['role'] = $role->name;
 
         $municipality = MisOrLocations::findMunicipality($data['municipality_id']);
         $barangay = MisOrLocations::findBarangay($data['municipality_id'], $data['barangay_id']);
@@ -118,6 +117,18 @@ class ManpowerRequestController extends Controller
             ], 422);
         }
 
+            $rolesResult = $this->normalizeRolesPayload($request->input('manpower_roles'));
+            if (! $rolesResult['ok']) {
+                return response()->json(['message' => $rolesResult['message']], 422);
+            }
+
+            $roleEntries = $rolesResult['roles'];
+            $totalQuantity = $rolesResult['total_quantity'];
+
+            $data['quantity'] = $totalQuantity;
+            $data['role'] = $this->formatRoleListForDisplay($roleEntries);
+            $data['manpower_role_id'] = $rolesResult['primary_role_id'];
+
         $data['start_at'] = $startDate;
         $data['end_at'] = $endDate;
         $data['municipality'] = $municipality['name'];
@@ -132,19 +143,24 @@ class ManpowerRequestController extends Controller
         $data['public_token'] = (string) \Illuminate\Support\Str::uuid();
         $data['approved_quantity'] = null;
 
-        unset($data['start_date'], $data['start_time'], $data['end_date'], $data['end_time'], $data['municipality_id'], $data['barangay_id'], $data['letter_file']);
+        unset(
+            $data['start_date'],
+            $data['start_time'],
+            $data['end_date'],
+            $data['end_time'],
+            $data['municipality_id'],
+            $data['barangay_id'],
+            $data['letter_file'],
+            $data['manpower_roles'],
+        );
 
         $model = ManpowerRequest::create($data);
         $model->load('user');
 
-        $model->roles()->create([
-            'manpower_role_id' => $role->id,
-            'role_name' => $role->name,
-            'quantity' => $data['quantity'],
-        ]);
+        $model->roles()->createMany($roleEntries);
 
         $model->refresh();
-        $model->role = $model->buildRoleSummary();
+        $model->role = $this->formatRoleListForDisplay($model->role_breakdown);
         $model->quantity = $model->total_requested_quantity;
         $model->save();
 
@@ -198,6 +214,115 @@ class ManpowerRequestController extends Controller
             'message' => 'Your manpower request has been submitted. We will notify you once it is reviewed.',
             'id' => $model->id,
         ]);
+    }
+
+    private function normalizeRolesPayload($raw): array
+    {
+        $decoded = $raw;
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+        }
+
+        if (! is_array($decoded)) {
+            return [
+                'ok' => false,
+                'message' => 'Invalid manpower roles payload. Please try again.',
+            ];
+        }
+
+        $normalized = collect($decoded)
+            ->map(function ($entry) {
+                $roleId = isset($entry['manpower_role_id']) ? (int) $entry['manpower_role_id'] : (isset($entry['role_id']) ? (int) $entry['role_id'] : null);
+                $quantity = isset($entry['quantity']) ? (int) $entry['quantity'] : null;
+                if (! $roleId || ! $quantity || $quantity < 1) {
+                    return null;
+                }
+
+                if ($quantity > 99) {
+                    $quantity = 99;
+                }
+
+                return [
+                    'manpower_role_id' => $roleId,
+                    'quantity' => $quantity,
+                ];
+            })
+            ->filter()
+            ->values();
+
+        if ($normalized->isEmpty()) {
+            return [
+                'ok' => false,
+                'message' => 'Please add at least one manpower role.',
+            ];
+        }
+
+        $grouped = $normalized
+            ->groupBy('manpower_role_id')
+            ->map(fn (Collection $items, $roleId) => [
+                'manpower_role_id' => (int) $roleId,
+                'quantity' => (int) $items->sum('quantity'),
+            ])
+            ->values();
+
+        $roleIds = $grouped->pluck('manpower_role_id')->unique()->all();
+        $roles = ManpowerRole::whereIn('id', $roleIds)->get()->keyBy('id');
+        if ($roles->count() !== count($roleIds)) {
+            return [
+                'ok' => false,
+                'message' => 'One or more selected manpower roles are no longer available.',
+            ];
+        }
+
+        $payload = $grouped->map(function ($entry) use ($roles) {
+            $role = $roles->get($entry['manpower_role_id']);
+            return [
+                'manpower_role_id' => $entry['manpower_role_id'],
+                'role_name' => $role?->name ?? 'Role',
+                'quantity' => $entry['quantity'],
+            ];
+        })->values();
+
+        $totalQuantity = (int) $payload->sum('quantity');
+        if ($totalQuantity < 1) {
+            return [
+                'ok' => false,
+                'message' => 'Total quantity must be at least 1.',
+            ];
+        }
+
+        if ($totalQuantity > 99) {
+            return [
+                'ok' => false,
+                'message' => 'Maximum of 99 personnel only.',
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'roles' => $payload->all(),
+            'total_quantity' => $totalQuantity,
+            'primary_role_id' => $payload->count() === 1 ? $payload->first()['manpower_role_id'] : null,
+        ];
+    }
+
+    private function formatRoleListForDisplay(array $entries): string
+    {
+        $roles = collect($entries)
+            ->map(function ($entry) {
+                $qty = isset($entry['approved_quantity']) && $entry['approved_quantity'] > 0
+                    ? (int) $entry['approved_quantity']
+                    : (int) ($entry['quantity'] ?? 0);
+                $label = trim((string) ($entry['role_name'] ?? $entry['role'] ?? ''));
+                if ($qty < 1 || $label === '') {
+                    return null;
+                }
+                return sprintf('Manpower-%s (x%d)', $label, $qty);
+            })
+            ->filter()
+            ->values();
+
+        return $roles->isEmpty() ? '' : $roles->implode(', ');
     }
 
     public function print(int $id, ManpowerRequestPdfService $pdfService)

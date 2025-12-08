@@ -256,6 +256,7 @@ class ReturnItemsController extends Controller
 
             // Update walk-in request status to 'returned'
             $walkInRequest->status = 'returned';
+            $walkInRequest->delivery_status = 'returned';
             $walkInRequest->returned_at = now();
             $walkInRequest->save();
 

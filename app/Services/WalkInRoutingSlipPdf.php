@@ -2,13 +2,13 @@
 
 namespace App\Services;
 
-use App\Models\BorrowRequest;
+use App\Models\WalkInRequest;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use RuntimeException;
 use setasign\Fpdi\Fpdi;
 
-class RoutingSlipPdf
+class WalkInRoutingSlipPdf
 {
     private const FONT_FAMILY = 'Times';
     private const FONT_SIZE = 10.0;
@@ -19,35 +19,7 @@ class RoutingSlipPdf
      *
      * @var array<string, array<int, array{llx: float, lly: float, urx: float, ury: float}>>
      */
-    public const FIELD_LAYOUT = [
-        'request_slip' => [
-            ['llx' => 145.733, 'lly' => 200.075, 'urx' => 266.469, 'ury' => 222.075],
-            ['llx' => 110.617, 'lly' => 529.502, 'urx' => 231.353, 'ury' => 551.502],
-        ],
-        'bname_slip' => [
-            ['llx' => 137.337, 'lly' => 638.337, 'urx' => 287.337, 'ury' => 660.337],
-            ['llx' => 66.147, 'lly' => 487.212, 'urx' => 203.671, 'ury' => 509.212],
-            ['llx' => 52.9107, 'lly' => 395.285, 'urx' => 202.317, 'ury' => 417.285],
-            ['llx' => 348.692, 'lly' => 279.809, 'urx' => 471.342, 'ury' => 301.809],
-        ],
-        'baddress_slip' => [
-            ['llx' => 147.382, 'lly' => 616.008, 'urx' => 553.667, 'ury' => 638.008],
-        ],
-        'bphone_slip' => [
-            ['llx' => 404.727, 'lly' => 640.232, 'urx' => 554.727, 'ury' => 662.232],
-        ],
-        'bdescription1_slip' => [
-            ['llx' => 133.124, 'lly' => 594.301, 'urx' => 501.484, 'ury' => 616.301],
-            ['llx' => 168.838, 'lly' => 244.885, 'urx' => 505.343, 'ury' => 266.885],
-        ],
-        'bdescription2_slip' => [
-            ['llx' => 53.2635, 'lly' => 572.98, 'urx' => 501.914, 'ury' => 594.98],
-            ['llx' => 89.0575, 'lly' => 223.068, 'urx' => 505.417, 'ury' => 245.068],
-        ],
-        'date_slip' => [
-            ['llx' => 437.28, 'lly' => 121.8, 'urx' => 514.2, 'ury' => 145.8],
-        ],
-    ];
+    private const FIELD_LAYOUT = RoutingSlipPdf::FIELD_LAYOUT;
 
     private string $templatePath;
 
@@ -69,7 +41,7 @@ class RoutingSlipPdf
     /**
      * @return array{filename: string, content: string}
      */
-    public function render(BorrowRequest $borrowRequest, ?string $filename = null): array
+    public function render(WalkInRequest $walkIn, ?string $filename = null): array
     {
         if (! class_exists(Fpdi::class)) {
             throw new RuntimeException('setasign/fpdi is required to render the routing slip.');
@@ -79,7 +51,7 @@ class RoutingSlipPdf
             throw new RuntimeException('Routing slip template not found at ' . $this->templatePath . '.');
         }
 
-        $borrowRequest->loadMissing(['user', 'items.item', 'items.manpowerRole']);
+        $walkIn->loadMissing(['items.item', 'user']);
 
         $pdf = new Fpdi('P', 'pt');
         $pdf->SetAutoPageBreak(false);
@@ -96,12 +68,12 @@ class RoutingSlipPdf
         $pdf->AddPage($size['orientation'], [$size['width'], $size['height']]);
         $pdf->useTemplate($templateId, 0, 0, $size['width'], $size['height']);
 
-        $requestCode = $this->formatRequestCode($borrowRequest);
-        $borrowerName = $this->resolveBorrowerName($borrowRequest);
-        $address = $this->resolveAddress($borrowRequest);
-        $phone = trim((string) ($borrowRequest->user?->phone ?? ''));
-        [$descLine1, $descLine2] = $this->buildDescriptionLines($borrowRequest);
-        $dateValue = $this->formatDate($borrowRequest->delivered_at ?? $borrowRequest->updated_at ?? Carbon::now());
+        $requestCode = $this->formatRequestCode($walkIn);
+        $borrowerName = $this->resolveBorrowerName($walkIn);
+        $address = $this->resolveAddress($walkIn);
+        $phone = trim((string) ($walkIn->contact_number ?? $walkIn->user?->phone ?? ''));
+        [$descLine1, $descLine2] = $this->buildDescriptionLines($walkIn);
+        $dateValue = $this->formatDate($walkIn->delivered_at ?? $walkIn->updated_at ?? Carbon::now());
 
         $this->writeField($pdf, $size, 'request_slip', $requestCode);
         $this->writeField($pdf, $size, 'bname_slip', $borrowerName);
@@ -113,7 +85,7 @@ class RoutingSlipPdf
 
         $binary = $pdf->Output('S');
 
-        $outputName = $filename ?: sprintf('routing-slip-%s.pdf', Str::slug($requestCode ?: (string) $borrowRequest->id, '-'));
+        $outputName = $filename ?: sprintf('routing-slip-%s.pdf', Str::slug($requestCode ?: (string) $walkIn->id, '-'));
 
         return [
             'filename' => $this->sanitizeFilename($outputName),
@@ -171,46 +143,51 @@ class RoutingSlipPdf
         return $encoded;
     }
 
-    private function formatRequestCode(BorrowRequest $borrowRequest): string
+    private function formatRequestCode(WalkInRequest $walkIn): string
     {
-        $formatted = trim((string) ($borrowRequest->formatted_request_id ?? ''));
+        $formatted = trim((string) ($walkIn->formatted_request_id ?? ''));
         if ($formatted !== '') {
             return $formatted;
         }
 
-        $id = (int) $borrowRequest->id;
-        return sprintf('BR-%04d', $id > 0 ? $id : 0);
+        $id = (int) $walkIn->id;
+        return sprintf('WI-%04d', $id > 0 ? $id : 0);
     }
 
-    private function resolveBorrowerName(BorrowRequest $borrowRequest): string
+    private function resolveBorrowerName(WalkInRequest $walkIn): string
     {
-        $user = $borrowRequest->user;
-        if (! $user) {
-            return '';
-        }
-
-        $name = trim((string) ($user->full_name ?? ''));
+        $name = trim((string) ($walkIn->borrower_name ?? ''));
         if ($name !== '') {
             return $name;
         }
 
-        $parts = array_filter([
-            $user->first_name ?? null,
-            $user->last_name ?? null,
-        ]);
+        $user = $walkIn->user;
+        if ($user) {
+            $userName = trim((string) ($user->full_name ?? ''));
+            if ($userName !== '') {
+                return $userName;
+            }
 
-        if (! empty($parts)) {
-            return trim(implode(' ', $parts));
+            $parts = array_filter([
+                $user->first_name ?? null,
+                $user->last_name ?? null,
+            ]);
+
+            if (! empty($parts)) {
+                return trim(implode(' ', $parts));
+            }
+
+            return trim((string) ($user->name ?? ''));
         }
 
-        return trim((string) ($user->name ?? ''));
+        return '';
     }
 
-    private function resolveAddress(BorrowRequest $borrowRequest): string
+    private function resolveAddress(WalkInRequest $walkIn): string
     {
         $candidates = [
-            $borrowRequest->location,
-            $borrowRequest->user?->address,
+            $walkIn->address,
+            $walkIn->user?->address,
         ];
 
         foreach ($candidates as $candidate) {
@@ -226,12 +203,11 @@ class RoutingSlipPdf
     /**
      * @return array{0: string, 1: string}
      */
-    private function buildDescriptionLines(BorrowRequest $borrowRequest): array
+    private function buildDescriptionLines(WalkInRequest $walkIn): array
     {
-        $items = $borrowRequest->items ?? collect();
+        $items = $walkIn->items ?? collect();
 
         $labels = $items
-            ->filter(fn ($item) => ! (bool) ($item->is_manpower ?? false))
             ->map(function ($item) {
                 $name = trim((string) ($item->item->name ?? $item->name ?? 'Item'));
                 $qty = max(0, (int) ($item->quantity ?? 0));
@@ -240,63 +216,34 @@ class RoutingSlipPdf
             ->values();
 
         if ($labels->isEmpty()) {
-            $labels = collect(['No physical items recorded']);
+            return ['', ''];
         }
 
-        $raw = $labels->implode('; ');
-        $wrapped = wordwrap($raw, 80, "\n", false);
-        $lines = explode("\n", $wrapped);
+        $line1 = $labels->take(2)->implode('; ');
+        $line2 = $labels->slice(2)->implode('; ');
 
-        $line1 = $lines[0] ?? '';
-        $line2 = $lines[1] ?? '';
-
-        if (count($lines) > 2) {
-            $line2 = rtrim($line2);
-            if ($line2 !== '') {
-                $line2 .= '…';
-            } else {
-                $line2 = '…';
-            }
-        }
-
-        return [trim($line1), trim($line2)];
+        return [$line1, $line2];
     }
 
-    private function formatDate($value): string
+    private function formatDate(?Carbon $date): string
     {
-        if ($value instanceof Carbon) {
-            return $value->format('m/d/Y');
+        if (! $date) {
+            return '';
         }
 
-        if ($value instanceof \DateTimeInterface) {
-            return Carbon::instance($value)->format('m/d/Y');
-        }
-
-        if (is_string($value) && $value !== '') {
-            try {
-                return Carbon::parse($value)->format('m/d/Y');
-            } catch (\Throwable) {
-                return $value;
-            }
-        }
-
-        return Carbon::now()->format('m/d/Y');
+        return $date->format('m/d/Y');
     }
 
     private function sanitizeFilename(string $value): string
     {
-        $clean = trim($value);
-        if ($clean === '') {
+        $value = trim($value);
+        if ($value === '') {
             return 'routing-slip.pdf';
         }
 
-        $name = Str::slug(pathinfo($clean, PATHINFO_FILENAME));
-        $extension = strtolower(pathinfo($clean, PATHINFO_EXTENSION) ?: 'pdf');
+        $value = str_replace(['\\', '/', ':', '*', '?', '"', '<', '>', '|'], '-', $value);
+        $value = preg_replace('/\s+/', '-', $value) ?? $value;
 
-        if ($name === '') {
-            $name = 'routing-slip';
-        }
-
-        return $name . '.' . $extension;
+        return $value === '' ? 'routing-slip.pdf' : $value;
     }
 }

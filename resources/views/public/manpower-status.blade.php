@@ -34,24 +34,6 @@
             margin: 0 0 0.25rem;
             color: var(--accent);
         }
-        .subtitle {
-            color: var(--muted);
-            margin-bottom: 1.5rem;
-        }
-        .status-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
-            padding: 0.35rem 0.85rem;
-            border-radius: 999px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            text-transform: capitalize;
-        }
-        .status-pill .dot { font-size: 0.8rem; }
-        .status-pill.pending { background: #fef3c7; color: #92400e; }
-        .status-pill.approved { background: #d1fae5; color: #065f46; }
-        .status-pill.rejected { background: #fee2e2; color: #991b1b; }
         dl {
             margin: 1.5rem 0 0;
             display: grid;
@@ -77,17 +59,17 @@
             font-size: 0.8rem;
             color: var(--muted);
         }
+        .address-line {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text);
+            line-height: 1.35;
+        }
     </style>
 </head>
 <body>
     <main class="card">
         <h1>Request #{{ $request->id }}</h1>
-        <div class="subtitle">Public Manpower Request Status</div>
-
-        <div class="status-pill {{ $request->status }}">
-            <span class="dot">●</span>
-            <span>{{ ucfirst($request->status) }}</span>
-        </div>
 
         <dl>
             <div>
@@ -115,10 +97,21 @@
             <div>
                 <dt>Location</dt>
                 <dd>
-                    {{ trim(($request->municipality ? $request->municipality . ', ' : '') . ($request->barangay ?? '')) ?: '—' }}<br>
+                    <div class="address-line">{{ trim(($request->municipality ? $request->municipality . ', ' : '') . ($request->barangay ?? '')) ?: '—' }}</div>
                     @if($request->location)
-                        <small style="color: var(--muted); font-size: 0.85rem;">{{ $request->location }}</small>
+                        <div class="address-line">{{ $request->location }}</div>
                     @endif
+                </dd>
+            </div>
+            <div>
+                <dt>Assigned Personnel</dt>
+                <dd>
+                    @php
+                        $names = is_array($request->assigned_personnel_names)
+                            ? array_filter(array_map(fn($v) => trim((string) $v), $request->assigned_personnel_names))
+                            : [];
+                    @endphp
+                    {{ $names ? implode(', ', $names) : '—' }}
                 </dd>
             </div>
         </dl>

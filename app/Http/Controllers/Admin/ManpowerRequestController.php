@@ -69,6 +69,8 @@ class ManpowerRequestController extends Controller
                 'location' => $row->location,
                 'municipality' => $row->municipality,
                 'barangay' => $row->barangay,
+                'reduction_reason' => $row->reduction_reason,
+                'assigned_personnel_names' => $row->assigned_personnel_names,
                 'office_agency' => $row->office_agency,
                 'start_at' => optional($row->start_at)->toDateTimeString(),
                 'end_at' => optional($row->end_at)->toDateTimeString(),
@@ -180,6 +182,9 @@ class ManpowerRequestController extends Controller
             'rejection_reason_id' => 'nullable|integer',
             'rejection_reason_subject' => 'nullable|string|max:255',
             'rejection_reason_detail' => 'nullable|string|max:2000',
+            'reduction_reason' => 'nullable|string|max:255',
+            'assigned_personnel_names' => 'nullable|array',
+            'assigned_personnel_names.*' => 'nullable|string|max:255',
         ]);
 
         $status = $data['status'];
@@ -200,6 +205,30 @@ class ManpowerRequestController extends Controller
                 $manpowerRequest->status = $status === 'validated' ? 'validated' : 'approved';
                 $manpowerRequest->rejection_reason_subject = null;
                 $manpowerRequest->rejection_reason_detail = null;
+
+                $totalRequested = $manpowerRequest->total_requested_quantity;
+                $isReduction = $totalRequested > 0 && $approved < $totalRequested;
+
+                if ($isReduction) {
+                    $reductionReason = trim((string) ($data['reduction_reason'] ?? ''));
+                    if ($reductionReason === '') {
+                        DB::rollBack();
+                        return response()->json([
+                            'message' => 'Please select a reason for the reduced approved quantity.',
+                        ], 422);
+                    }
+                    $manpowerRequest->reduction_reason = $reductionReason;
+                } else {
+                    $manpowerRequest->reduction_reason = null;
+                }
+
+                $assignedNames = collect($data['assigned_personnel_names'] ?? [])
+                    ->map(fn ($name) => trim((string) $name))
+                    ->filter(fn ($name) => $name !== '')
+                    ->values();
+                $manpowerRequest->assigned_personnel_names = $assignedNames->isNotEmpty() ? $assignedNames->all() : null;
+                $manpowerRequest->loadMissing('roles');
+                $this->applyApprovedQuantitiesToRoles($manpowerRequest, $approved);
             } else {
                 $templateId = $data['rejection_reason_id'] ?? null;
                 $resolvedTemplate = null;
@@ -278,6 +307,8 @@ class ManpowerRequestController extends Controller
                 'barangay' => $manpowerRequest->barangay,
                 'rejection_reason_subject' => $manpowerRequest->rejection_reason_subject,
                 'rejection_reason_detail' => $manpowerRequest->rejection_reason_detail,
+                'reduction_reason' => $manpowerRequest->reduction_reason,
+                'assigned_personnel_names' => $manpowerRequest->assigned_personnel_names,
                 'start_at' => optional($manpowerRequest->start_at)->toDateTimeString(),
                 'end_at' => optional($manpowerRequest->end_at)->toDateTimeString(),
                 'actor_id' => $actor?->id,
@@ -306,6 +337,8 @@ class ManpowerRequestController extends Controller
             'approved_quantity' => $manpowerRequest->approved_quantity,
             'rejection_reason_subject' => $manpowerRequest->rejection_reason_subject,
             'rejection_reason_detail' => $manpowerRequest->rejection_reason_detail,
+            'reduction_reason' => $manpowerRequest->reduction_reason,
+            'assigned_personnel_names' => $manpowerRequest->assigned_personnel_names,
         ]);
     }
 
@@ -414,5 +447,39 @@ class ManpowerRequestController extends Controller
             'rejected' => 'Rejected',
             default => ucwords(str_replace('_', ' ', $status)),
         };
+    }
+
+    private function applyApprovedQuantitiesToRoles(ManpowerRequest $request, int $approvedTotal): void
+    {
+        $roles = $request->roles;
+        if (! $roles || $roles->isEmpty()) {
+            return;
+        }
+
+        $requestedTotal = (int) $roles->sum('quantity');
+        if ($requestedTotal <= 0) {
+            return;
+        }
+
+        // Simple proportional allocation with remainder distribution
+        $remaining = $approvedTotal;
+        $allocations = [];
+        foreach ($roles as $role) {
+            $portion = (int) floor(($role->quantity / $requestedTotal) * $approvedTotal);
+            $allocations[$role->id] = $portion;
+            $remaining -= $portion;
+        }
+
+        // Distribute any remaining headcount
+        foreach ($roles as $role) {
+            if ($remaining <= 0) break;
+            $allocations[$role->id]++;
+            $remaining--;
+        }
+
+        foreach ($roles as $role) {
+            $role->approved_quantity = max(0, (int) ($allocations[$role->id] ?? 0));
+            $role->save();
+        }
     }
 }

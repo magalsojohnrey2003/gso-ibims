@@ -38,6 +38,8 @@ class ItemSeeder extends Seeder
         $categoryLookup = $categories->mapWithKeys(fn ($category) => [$category->name => $category]);
         $propertyNumbers = app(PropertyNumberService::class);
 
+        $this->seedSpecificInventory($categoryLookup, $offices, $propertyNumbers, $faker);
+
         Item::factory()
             ->count(40)
             ->state(function () use ($categories, $faker) {
@@ -91,6 +93,81 @@ class ItemSeeder extends Seeder
             });
     }
 
+    protected function seedSpecificInventory(Collection $categoryLookup, Collection $offices, PropertyNumberService $propertyNumbers, \Faker\Generator $faker): void
+    {
+        $items = [
+            ['name' => 'GRASS MOWER', 'category' => 'Grounds & Maintenance', 'gla' => 'Lawn & Garden', 'quantity' => 10],
+            ['name' => 'MOVABLE STAGE', 'category' => 'Events Equipment', 'gla' => 'Stages & Seating', 'quantity' => 10],
+            ['name' => 'METAL BLEACHERS', 'category' => 'Events Equipment', 'gla' => 'Stages & Seating', 'quantity' => 10],
+            ['name' => 'LONG TABLE(s)', 'category' => 'Events Equipment', 'gla' => 'Tables & Fixtures', 'quantity' => 20],
+            ['name' => 'MB CHAIRS', 'category' => 'Events Equipment', 'gla' => 'Stages & Seating', 'quantity' => 40],
+            ['name' => 'WATER DISPENSER', 'category' => 'Events Equipment', 'gla' => 'Support Utilities', 'quantity' => 10],
+            ['name' => 'PARABOLIC TENT', 'category' => 'Events Equipment', 'gla' => 'Tents & Shelters', 'quantity' => 10],
+            ['name' => 'TENT(s)', 'category' => 'Events Equipment', 'gla' => 'Tents & Shelters', 'quantity' => 20],
+            ['name' => 'FOLDABLE TABLE(s)', 'category' => 'Events Equipment', 'gla' => 'Tables & Fixtures', 'quantity' => 20],
+            ['name' => 'TOOL(s)', 'category' => 'Grounds & Maintenance', 'gla' => 'Tools', 'quantity' => 20],
+        ];
+
+        foreach ($items as $itemData) {
+            $category = $categoryLookup->get($itemData['category']);
+            if (! $category || $category->children->isEmpty()) {
+                continue;
+            }
+
+            $gla = $category->children->firstWhere('name', $itemData['gla']) ?? $category->children->first();
+            if (! $gla) {
+                continue;
+            }
+
+            $instanceCount = max(1, (int) ($itemData['quantity'] ?? 10));
+
+            $item = Item::updateOrCreate(
+                ['name' => $itemData['name']],
+                [
+                    'category' => $category->name,
+                    'description' => $itemData['description'] ?? $itemData['name'],
+                    'is_borrowable' => true,
+                    'photo' => 'images/item.png',
+                ]
+            );
+
+            ItemInstance::where('item_id', $item->id)->delete();
+
+            $categoryCode = str_pad(preg_replace('/\D/', '', (string) $category->category_code), 4, '0', STR_PAD_LEFT);
+            $glaCode = str_pad(preg_replace('/\D/', '', (string) $gla->category_code), 4, '0', STR_PAD_LEFT);
+            $serialSeed = $faker->numberBetween(1000, 9000);
+
+            for ($i = 0; $i < $instanceCount; $i++) {
+                $office = $offices->random();
+                $serial = str_pad($serialSeed + $i, 4, '0', STR_PAD_LEFT);
+                $year = (string) $faker->numberBetween(2020, (int) date('Y'));
+
+                $propertyNumber = $propertyNumbers->assemble([
+                    'year' => $year,
+                    'category' => $categoryCode,
+                    'gla' => $glaCode,
+                    'serial' => $serial,
+                    'office' => $office->code,
+                ]);
+
+                ItemInstance::create([
+                    'item_id' => $item->id,
+                    'property_number' => $propertyNumber,
+                    'serial_no' => $faker->optional(0.6)->regexify('[A-Z0-9]{3,6}'),
+                    'model_no' => $faker->optional(0.6)->regexify('[A-Z0-9]{3,8}'),
+                    'notes' => $faker->boolean(30) ? $faker->sentence(8) : null,
+                    'status' => 'available',
+                    'office_code' => $office->code,
+                ]);
+            }
+
+            $item->forceFill([
+                'total_qty' => $instanceCount,
+                'available_qty' => $instanceCount,
+            ])->saveQuietly();
+        }
+    }
+
     protected function seedCategoryBlueprint(): void
     {
         $categories = [
@@ -119,6 +196,24 @@ class ItemSeeder extends Seeder
                     ['name' => 'Projectors', 'code' => '0301'],
                     ['name' => 'Sound Systems', 'code' => '0302'],
                     ['name' => 'Cameras', 'code' => '0303'],
+                ],
+            ],
+            [
+                'name' => 'Events Equipment',
+                'code' => '4004',
+                'glas' => [
+                    ['name' => 'Stages & Seating', 'code' => '0401'],
+                    ['name' => 'Tents & Shelters', 'code' => '0402'],
+                    ['name' => 'Tables & Fixtures', 'code' => '0403'],
+                    ['name' => 'Support Utilities', 'code' => '0404'],
+                ],
+            ],
+            [
+                'name' => 'Grounds & Maintenance',
+                'code' => '5005',
+                'glas' => [
+                    ['name' => 'Lawn & Garden', 'code' => '0501'],
+                    ['name' => 'Tools', 'code' => '0502'],
                 ],
             ],
         ];
