@@ -128,6 +128,8 @@ class ItemSeeder extends Seeder
                     'description' => $itemData['description'] ?? $itemData['name'],
                     'is_borrowable' => true,
                     'photo' => 'images/item.png',
+                    'total_qty' => $instanceCount,
+                    'available_qty' => $instanceCount,
                 ]
             );
 
