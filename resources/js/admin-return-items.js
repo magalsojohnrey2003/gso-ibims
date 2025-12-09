@@ -1139,12 +1139,17 @@ async function showCollectConfirm(row) {
         }
 
         const items = Array.isArray(details?.items) ? details.items : [];
+        const requestItems = Array.isArray(details?.request_items) ? details.request_items : [];
 
-        // Aggregate by item name to show consolidated counts (e.g., "Speaker System (x9)")
-        const aggregated = items.reduce((acc, item) => {
+        // Prefer user-confirmed received quantities when available
+        const source = requestItems.length ? requestItems : items;
+
+        // Aggregate by item name to show consolidated counts using received_quantity when present
+        const aggregated = source.reduce((acc, item) => {
             const name = (item?.name || item?.item_name || item?.item?.name || 'Item').toString();
-            const qtyRaw = Number(item?.approved_quantity ?? item?.quantity ?? 0);
-            const qty = Number.isFinite(qtyRaw) && qtyRaw > 0 ? qtyRaw : 1; // default to 1 per instance
+            const qtyRaw = item?.received_quantity ?? item?.approved_quantity ?? item?.quantity ?? 0;
+            const qtyNum = Number(qtyRaw);
+            const qty = Number.isFinite(qtyNum) && qtyNum > 0 ? qtyNum : 1; // default to 1 per item row
             if (!acc[name]) {
                 acc[name] = 0;
             }

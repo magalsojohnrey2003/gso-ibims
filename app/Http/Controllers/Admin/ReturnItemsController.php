@@ -101,11 +101,23 @@ class ReturnItemsController extends Controller
             'user',
             'borrowedInstances.instance',
             'borrowedInstances.item',
+            'items.item',
         ]);
 
         $borrowedInstances = $borrowRequest->borrowedInstances;
         $items = $this->formatBorrowInstances($borrowedInstances);
         $itemOptions = $this->buildItemOptionsFromItems($items);
+
+        $requestItems = $borrowRequest->items->map(function ($ri) {
+            return [
+                'id' => $ri->id,
+                'item_id' => $ri->item_id,
+                'name' => $ri->item?->name ?? 'Item',
+                'approved_quantity' => $ri->quantity,
+                'quantity' => $ri->quantity,
+                'received_quantity' => $ri->received_quantity,
+            ];
+        })->values();
 
         return response()->json([
             'id' => $borrowRequest->id,
@@ -122,6 +134,7 @@ class ReturnItemsController extends Controller
                 'return_proof_url' => $borrowRequest->return_proof_path ? Storage::disk('public')->url($borrowRequest->return_proof_path) : null,
                 'return_proof_notes' => $borrowRequest->return_proof_notes,
             'items' => $items,
+                'request_items' => $requestItems,
             'item_options' => $itemOptions,
             'default_item' => $itemOptions[0]['name'] ?? null,
             'condition_summary' => $this->formatConditionLabel($this->summarizeCondition($borrowRequest)),
@@ -199,12 +212,25 @@ class ReturnItemsController extends Controller
     {
         $walkInRequest = \App\Models\WalkInRequest::findOrFail($id);
 
+        $walkInRequest->loadMissing('items.item');
+
         $instances = BorrowItemInstance::with(['instance', 'item'])
             ->where('walk_in_request_id', $id)
             ->get();
 
         $items = $this->formatBorrowInstances($instances);
         $itemOptions = $this->buildItemOptionsFromItems($items);
+
+        $requestItems = $walkInRequest->items->map(function ($ri) {
+            return [
+                'id' => $ri->id,
+                'item_id' => $ri->item_id,
+                'name' => $ri->item?->name ?? 'Item',
+                'approved_quantity' => $ri->quantity,
+                'quantity' => $ri->quantity,
+                'received_quantity' => $ri->received_quantity,
+            ];
+        })->values();
 
         return response()->json([
             'id' => 'W' . $id,
@@ -219,6 +245,7 @@ class ReturnItemsController extends Controller
             'return_date' => $walkInRequest->returned_at?->toDateString(),
             'return_timestamp' => $walkInRequest->updated_at?->toDateTimeString(),
             'items' => $items,
+            'request_items' => $requestItems,
             'item_options' => $itemOptions,
             'default_item' => $itemOptions[0]['name'] ?? null,
             'condition_summary' => $this->formatConditionLabel($this->summarizeConditionForInstances($instances)),
