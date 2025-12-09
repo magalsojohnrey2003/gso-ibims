@@ -977,6 +977,76 @@ function updateBulkUpdateButton() {
     }
 }
 
+async function bulkUpdateInstances() {
+    const bulkUpdateBtn = document.getElementById('manage-bulk-update-btn');
+    const bulkConditionSelect = document.getElementById('manage-bulk-condition');
+
+    if (!bulkConditionSelect) return;
+
+    const condition = bulkConditionSelect.value;
+    const ids = Array.from(SELECTED_INSTANCES);
+
+    if (!condition) {
+        window.showToast?.('Please select a condition to apply.', 'warning');
+        return;
+    }
+    if (!ids.length) {
+        window.showToast?.('Select at least one item to update.', 'warning');
+        return;
+    }
+
+    const restoreButton = () => {
+        if (!bulkUpdateBtn) return;
+        bulkUpdateBtn.disabled = false;
+    };
+
+    if (bulkUpdateBtn) {
+        bulkUpdateBtn.disabled = true;
+    }
+
+    let successCount = 0;
+    let errorMessage = '';
+
+    try {
+        for (const id of ids) {
+            const item = MANAGE_ITEMS.find((entry) => entry.id === id);
+            if (item && item.can_update === false) {
+                continue;
+            }
+
+            try {
+                await updateInstance(id, condition, {
+                    showToast: false,
+                    renderRows: false,
+                    updateTable: false,
+                });
+                successCount += 1;
+            } catch (err) {
+                console.error('Bulk update failed for instance', id, err);
+                errorMessage = err?.message || 'Failed to update some items.';
+            }
+        }
+
+        SELECTED_INSTANCES.clear();
+        renderManageRows();
+        updateBulkUpdateButton();
+
+        if (successCount > 0) {
+            window.showToast?.(`${successCount} item${successCount === 1 ? '' : 's'} updated.`, 'success');
+            // Refresh the main table to reflect any summaries/status changes
+            loadReturnItems(false);
+        }
+
+        if (errorMessage && successCount === 0) {
+            window.showToast?.(errorMessage, 'error');
+        } else if (errorMessage && successCount > 0) {
+            window.showToast?.('Some items were not updated. Please retry if needed.', 'warning');
+        }
+    } finally {
+        restoreButton();
+    }
+}
+
 function applyBorrowSummaryUpdate(payload) {
     if (!payload || !MANAGE_BORROW_ID) return;
 
