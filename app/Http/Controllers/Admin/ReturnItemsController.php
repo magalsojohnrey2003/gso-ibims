@@ -153,8 +153,24 @@ class ReturnItemsController extends Controller
             $borrowRequest->load([
                 'borrowedInstances.instance',
                 'borrowedInstances.item',
+                'items.item',
             ]);
             $borrowRequest->loadMissing('user');
+
+            // Build a map of item_id => (approved - received) to track shortages
+            $shortageMap = [];
+            foreach ($borrowRequest->items as $requestItem) {
+                $approved = (int) ($requestItem->quantity ?? 0);
+                $received = (int) ($requestItem->received_quantity ?? $approved);
+                $shortage = max(0, $approved - $received);
+                if ($shortage > 0) {
+                    $itemId = $requestItem->item_id;
+                    $shortageMap[$itemId] = ($shortageMap[$itemId] ?? 0) + $shortage;
+                }
+            }
+
+            // Group instances by item_id for shortage allocation
+            $instancesByItem = $borrowRequest->borrowedInstances->groupBy('item_id');
 
             foreach ($borrowRequest->borrowedInstances as $instance) {
                 $previousCondition = $instance->return_condition ?? 'pending';
@@ -164,11 +180,20 @@ class ReturnItemsController extends Controller
                 }
 
                 $instance->condition_updated_at = now();
-                $instance->return_condition = 'good';
+
+                // Check if this item has a shortage and mark accordingly
+                $itemId = $instance->item_id;
+                if (isset($shortageMap[$itemId]) && $shortageMap[$itemId] > 0) {
+                    $instance->return_condition = 'not_received';
+                    $shortageMap[$itemId]--;
+                } else {
+                    $instance->return_condition = 'good';
+                }
+
                 $instance->save();
 
                 $instance->loadMissing(['item', 'instance']);
-                $this->syncInventoryForConditionChange($instance, $previousCondition, 'good');
+                $this->syncInventoryForConditionChange($instance, $previousCondition, $instance->return_condition);
 
                 $this->logConditionEvent($instance, 'returned', $request->user(), [
                     'trigger' => 'admin_collect',
@@ -258,9 +283,23 @@ class ReturnItemsController extends Controller
 
         DB::beginTransaction();
         try {
+            $walkInRequest->loadMissing('items.item');
+
             $instances = BorrowItemInstance::with(['instance', 'item'])
                 ->where('walk_in_request_id', $id)
                 ->get();
+
+            // Build a map of item_id => (approved - received) to track shortages
+            $shortageMap = [];
+            foreach ($walkInRequest->items as $requestItem) {
+                $approved = (int) ($requestItem->quantity ?? 0);
+                $received = (int) ($requestItem->received_quantity ?? $approved);
+                $shortage = max(0, $approved - $received);
+                if ($shortage > 0) {
+                    $itemId = $requestItem->item_id;
+                    $shortageMap[$itemId] = ($shortageMap[$itemId] ?? 0) + $shortage;
+                }
+            }
 
             foreach ($instances as $instance) {
                 $previousCondition = $instance->return_condition ?? 'pending';
@@ -270,11 +309,20 @@ class ReturnItemsController extends Controller
                 }
 
                 $instance->condition_updated_at = now();
-                $instance->return_condition = 'good';
+
+                // Check if this item has a shortage and mark accordingly
+                $itemId = $instance->item_id;
+                if (isset($shortageMap[$itemId]) && $shortageMap[$itemId] > 0) {
+                    $instance->return_condition = 'not_received';
+                    $shortageMap[$itemId]--;
+                } else {
+                    $instance->return_condition = 'good';
+                }
+
                 $instance->save();
 
                 // Sync inventory based on condition change
-                $this->syncInventoryForConditionChange($instance, $previousCondition, 'good');
+                $this->syncInventoryForConditionChange($instance, $previousCondition, $instance->return_condition);
 
                 $this->logConditionEvent($instance, 'returned', $request->user(), [
                     'trigger' => 'walkin_collect',
