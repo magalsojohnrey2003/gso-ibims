@@ -1145,8 +1145,13 @@ async function showCollectConfirm(row) {
         const source = requestItems.length ? requestItems : items;
 
         // Aggregate by item name to show consolidated counts using received_quantity when present
+        // Exclude manpower placeholder items
         const aggregated = source.reduce((acc, item) => {
             const name = (item?.name || item?.item_name || item?.item?.name || 'Item').toString();
+            // Skip manpower placeholder
+            if (name === '__SYSTEM_MANPOWER_PLACEHOLDER__') {
+                return acc;
+            }
             const qtyRaw = item?.received_quantity ?? item?.approved_quantity ?? item?.quantity ?? 0;
             const qtyNum = Number(qtyRaw);
             const qty = Number.isFinite(qtyNum) && qtyNum > 0 ? qtyNum : 1; // default to 1 per item row
