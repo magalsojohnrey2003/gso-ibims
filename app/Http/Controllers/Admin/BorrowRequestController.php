@@ -177,6 +177,20 @@ class BorrowRequestController extends Controller
         $timezone = config('app.timezone');
 
         $data = $users->map(function (User $user) use ($timezone) {
+            $hasActiveBorrow = BorrowRequest::where('user_id', $user->id)
+                ->where(function ($q) {
+                    $q->whereNull('delivery_status')
+                        ->orWhereNotIn('delivery_status', ['returned']);
+                })
+                ->exists();
+
+            $hasActiveWalkIn = WalkInRequest::where('user_id', $user->id)
+                ->where(function ($q) {
+                    $q->whereNull('delivery_status')
+                        ->orWhereNotIn('delivery_status', ['returned']);
+                })
+                ->exists();
+
             $latestBorrowAt = $user->latest_borrow_request_at
                 ? Carbon::parse($user->latest_borrow_request_at)->timezone($timezone)
                 : null;
@@ -195,6 +209,7 @@ class BorrowRequestController extends Controller
                 'latest_borrow_request_display' => $latestBorrowAt?->format('M d, Y') ?? null,
                 'registered_at' => $user->created_at?->timezone($timezone)->toIso8601String(),
                 'registered_at_display' => $user->created_at?->timezone($timezone)->format('M d, Y'),
+                'has_active_borrow' => $hasActiveBorrow || $hasActiveWalkIn,
             ];
         });
 

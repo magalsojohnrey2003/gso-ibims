@@ -120,6 +120,9 @@
     <template id="badge-condition-missing">
         <x-status-badge type="danger" text="Missing" icon="fa-question-circle" class="bg-orange-100 text-orange-700 ring-orange-200" />
     </template>
+    <template id="badge-condition-not_received">
+        <x-status-badge type="danger" text="Not Received" icon="fa-triangle-exclamation" class="bg-red-100 text-red-700 ring-red-200" />
+    </template>
     <template id="badge-condition-damage">
         <x-status-badge type="danger" text="Damage" icon="fa-exclamation-triangle" class="bg-rose-100 text-rose-700 ring-rose-200" />
     </template>
@@ -245,6 +248,7 @@
                                 <option value="minor_damage">Minor Damage</option>
                                 <option value="damage">Damage</option>
                                 <option value="missing">Missing</option>
+                                <option value="not_received">Not Received</option>
                             </select>
                             <button id="manage-bulk-update-btn" type="button" disabled class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-md bg-purple-600 text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-300 disabled:opacity-50 disabled:cursor-not-allowed">
                                 Update

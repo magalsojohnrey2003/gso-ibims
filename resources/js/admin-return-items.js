@@ -67,6 +67,8 @@ function formatInventoryStatusLabel(status) {
             return 'Retired';
         case 'missing':
             return 'Missing';
+        case 'not_received':
+            return 'Not Received';
         default:
             return 'Unknown';
     }
@@ -92,6 +94,10 @@ function renderInventoryStatusBadge(status, label) {
         case 'missing':
             classes = ' bg-red-100 text-red-700';
             icon = 'fa-exclamation-triangle';
+            break;
+        case 'not_received':
+            classes = ' bg-gray-200 text-gray-800';
+            icon = 'fa-triangle-exclamation';
             break;
         case 'under_repair':
             classes = ' bg-yellow-100 text-yellow-700';

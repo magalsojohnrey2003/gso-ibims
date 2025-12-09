@@ -289,7 +289,7 @@ class ReturnItemsController extends Controller
     public function updateInstance(Request $request, BorrowItemInstance $borrowItemInstance)
     {
         $data = $request->validate([
-            'condition' => 'required|in:good,missing,damage,minor_damage',
+            'condition' => 'required|in:good,missing,damage,minor_damage,not_received',
         ]);
 
         $newCondition = $data['condition'];
@@ -402,7 +402,7 @@ class ReturnItemsController extends Controller
             })
             ->whereNotNull('return_condition');
 
-        $riskConditions = ['missing', 'damage', 'damaged'];
+        $riskConditions = ['missing', 'damage', 'damaged', 'not_received'];
         $fairConditions = ['minor_damage'];
 
         $riskExists = (clone $baseQuery)
@@ -448,6 +448,9 @@ class ReturnItemsController extends Controller
 
         $condition = $instance->return_condition ?? 'pending';
         $inventoryStatus = strtolower($instance->instance?->status ?? 'unknown');
+        if ($condition === 'not_received') {
+            $inventoryStatus = 'not_received';
+        }
         $itemInstanceId = $instance->item_instance_id;
         $latestId = $itemInstanceId ? ($latestIds[$itemInstanceId] ?? null) : null;
         $isLatestRecord = $latestId === null || $latestId === $instance->id;
@@ -561,6 +564,10 @@ class ReturnItemsController extends Controller
 
         $conditions = $instances->pluck('return_condition')->map(fn ($value) => $value ?: 'pending');
 
+        if ($conditions->contains('not_received')) {
+            return 'not_received';
+        }
+
         if ($conditions->contains('missing')) {
             return 'missing';
         }
@@ -588,6 +595,10 @@ class ReturnItemsController extends Controller
 
         $conditions = $instances->pluck('return_condition')->map(fn ($value) => $value ?: 'pending');
 
+        if ($conditions->contains('not_received')) {
+            return 'not_received';
+        }
+
         if ($conditions->contains('missing')) {
             return 'missing';
         }
@@ -614,6 +625,7 @@ class ReturnItemsController extends Controller
             'missing' => 'Missing',
             'damage' => 'Damage',
             'minor_damage' => 'Minor Damage',
+            'not_received' => 'Not Received',
             default => 'Pending',
         };
     }
@@ -627,6 +639,7 @@ class ReturnItemsController extends Controller
             'under_repair' => 'Under Repair',
             'retired' => 'Retired',
             'missing' => 'Missing',
+            'not_received' => 'Not Received',
             default => 'Unknown',
         };
     }
@@ -638,6 +651,8 @@ class ReturnItemsController extends Controller
             'minor_damage' => 'damaged',
             'damage' => 'damaged',
             'missing' => 'missing',
+            // Persist as missing to align with existing inventory status values
+            'not_received' => 'missing',
             default => 'borrowed',
         };
     }

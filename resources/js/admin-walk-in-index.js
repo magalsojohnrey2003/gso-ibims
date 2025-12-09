@@ -367,12 +367,76 @@
     }
   };
 
-  const selectBorrower = (row) => {
+  const showActiveBorrowWarning = (message) => {
+    return new Promise((resolve) => {
+      const existing = document.getElementById('walkin-borrower-warning');
+      if (existing) {
+        existing.remove();
+      }
+
+      const overlay = document.createElement('div');
+      overlay.id = 'walkin-borrower-warning';
+      overlay.className = 'fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4';
+
+      const panel = document.createElement('div');
+      panel.className = 'w-full max-w-md rounded-2xl bg-red-600 text-white shadow-2xl border border-red-700';
+
+      const body = document.createElement('div');
+      body.className = 'p-6 text-center space-y-4';
+
+      const title = document.createElement('div');
+      title.className = 'text-lg font-semibold flex items-center justify-center gap-2';
+      title.innerHTML = '<i class="fas fa-exclamation-triangle"></i><span>Active Borrow Found</span>';
+
+      const text = document.createElement('p');
+      text.className = 'text-sm text-red-50';
+      text.textContent = message;
+
+      const actions = document.createElement('div');
+      actions.className = 'flex items-center justify-center gap-3 pt-2';
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.type = 'button';
+      cancelBtn.className = 'inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold hover:bg-white/20 transition';
+      cancelBtn.innerHTML = '<i class="fas fa-times"></i><span>Cancel</span>';
+
+      const confirmBtn = document.createElement('button');
+      confirmBtn.type = 'button';
+      confirmBtn.className = 'inline-flex items-center gap-2 rounded-full bg-white text-red-700 px-4 py-2 text-sm font-semibold hover:bg-red-50 transition';
+      confirmBtn.innerHTML = '<i class="fas fa-check"></i><span>Confirm</span>';
+
+      const cleanup = (result) => {
+        resolve(result);
+        overlay.remove();
+      };
+
+      cancelBtn.addEventListener('click', () => cleanup(false));
+      confirmBtn.addEventListener('click', () => cleanup(true));
+
+      actions.appendChild(cancelBtn);
+      actions.appendChild(confirmBtn);
+
+      body.appendChild(title);
+      body.appendChild(text);
+      body.appendChild(actions);
+
+      panel.appendChild(body);
+      overlay.appendChild(panel);
+      document.body.appendChild(overlay);
+    });
+  };
+
+  const selectBorrower = async (row) => {
     if (typeof window.WALKIN_CREATE_ROUTE !== 'string') {
       if (typeof window.showToast === 'function') {
         window.showToast('Walk-in form route is unavailable.', 'error');
       }
       return;
+    }
+
+    if (row?.has_active_borrow) {
+      const proceed = await showActiveBorrowWarning('This user has an existing borrowed items not yet returned. Continue?');
+      if (!proceed) return;
     }
 
     const params = new URLSearchParams();

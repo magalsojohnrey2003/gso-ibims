@@ -182,6 +182,7 @@
                                             'missing' => 'bg-red-100 text-red-700',
                                             'damaged' => 'bg-amber-100 text-amber-700',
                                             'minor_damage' => 'bg-yellow-100 text-yellow-700',
+                                            'not_received' => 'bg-gray-200 text-gray-800',
                                             'pending' => 'bg-gray-200 text-gray-700',
                                         ];
                                         $statusIcons = [
@@ -191,6 +192,7 @@
                                             'missing' => 'fa-exclamation-triangle',
                                             'damaged' => 'fa-exclamation-triangle',
                                             'minor_damage' => 'fa-exclamation-circle',
+                                            'not_received' => 'fa-triangle-exclamation',
                                             'pending' => 'fa-clock',
                                             'unknown' => 'fa-question-circle',
                                         ];

@@ -105,6 +105,11 @@
                         gradient: 'from-orange-500 via-orange-500 to-orange-400',
                         badge: 'bg-orange-100 text-orange-700',
                     },
+                    not_received: {
+                        icon: 'fa-triangle-exclamation',
+                        gradient: 'from-orange-500 via-orange-500 to-orange-400',
+                        badge: 'bg-orange-100 text-orange-700',
+                    },
                 };
                 return ACTION_META[key] || {
                     icon: 'fa-info',
@@ -121,7 +126,6 @@
                     name: 'Borrower',
                     location: 'Location',
                     destination: 'Destination',
-                    status: 'Status',
                     condition: 'Item Condition',
                     item_condition: 'Item Condition',
                     return_id: 'Return Ref',
@@ -197,6 +201,13 @@
                         icon: 'fa-question-circle',
                         titleClass: 'text-[0.7rem] uppercase tracking-wide text-rose-700 font-semibold',
                         valueClass: 'text-sm font-medium text-rose-900'
+                    },
+                    not_received: {
+                        container: 'flex items-start gap-3 rounded-2xl border border-rose-100 bg-rose-50/60 px-3 py-3',
+                        iconBg: 'flex h-9 w-9 items-center justify-center rounded-full bg-rose-200 text-rose-700',
+                        icon: 'fa-triangle-exclamation',
+                        titleClass: 'text-[0.7rem] uppercase tracking-wide text-rose-700 font-semibold',
+                        valueClass: 'text-sm font-medium text-rose-900'
                     }
                 };
                 return MAP[key] || {
@@ -212,7 +223,7 @@
                 if (!key) return 'Date Returned';
                 // For Good or Minor Damage -> Date Returned, for Damaged or Missing -> Date Reported
                 if (key.includes('good') || key.includes('minor')) return 'Date Returned';
-                if (key.includes('damage') || key.includes('missing') || key.includes('damaged')) return 'Date Reported';
+                if (key.includes('damage') || key.includes('missing') || key.includes('damaged') || key.includes('not_received')) return 'Date Reported';
                 return 'Date Returned';
             },
             

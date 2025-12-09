@@ -3,6 +3,7 @@ const CONDITION_LABELS = {
   minor_damage: 'Minor Damage',
   damage: 'Damage',
   missing: 'Missing',
+  not_received: 'Not Received',
 };
 
 const BLOCKED_STATUSES = new Set(['borrowed']);
@@ -87,6 +88,9 @@ async function updateInstanceCondition(endpoint, condition, csrfToken) {
 
 function dispatchGlobalUpdates(payload) {
   if (!payload) return;
+  const status = payload.condition === 'not_received'
+    ? 'not_received'
+    : (payload.inventory_status || payload.condition);
   window.dispatchEvent(new CustomEvent('return-items:condition-updated', {
     detail: { response: payload },
   }));
@@ -94,7 +98,7 @@ function dispatchGlobalUpdates(payload) {
     window.dispatchEvent(new CustomEvent('item-overview:condition-updated', {
       detail: {
         instanceId: payload.item_instance_id,
-        status: payload.inventory_status || payload.condition,
+        status,
       },
     }));
   }
